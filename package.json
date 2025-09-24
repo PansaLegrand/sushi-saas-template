@@ -5,7 +5,8 @@
   "author": "pansalegrand",
   "homepage": "https://dojoclip.com",
   "scripts": {
-    "dev": "cross-env NODE_NO_WARNINGS=1 next dev --turbopack",
+    "dev": "fumadocs-mdx && cross-env NODE_NO_WARNINGS=1 next dev --turbopack",
+    "dev:webpack": "fumadocs-mdx && cross-env NODE_NO_WARNINGS=1 next dev",
     "build": "next build",
     "start": "NODE_NO_WARNINGS=1 next start",
     "lint": "next lint"

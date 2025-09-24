@@ -4,3 +4,5 @@ out
 .env*
 .data/
 *.db
+.source/index.ts
+.source/source.config.mjs

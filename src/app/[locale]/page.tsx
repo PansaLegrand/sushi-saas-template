@@ -17,7 +17,7 @@ export default async function LandingPage() {
           </span>
           <div className="flex items-center gap-4 text-sm font-medium">
             <Link
-              href="/docs"
+              href="/blogs/quick-start"
               className="text-muted-foreground transition hover:text-foreground"
             >
               {t("hero.ctaSecondary")}
@@ -51,7 +51,7 @@ export default async function LandingPage() {
               {t("hero.ctaPrimary")}
             </Link>
             <Link
-              href="/docs"
+              href="/blogs/quick-start"
               className="rounded-md border border-border px-6 py-3 text-base font-medium text-foreground transition hover:bg-foreground/5"
             >
               {t("hero.ctaSecondary")}
