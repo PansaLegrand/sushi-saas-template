@@ -1,0 +1,31 @@
+{
+  "metadata": {
+    "title": "Sushi SaaS",
+    "description": "最新のツールとクリーンなデザインで、すぐに使えるSaaSテンプレート。",
+    "keywords": "saas テンプレート, next.js, better auth"
+  },
+  "landing": {
+    "nav": { "label": "Sushi SaaS" },
+    "hero": {
+      "title": "SaaS をより速くリリース",
+      "subtitle": "本番対応のテンプレート、多言語ランディング、Better Auth による認証で素早くスタート。",
+      "ctaPrimary": "はじめる",
+      "ctaSecondary": "ドキュメントを見る"
+    },
+    "features": {
+      "title": "主な内容",
+      "items": [
+        { "title": "多言語対応", "description": "初日からローカライズされたコンテンツでグローバルに提供。" },
+        { "title": "Better Auth 連携", "description": "メール・ソーシャル・パスキーなど拡張可能な認証基盤。" },
+        { "title": "ヘルスチェック", "description": "シンプルなヘルスエンドポイントでデプロイ状況を可視化。" }
+      ]
+    },
+    "footer": "Next.js 15、Tailwind CSS、Better Auth で構築。"
+  },
+  "docs": {
+    "title": "ドキュメント",
+    "intro": "これは i18n をテストするための最小のドキュメントページです。",
+    "back": "ホームに戻る"
+  }
+}
+

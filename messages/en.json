@@ -1,0 +1,42 @@
+{
+  "metadata": {
+    "title": "Sushi SaaS",
+    "description": "Launch-ready SaaS starter with modern tooling and clean design.",
+    "keywords": "saas template, next.js starter, better auth"
+  },
+  "landing": {
+    "nav": {
+      "label": "Sushi SaaS"
+    },
+    "hero": {
+      "title": "Ship your SaaS faster",
+      "subtitle": "Kickstart your product with a production-ready template, multilingual landing page, and authentication powered by Better Auth.",
+      "ctaPrimary": "Get Started",
+      "ctaSecondary": "View Docs"
+    },
+    "features": {
+      "title": "What's inside",
+      "items": [
+        {
+          "title": "International ready",
+          "description": "Serve global customers from day one with localized content and routing."
+        },
+        {
+          "title": "Better Auth integration",
+          "description": "Modern authentication primitives you can extend with email, social, or passkeys."
+        },
+        {
+          "title": "Health monitoring",
+          "description": "Simple heartbeat endpoint ensures deployments stay observable."
+        }
+      ]
+    },
+    "footer": "Crafted in Next.js 15 with Tailwind CSS and Better Auth."
+  }
+  ,
+  "docs": {
+    "title": "Documentation",
+    "intro": "This is a minimal docs page used to test i18n.",
+    "back": "Back to home"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "metadata": {
+    "title": "Sushi SaaS",
+    "description": "使用现代工具和简洁设计，快速搭建上线的 SaaS 模版。",
+    "keywords": "saas 模版, next.js 起步, better auth"
+  },
+  "landing": {
+    "nav": {
+      "label": "Sushi SaaS"
+    },
+    "hero": {
+      "title": "让你的 SaaS 上线更快",
+      "subtitle": "内置生产级模版、多语言落地页以及 Better Auth 驱动的认证体系，帮助你快速启动产品。",
+      "ctaPrimary": "立即开始",
+      "ctaSecondary": "查看文档"
+    },
+    "features": {
+      "title": "核心能力",
+      "items": [
+        {
+          "title": "多语言就绪",
+          "description": "从第一天起就以本地化内容服务全球客户。"
+        },
+        {
+          "title": "Better Auth 集成",
+          "description": "现代化的认证基建，轻松扩展邮箱、社交或 Passkey 登录。"
+        },
+        {
+          "title": "健康监控",
+          "description": "简单的心跳接口确保部署状态可观测。"
+        }
+      ]
+    },
+    "footer": "基于 Next.js 15、Tailwind CSS 与 Better Auth 构建。"
+  }
+  ,
+  "docs": {
+    "title": "文档",
+    "intro": "这是一个用于测试多语言的简易文档页面。",
+    "back": "返回首页"
+  }
+}

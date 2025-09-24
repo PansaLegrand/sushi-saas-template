@@ -1,4 +1,4 @@
-# SaaS Sushi 🍣
+# Sushi SaaS 🍣
 
 Open-source SaaS starter kit — pick your components like plates on a conveyor belt and roll a product fast.
 
@@ -6,7 +6,7 @@ Open-source SaaS starter kit — pick your components like plates on a conveyor 
 ---
 
 
-## Why SaaS Sushi?
+## Why Sushi SaaS?
 - Modular by design so you can start productive, then mix in features when you actually need them.
 - Clean defaults with strict TypeScript, consistent UI primitives, and sensible project structure.
 - Production-ready tracks for auth, billing, database, emails, and deployment that work together out of the box.
@@ -58,7 +58,7 @@ saas-sushi-template/
 ├─ package.json        # Scripts and dependencies
 └─ README.md
 ```
-Prefer a single-app layout? Stick to `src/app` and ignore workspace packages—SaaS Sushi supports both mono and single app flows.
+Prefer a single-app layout? Stick to `src/app` and ignore workspace packages—Sushi SaaS supports both mono and single app flows.
 
 ---
 
