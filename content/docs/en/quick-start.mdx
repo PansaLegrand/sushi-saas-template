@@ -5,6 +5,8 @@ icon: "Zap"
 
 ## Local Development
 
+Prerequisites: Node 20+, pnpm 9+.
+
 ```bash
 git clone git@github.com:shipanyai/shipany-template-one.git my-shipany-project
 cd my-shipany-project
@@ -12,3 +14,70 @@ pnpm install
 pnpm dev
 ```
 
+Open these URLs:
+
+- Landing: `/en`, `/zh`, `/es`, `/fr`, `/ja`
+- Health: `/api/health` (returns `{ status: "ok" }`)
+- Docs (MDX): `/:locale/blogs/quick-start`
+
+---
+
+## Internationalization (next-intl)
+
+- Messages live in `messages/*.json`.
+- Locales are declared in `src/i18n/locale.ts` (set `locales`, `defaultLocale`, `localePrefix`).
+- Middleware is configured in `src/middleware.ts` and routes `/:locale/...`.
+- Message loading is handled in `src/i18n/request.ts`.
+
+To add a language:
+
+1) Add `messages/<locale>.json`
+2) Add the code to `locales` in `src/i18n/locale.ts`
+3) Restart dev
+
+---
+
+## Docs via MDX (Fumadocs)
+
+MDX docs live under `content/docs/<locale>/...`. Pages are available at
+`/:locale/blogs/<slugs>`.
+
+- The dev script generates `.source/index.ts` automatically.
+- MDX/Frontmatter is parsed by the Fumadocs Next plugin configured in
+  `next.config.ts`.
+
+Create a new page:
+
+```bash
+mkdir -p content/docs/en
+echo "---\ntitle: My Page\n---\n\n# Hello" > content/docs/en/my-page.mdx
+```
+
+Visit `/en/blogs/my-page`.
+
+---
+
+## Authentication (Better Auth)
+
+- Minimal server is wired at `src/lib/auth.ts` and exposed via
+  `/api/auth/[...all]`.
+- For production, set `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL`.
+- This starter enables Email+Password endpoints; UI can be added later using
+  the Better Auth client.
+
+Environment example:
+
+```env
+BETTER_AUTH_SECRET=generate-with: openssl rand -base64 32
+BETTER_AUTH_URL=http://localhost:3000
+```
+
+---
+
+## Troubleshooting
+
+- If `/zh` renders English, ensure `localePrefix = "always"` and restart.
+- If MDX says "Unknown module type", verify the Fumadocs plugin is enabled in
+  `next.config.ts` and restart (it prints `[MDX] types generated`).
+- If docs 404, ensure the file is inside `content/docs/<locale>/...` and slugs
+  match the URL.

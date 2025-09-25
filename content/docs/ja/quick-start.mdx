@@ -5,10 +5,73 @@ icon: "Zap"
 
 ## ローカル開発
 
+前提: Node 20+、pnpm 9+。
+
 ```bash
-git clone https://github.com/PansaLegrand/saas-sushi-template.git
-cd saas-sushi-template
+git clone git@github.com:shipanyai/shipany-template-one.git my-shipany-project
+cd my-shipany-project
 pnpm install
 pnpm dev
 ```
 
+便利なリンク:
+
+- ランディング: `/en`, `/zh`, `/es`, `/fr`, `/ja`
+- ヘルスチェック: `/api/health`（`{ status: "ok" }`）
+- ドキュメント (MDX): `/:locale/blogs/quick-start`
+
+---
+
+## 多言語化 (next-intl)
+
+- 文言: `messages/*.json`
+- 言語設定: `src/i18n/locale.ts`（`locales`, `defaultLocale`, `localePrefix`）
+- ミドルウェア: `src/middleware.ts`（`/:locale/...`）
+- メッセージ読込: `src/i18n/request.ts`
+
+言語を追加するには:
+
+1) `messages/<locale>.json` を追加
+2) `src/i18n/locale.ts` の `locales` に言語コードを追加
+3) サーバーを再起動
+
+---
+
+## MDX ドキュメント (Fumadocs)
+
+`content/docs/<locale>/...` に配置すると `/:locale/blogs/<slugs>` で表示されます。
+
+- 開発起動時に `.source/index.ts` を自動生成
+- `next.config.ts` の Fumadocs プラグインで frontmatter を解析
+
+新規ページ:
+
+```bash
+mkdir -p content/docs/ja
+echo "---\ntitle: マイページ\n---\n\n# こんにちは" > content/docs/ja/my-page.mdx
+```
+
+`/ja/blogs/my-page` を開く。
+
+---
+
+## 認証 (Better Auth)
+
+- サーバー: `src/lib/auth.ts`、ルート `/api/auth/[...all]`
+- 本番では `BETTER_AUTH_SECRET` と `BETTER_AUTH_URL` を設定
+- メール + パスワード API は有効。フロントのクライアントは後で追加可能
+
+例 `.env`:
+
+```env
+BETTER_AUTH_SECRET=$(openssl rand -base64 32)
+BETTER_AUTH_URL=http://localhost:3000
+```
+
+---
+
+## トラブルシューティング
+
+- `/zh` が英語のまま: `localePrefix = "always"` を確認し再起動
+- MDX の “Unknown module type”: Fumadocs プラグインを有効にし再起動（ログ `[MDX] types generated`）
+- 404: `content/docs/<locale>/...` と URL のスラッグを確認
