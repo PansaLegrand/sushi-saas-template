@@ -8,8 +8,8 @@ icon: "Zap"
 Requisitos: Node 20+ y pnpm 9+.
 
 ```bash
-git clone git@github.com:shipanyai/shipany-template-one.git my-shipany-project
-cd my-shipany-project
+git clone https://github.com/PansaLegrand/saas-sushi-template.git saas-sushi-template
+cd saas-sushi-template
 pnpm install
 pnpm dev
 ```
@@ -57,15 +57,17 @@ Visita `/es/blogs/my-page`.
 
 ## Autenticación (Better Auth)
 
-- Backend en `src/lib/auth.ts` con ruta `/api/auth/[...all]`
-- En producción, define `BETTER_AUTH_SECRET` y `BETTER_AUTH_URL`
-- Email + contraseña activados; el cliente se puede integrar después
+- Configuración del servidor en `src/lib/auth.ts` con el handler
+  `/api/auth/[...all]/route.ts`
+- Cliente y hooks en `src/lib/auth-client.ts` (`/[locale]/login`, `signup`, `me`)
+- Define `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` y `NEXT_PUBLIC_AUTH_BASE_URL`
 
 Ejemplo `.env`:
 
 ```bash
 BETTER_AUTH_SECRET=$(openssl rand -base64 32)
 BETTER_AUTH_URL=http://localhost:3000
+NEXT_PUBLIC_AUTH_BASE_URL=http://localhost:3000
 ```
 
 ---

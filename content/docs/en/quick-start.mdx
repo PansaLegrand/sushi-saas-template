@@ -8,8 +8,8 @@ icon: "Zap"
 Prerequisites: Node 20+, pnpm 9+.
 
 ```bash
-git clone git@github.com:shipanyai/shipany-template-one.git my-shipany-project
-cd my-shipany-project
+git clone https://github.com/PansaLegrand/saas-sushi-template.git saas-sushi-template
+cd saas-sushi-template
 pnpm install
 pnpm dev
 ```
@@ -59,11 +59,12 @@ Visit `/en/blogs/my-page`.
 
 ## Authentication (Better Auth)
 
-- Minimal server is wired at `src/lib/auth.ts` and exposed via
-  `/api/auth/[...all]`.
-- For production, set `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL`.
-- This starter enables Email+Password endpoints; UI can be added later using
-  the Better Auth client.
+- Server config lives at `src/lib/auth.ts` and is exposed via
+  `/api/auth/[...all]/route.ts`.
+- Client helpers live at `src/lib/auth-client.ts` and power `/[locale]/login`,
+  `/[locale]/signup`, and `/[locale]/me`.
+- Set `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, and `NEXT_PUBLIC_AUTH_BASE_URL`
+  in your env files.
 
 Environment example:
 

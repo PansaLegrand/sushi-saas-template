@@ -19,7 +19,12 @@ export default async function BlogsLayout({
         locales: uiLocales,
       }}
     >
-      <DocsLayout tree={source.pageTree[lang]}>{children}</DocsLayout>
+      <DocsLayout
+        tree={source.pageTree[lang]}
+        searchToggle={{ enabled: false }}
+      >
+        {children}
+      </DocsLayout>
     </RootProvider>
   );
 }
