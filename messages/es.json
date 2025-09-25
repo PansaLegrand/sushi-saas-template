@@ -1,0 +1,31 @@
+{
+  "metadata": {
+    "title": "Sushi SaaS",
+    "description": "Plantilla lista para lanzar con herramientas modernas y diseño limpio.",
+    "keywords": "plantilla saas, next.js, better auth"
+  },
+  "landing": {
+    "nav": { "label": "Sushi SaaS" },
+    "hero": {
+      "title": "Lanza tu SaaS más rápido",
+      "subtitle": "Inicia tu producto con una plantilla lista para producción, landing multilingüe y autenticación con Better Auth.",
+      "ctaPrimary": "Comenzar",
+      "ctaSecondary": "Ver Docs"
+    },
+    "features": {
+      "title": "Qué incluye",
+      "items": [
+        { "title": "Listo para internacionalización", "description": "Sirve a clientes globales desde el día uno con contenido localizado." },
+        { "title": "Integración con Better Auth", "description": "Autenticación moderna extensible con email, redes sociales o passkeys." },
+        { "title": "Monitoreo de salud", "description": "Un endpoint simple de latido asegura visibilidad de despliegues." }
+      ]
+    },
+    "footer": "Hecho con Next.js 15, Tailwind CSS y Better Auth."
+  },
+  "docs": {
+    "title": "Documentación",
+    "intro": "Esta es una página de documentación mínima para probar i18n.",
+    "back": "Volver al inicio"
+  }
+}
+

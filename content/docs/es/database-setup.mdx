@@ -1,0 +1,139 @@
+---
+title: Configuración de la base de datos
+description: Cómo preparar Postgres y Drizzle ORM para Better Auth y las tablas de la app.
+---
+
+Antes de que funcionen las pantallas de autenticación necesitas una base de
+datos lista. Esta guía explica las herramientas incluidas (Drizzle ORM), los
+escenarios habituales, los archivos que debes editar y los comandos que tienes
+que ejecutar después.
+
+## 1. ¿Qué es Drizzle ORM?
+
+Usamos **[Drizzle ORM](https://orm.drizzle.team/)** como capa tipada entre
+TypeScript y Postgres. El esquema en `src/db/schema.ts` es la única fuente de
+verdad. Desde ese archivo podemos:
+
+- Generar migraciones SQL con `drizzle-kit`
+- Ejecutar migraciones contra Postgres
+- Compartir tipos en toda la app (por ejemplo `users.$inferSelect`)
+
+No edites SQL a mano; modifica el esquema y deja que Drizzle cree y aplique las
+migraciones.
+
+## 2. Elige tu escenario de base de datos
+
+No existe una configuración única. Escoge el escenario que mejor encaje y
+actualiza `.env`.
+
+| Escenario | Recomendación |
+| --- | --- |
+| **Solo desarrollo local** | Ejecuta Postgres con Docker (por ejemplo `docker run ... postgres:16`) y apunta `DATABASE_URL` a `postgres://postgres:postgres@localhost:5432/postgres`. |
+| **Postgres gestionado (Neon, Supabase, Railway, Render...)** | Copia la cadena de conexión del proveedor y asegúrate de permitir la IP desde la que ejecutas migraciones. |
+| **BD diferente por entorno** | Usa `.env` para desarrollo local y configura los secretos de producción directamente en tu hosting. |
+| **Base de datos existente con otras tablas** | Drizzle solo modificará las tablas declaradas en `src/db/schema.ts`. Comprueba que no haya conflictos de nombres o crea un schema distinto. |
+
+> Consejo: Drizzle no crea la base de datos. Crea la BD vacía antes de lanzar
+> las migraciones.
+
+## 3. Configura las variables de entorno
+
+Define la cadena de conexión y los secretos de Better Auth. Leemos `.env`,
+`.env.local` y `.env.development` por defecto.
+
+```bash  title=".env"
+DATABASE_URL="postgresql://user:password@host:5432/db?sslmode=require"
+BETTER_AUTH_SECRET="$(openssl rand -base64 32)"
+BETTER_AUTH_URL="http://localhost:3000"
+```
+
+Reinicia `pnpm dev` después de cambiar cualquier valor para que el proceso los
+recargue.
+
+## 4. Conoce los archivos del esquema
+
+- `src/db/schema.ts` – modelos Drizzle para **Better Auth** (`users`, `sessions`,
+  `accounts`, `verifications`) y tablas propias (`orders`, `credits`, etc.).
+- `src/db/config.ts` – configuración de drizzle-kit que apunta al esquema y a la
+  URL de Postgres.
+- `src/lib/auth.ts` – mapea los campos de Better Auth hacia las columnas Drizzle.
+  Actualiza este archivo si renombras columnas en `users`.
+
+Cuando necesites nuevas columnas o tablas, modifica `schema.ts` y, si aplica, el
+mapeo correspondiente en `auth.ts`.
+
+## 5. Genera migraciones tras cambiar código
+
+Cada vez que cambie `schema.ts`, ejecuta:
+
+```bash
+pnpm drizzle-kit generate --config src/db/config.ts
+```
+
+Salida esperada (ejemplo):
+
+```
+Reading config file 'src/db/config.ts'
+...
+[✓] Your SQL migration file ➜ src/db/migrations/0002_add_user_flag.sql 🚀
+```
+
+El comando crea dos archivos:
+
+- `src/db/migrations/<timestamp>_*.sql` – el SQL que se ejecutará
+- `src/db/migrations/meta/_journal.json` – el registro de migraciones
+
+Acuérdate de añadir ambos archivos al control de versiones.
+
+## 6. Aplica las migraciones a Postgres
+
+Ejecuta el SQL generado sobre la base de datos:
+
+```bash
+pnpm drizzle-kit migrate --config src/db/config.ts
+```
+
+Ejemplo de éxito:
+
+```
+Applying migrations from src/db/migrations
+Migration 0002_add_user_flag.sql executed in 380 ms
+All migrations applied!
+```
+
+Si ves errores de autenticación, revisa `DATABASE_URL`. Si el comando se queda
+colgado o caduca, verifica permisos de red o que el contenedor esté encendido.
+
+## 7. Valida el resultado
+
+Usa cualquier cliente Postgres para inspeccionar las tablas/columnas. Con `psql`:
+
+```sql
+\dt
+SELECT * FROM sessions LIMIT 1;
+SELECT email_verified FROM users LIMIT 1;
+```
+
+Deberías ver las tablas de Better Auth y las columnas nuevas que añadiste.
+
+## 8. Prueba el flujo de autenticación
+
+Después de aplicar las migraciones, reinicia `pnpm dev`, abre `/es/signup` (o la
+ruta con tu locale) y crea un usuario. Deberías volver a la home y ver registros
+nuevos en `users` y `sessions`.
+
+## 9. Solución de problemas
+
+- **Error: model "userss" not found** – Comprueba que `src/lib/auth.ts`
+  referencia la tabla correcta (`users`). Elimina `usePlural` si lo copiaste de
+  ejemplos antiguos.
+- **Falta una columna al iniciar sesión** – Cambiaste `schema.ts` pero olvidaste
+  ejecutar `generate` + `migrate`. Vuelve a generarlas.
+- **No se puede conectar a la base de datos** – Confirma que la BD existe, las
+  credenciales son correctas y que la red permite conexiones.
+- **Necesito borrar todo** – Elimina las tablas manualmente o usa el SQL de
+  drizzle-kit para revertirlas antes de volver a ejecutar `generate` y
+  `migrate`.
+
+Sigue siempre esta secuencia: modifica el código, genera migraciones, aplícalas y
+valida. Así evitarás errores 500 en los flujos de autenticación.

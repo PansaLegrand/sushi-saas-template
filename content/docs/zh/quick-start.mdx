@@ -1,0 +1,77 @@
+---
+title: 快速开始
+icon: "Zap"
+---
+
+## 本地开发
+
+前置条件：Node 20+，pnpm 9+。
+
+```bash
+git clone git@github.com:shipanyai/shipany-template-one.git my-shipany-project
+cd my-shipany-project
+pnpm install
+pnpm dev
+```
+
+常用地址：
+
+- 首页（多语言）：`/en`、`/zh`、`/es`、`/fr`、`/ja`
+- 健康检查：`/api/health`（返回 `{ status: "ok" }`）
+- 文档（MDX）：`/:locale/blogs/quick-start`
+
+---
+
+## 国际化（next-intl）
+
+- 文案在 `messages/*.json`
+- 语言列表在 `src/i18n/locale.ts`（配置 `locales`、`defaultLocale`、`localePrefix`）
+- 中间件位于 `src/middleware.ts`，路由前缀为 `/:locale/...`
+- 文案加载在 `src/i18n/request.ts`
+
+新增语言步骤：
+
+1）新增 `messages/<locale>.json`
+2）在 `src/i18n/locale.ts` 的 `locales` 中加入该语言
+3）重启开发服务
+
+---
+
+## MDX 文档（Fumadocs）
+
+文档位于 `content/docs/<locale>/...`，访问路径为 `/:locale/blogs/<slugs>`。
+
+- 启动开发时会自动生成 `.source/index.ts`
+- MDX/Frontmatter 由 `next.config.ts` 中的 Fumadocs 插件解析
+
+新建页面：
+
+```bash
+mkdir -p content/docs/zh
+echo "---\ntitle: 我的页面\n---\n\n# 你好" > content/docs/zh/my-page.mdx
+```
+
+访问 `/zh/blogs/my-page`。
+
+---
+
+## 认证（Better Auth）
+
+- 服务端在 `src/lib/auth.ts`，路由 `/api/auth/[...all]`
+- 生产环境需设置 `BETTER_AUTH_SECRET` 与 `BETTER_AUTH_URL`
+- 默认启用邮箱+密码接口；后续可接入 Better Auth 的前端 SDK
+
+示例环境变量：
+
+```bash
+BETTER_AUTH_SECRET=使用 openssl 生成：openssl rand -base64 32
+BETTER_AUTH_URL=http://localhost:3000
+```
+
+---
+
+## 排错
+
+- `/zh` 仍是英文：检查 `localePrefix = "always"` 并重启
+- MDX 报 “Unknown module type”：确认已启用 Fumadocs 插件并重启（日志含 `[MDX] types generated`）
+- 文档 404：确认文件在 `content/docs/<locale>/...` 且路径与访问的 slugs 一致

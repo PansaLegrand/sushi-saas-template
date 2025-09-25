@@ -1,0 +1,134 @@
+---
+title: Mise en place de la base de données
+description: Préparer Postgres et Drizzle ORM pour Better Auth et les tables de l’application.
+---
+
+Avant d’utiliser les nouvelles pages d’authentification, il faut une base de
+données prête. Ce guide détaille l’ORM livré (Drizzle), les scénarios possibles,
+les fichiers à modifier et les commandes à lancer ensuite.
+
+## 1. Qu’est-ce que Drizzle ORM ?
+
+Nous utilisons **[Drizzle ORM](https://orm.drizzle.team/)** comme couche typée
+entre TypeScript et Postgres. Le schéma dans `src/db/schema.ts` fait foi. Depuis
+ce fichier nous pouvons :
+
+- Générer des migrations SQL avec `drizzle-kit`
+- Exécuter ces migrations sur Postgres
+- Partager des types dans tout le projet (ex. `users.$inferSelect`)
+
+Inutile d’écrire du SQL à la main : modifiez le schéma et laissez Drizzle gérer
+les migrations.
+
+## 2. Choisir votre scénario base de données
+
+Adaptez la configuration à votre contexte et mettez `.env` à jour.
+
+| Scénario | Recommandation |
+| --- | --- |
+| **Développement local uniquement** | Lancer Postgres via Docker (ex. `docker run ... postgres:16`) et pointer `DATABASE_URL` sur `postgres://postgres:postgres@localhost:5432/postgres`. |
+| **Postgres managé (Neon, Supabase, Railway, Render…)** | Utiliser la chaîne de connexion fournie et autoriser l’adresse IP depuis laquelle vous exécutez les migrations. |
+| **Une base différente par environnement** | Conserver `.env` pour le local et stocker les secrets de production directement dans votre hébergeur. |
+| **Base existante avec d’autres tables** | Drizzle ne touchera qu’aux tables définies dans `src/db/schema.ts`. Vérifiez qu’il n’y ait pas de collision de noms ou utilisez un schéma dédié. |
+
+> Astuce : Drizzle ne crée pas la base de données. Créez-la au préalable (UI du
+> fournisseur ou `psql`).
+
+## 3. Configurer les variables d’environnement
+
+Définissez la chaîne Postgres et les secrets Better Auth. Le projet lit `.env`,
+`.env.local` et `.env.development`.
+
+```bash  title=".env"
+DATABASE_URL="postgresql://user:password@host:5432/db?sslmode=require"
+BETTER_AUTH_SECRET="$(openssl rand -base64 32)"
+BETTER_AUTH_URL="http://localhost:3000"
+```
+
+Redémarrez `pnpm dev` après chaque modification pour recharger ces valeurs.
+
+## 4. Comprendre les fichiers de schéma
+
+- `src/db/schema.ts` – modèles Drizzle pour **Better Auth** (`users`, `sessions`,
+  `accounts`, `verifications`) et les tables métier (`orders`, `credits`, etc.).
+- `src/db/config.ts` – configuration drizzle-kit (chemin du schéma + URL
+  Postgres).
+- `src/lib/auth.ts` – correspondance des champs Better Auth avec les colonnes
+  Drizzle. À adapter si vous renommez des colonnes dans `users`.
+
+Ajoutez vos colonnes/tables dans `schema.ts` puis ajustez `auth.ts` si
+nécessaire.
+
+## 5. Générer une migration après chaque modification
+
+Dès que `schema.ts` change :
+
+```bash
+pnpm drizzle-kit generate --config src/db/config.ts
+```
+
+Exemple de sortie :
+
+```
+Reading config file 'src/db/config.ts'
+...
+[✓] Your SQL migration file ➜ src/db/migrations/0002_add_user_flag.sql 🚀
+```
+
+Deux fichiers sont créés :
+
+- `src/db/migrations/<timestamp>_*.sql`
+- `src/db/migrations/meta/_journal.json`
+
+Commitez-les.
+
+## 6. Appliquer les migrations
+
+Poussez le SQL vers Postgres :
+
+```bash
+pnpm drizzle-kit migrate --config src/db/config.ts
+```
+
+Sortie attendue :
+
+```
+Applying migrations from src/db/migrations
+Migration 0002_add_user_flag.sql executed in 380 ms
+All migrations applied!
+```
+
+Si la commande échoue, vérifiez `DATABASE_URL`, vos droits réseau ou que votre
+instance Postgres tourne toujours.
+
+## 7. Vérifier le résultat
+
+Inspectez les tables avec l’outil de votre choix. Exemple `psql` :
+
+```sql
+\dt
+SELECT * FROM sessions LIMIT 1;
+SELECT email_verified FROM users LIMIT 1;
+```
+
+Vous devriez voir les tables Better Auth et les nouvelles colonnes.
+
+## 8. Tester le flux d’authentification
+
+Après les migrations, redémarrez `pnpm dev`, ouvrez `/fr/signup` (ou votre
+locale) et créez un utilisateur. Vous serez redirigé vers l’accueil et les
+lignes `users` / `sessions` seront créées.
+
+## 9. Dépannage
+
+- **Error: model "userss" not found** – Assurez-vous que `src/lib/auth.ts`
+  utilise bien `users`; supprimez `usePlural` si besoin.
+- **Colonne manquante** – Vous avez modifié `schema.ts` mais oublié `generate`
+  et `migrate`.
+- **Impossible de se connecter** – Vérifiez l’existence de la base, le couple
+  login/mot de passe et les règles réseau.
+- **Repartir de zéro** – Supprimez les tables à la main ou rejouez le SQL
+  inverse, puis regénérez.
+
+Respectez toujours la boucle : modifier → générer → migrer → vérifier. Ainsi, vos
+pages d’authentification resteront stables.

@@ -1,0 +1,77 @@
+---
+title: Inicio rápido
+icon: "Zap"
+---
+
+## Desarrollo local
+
+Requisitos: Node 20+ y pnpm 9+.
+
+```bash
+git clone git@github.com:shipanyai/shipany-template-one.git my-shipany-project
+cd my-shipany-project
+pnpm install
+pnpm dev
+```
+
+Rutas útiles:
+
+- Landing: `/en`, `/zh`, `/es`, `/fr`, `/ja`
+- Salud: `/api/health` (responde `{ status: "ok" }`)
+- Docs (MDX): `/:locale/blogs/quick-start`
+
+---
+
+## Internacionalización (next-intl)
+
+- Textos en `messages/*.json`
+- Locales en `src/i18n/locale.ts` (configurar `locales`, `defaultLocale`, `localePrefix`)
+- Middleware en `src/middleware.ts` (prefijo `/:locale/...`)
+- Carga de mensajes en `src/i18n/request.ts`
+
+Añadir un idioma:
+
+1) Crear `messages/<locale>.json`
+2) Añadir el código a `locales` en `src/i18n/locale.ts`
+3) Reiniciar el servidor
+
+---
+
+## Docs con MDX (Fumadocs)
+
+Los archivos viven en `content/docs/<locale>/...` y se sirven en `/:locale/blogs/<slugs>`.
+
+- El script de desarrollo genera `.source/index.ts` automáticamente
+- El plugin de Fumadocs en `next.config.ts` analiza MDX y frontmatter
+
+Crear una página:
+
+```bash
+mkdir -p content/docs/es
+echo "---\ntitle: Mi página\n---\n\n# Hola" > content/docs/es/my-page.mdx
+```
+
+Visita `/es/blogs/my-page`.
+
+---
+
+## Autenticación (Better Auth)
+
+- Backend en `src/lib/auth.ts` con ruta `/api/auth/[...all]`
+- En producción, define `BETTER_AUTH_SECRET` y `BETTER_AUTH_URL`
+- Email + contraseña activados; el cliente se puede integrar después
+
+Ejemplo `.env`:
+
+```bash
+BETTER_AUTH_SECRET=$(openssl rand -base64 32)
+BETTER_AUTH_URL=http://localhost:3000
+```
+
+---
+
+## Problemas comunes
+
+- `/zh` aparece en inglés: asegúrate de `localePrefix = "always"` y reinicia
+- “Unknown module type” para MDX: verifica el plugin de Fumadocs y reinicia (log `[MDX] types generated`)
+- 404 en docs: coloca el archivo en `content/docs/<locale>/...` y usa el slug correcto

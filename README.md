@@ -1,85 +1,182 @@
-# SaaS Sushi 🍣
+# Sushi SaaS 🍣
 
-Open-source SaaS starter kit — pick your components like plates on a conveyor belt and roll a product fast.
+Launch‑ready SaaS starter with:
 
+- Localized landing (next‑intl)
+- Health endpoint (`/api/health`)
+- Authentication server scaffold (Better Auth)
+- Docs/blogs powered by MDX (Fumadocs)
 
----
-
-
-## Why SaaS Sushi?
-- Modular by design so you can start productive, then mix in features when you actually need them.
-- Clean defaults with strict TypeScript, consistent UI primitives, and sensible project structure.
-- Production-ready tracks for auth, billing, database, emails, and deployment that work together out of the box.
-- AI-ready integrations (OpenAI, DeepSeek, Replicate, etc.) already wired through the `ai` SDK helpers.
+This repo aims to be a clean base that you can ship fast and grow safely.
 
 ---
 
-## Features – Pick Your Plates
-- Auth: Auth.js (email magic link, OAuth providers, credentials) with RBAC roles.
-- Billing: Stripe subscriptions, one-time payments, and customer portal flows.
-- Database: Drizzle ORM + Postgres schema, migrations, and seed scripts.
-- CRUD: Example entities with list/detail/edit pages, typed API routes, and Zod validation.
-- UI: Tailwind + Radix UI powered components, theming, and dark mode ready.
-- Email: Resend (or SMTP) for onboarding, receipts, and notifications.
-- Storage: S3-compatible uploads from server or edge handlers.
-- Analytics: Privacy-friendly page + event tracking options (PostHog, Umami, etc.).
-- Docs: Built-in docs site powered by Fumadocs MDX with full-text search.
-- Deploy: One-click Vercel preset or Docker images plus Cloudflare/Fly presets.
+## Quick Start
 
----
+Prerequisites: Node 20+, pnpm 9+
 
-## Tech Stack
-- Frontend: Next.js (App Router), React 19, TypeScript, Tailwind CSS, Radix UI primitives.
-- Backend: Next.js route handlers (REST) with optional streaming AI endpoints and Zod validation.
-- Data: Drizzle ORM, Postgres (Neon, Supabase, or local Docker).
-- Auth: Auth.js (NextAuth v5) adapters wired into Drizzle models.
-- Payments: Stripe subscriptions, metered usage ready, and customer portal integration.
-- Email & Notifications: Resend with SMTP fallback.
-- QA: ESLint, TypeScript, Vitest/Playwright scaffolds (optional) with GitHub Actions pipelines.
+```bash
+pnpm install
+pnpm dev
+```
+
+Open:
+
+- Landing: `/en`, `/zh`, `/es`, `/fr`, `/ja`
+- Health: `/api/health`
+- Docs example: `/:locale/blogs/quick-start`
 
 ---
 
 ## Project Structure
+
 ```
-saas-sushi-template/
-├─ src/
-│  ├─ app/             # Next.js App Router routes, layouts, APIs, and theming
-│  ├─ components/      # UI building blocks (Tailwind + Radix wrappers)
-│  ├─ contexts/        # React providers for global state
-│  ├─ db/              # Drizzle config, schema, migrations
-│  ├─ i18n/            # Localization dictionaries and routing helpers
-│  ├─ integrations/    # External provider helpers (Stripe, AI SDKs, etc.)
-│  ├─ lib/             # Shared utilities and server helpers
-│  ├─ providers/       # App-level providers (theme, auth, analytics)
-│  └─ services/        # Domain logic, webhooks, background helpers
-├─ content/            # MDX docs surfaced via Fumadocs
-├─ public/             # Static assets (hero, logos, OG images)
-├─ components.json     # MDX component registry for docs/editor
-├─ package.json        # Scripts and dependencies
-└─ README.md
+src/
+├─ app/
+│  ├─ [locale]/
+│  │  ├─ page.tsx           # Landing page (i18n)
+│  │  └─ (seo)/blogs/       # MDX docs/blogs (Fumadocs)
+│  │     ├─ [[...slug]]/page.tsx
+│  │     └─ layout.tsx
+│  ├─ api/
+│  │  ├─ health/route.ts    # Health endpoint
+│  │  └─ auth/[...all]/route.ts # Better Auth handler
+│  ├─ globals.css           # Tailwind + theme
+│  └─ layout.tsx            # Root layout
+├─ i18n/
+│  ├─ locale.ts             # locales, defaultLocale, prefix
+│  ├─ request.ts            # next-intl request config
+│  ├─ routing.ts            # next-intl routing helper
+│  └─ navigation.ts         # locale-aware Link/router
+├─ lib/
+│  ├─ auth.ts               # Better Auth server config
+│  └─ utils.ts              # small helpers
+├─ providers/
+│  └─ theme.tsx             # theme + Toaster
+└─ contexts/
+   └─ app.tsx               # app-level provider (placeholder)
+
+content/
+└─ docs/<locale>/...        # MDX content (served at /:locale/blogs/...)
+
+messages/
+└─ <locale>.json            # landing + metadata translations
 ```
-Prefer a single-app layout? Stick to `src/app` and ignore workspace packages—SaaS Sushi supports both mono and single app flows.
 
 ---
 
+## Internationalization
 
-## Quick Start
+This templated app uses next‑intl v4.
+
+- Static routing config comes from `src/i18n/locale.ts`.
+- Runtime message loading is in `src/i18n/request.ts`.
+- Middleware is in `src/middleware.ts` (prefixed routes). We use `localePrefix: "always"` so `/en` and `/zh` etc. are explicit.
+- Messages live in `messages/*.json`.
+
+Add a locale:
+
+1) Create `messages/<locale>.json`
+2) Add the code to `locales` in `src/i18n/locale.ts`
+3) Optionally add localized MDX pages under `content/docs/<locale>`
+4) Restart dev
 
 ---
 
-## What You Get Out of the Box
-- Landing, auth, and dashboard starter pages wired to role-based navigation.
-- Protected routes, RBAC helpers, and session-aware UI states.
-- Sample CRUD for an `Item` model with list/create/update/delete flows.
-- Stripe webhook wiring with local tunnel recipe and billing portal examples.
-- Typed forms powered by React Hook Form + Zod, plus accessible UI primitives.
-- AI chat playground and templated flows ready for provider keys.
+## Docs & MDX (Fumadocs)
 
+- Content lives at `content/docs/<locale>/...`
+- Routes are available at `/:locale/blogs/<slugs>`
+- Dev script generates `.source/index.ts` automatically
+- MDX is parsed by the Fumadocs Next plugin
+
+Create a page:
+
+```bash
+mkdir -p content/docs/en
+cat > content/docs/en/my-page.mdx <<'MDX'
+---
+title: My Page
+---
+
+# Hello
+MDX
+```
+
+Then open `/en/blogs/my-page`.
+
+Styling
+
+- The blogs segment layout imports `fumadocs-ui/css/style.css` and wraps pages in `DocsLayout`.
+- You can switch theme by importing a palette from `fumadocs-ui/css/*.css`.
 
 ---
 
+## Authentication (Better Auth)
 
-## Credits & Inspiration
-- Next.js, Auth.js, Drizzle ORM, Stripe, Tailwind CSS, Radix UI, Zod, Vercel.
-- Huge thanks to the open-source SaaS template community for patterns and prior art.
+Better Auth powers both the server endpoints and the UI flows (sign-up, sign-in,
+profile) in this template.
 
+- Server config: `src/lib/auth.ts`
+- Next API handler: `src/app/api/auth/[...all]/route.ts`
+- Client helpers: `src/lib/auth-client.ts`
+- UI routes: `/:locale/login`, `/:locale/signup`, `/:locale/me`
+- Enabled endpoints: Email & Password (sessions stored in Postgres)
+
+Environment variables:
+
+```env
+BETTER_AUTH_SECRET=<openssl rand -base64 32>
+BETTER_AUTH_URL=http://localhost:3000
+NEXT_PUBLIC_AUTH_BASE_URL=http://localhost:3000
+```
+
+### Database setup
+
+Better Auth persists users, sessions, accounts, and verifications in Postgres via
+Drizzle. Before testing auth, make sure:
+
+1. `DATABASE_URL` is defined in `.env` (see `.env.example`).
+2. Generate the latest SQL after schema changes:
+
+   ```bash
+   pnpm drizzle-kit generate --config src/db/config.ts
+   ```
+
+3. Apply migrations to your database:
+
+   ```bash
+   pnpm drizzle-kit migrate --config src/db/config.ts
+   ```
+
+4. Restart the dev server so Better Auth picks up the updated tables.
+
+See `/en/blogs/database-setup` for the full guide.
+
+---
+
+## Health Check
+
+`GET /api/health` returns JSON with service status, timestamp, and environment. Use this for readiness probes or basic uptime checks.
+
+---
+
+## Scripts
+
+- `pnpm dev` – generates MDX map and starts Next with Turbopack
+- `pnpm dev:webpack` – same but using Webpack (useful if Turbopack plugins misbehave)
+- `pnpm build` / `pnpm start` – production build & start
+
+---
+
+## Troubleshooting
+
+- MDX “Unknown module type”: ensure the Fumadocs MDX plugin is active in `next.config.ts`, then restart (you should see `[MDX] types generated`).
+- `/zh` shows English: verify `localePrefix = "always"` and restart; check `messages/zh.json` exists.
+- Docs 404: confirm your file path under `content/docs/<locale>/...` matches the slug after `/blogs/`.
+
+---
+
+## License
+
+MIT. Contributions welcome.
