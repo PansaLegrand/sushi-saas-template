@@ -114,17 +114,21 @@ Styling
 
 ## Authentication (Better Auth)
 
-We scaffolded a minimal Better Auth server and handler so you can add UI later.
+Better Auth powers both the server endpoints and the UI flows (sign-up, sign-in,
+profile) in this template.
 
 - Server config: `src/lib/auth.ts`
-- Next API route: `src/app/api/auth/[...all]/route.ts`
-- Enabled endpoints: Email + Password
+- Next API handler: `src/app/api/auth/[...all]/route.ts`
+- Client helpers: `src/lib/auth-client.ts`
+- UI routes: `/:locale/login`, `/:locale/signup`, `/:locale/me`
+- Enabled endpoints: Email & Password (sessions stored in Postgres)
 
 Environment variables:
 
 ```env
 BETTER_AUTH_SECRET=<openssl rand -base64 32>
 BETTER_AUTH_URL=http://localhost:3000
+NEXT_PUBLIC_AUTH_BASE_URL=http://localhost:3000
 ```
 
 ### Database setup

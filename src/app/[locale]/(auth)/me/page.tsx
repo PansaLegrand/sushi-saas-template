@@ -11,13 +11,13 @@ async function getSession() {
 }
 
 export default async function ProfilePage() {
-  const session = await getSession();
+  const result = await getSession();
 
-  if (!session) {
+  if (!result) {
     redirect("/login");
   }
 
-  const { user } = session;
+  const { user, session } = result;
 
   return (
     <main className="mx-auto flex min-h-[calc(100vh-6rem)] max-w-2xl flex-col gap-8 px-4 py-16">
@@ -48,11 +48,7 @@ export default async function ProfilePage() {
           </div>
           <div>
             <p className="font-medium text-muted-foreground">Session created</p>
-            <p>
-              {session.createdAt instanceof Date
-                ? session.createdAt.toISOString()
-                : "—"}
-            </p>
+            <p>{session.createdAt.toISOString()}</p>
           </div>
         </div>
 

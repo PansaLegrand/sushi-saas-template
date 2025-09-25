@@ -74,7 +74,7 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
         });
 
         if (error) {
-          setErrorMessage(error.message);
+          setErrorMessage(error.message ?? "Unable to sign in.");
         } else {
           router.replace(buildPath());
         }
@@ -87,7 +87,7 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
         });
 
         if (error) {
-          setErrorMessage(error.message);
+          setErrorMessage(error.message ?? "Unable to sign up.");
         } else {
           setSuccessMessage("Account created successfully. Redirecting...");
           router.replace(buildPath());
