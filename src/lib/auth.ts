@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
-import { createFieldAttribute } from "better-auth/db";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
+import { createFieldAttribute } from "better-auth/db";
 
 import { randomUUID } from "node:crypto";
 
@@ -28,9 +28,8 @@ export const auth = betterAuth({
     },
     additionalFields: {
       uuid: createFieldAttribute("string", {
-        required: true,
         unique: true,
-        defaultValue: () => randomUUID(),
+        input: false,
         fieldName: "uuid",
       }),
     },
@@ -83,6 +82,20 @@ export const auth = betterAuth({
   advanced: {
     defaultCookieAttributes: {
       secure: process.env.NODE_ENV === "production",
+    },
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (data) => {
+          return {
+            data: {
+              ...data,
+              uuid: data.uuid ?? randomUUID(),
+            },
+          };
+        },
+      },
     },
   },
 });
