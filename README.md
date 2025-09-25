@@ -127,6 +127,28 @@ BETTER_AUTH_SECRET=<openssl rand -base64 32>
 BETTER_AUTH_URL=http://localhost:3000
 ```
 
+### Database setup
+
+Better Auth persists users, sessions, accounts, and verifications in Postgres via
+Drizzle. Before testing auth, make sure:
+
+1. `DATABASE_URL` is defined in `.env` (see `.env.example`).
+2. Generate the latest SQL after schema changes:
+
+   ```bash
+   pnpm drizzle-kit generate --config src/db/config.ts
+   ```
+
+3. Apply migrations to your database:
+
+   ```bash
+   pnpm drizzle-kit migrate --config src/db/config.ts
+   ```
+
+4. Restart the dev server so Better Auth picks up the updated tables.
+
+See `/en/blogs/database-setup` for the full guide.
+
 ---
 
 ## Health Check

@@ -1,0 +1,115 @@
+---
+title: データベースのセットアップ
+description: Better Auth とアプリ用テーブルのために Postgres と Drizzle ORM を準備する手順。
+---
+
+新しい認証画面を動かす前に、データベースを整備する必要があります。このドキュメントでは採用している ORM (Drizzle)、考えられるデータベース構成、編集するファイル、そして実行すべきコマンドを順番に説明します。
+
+## 1. Drizzle ORM とは?
+
+**[Drizzle ORM](https://orm.drizzle.team/)** は TypeScript と Postgres をつなぐ型安全なレイヤーです。`src/db/schema.ts` に定義したスキーマが唯一の真実となり、ここから以下を行います。
+
+- `drizzle-kit` でマイグレーション SQL を生成
+- 生成したマイグレーションを Postgres に適用
+- アプリ全体で型を共有 (`users.$inferSelect` など)
+
+SQL ファイルを手書きする必要はありません。スキーマを編集し、Drizzle にマイグレーション作成と適用を任せます。
+
+## 2. データベースのシナリオを決める
+
+状況に合わせて `.env` を設定してください。
+
+| シナリオ | 推奨内容 |
+| --- | --- |
+| **ローカル開発のみ** | Docker で Postgres を起動 (`docker run ... postgres:16`) し、`DATABASE_URL` を `postgres://postgres:postgres@localhost:5432/postgres` に設定。 |
+| **マネージド Postgres (Neon, Supabase, Railway など)** | プロバイダーが発行する接続文字列を使用し、マイグレーションを実行する IP を許可。 |
+| **環境ごとに別 DB** | ローカル用は `.env`、本番用はホスティング側のシークレットに設定。 |
+| **既存 DB にテーブル追加** | Drizzle は `src/db/schema.ts` に定義したテーブルのみを変更します。名前の衝突がないか確認し、必要ならスキーマ (schema) を分けます。 |
+
+> メモ: Drizzle はデータベース自体を作成しません。マイグレーション前に空の DB を用意してください。
+
+## 3. 環境変数を設定する
+
+接続文字列と Better Auth のシークレットを定義します。`.env`、`.env.local`、`.env.development` を自動で読み込みます。
+
+```bash  title=".env"
+DATABASE_URL="postgresql://user:password@host:5432/db?sslmode=require"
+BETTER_AUTH_SECRET="$(openssl rand -base64 32)"
+BETTER_AUTH_URL="http://localhost:3000"
+```
+
+値を変更したら `pnpm dev` を再起動して反映させてください。
+
+## 4. スキーマ関連のファイルを把握する
+
+- `src/db/schema.ts` – **Better Auth** のテーブル (`users`, `sessions`, `accounts`, `verifications`) とアプリ独自テーブル (`orders`, `credits` など)。
+- `src/db/config.ts` – drizzle-kit の設定 (スキーマパスと Postgres URL)。
+- `src/lib/auth.ts` – Better Auth のフィールドと Drizzle の列をマッピング。`users` の列名を変更した場合はここも更新します。
+
+新しい列やテーブルを追加するときは `schema.ts` を編集し、必要であれば `auth.ts` のマッピングも更新します。
+
+## 5. コード変更後にマイグレーションを生成する
+
+`schema.ts` を変更したら以下を実行します。
+
+```bash
+pnpm drizzle-kit generate --config src/db/config.ts
+```
+
+想定される出力:
+
+```
+Reading config file 'src/db/config.ts'
+...
+[✓] Your SQL migration file ➜ src/db/migrations/0002_add_user_flag.sql 🚀
+```
+
+生成されるファイル:
+
+- `src/db/migrations/<timestamp>_*.sql`
+- `src/db/migrations/meta/_journal.json`
+
+どちらも Git にコミットします。
+
+## 6. マイグレーションを Postgres に適用する
+
+生成済み SQL をデータベースに流します。
+
+```bash
+pnpm drizzle-kit migrate --config src/db/config.ts
+```
+
+成功例:
+
+```
+Applying migrations from src/db/migrations
+Migration 0002_add_user_flag.sql executed in 380 ms
+All migrations applied!
+```
+
+認証エラーが出る場合は `DATABASE_URL` を確認してください。タイムアウトする場合は IP 制限やコンテナの起動をチェックします。
+
+## 7. 結果を確認する
+
+任意の Postgres クライアントでテーブルや列を確認します。`psql` の例:
+
+```sql
+\dt
+SELECT * FROM sessions LIMIT 1;
+SELECT email_verified FROM users LIMIT 1;
+```
+
+Better Auth のテーブルと追加した列が見えるはずです。
+
+## 8. 認証フローを試す
+
+マイグレーション適用後に `pnpm dev` を再起動し、`/ja/signup` (または任意のロケール) でユーザー登録をテストします。ホームへリダイレクトされ、`users` と `sessions` にレコードが作成されます。
+
+## 9. トラブルシューティング
+
+- **Error: model "userss" not found** – `src/lib/auth.ts` が `users` を参照しているか確認。古いサンプルから `usePlural` をコピーしていたら削除してください。
+- **カラムが見つからない** – `schema.ts` を変えたのに `generate` と `migrate` を忘れている可能性があります。もう一度実行します。
+- **接続できない** – DB が存在するか、認証情報が正しいか、ネットワーク設定 (SSL/許可 IP) を確認します。
+- **ゼロからやり直したい** – テーブルを手動で削除するか、drizzle-kit の SQL を利用してロールバックし、その後再度 `generate` → `migrate` を実施します。
+
+常に「コードを変更 → マイグレーション生成 → 適用 → 検証」の流れを守れば、認証フローで 500 エラーが出るのを防げます。

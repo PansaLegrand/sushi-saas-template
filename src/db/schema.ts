@@ -1,12 +1,11 @@
 import {
   pgTable,
-  serial,
   varchar,
   text,
   boolean,
   integer,
   timestamp,
-  unique,
+  index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
@@ -14,11 +13,11 @@ import {
 export const users = pgTable(
   "users",
   {
-    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    id: varchar({ length: 255 }).primaryKey(),
     uuid: varchar({ length: 255 }).notNull().unique(),
     email: varchar({ length: 255 }).notNull(),
-    created_at: timestamp({ withTimezone: true }),
-    nickname: varchar({ length: 255 }),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    nickname: varchar({ length: 255 }).notNull().default(""),
     avatar_url: varchar({ length: 255 }),
     locale: varchar({ length: 50 }),
     signin_type: varchar({ length: 50 }),
@@ -26,15 +25,82 @@ export const users = pgTable(
     signin_provider: varchar({ length: 50 }),
     signin_openid: varchar({ length: 255 }),
     invite_code: varchar({ length: 255 }).notNull().default(""),
-    updated_at: timestamp({ withTimezone: true }),
+    updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
     invited_by: varchar({ length: 255 }).notNull().default(""),
     is_affiliate: boolean().notNull().default(false),
+    email_verified: boolean().notNull().default(false),
   },
   (table) => [
     uniqueIndex("email_provider_unique_idx").on(
       table.email,
       table.signin_provider
     ),
+  ]
+);
+
+// Sessions table (Better Auth core)
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: varchar({ length: 255 }).primaryKey(),
+    user_id: varchar({ length: 255 }).notNull(),
+    token: varchar({ length: 512 }).notNull(),
+    expires_at: timestamp({ withTimezone: true }).notNull(),
+    ip_address: varchar({ length: 255 }),
+    user_agent: text(),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("sessions_token_unique_idx").on(table.token),
+    index("sessions_user_id_idx").on(table.user_id),
+  ]
+);
+
+// Accounts table (Better Auth core)
+export const accounts = pgTable(
+  "accounts",
+  {
+    id: varchar({ length: 255 }).primaryKey(),
+    user_id: varchar({ length: 255 }).notNull(),
+    account_id: varchar({ length: 255 }).notNull(),
+    provider_id: varchar({ length: 255 }).notNull(),
+    access_token: text(),
+    refresh_token: text(),
+    id_token: text(),
+    scope: text(),
+    password: text(),
+    access_token_expires_at: timestamp({ withTimezone: true }),
+    refresh_token_expires_at: timestamp({ withTimezone: true }),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("accounts_provider_account_unique_idx").on(
+      table.provider_id,
+      table.account_id
+    ),
+    index("accounts_user_id_idx").on(table.user_id),
+  ]
+);
+
+// Verifications table (Better Auth core)
+export const verifications = pgTable(
+  "verifications",
+  {
+    id: varchar({ length: 255 }).primaryKey(),
+    identifier: varchar({ length: 255 }).notNull(),
+    value: text().notNull(),
+    expires_at: timestamp({ withTimezone: true }).notNull(),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("verifications_identifier_value_unique_idx").on(
+      table.identifier,
+      table.value
+    ),
+    index("verifications_expires_at_idx").on(table.expires_at),
   ]
 );
 

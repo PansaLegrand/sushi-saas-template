@@ -1,0 +1,115 @@
+---
+title: 数据库配置
+description: 使用 Postgres 与 Drizzle ORM 为 Better Auth 和业务表搭建数据层。
+---
+
+在新的认证页面可用之前，需要先准备好数据库。本指南会介绍我们使用的 ORM（Drizzle）、常见的数据库场景、需要改动的代码位置以及对应的命令和验证步骤。
+
+## 1. 什么是 Drizzle ORM？
+
+**[Drizzle ORM](https://orm.drizzle.team/)** 是连接 TypeScript 与 Postgres 的类型安全层。`src/db/schema.ts` 中的定义就是唯一数据源，它让我们可以：
+
+- 通过 `drizzle-kit` 生成迁移 SQL
+- 将迁移执行到 Postgres
+- 在项目中共享类型（例如 `users.$inferSelect`）
+
+无需手写 SQL，直接修改 schema 文件，再让 Drizzle 负责生成和执行迁移即可。
+
+## 2. 选择你的数据库方案
+
+根据实际情况更新 `.env`。
+
+| 场景 | 建议 |
+| --- | --- |
+| **仅本地开发** | 使用 Docker 启动 Postgres（如 `docker run ... postgres:16`），`DATABASE_URL` 指向 `postgres://postgres:postgres@localhost:5432/postgres`。 |
+| **托管 Postgres（Neon、Supabase、Railway 等）** | 使用服务商提供的连接串，并允许执行迁移的 IP 访问。 |
+| **不同环境使用不同数据库** | `.env` 保留本地配置，生产环境在部署平台中配置相同的环境变量。 |
+| **已有数据库并含其它表** | Drizzle 只会修改 `src/db/schema.ts` 声明的表。确认没有命名冲突，必要时可以使用独立 schema。 |
+
+> 注意：Drizzle 不会自动创建数据库，请先手动创建空库再执行迁移。
+
+## 3. 配置环境变量
+
+设置连接字符串和 Better Auth 的密钥。项目默认读取 `.env`、`.env.local`、`.env.development`。
+
+```bash  title=".env"
+DATABASE_URL="postgresql://user:password@host:5432/db?sslmode=require"
+BETTER_AUTH_SECRET="$(openssl rand -base64 32)"
+BETTER_AUTH_URL="http://localhost:3000"
+```
+
+修改后务必重启 `pnpm dev`，确保进程读取最新值。
+
+## 4. 理解相关文件
+
+- `src/db/schema.ts` – 定义 **Better Auth** 的核心表 (`users`, `sessions`, `accounts`, `verifications`) 以及业务表 (`orders`, `credits` 等)。
+- `src/db/config.ts` – drizzle-kit 的配置（schema 路径和 Postgres 连接）。
+- `src/lib/auth.ts` – Better Auth 字段与 Drizzle 列的映射。如果重命名了 `users` 的列，这里也要调整。
+
+添加列或表时，先改 `schema.ts`，再同步更新 `auth.ts` 中的映射。
+
+## 5. 代码变更后生成迁移
+
+每次修改 `schema.ts` 都需要执行：
+
+```bash
+pnpm drizzle-kit generate --config src/db/config.ts
+```
+
+示例输出：
+
+```
+Reading config file 'src/db/config.ts'
+...
+[✓] Your SQL migration file ➜ src/db/migrations/0002_add_user_flag.sql 🚀
+```
+
+会生成：
+
+- `src/db/migrations/<timestamp>_*.sql`
+- `src/db/migrations/meta/_journal.json`
+
+请把它们都提交到版本库。
+
+## 6. 将迁移应用到 Postgres
+
+执行生成好的 SQL：
+
+```bash
+pnpm drizzle-kit migrate --config src/db/config.ts
+```
+
+成功输出示例：
+
+```
+Applying migrations from src/db/migrations
+Migration 0002_add_user_flag.sql executed in 380 ms
+All migrations applied!
+```
+
+如遇认证失败，检查 `DATABASE_URL`；若超时或卡住，确认网络权限或数据库是否启动。
+
+## 7. 验证结果
+
+使用任意 Postgres 客户端检查表和列。`psql` 示例：
+
+```sql
+\dt
+SELECT * FROM sessions LIMIT 1;
+SELECT email_verified FROM users LIMIT 1;
+```
+
+你应该能看到 Better Auth 的表以及新增的列。
+
+## 8. 体验认证流程
+
+迁移完成后，重启 `pnpm dev`，打开 `/zh/signup`（或其它语言路径）注册账号。成功注册后会跳回首页，并能在 `users`、`sessions` 表中看到新记录。
+
+## 9. 常见问题排查
+
+- **Error: model "userss" not found** – 确认 `src/lib/auth.ts` 中引用的是 `users` 表，移除旧示例里的 `usePlural`。 
+- **缺少列** – 修改了 `schema.ts` 却没有执行 `generate` 和 `migrate`。请重新执行。 
+- **连接失败** – 确认数据库存在、账号密码正确、SSL/网络策略允许访问。 
+- **需要清空数据** – 手动删除表或使用 drizzle-kit 生成的 SQL 回滚，然后重新 `generate` → `migrate`。
+
+遵循「修改代码 → 生成迁移 → 执行迁移 → 验证」的流程，就能避免认证接口返回 500 错误。

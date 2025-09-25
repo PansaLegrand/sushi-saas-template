@@ -1,3 +1,19 @@
+CREATE TABLE "accounts" (
+	"id" varchar(255) PRIMARY KEY NOT NULL,
+	"user_id" varchar(255) NOT NULL,
+	"account_id" varchar(255) NOT NULL,
+	"provider_id" varchar(255) NOT NULL,
+	"access_token" text,
+	"refresh_token" text,
+	"id_token" text,
+	"scope" text,
+	"password" text,
+	"access_token_expires_at" timestamp with time zone,
+	"refresh_token_expires_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "affiliates" (
 	"id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "affiliates_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 1 CACHE 1),
 	"user_uuid" varchar(255) NOT NULL,
@@ -87,12 +103,23 @@ CREATE TABLE "posts" (
 	CONSTRAINT "posts_uuid_unique" UNIQUE("uuid")
 );
 --> statement-breakpoint
+CREATE TABLE "sessions" (
+	"id" varchar(255) PRIMARY KEY NOT NULL,
+	"user_id" varchar(255) NOT NULL,
+	"token" varchar(512) NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
+	"ip_address" varchar(255),
+	"user_agent" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "users" (
-	"id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "users_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 1 CACHE 1),
+	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"uuid" varchar(255) NOT NULL,
 	"email" varchar(255) NOT NULL,
-	"created_at" timestamp with time zone,
-	"nickname" varchar(255),
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"nickname" varchar(255) DEFAULT '' NOT NULL,
 	"avatar_url" varchar(255),
 	"locale" varchar(50),
 	"signin_type" varchar(50),
@@ -100,10 +127,26 @@ CREATE TABLE "users" (
 	"signin_provider" varchar(50),
 	"signin_openid" varchar(255),
 	"invite_code" varchar(255) DEFAULT '' NOT NULL,
-	"updated_at" timestamp with time zone,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"invited_by" varchar(255) DEFAULT '' NOT NULL,
 	"is_affiliate" boolean DEFAULT false NOT NULL,
+	"email_verified" boolean DEFAULT false NOT NULL,
 	CONSTRAINT "users_uuid_unique" UNIQUE("uuid")
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX "email_provider_unique_idx" ON "users" USING btree ("email","signin_provider");
+CREATE TABLE "verifications" (
+	"id" varchar(255) PRIMARY KEY NOT NULL,
+	"identifier" varchar(255) NOT NULL,
+	"value" text NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX "accounts_provider_account_unique_idx" ON "accounts" USING btree ("provider_id","account_id");--> statement-breakpoint
+CREATE INDEX "accounts_user_id_idx" ON "accounts" USING btree ("user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "sessions_token_unique_idx" ON "sessions" USING btree ("token");--> statement-breakpoint
+CREATE INDEX "sessions_user_id_idx" ON "sessions" USING btree ("user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "email_provider_unique_idx" ON "users" USING btree ("email","signin_provider");--> statement-breakpoint
+CREATE UNIQUE INDEX "verifications_identifier_value_unique_idx" ON "verifications" USING btree ("identifier","value");--> statement-breakpoint
+CREATE INDEX "verifications_expires_at_idx" ON "verifications" USING btree ("expires_at");
