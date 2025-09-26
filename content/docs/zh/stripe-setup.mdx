@@ -1,0 +1,76 @@
+---
+title: Stripe 集成与配置
+icon: "CreditCard"
+---
+
+## 总览
+
+本模板使用 Stripe Checkout 完成支付，并在成功后将积分写入账本。
+
+- 页面：`/[locale]/pricing` 从 TypeScript 配置加载套餐。
+- 创建会话：客户端 `POST /api/checkout`，随后跳转到 Stripe。
+- 返回站点：成功后跳转到 `/api/pay/callback/stripe` (GET)。
+- 最终入账：Stripe 通过 Webhook 调用 `/api/pay/webhook/stripe` (POST)，将订单记为已支付并增加积分。
+
+注意：Webhook 才是最终可信来源；回调仅用于页面跳转。
+
+---
+
+## 接口说明
+
+- `/api/checkout` (POST)：校验 `src/data/pricing.ts` 的计划，创建 Checkout 会话，保存订单 `created`。
+- `/api/pay/callback/stripe` (GET)：Stripe 成功页的跳转目标；不再做入账逻辑。
+- `/api/pay/webhook/stripe` (POST)：校验签名，处理 `checkout.session.completed`，完成入账与积分增加。
+
+---
+
+## 积分流程
+
+1) 从 Session 的 metadata 读取 `order_no`。
+2) 更新订单状态为 `paid` 并记录支付详情。
+3) 在 `credits` 表插入正数记录（`order_pay`）。
+
+---
+
+## 必要环境变量
+
+```bash
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+NEXT_PUBLIC_WEB_URL=http://localhost:3000
+NEXT_PUBLIC_PAY_CANCEL_URL=/pricing
+NEXT_PUBLIC_PAY_SUCCESS_URL=/pricing
+NEXT_PUBLIC_PAY_FAIL_URL=/pricing
+```
+
+---
+
+## 本地 Webhook 调试
+
+```bash
+stripe login
+stripe listen --forward-to localhost:3000/api/pay/webhook/stripe
+# 复制输出的 whsec 到 .env
+stripe trigger checkout_session_completed
+```
+
+提示：触发 `payment_intent.succeeded` 不会被当前实现处理，建议使用 `checkout_session_completed`。
+
+---
+
+## 试运行
+
+1) 注册并登录。
+2) 访问 `/[locale]/pricing` 选择任一套餐。
+3) 使用测试卡 `4242 4242 4242 4242` 完成支付。
+4) Webhook 会完成订单入账并增加积分。
+5) 在 `/[locale]/credits-test` 验证余额变化。
+
+---
+
+## 实现细节
+
+- 套餐定义：`src/data/pricing.ts`（强类型、前后端共用）。
+- `handleCheckoutSession` 同时支持一次性与订阅（订阅场景从最新账单获取 PaymentIntent）。
+- 可扩展处理 `invoice.payment_succeeded` 实现订阅续费时自动充值积分。
+

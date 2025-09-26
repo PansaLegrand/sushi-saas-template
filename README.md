@@ -11,6 +11,12 @@ This repo aims to be a clean base that you can ship fast and grow safely.
 
 ---
 
+## Contributor Guide
+
+New contributors should review [Repository Guidelines](./AGENTS.md) for project structure, workflows, and review expectations before making changes.
+
+---
+
 ## Quick Start
 
 Prerequisites: Node 20+, pnpm 9+
@@ -25,6 +31,7 @@ Open:
 - Landing: `/en`, `/zh`, `/es`, `/fr`, `/ja`
 - Health: `/api/health`
 - Docs example: `/:locale/blogs/quick-start`
+- Credit sandbox: `/:locale/credits-test`
 
 ---
 
@@ -175,6 +182,14 @@ See `/en/blogs/database-setup` for the full guide.
 - `/zh` shows English: verify `localePrefix = "always"` and restart; check `messages/zh.json` exists.
 - Docs 404: confirm your file path under `content/docs/<locale>/...` matches the slug after `/blogs/`.
 
+
+---
+
+## Stripe
+
+stripe login
+stripe listen --forward-to localhost:3000/api/pay/callback/stripe
+stripe trigger payment_intent.succeeded
 ---
 
 ## License

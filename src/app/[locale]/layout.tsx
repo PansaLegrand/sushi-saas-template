@@ -11,7 +11,7 @@ import { ThemeProvider } from "@/providers/theme";
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ locale: string }>;
+  params: { locale: string };
 }): Promise<Metadata> {
   const { locale } = await params;
   setRequestLocale(locale);
@@ -33,7 +33,7 @@ export default async function LocaleLayout({
   params,
 }: Readonly<{
   children: React.ReactNode;
-  params: Promise<{ locale: string }>;
+  params: { locale: string };
 }>) {
   const { locale } = await params;
   setRequestLocale(locale);

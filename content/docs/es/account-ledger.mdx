@@ -1,0 +1,114 @@
+---
+title: Cuentas, pedidos y créditos
+icon: "Wallet"
+---
+
+## Por qué importa
+
+Este template incluye autenticación, seguimiento de pedidos compatible con Stripe y un sistema de saldo. Comprender cómo se relacionan las tablas te permitirá ampliar el catálogo o conectar tu propio proveedor de pagos.
+
+---
+
+## Tablas principales
+
+- `users`: guarda los datos del perfil (UUID, códigos de invitación, locale) que Better Auth rellena al registrarse.
+- `orders`: registra cada intento de compra; `amount`, `status` y la información de suscripción reflejan los webhooks de Stripe.
+- `credits`: libro mayor append-only; los valores positivos suman saldo (recargas, bonuses) y los negativos restan (consumos).
+- `accounts` y `sessions`: internos de Better Auth; sincronizan proveedores y sesiones con la fila de `users`.
+
+Todas las tablas tienen marcas de tiempo para auditar la evolución de la cuenta y generar analíticas.
+
+---
+
+## Ciclo de los créditos
+
+1. **Registro**: crea una fila en `users` y abre una sesión de Better Auth.
+2. **Pago exitoso**: inserta una fila en `orders` con la cantidad de créditos concedidos.
+3. **Escritura en el libro**: inserta una fila positiva en `credits` (enlazando mediante `order_no`).
+4. **Uso del producto**: registra el consumo como fila negativa (p. ej., una llamada API que gasta 5 créditos).
+5. **Caducidad**: cualquier fila positiva con `expired_at` en el pasado deja de sumar al balance pero sigue disponible para auditoría.
+
+El saldo actual es la suma de los positivos no vencidos menos todos los negativos.
+
+---
+
+## Servicios y APIs útiles
+
+- `src/services/user.ts#getUserUuid` obtiene el UUID autenticado desde un request.
+- `src/services/credit.ts#getUserCreditSummary` produce un resumen con balance, otorgados, consumidos, vencidos y próximos a vencer.
+- `src/services/credit.ts#getUserCredits` entrega un estado ligero (`left_credits`, `is_pro`, `is_recharged`) útil para habilitar o bloquear funciones rápidamente.
+- `/api/account/credits` (POST) devuelve el resumen. Cuerpo opcional:
+
+  ```json
+  {
+    "includeLedger": true,
+    "ledgerLimit": 20,
+    "includeExpiring": true
+  }
+  ```
+
+- `/api/account/profile` (POST) entrega el perfil autenticado junto al resumen. Envía `{ "includeCreditLedger": false }` para omitir el historial completo.
+
+Las respuestas utilizan `respJson`, por lo que siempre verás `{ code, message, data }`.
+
+---
+
+## Prueba el flujo en local
+
+1. **Inicia la app**: `pnpm dev` (requiere una URL de Postgres en `.env.local`).
+2. **Crea un usuario**: visita `/es/signup`, regístrate e inicia sesión.
+3. **Añade créditos manualmente** (modo desarrollo) insertando en `credits`:
+
+   ```sql
+   insert into credits (trans_no, user_uuid, trans_type, credits, created_at)
+   values ('dev-grant-1', '<uuid-del-usuario>', 'manual_adjustment', 100, now());
+   ```
+
+   Puedes ejecutarlo con `pnpm drizzle-kit studio` o tu cliente SQL favorito.
+4. **Consulta el saldo**: llama a `/api/account/credits` con HTTPie o curl:
+
+   ```bash
+   curl -X POST http://localhost:3000/api/account/credits \
+     -H "Content-Type: application/json" \
+     -H "Cookie: <copia las cookies de autenticación>"
+   ```
+
+5. **Consume créditos**: llama a `/api/ping` con un mensaje para descontar `CreditsAmount.PingCost` (1 crédito por defecto) y vuelve a consultar el saldo.
+
+   ```bash
+   curl -X POST http://localhost:3000/api/ping \
+     -H "Content-Type: application/json" \
+     -H "Cookie: <copia las cookies de autenticación>" \
+     -d '{\"message\":\"hola\"}'
+   ```
+
+---
+
+## Personaliza el sistema
+
+### Cambia la ventana de caducidad
+
+Ajusta `EXPIRING_WINDOW_DAYS` en `src/services/credit.ts` para modificar el rango de aviso “expira pronto”. Si quieres forzar la caducidad automática, crea un cron que añada ajustes negativos cuando `expired_at` haya pasado.
+
+### Bonos de bienvenida
+
+Usa `insertCredit` de `src/models/credit.ts` justo después de `insertUser` para dar saldo inicial. Asegúrate de mantener único `trans_no`.
+
+### Integra otro procesador de pagos
+
+- El template asume Stripe, pero puedes llamar a `insertOrder` con la carga de tu proveedor.
+- Registra los créditos en `credits` y enlaza el `order_no` para facilitar las conciliaciones.
+- Actualiza la UI o la documentación si utilizas las columnas de suscripción (`sub_*`).
+
+### Guarda más contexto
+
+Agrega columnas (por ejemplo `meta` en JSON) a `credits`/`orders` para flags o experimentos. El sistema de migraciones de Drizzle actualizará el snapshot automáticamente.
+
+---
+
+## Próximos pasos
+
+- Crea dashboards usando el resumen de `getUserCreditSummary`.
+- Usa el endpoint `/api/ping` como plantilla para otras operaciones que consuman créditos.
+- Escribe pruebas unitarias para la lógica de créditos; simula operaciones y valida `balance`, `expired` y `expiringSoon`.
+- Localiza esta guía en otros idiomas si tu producto lo requiere.

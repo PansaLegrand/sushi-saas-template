@@ -1,0 +1,73 @@
+---
+title: Configuration Stripe
+icon: "CreditCard"
+---
+
+## Aperçu
+
+Le template utilise Stripe Checkout pour les paiements et un registre de crédits pour accorder du solde après l’achat.
+
+- UI : `/[locale]/pricing` lit les plans depuis un fichier TypeScript typé.
+- Création de session : le client envoie `POST /api/checkout` puis est redirigé vers Stripe.
+- Retour : Stripe renvoie l’utilisateur vers `/api/pay/callback/stripe` (GET).
+- Finalisation serveur : Stripe envoie un webhook sur `/api/pay/webhook/stripe` (POST) qui marque la commande payée et crédite le compte.
+
+Le webhook est la source de vérité ; le callback ne fait que rediriger.
+
+---
+
+## Endpoints
+
+- `/api/checkout` (POST) : valide le plan (`src/data/pricing.ts`), crée la session, enregistre une `order` `created`.
+- `/api/pay/callback/stripe` (GET) : redirection post‑Stripe ; ne finalise plus la commande.
+- `/api/pay/webhook/stripe` (POST) : vérifie la signature et traite `checkout.session.completed` pour marquer `paid` et créditer.
+
+---
+
+## Crédits
+
+1) Récupération de `order_no` depuis les métadonnées de la session.
+2) Mise à jour de la commande en `paid` + détails de paiement.
+3) Ajout d’une ligne positive dans `credits` (`order_pay`).
+
+---
+
+## Pré-requis
+
+```bash
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+NEXT_PUBLIC_WEB_URL=http://localhost:3000
+NEXT_PUBLIC_PAY_CANCEL_URL=/pricing
+NEXT_PUBLIC_PAY_SUCCESS_URL=/pricing
+NEXT_PUBLIC_PAY_FAIL_URL=/pricing
+```
+
+---
+
+## Webhook local
+
+```bash
+stripe login
+stripe listen --forward-to localhost:3000/api/pay/webhook/stripe
+stripe trigger checkout_session_completed
+```
+
+---
+
+## Essayer
+
+1) Créez un compte et connectez‑vous.
+2) Ouvrez `/[locale]/pricing` et choisissez un plan.
+3) Carte de test : `4242 4242 4242 4242`.
+4) Redirection vers le callback ; le webhook confirme et crédite.
+5) Vérifiez `/[locale]/credits-test` ou `POST /api/account/credits`.
+
+---
+
+## Détails d’implémentation
+
+- Plans : `src/data/pricing.ts`.
+- `handleCheckoutSession` gère paiement unique et abonnement (PaymentIntent via `latest_invoice`).
+- Ajoutez `invoice.payment_succeeded` si nécessaire pour les renouvellements.
+
