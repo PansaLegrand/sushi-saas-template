@@ -1,0 +1,74 @@
+---
+title: Stripe セットアップ
+icon: "CreditCard"
+---
+
+## 概要
+
+このテンプレートは Stripe Checkout で決済し、支払い後にクレジット残高を付与します。
+
+- UI: `/[locale]/pricing` は TypeScript の設定からプランを表示。
+- セッション作成: `POST /api/checkout` → Stripe にリダイレクト。
+- リダイレクト: 成功後に `/api/pay/callback/stripe` (GET)。
+- 最終反映: Stripe の Webhook が `/api/pay/webhook/stripe` (POST) に届き、注文を `paid` にしてクレジットを付与。
+
+ソース・オブ・トゥルースは Webhook です。コールバックは画面遷移のみ。
+
+---
+
+## エンドポイント
+
+- `/api/checkout` (POST): `src/data/pricing.ts` を元に検証し、Checkout セッションを作成、注文を `created` で保存。
+- `/api/pay/callback/stripe` (GET): Stripe からのリダイレクト用。最終処理は行いません。
+- `/api/pay/webhook/stripe` (POST): 署名検証後、`checkout.session.completed` を処理して付与。
+
+---
+
+## クレジットの流れ
+
+1) セッションのメタデータから `order_no` を取得。
+2) 注文を `paid` に更新し、決済情報を保存。
+3) `credits` に正の行を追加（`order_pay`）。
+
+---
+
+## 必要な環境変数
+
+```bash
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+NEXT_PUBLIC_WEB_URL=http://localhost:3000
+NEXT_PUBLIC_PAY_CANCEL_URL=/pricing
+NEXT_PUBLIC_PAY_SUCCESS_URL=/pricing
+NEXT_PUBLIC_PAY_FAIL_URL=/pricing
+```
+
+---
+
+## ローカル Webhook 設定
+
+```bash
+stripe login
+stripe listen --forward-to localhost:3000/api/pay/webhook/stripe
+# 表示された whsec を .env に設定
+stripe trigger checkout_session_completed
+```
+
+---
+
+## 動作確認
+
+1) サインアップ/ログイン。
+2) `/[locale]/pricing` でプランを選択。
+3) テストカード `4242 4242 4242 4242` で決済。
+4) Webhook が注文確定とクレジット付与を実行。
+5) `/[locale]/credits-test` で残高を確認。
+
+---
+
+## 実装メモ
+
+- プラン: `src/data/pricing.ts` に定義（型安全）。
+- `handleCheckoutSession` は一括・サブスク両対応（サブスクは最新請求書から PaymentIntent を取得）。
+- 更新時は `invoice.payment_succeeded` のハンドラ追加も検討。
+

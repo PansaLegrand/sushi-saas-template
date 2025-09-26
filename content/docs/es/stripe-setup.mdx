@@ -1,0 +1,80 @@
+---
+title: Configuración de Stripe
+icon: "CreditCard"
+---
+
+## Visión general
+
+Este template usa Stripe Checkout para pagos y un libro de créditos para otorgar saldo tras la compra.
+
+- UI: `/[locale]/pricing` muestra planes desde un archivo TypeScript tipado.
+- Crear sesión: el cliente llama a `POST /api/checkout` y se redirige a Stripe.
+- Volver al sitio: Stripe redirige al usuario a `/api/pay/callback/stripe` (GET).
+- Finalizar en servidor: Stripe envía un webhook a `/api/pay/webhook/stripe` (POST). El webhook marca el pedido como pagado y otorga créditos.
+
+El webhook es la fuente de verdad; el callback solo navega al usuario tras el pago.
+
+---
+
+## Endpoints
+
+- `/api/checkout` (POST): valida el plan en `src/data/pricing.ts`, crea la sesión y guarda un `order` con estado `created`.
+- `/api/pay/callback/stripe` (GET): usado por la redirección de Stripe; ahora solo redirige a éxito/fracaso.
+- `/api/pay/webhook/stripe` (POST): verifica la firma y maneja `checkout.session.completed` para marcar pagado y otorgar créditos.
+
+---
+
+## Flujo de créditos
+
+1) Buscamos `order_no` en los metadatos de la sesión.
+2) Actualizamos el pedido a `paid` y guardamos detalles del pago.
+3) Insertamos una fila positiva en `credits` (`trans_type: order_pay`). El balance es la suma de abonos no vencidos menos todos los consumos.
+
+---
+
+## Requisitos
+
+Variables en `.env.local`:
+
+```bash
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+NEXT_PUBLIC_WEB_URL=http://localhost:3000
+NEXT_PUBLIC_PAY_CANCEL_URL=/pricing
+NEXT_PUBLIC_PAY_SUCCESS_URL=/pricing
+NEXT_PUBLIC_PAY_FAIL_URL=/pricing
+```
+
+`src/integrations/stripe.ts` usa `STRIPE_SECRET_KEY`.
+
+---
+
+## Webhook local
+
+```bash
+stripe login
+stripe listen --forward-to localhost:3000/api/pay/webhook/stripe
+# Copia el whsec en STRIPE_WEBHOOK_SECRET
+stripe trigger checkout_session_completed
+```
+
+Nota: `payment_intent.succeeded` no se maneja por defecto. Usa el evento `checkout_session_completed`.
+
+---
+
+## Prueba rápida
+
+1) Regístrate/inicia sesión.
+2) Ve a `/[locale]/pricing` y elige un plan.
+3) Completa el pago con `4242 4242 4242 4242`.
+4) Stripe redirige al callback; el webhook confirma y otorga créditos.
+5) Verifica en `/[locale]/credits-test` o `POST /api/account/credits`.
+
+---
+
+## Detalles
+
+- Planes en `src/data/pricing.ts` (tipados y compartidos).
+- `handleCheckoutSession` soporta pagos únicos y suscripciones (busca el PaymentIntent en la factura más reciente para suscripciones).
+- Extiende el webhook para `invoice.payment_succeeded` si quieres recargar créditos en renovaciones.
+

@@ -1,0 +1,114 @@
+---
+title: 账户、订单与积分
+icon: "Wallet"
+---
+
+## 为什么要了解这一部分
+
+模板内置了认证、兼容 Stripe 的订单跟踪以及积分（Credits）余额体系。理解这些表之间的关系，才能更轻松地扩展产品、接入新的支付渠道或调整结算策略。
+
+---
+
+## 核心数据表
+
+- `users`：记录用户档案（公共 UUID、语言、邀请信息），注册时由 Better Auth 自动创建。
+- `orders`：保存每一次购买；`amount`、`status` 和 `sub_*` 字段与 Stripe Webhook 中的数据保持一致。
+- `credits`：仅追加的流水账；正数代表充值或奖励，负数代表消耗。
+- `accounts` / `sessions`：Better Auth 内部表，用于同步第三方登录和会话状态。
+
+所有表都包含时间戳，方便审计或制作统计图表。
+
+---
+
+## 积分的生命周期
+
+1. **注册**：创建 `users` 行并生成 Better Auth 会话。
+2. **支付成功**：写入 `orders` 行，记录授予的 `credits` 数量。
+3. **记账**：向 `credits` 插入正数行，通过 `order_no` 关联订单。
+4. **功能消耗**：每次使用功能（例如 API 调用扣 5 分）都写入一条负数行。
+5. **过期**：`expired_at` 已过期的正数行不会再计入余额，但仍保留在流水中以便追踪。
+
+余额计算公式：未过期的正数合计 − 所有负数合计。
+
+---
+
+## 常用服务与 API
+
+- `src/services/user.ts#getUserUuid`：从请求中解析登录用户的 UUID。
+- `src/services/credit.ts#getUserCreditSummary`：返回总余额、累计授予/消耗、已过期、即将过期列表以及精简后的流水。
+- `src/services/credit.ts#getUserCredits`：提供轻量级的余额状态（`left_credits`、`is_pro`、`is_recharged`），便于快速判断权限。
+- `/api/account/credits` (POST)：获取积分概览，可选请求体：
+
+  ```json
+  {
+    "includeLedger": true,
+    "ledgerLimit": 20,
+    "includeExpiring": true
+  }
+  ```
+
+- `/api/account/profile` (POST)：返回个人资料 + 积分概览。若想减少数据量，可传 `{ "includeCreditLedger": false }`。
+
+接口统一使用 `respJson`，响应格式固定为 `{ code, message, data }`。
+
+---
+
+## 本地快速体验
+
+1. **启动项目**：在 `.env.local` 填好 Postgres 的 `DATABASE_URL`，运行 `pnpm dev`。
+2. **注册账号**：访问 `/zh/signup`，注册并登录。
+3. **手动增加积分**（开发调试）：
+
+   ```sql
+   insert into credits (trans_no, user_uuid, trans_type, credits, created_at)
+   values ('dev-grant-1', '<用户UUID>', 'manual_adjustment', 100, now());
+   ```
+
+   可使用 `pnpm drizzle-kit studio` 或任意 SQL 客户端执行。
+4. **查询余额**：
+
+   ```bash
+   curl -X POST http://localhost:3000/api/account/credits \
+     -H "Content-Type: application/json" \
+     -H "Cookie: <将浏览器中的认证 Cookie 复制过来>"
+   ```
+
+5. **模拟消费**：向 `/api/ping` 发送一条消息，会扣除 `CreditsAmount.PingCost`（默认 1 分）。随后再次查询余额以验证扣款。
+
+   ```bash
+   curl -X POST http://localhost:3000/api/ping \
+     -H "Content-Type: application/json" \
+     -H "Cookie: <将浏览器中的认证 Cookie 复制过来>" \
+     -d '{\"message\":\"你好\"}'
+   ```
+
+---
+
+## 如何自定义
+
+### 调整“即将过期”提示窗口
+
+修改 `src/services/credit.ts` 中的 `EXPIRING_WINDOW_DAYS`，即可改变提前提醒的天数。若想自动扣除过期积分，可编写定时任务，在 `expired_at` 过期后写入相应的负数行。
+
+### 新用户赠送积分
+
+在 `insertUser` 之后调用 `src/models/credit.ts` 的 `insertCredit`，为新账号增加欢迎积分。记得保持 `trans_no` 唯一，避免重复插入。
+
+### 接入其他支付方式
+
+- 使用 `insertOrder` 写入你的支付回调数据。
+- 同时向 `credits` 插入对应的正数行，并通过 `order_no` 关联，方便对账。
+- 如果做订阅，别忘了在界面上展示 `sub_*` 列记录的周期信息。
+
+### 存储更多上下文
+
+需要追踪实验或渠道来源时，可以给 `orders` / `credits` 加一个 JSON 字段（如 `meta`）。Drizzle 的迁移工具会自动更新快照。
+
+---
+
+## 下一步建议
+
+- 利用 `getUserCreditSummary` 的统计值构建管理后台图表。
+- 以 `/api/ping` 为模板，扩展更多按次扣费的功能。
+- 为积分计算逻辑编写单元测试，验证余额、过期和提醒的正确性。
+- 如需更多语言支持，可参照本篇创建对应文档。

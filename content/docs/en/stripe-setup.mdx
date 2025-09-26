@@ -1,0 +1,115 @@
+---
+title: Stripe Setup
+icon: "CreditCard"
+---
+
+## Overview
+
+This template uses Stripe Checkout for payments and a credit ledger to grant usage credits after purchase.
+
+- UI: `/[locale]/pricing` shows plans from a typed config.
+- Create session: client calls `POST /api/checkout` to create a Stripe Checkout session and redirects to Stripe.
+- Redirect back: Stripe sends the user to `/api/pay/callback/stripe` (GET) after checkout.
+- Finalize server-side: Stripe sends a webhook to `/api/pay/webhook/stripe` (POST). The webhook marks the order paid and grants credits.
+
+The webhook is the source of truth; the callback is only for browser navigation and is safe to keep as a secondary path (code is idempotent if it runs twice).
+
+---
+
+## Endpoints
+
+- `/api/checkout` (POST):
+  - Validates the selected plan against `src/data/pricing.ts`.
+  - Creates a Stripe Checkout session (inline price data; no Stripe Products required).
+  - Inserts an `orders` row with status `created` and returns `checkout_url`.
+
+- `/api/pay/callback/stripe` (GET):
+  - Used by Stripe Checkout success redirect. Fetches the session for logging, then redirects the user to your success or failure page.
+  - Note: Server-of-record updates happen in the webhook.
+
+- `/api/pay/webhook/stripe` (POST):
+  - Verifies the Stripe signature.
+  - Handles `checkout.session.completed` and calls `handleCheckoutSession` to mark the order paid and grant credits.
+
+---
+
+## Credits Flow
+
+On successful payment:
+
+1) We look up the order by `order_no` in session metadata.
+2) Update the order to `paid` and persist relevant payment details.
+3) Insert a positive ledger row in `credits` (`trans_type: order_pay`) for the purchased amount. The balance reflects non-expired positive entries minus all consumption entries.
+
+---
+
+## Prerequisites
+
+Set these variables in `.env.local` and restart dev:
+
+```bash
+STRIPE_SECRET_KEY=sk_test_...             # Test mode secret key
+STRIPE_WEBHOOK_SECRET=whsec_...           # From Stripe CLI / dashboard
+NEXT_PUBLIC_WEB_URL=http://localhost:3000 # External URL for callbacks
+NEXT_PUBLIC_PAY_CANCEL_URL=/pricing       # Optional; relative or absolute
+NEXT_PUBLIC_PAY_SUCCESS_URL=/pricing      # Optional
+NEXT_PUBLIC_PAY_FAIL_URL=/pricing         # Optional
+```
+
+Notes:
+
+- `src/integrations/stripe.ts` expects `STRIPE_SECRET_KEY`.
+- If you previously used `STRIPE_PRIVATE_KEY`, replace it with `STRIPE_SECRET_KEY`.
+
+---
+
+## Local Webhook Setup
+
+Use the Stripe CLI to forward events to your local endpoint.
+
+```bash
+stripe login
+stripe listen --forward-to localhost:3000/api/pay/webhook/stripe
+```
+
+When `stripe listen` starts, it prints a `whsec_...` secret — copy it to `STRIPE_WEBHOOK_SECRET`.
+
+Trigger a test checkout completion:
+
+```bash
+stripe trigger checkout_session_completed
+```
+
+Common gotcha: triggering `payment_intent.succeeded` will hit your webhook but is ignored unless you add a handler for it. This template listens to `checkout.session.completed`.
+
+---
+
+## Try It
+
+1) Sign up and sign in via `/[locale]/signup` and `/[locale]/login`.
+2) Visit `/[locale]/pricing` and click a plan.
+3) Complete the Stripe Checkout with test card `4242 4242 4242 4242`.
+4) Stripe redirects to the callback URL; the webhook finalizes your order and grants credits.
+5) Verify credits at `/[locale]/credits-test` or via `POST /api/account/credits`.
+
+If you enable RMB/WeChat Pay, ensure those payment methods are active in your Stripe test account. Otherwise, start with USD + card.
+
+---
+
+## Implementation Details
+
+- Plans live in `src/data/pricing.ts`. Values are typed (`Pricing`), shared by the pricing page and `/api/checkout`.
+- Orders are stored in `orders`; credit movements in `credits`.
+- The webhook verifies signatures using the raw request body and `STRIPE_WEBHOOK_SECRET`.
+- `handleCheckoutSession` supports both one-time and subscription checkouts:
+  - Payment mode: uses `session.payment_intent`.
+  - Subscription mode: fetches the latest invoice’s payment intent from the subscription.
+
+---
+
+## Optional Enhancements
+
+- Add an `invoice.payment_succeeded` handler to grant credits on subscription renewals.
+- Persist Stripe IDs (subscription, invoice) alongside orders for richer admin views.
+- Add idempotency keys if you extend the flow to multiple writes per event.
+

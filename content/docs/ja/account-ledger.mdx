@@ -1,0 +1,114 @@
+---
+title: アカウント・注文・クレジット
+icon: "Wallet"
+---
+
+## なぜ重要なのか
+
+このテンプレートには認証、Stripe と連携できる注文管理、クレジット残高システムが含まれています。テーブル同士のつながりを理解しておけば、プランを追加したり支払いプロバイダを差し替えたりするのが簡単になります。
+
+---
+
+## 主要テーブル
+
+- `users`: Better Auth が登録時に作成するプロフィール行。公開 UUID、招待コード、locale などを保持します。
+- `orders`: すべての購入記録。`amount`、`status`、`sub_*` カラムは Stripe の Webhook から届く情報を反映します。
+- `credits`: 追記専用の台帳。プラスの行は付与（購入・ボーナス）、マイナスの行は消費を表します。
+- `accounts` / `sessions`: Better Auth 内部テーブル。外部プロバイダとログイン状態を同期します。
+
+各テーブルにはタイムスタンプがあり、履歴の監査やダッシュボード作成に役立ちます。
+
+---
+
+## クレジットの流れ
+
+1. **サインアップ**で `users` に行が追加され、Better Auth のセッションが発行されます。
+2. **決済成功**で `orders` に購入が登録され、`credits` カラムに付与量が入ります。
+3. **台帳更新**として `credits` にプラスの行が挿入され、`order_no` で注文と結びつきます。
+4. **機能利用**のたびにマイナスの行を追加し、消費量を記録します (例: API 呼び出しで 5 クレジット消費)。
+5. **有効期限**: `expired_at` を過ぎたプラス行は残高計算では無視されますが、履歴としては残ります。
+
+残高 = 期限内のプラス合計 − 全てのマイナス合計。
+
+---
+
+## 便利なサービスと API
+
+- `src/services/user.ts#getUserUuid` はリクエストヘッダから認証済みユーザー UUID を取得します。
+- `src/services/credit.ts#getUserCreditSummary` は残高、付与量、消費量、失効済み、まもなく失効する行、台帳サマリを返します。
+- `src/services/credit.ts#getUserCredits` は軽量なステータス (`left_credits`, `is_pro`, `is_recharged`) を返し、機能の制御に素早く使えます。
+- `/api/account/credits` (POST) でクレジットサマリを取得。ボディ例:
+
+  ```json
+  {
+    "includeLedger": true,
+    "ledgerLimit": 20,
+    "includeExpiring": true
+  }
+  ```
+
+- `/api/account/profile` (POST) はユーザープロフィールとクレジットサマリをまとめて返します。履歴を省きたい場合は `{ "includeCreditLedger": false }` を送ります。
+
+両エンドポイントとも `respJson` を使うため、レスポンスは常に `{ code, message, data }` 形式です。
+
+---
+
+## ローカルで試す
+
+1. **アプリ起動**: `.env.local` に Postgres 接続文字列を設定し `pnpm dev`。
+2. **ユーザー作成**: `/ja/signup` で登録・ログインします。
+3. **手動でクレジット付与** (開発時):
+
+   ```sql
+   insert into credits (trans_no, user_uuid, trans_type, credits, created_at)
+   values ('dev-grant-1', '<ユーザーUUID>', 'manual_adjustment', 100, now());
+   ```
+
+   `pnpm drizzle-kit studio` または SQL クライアントで実行できます。
+4. **残高取得**:
+
+   ```bash
+   curl -X POST http://localhost:3000/api/account/credits \
+     -H "Content-Type: application/json" \
+     -H "Cookie: <ブラウザからコピーした認証クッキー>"
+   ```
+
+5. **消費をシミュレート**: `/api/ping` にメッセージを送信すると `CreditsAmount.PingCost` (デフォルトで 1 クレジット) が差し引かれます。再度サマリを取得して残高変化を確認しましょう。
+
+   ```bash
+   curl -X POST http://localhost:3000/api/ping \
+     -H "Content-Type: application/json" \
+     -H "Cookie: <ブラウザからコピーした認証クッキー>" \
+     -d '{\"message\":\"こんにちは\"}'
+   ```
+
+---
+
+## カスタマイズのヒント
+
+### 期限通知の調整
+
+`src/services/credit.ts` の `EXPIRING_WINDOW_DAYS` を変更すると「まもなく失効」の判定期間を変えられます。期限切れを自動反映したい場合は、`expired_at` を過ぎた行に対応するマイナス調整を追加する cron を用意します。
+
+### ウェルカムボーナス
+
+`insertUser` の直後に `src/models/credit.ts` の `insertCredit` を呼び出して、初回クレジットを付与します。`trans_no` は一意にしてください。
+
+### 別の決済プロバイダと連携
+
+- `insertOrder` に外部プロバイダのデータを渡して注文を作成します。
+- 対応するクレジット行を追加し、`order_no` を紐づければ照合が楽になります。
+- 定期課金を扱う場合は UI やドキュメントで `sub_*` カラムの情報を表示しましょう。
+
+### 追加メタデータ
+
+実験 ID などを保存したい場合は、`orders` / `credits` に JSON カラム (例: `meta`) を追加できます。Drizzle のマイグレーションがスナップショットを更新します。
+
+---
+
+## 次のステップ
+
+- `getUserCreditSummary` の結果を使ってダッシュボードを作成する。
+- `/api/ping` エンドポイントをベースに、他の機能課金ロジックを組み立てる。
+- クレジット計算の単体テストを作成し、残高・失効・警告のロジックを検証する。
+- 必要に応じて他の言語版ドキュメントも追加し、多言語対応を強化する。

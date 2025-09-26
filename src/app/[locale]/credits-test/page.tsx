@@ -1,0 +1,283 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { ErrorBanner } from "@/components/errors/error-banner";
+import type { CreditSummary } from "@/types/credit";
+import type { ApiResponse } from "@/types/api";
+
+const LEDGER_LIMIT = 5;
+const DEFAULT_CONSUME_AMOUNT = 1;
+
+interface ConsumeResponse {
+  balance: number;
+}
+
+export default function CreditTesterPage() {
+  const [summary, setSummary] = useState<CreditSummary | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isConsuming, setIsConsuming] = useState<boolean>(false);
+  const [isGranting, setIsGranting] = useState<boolean>(false);
+  const [grantAmount, setGrantAmount] = useState<string>("5");
+
+  // Helper that unwraps API responses and throws when the call fails.
+  const unwrap = useCallback(async <T,>(res: Response): Promise<T> => {
+    const payload = (await res.json()) as ApiResponse<T>;
+
+    if (!res.ok || payload.code !== 0 || payload.data === undefined) {
+      const label = payload?.message ?? "Request failed";
+      throw new Error(label);
+    }
+
+    return payload.data;
+  }, []);
+
+  // Loads the latest credit summary so we can display balance and ledger data.
+  const fetchSummary = useCallback(async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch("/api/account/credits", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          includeLedger: true,
+          ledgerLimit: LEDGER_LIMIT,
+          includeExpiring: true,
+        }),
+      });
+
+      const data = await unwrap<CreditSummary>(response);
+      setSummary(data);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to load credits";
+      setErrorMessage(message);
+      setSummary(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [unwrap]);
+
+  // Tries to consume credits by calling the mock API endpoint.
+  const consumeCredits = useCallback(async () => {
+    setIsConsuming(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch("/api/account/credits/consume", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ credits: DEFAULT_CONSUME_AMOUNT }),
+      });
+
+      await unwrap<ConsumeResponse>(response);
+      await fetchSummary();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to consume credits";
+      setErrorMessage(message);
+    } finally {
+      setIsConsuming(false);
+    }
+  }, [fetchSummary, unwrap]);
+
+  const grantCredits = useCallback(async () => {
+    const amount = Number(grantAmount);
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setErrorMessage("Enter a positive credit amount");
+      return;
+    }
+
+    setIsGranting(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch("/api/account/credits/grant", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          credits: amount,
+          ledgerLimit: LEDGER_LIMIT,
+        }),
+      });
+
+      const data = await unwrap<CreditSummary>(response);
+      setSummary(data);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to add credits";
+      setErrorMessage(message);
+    } finally {
+      setIsGranting(false);
+    }
+  }, [grantAmount, unwrap]);
+
+  useEffect(() => {
+    void fetchSummary();
+  }, [fetchSummary]);
+
+  const balance = summary?.balance ?? 0;
+
+  return (
+    <main className="container mx-auto flex max-w-3xl flex-1 flex-col gap-6 px-6 py-12">
+      <section>
+        <h1 className="text-3xl font-semibold">Credit Tester</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Use this page to simulate a credit-consuming action. The button below
+          withdraws {DEFAULT_CONSUME_AMOUNT} credit at a time and surfaces
+          errors (like insufficient balance) via a shared banner component.
+        </p>
+      </section>
+
+      {errorMessage ? (
+        <ErrorBanner
+          title="Credit action failed"
+          message={errorMessage}
+          details={[
+            "Check that your account has credits available.",
+            "Make sure you are signed in before running the test.",
+          ]}
+        />
+      ) : null}
+
+      <section className="rounded-xl border border-border bg-background p-6 shadow-sm">
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Current balance</h2>
+            <p className="text-sm text-muted-foreground">
+              Includes pending expirations and the {LEDGER_LIMIT}-item ledger
+              preview.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <div className="flex flex-col text-sm">
+              <label htmlFor="grant-amount" className="font-medium">
+                Add credits
+              </label>
+              <input
+                id="grant-amount"
+                type="number"
+                min={1}
+                step={1}
+                value={grantAmount}
+                onChange={(event) => setGrantAmount(event.currentTarget.value)}
+                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => void grantCredits()}
+              disabled={isLoading || isGranting}
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isGranting ? "Adding…" : "Add credits"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void consumeCredits()}
+              disabled={isLoading || isConsuming}
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-foreground px-4 py-2 text-sm font-medium text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isConsuming ? "Consuming…" : `Use ${DEFAULT_CONSUME_AMOUNT} credit`}
+            </button>
+          </div>
+        </header>
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-lg border border-border/60 bg-muted/40 p-4">
+            <p className="text-xs uppercase text-muted-foreground">Balance</p>
+            <p className="mt-1 text-2xl font-semibold">
+              {isLoading ? "—" : balance}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border/60 bg-muted/40 p-4">
+            <p className="text-xs uppercase text-muted-foreground">Granted</p>
+            <p className="mt-1 text-lg font-semibold">
+              {isLoading ? "—" : summary?.granted ?? 0}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border/60 bg-muted/40 p-4">
+            <p className="text-xs uppercase text-muted-foreground">Consumed</p>
+            <p className="mt-1 text-lg font-semibold">
+              {isLoading ? "—" : summary?.consumed ?? 0}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border/60 bg-muted/40 p-4">
+            <p className="text-xs uppercase text-muted-foreground">Expired</p>
+            <p className="mt-1 text-lg font-semibold">
+              {isLoading ? "—" : summary?.expired ?? 0}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-8">
+          <h3 className="text-base font-medium">Ledger preview</h3>
+          <p className="text-sm text-muted-foreground">
+            Latest entries are shown first so you can confirm the mock
+            consumption rows (negative credits) are recorded.
+          </p>
+
+          <div className="mt-4 overflow-hidden rounded-lg border border-border/60">
+            <table className="min-w-full divide-y divide-border/60 text-sm">
+              <thead className="bg-muted/40">
+                <tr>
+                  <th className="px-4 py-2 text-left font-medium">Type</th>
+                  <th className="px-4 py-2 text-left font-medium">Credits</th>
+                  <th className="px-4 py-2 text-left font-medium">Created</th>
+                  <th className="px-4 py-2 text-left font-medium">Order #</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/50">
+                {isLoading ? (
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className="px-4 py-6 text-center text-muted-foreground"
+                    >
+                      Loading credits…
+                    </td>
+                  </tr>
+                ) : summary && summary.ledger.length > 0 ? (
+                  summary.ledger.map((entry) => (
+                    <tr key={entry.transNo}>
+                      <td className="px-4 py-2 font-medium">
+                        {entry.transType}
+                      </td>
+                      <td className="px-4 py-2">
+                        {entry.credits}
+                      </td>
+                      <td className="px-4 py-2 text-muted-foreground">
+                        {new Date(entry.createdAt).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-2 text-muted-foreground">
+                        {entry.orderNo ?? "—"}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className="px-4 py-6 text-center text-muted-foreground"
+                    >
+                      No ledger entries yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}

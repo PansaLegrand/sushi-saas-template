@@ -1,0 +1,114 @@
+---
+title: Comptes, commandes et crédits
+icon: "Wallet"
+---
+
+## Pourquoi c'est important
+
+Ce template fournit l'authentification, le suivi des commandes compatible Stripe et un système de crédits. Comprendre la relation entre ces briques vous permet d'ajouter vos propres offres ou d'échanger le fournisseur de paiement.
+
+---
+
+## Tables clés
+
+- `users` : stocke le profil (UUID public, locale, invitations) créé par Better Auth à l'inscription.
+- `orders` : garde chaque achat ; `amount`, `status` et les colonnes `sub_*` reflètent les webhooks Stripe.
+- `credits` : registre append-only ; valeurs positives = recharges/bonus, négatives = consommation.
+- `accounts` & `sessions` : tables Better Auth pour lier les fournisseurs et gérer la session.
+
+Chaque table possède des horodatages afin d'auditer l'historique et d'alimenter vos tableaux de bord.
+
+---
+
+## Cycle de vie des crédits
+
+1. **Inscription** : crée une ligne `users` et une session Better Auth.
+2. **Paiement validé** : insère une ligne `orders` avec les crédits accordés (`credits`).
+3. **Écriture du crédit** : ajoute une ligne positive dans `credits` liée par `order_no`.
+4. **Utilisation produit** : chaque dépense ajoute une ligne négative (ex. −5 crédits par appel API).
+5. **Expiration** : une ligne positive dont `expired_at` est passé n'alimente plus le solde, mais reste visible.
+
+Le solde = somme des lignes positives non expirées − toutes les lignes négatives.
+
+---
+
+## Services & API utiles
+
+- `src/services/user.ts#getUserUuid` récupère le UUID du compte à partir d'une requête authentifiée.
+- `src/services/credit.ts#getUserCreditSummary` calcule le solde, les totaux accordés/consommés, les crédits expirés et les expirations imminentes.
+- `src/services/credit.ts#getUserCredits` expose un état simplifié (`left_credits`, `is_pro`, `is_recharged`) pratique pour activer/désactiver rapidement une fonctionnalité.
+- `/api/account/credits` (POST) renvoie ce résumé. Corps optionnel :
+
+  ```json
+  {
+    "includeLedger": true,
+    "ledgerLimit": 20,
+    "includeExpiring": true
+  }
+  ```
+
+- `/api/account/profile` (POST) renvoie le profil + le résumé crédits. Envoyez `{ "includeCreditLedger": false }` pour alléger la réponse.
+
+Les deux routes utilisent `respJson`, donc la réponse suit `{ code, message, data }`.
+
+---
+
+## Tester en local
+
+1. **Lancer l'app** : `pnpm dev` (Postgres requis via `DATABASE_URL`).
+2. **Créer un compte** : `/fr/signup`, puis connectez-vous.
+3. **Ajouter des crédits manuellement** (dev uniquement) :
+
+   ```sql
+   insert into credits (trans_no, user_uuid, trans_type, credits, created_at)
+   values ('dev-grant-1', '<uuid-utilisateur>', 'manual_adjustment', 100, now());
+   ```
+
+   Exécutez la requête avec `pnpm drizzle-kit studio` ou votre client SQL préféré.
+4. **Consulter le solde** :
+
+   ```bash
+   curl -X POST http://localhost:3000/api/account/credits \
+     -H "Content-Type: application/json" \
+     -H "Cookie: <copiez les cookies d'authentification de votre navigateur>"
+   ```
+
+5. **Simuler une dépense** : appelez `/api/ping` avec un message pour débiter `CreditsAmount.PingCost` (1 crédit par défaut), puis relancez la requête de solde.
+
+   ```bash
+   curl -X POST http://localhost:3000/api/ping \
+     -H "Content-Type: application/json" \
+     -H "Cookie: <copiez les cookies d'authentification de votre navigateur>" \
+     -d '{\"message\":\"bonjour\"}'
+   ```
+
+---
+
+## Personnaliser
+
+### Ajuster la fenêtre d'expiration
+
+Modifiez `EXPIRING_WINDOW_DAYS` dans `src/services/credit.ts` pour changer le seuil "expire bientôt". Pour décrémenter automatiquement, planifiez un job qui ajoute une ligne négative quand `expired_at` est dépassé.
+
+### Bonus d'accueil
+
+Appelez `insertCredit` (`src/models/credit.ts`) après `insertUser` pour créditer les nouveaux comptes. Gardez `trans_no` unique afin d'éviter les doublons.
+
+### Autre processeur de paiement
+
+- Utilisez `insertOrder` avec la payload de votre fournisseur.
+- Ajoutez la ligne correspondante dans `credits` et liez `order_no` pour tracer les remboursements.
+- Exposez les métadonnées de subscription (`sub_*`) dans votre UI si vous vendez des plans récurrents.
+
+### Plus de contexte
+
+Ajoutez des colonnes (ex. `meta` JSON) dans `orders`/`credits` pour stocker des flags ou des ID d'expériences. Les migrations Drizzle actualiseront le snapshot.
+
+---
+
+## Prochaines étapes
+
+- Construire un tableau de bord en réutilisant les totaux fournis par `getUserCreditSummary`.
+- Utiliser `/api/ping` comme point de départ pour d'autres fonctionnalités qui consomment des crédits.
+- Écrire des tests unitaires pour vérifier le calcul du solde, l'expiration et les alertes.
+- Traduire ce guide vers d'autres langues selon vos besoins.

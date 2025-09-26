@@ -1,0 +1,114 @@
+---
+title: Accounts, Orders & Credits
+icon: "Wallet"
+---
+
+## Why This Matters
+
+This template ships with authentication, Stripe-friendly order tracking, and a credit balance system. Understanding how the tables relate will help you extend the product catalog or plug in your own billing provider.
+
+---
+
+## Core Tables
+
+- `users`: stores profile fields (UUID, invite metadata, locale) that Better Auth populates when someone signs up.
+- `orders`: records every purchase attempt; `amount`, `status`, and optional subscription details mirror Stripe webhooks.
+- `credits`: append-only ledger; positive rows add balance (grants, purchases) and negative rows subtract (usage).
+- `accounts` & `sessions`: Better Auth internals; they keep providers and login state in sync with the `users` row.
+
+Each table uses timestamps so you can audit how the account evolved and drive analytics dashboards.
+
+---
+
+## How Credits Flow
+
+1. **Sign up** creates a `users` row and a Better Auth session.
+2. **Successful checkout** inserts an `orders` row with the granted `credits` amount.
+3. **Ledger write** inserts a matching positive row in `credits` (linking back via `order_no`).
+4. **Product usage** records consumption as a negative row (for example, when an API call spends 5 credits).
+5. **Expiry**: any positive row with `expired_at` in the past is ignored for balance but still tracked.
+
+The running balance equals: non-expired positive entries minus every negative entry.
+
+---
+
+## Useful Services & APIs
+
+- `src/services/user.ts#getUserUuid` extracts the signed-in UUID from a request.
+- `src/services/credit.ts#getUserCreditSummary` returns a beginner-friendly summary: balance, granted, consumed, expired, upcoming expirations, plus a trimmed ledger.
+- `src/services/credit.ts#getUserCredits` exposes a lightweight balance snapshot (`left_credits`, `is_pro`, `is_recharged`) that you can use to gate features quickly.
+- `/api/account/credits` (POST) returns credit summaries. Optional body:
+
+  ```json
+  {
+    "includeLedger": true,
+    "ledgerLimit": 20,
+    "includeExpiring": true
+  }
+  ```
+
+- `/api/account/profile` (POST) returns the authenticated profile plus the credit summary. Send `{ "includeCreditLedger": false }` to omit heavy history.
+
+These endpoints already use the shared `respJson` helpers so every response looks like `{ code, message, data }`.
+
+---
+
+## Try It Locally
+
+1. **Run the app**: `pnpm dev` (requires a Postgres URL in `.env.local`).
+2. **Create a user**: visit `/en/signup`, register, and sign in.
+3. **Add credits manually** (during development) by inserting into the `credits` table:
+
+   ```sql
+   insert into credits (trans_no, user_uuid, trans_type, credits, created_at)
+   values ('dev-grant-1', '<the-user-uuid>', 'manual_adjustment', 100, now());
+   ```
+
+   You can run this with `pnpm drizzle-kit studio` or your preferred SQL client.
+4. **Fetch balances**: call `/api/account/credits` via HTTPie or curl:
+
+   ```bash
+   curl -X POST http://localhost:3000/api/account/credits \
+     -H "Content-Type: application/json" \
+     -H "Cookie: <copy auth cookies from the browser>"
+   ```
+
+5. **Spend credits**: call `/api/ping` with a message to subtract `CreditsAmount.PingCost` (defaults to 1 credit) and then re-run the balance query.
+
+   ```bash
+   curl -X POST http://localhost:3000/api/ping \
+     -H "Content-Type: application/json" \
+     -H "Cookie: <copy auth cookies from the browser>" \
+     -d '{\"message\":\"hello\"}'
+   ```
+
+---
+
+## Customize the System
+
+### Change Credit Expiry Windows
+
+Edit `EXPIRING_WINDOW_DAYS` in `src/services/credit.ts` to adjust the “expiring soon” warning horizon. To enforce auto-expiry, write a cron job that zeroes out rows and adds negative adjustments when `expired_at` is passed.
+
+### Seed Onboarding Bonuses
+
+Use `insertCredit` from `src/models/credit.ts` right after `insertUser` to give new accounts a welcome balance. Keep the transaction number (`trans_no`) unique to avoid duplicates.
+
+### Integrate Real Payments
+
+- The template assumes Stripe but any processor works: call `insertOrder` with your provider’s payload.
+- Log the granted credits in `credits` and set `order_no` so reconciliations are simple.
+- Update the docs or UI to show subscription metadata (`sub_*` columns) if you offer recurring plans.
+
+### Track More Context
+
+Add columns (e.g. `meta` JSON) to credits/orders for feature flags or experiment IDs. Drizzle’s migration system will update the schema snapshot automatically.
+
+---
+
+## Next Steps
+
+- Add dashboard charts: `getUserCreditSummary` already exposes totals you can graph.
+- Use the `/api/ping` handler as a template for other credit-consuming features.
+- Write unit tests for credit math; mock a list of ledger rows and assert on `balance`, `expired`, and `expiringSoon`.
+- Localize this guide (a Spanish version lives at `content/docs/es/account-ledger.mdx`).
