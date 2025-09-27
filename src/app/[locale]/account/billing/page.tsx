@@ -9,7 +9,7 @@ async function getSession() {
   return auth.api.getSession({ headers: h });
 }
 
-export default async function BillingPage({ params }: { params: { locale: string } }) {
+export default async function BillingPage({ params }: { params: Promise<{ locale: string }> }) {
   const session = await getSession();
   if (!session) redirect("/login");
 
@@ -38,4 +38,3 @@ export default async function BillingPage({ params }: { params: { locale: string
     </main>
   );
 }
-
