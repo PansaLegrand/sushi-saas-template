@@ -1,0 +1,255 @@
+---
+title: メールサービス（Resend）
+icon: "Mail"
+---
+
+## 目的
+
+アプリ内のイベントに応じて自動でメールを送信します。例：
+
+- ユーザーが Stripe で支払い完了
+- ユーザーが新規登録（ようこそメール）
+
+配信は Resend を使います。サーバー側でテンプレートを HTML にレンダリングし、Resend の API に送信を依頼します。
+
+---
+
+## Resend の役割と流れ
+
+- アプリがイベントを検知（Stripe の webhook、ユーザー作成など）
+- テンプレートからメール（HTML＋任意のテキスト）を生成
+- Resend の API にメール情報を渡す
+- Resend が配信し、ログ/イベントを提供
+
+Resend はメール配信のプロバイダです。キュー/ワーカーではありません。まずは Next.js のサーバールートから直接呼び出し、必要に応じて後でジョブ/キューに移すのがおすすめです。
+
+---
+
+## 初期設定（1 回のみ）
+
+1) Resend アカウント作成とドメイン認証
+
+- https://resend.com に登録
+- 送信ドメインを追加（例：`your-domain.com`）
+- 表示された DNS レコード（DKIM、SPF、可能なら DMARC）を設定。配信に必須です。
+
+2) API キー作成
+
+- Resend ダッシュボード → API Keys → シークレットキーを作成
+- クライアント側に晒さない（サーバーのみ）
+
+3) 環境変数を追加
+
+`.env.local` に追加（あとで `.env.example` にも反映）：
+
+```bash
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=あなたの_resend_api_key
+EMAIL_FROM="あなたの名前 <founder@your-domain.com>"
+```
+
+注意：
+
+- `EMAIL_FROM` のドメインは Resend で認証済みであること
+- 機密情報はリポジトリに含めない（`.env.local` を使用）
+
+要注意ポイント：
+
+- DNS：`send.your-domain.com` のようなサブドメインを推奨。DNS 設定でホスト/サーバー名に `send` を指定し、Resend が表示する DKIM/SPF/CNAME をそのままコピペしてください。
+- 親しみやすい From：`EMAIL_FROM` の先頭は受信箱に表示される名前です。`"Taro from ToldYou <founder@toldyou.app>"` のように実名を使うと効果的。`no-reply@…` は避け、`founder@` や `hello@` を推奨。
+
+4) テンプレートを HTML に変換するライブラリ
+
+```bash
+pnpm add @react-email/render
+```
+
+`@react-email/render` は React コンポーネントをメール向け HTML に変換します。
+
+---
+
+## プロジェクト構成
+
+将来の変更が容易なようにメール処理を分離します：
+
+- `src/services/email/send.ts` — Resend で送信する関数
+- `src/services/email/templates/` — React 製の小さなテンプレート（ようこそ等）
+
+---
+
+## テンプレート作成（React Email）
+
+`src/services/email/templates/welcome.tsx` に配置する例：
+
+```tsx
+import * as React from "react";
+
+export default function WelcomeEmail({ name }: { name?: string }) {
+  return (
+    <div style={{ fontFamily: 'Arial, sans-serif', lineHeight: 1.5 }}>
+      <h1>Welcome{ name ? `, ${name}` : '' }!</h1>
+      <p>Thanks for signing up — we’re excited to have you.</p>
+      <p>Questions? Just reply to this email.</p>
+    </div>
+  );
+}
+```
+
+通常の React コンポーネントで、送信前に HTML にレンダリングします。
+
+---
+
+## 送信関数（Resend）
+
+`src/services/email/send.ts` に helper を用意します：
+
+```ts
+import { Resend } from "resend";
+import { render } from "@react-email/render";
+
+type MailInput = { to: string; subject: string; html: string; text?: string; from?: string };
+
+const resend = new Resend(process.env.RESEND_API_KEY!);
+
+export async function sendMail({ to, subject, html, text, from }: MailInput) {
+  const fromEmail = from ?? process.env.EMAIL_FROM!;
+  const res = await resend.emails.send({
+    from: fromEmail,
+    to: [to],
+    subject,
+    html,
+    text,
+  });
+  if (res.error) throw res.error;
+  return res;
+}
+
+export async function sendWelcomeEmail(to: string, name?: string) {
+  const { default: WelcomeEmail } = await import("./templates/welcome");
+  const html = render(WelcomeEmail({ name }));
+  await sendMail({ to, subject: "Welcome to our app!", html });
+}
+```
+
+ポイント：
+
+- Resend のコードはサーバー専用。API キーをブラウザに出さないこと。
+- `render()` は主要メーラー向けの HTML を生成します。
+
+---
+
+## どこで送信をトリガーするか
+
+サーバーイベントから発火します。主な場所：
+
+1) ユーザー登録後（ようこそメール）
+
+- 本プロジェクトは Better Auth（`src/lib/auth.ts`）を使用。DB ライフサイクルにフックできます。
+- `databaseHooks.user.create.after` で `sendWelcomeEmail()` を呼びます。
+
+例（`betterAuth({...})` 設定内）：
+
+```ts
+databaseHooks: {
+  user: {
+    create: {
+      after: async (data) => {
+        try {
+          void (await import("@/services/email/send")).sendWelcomeEmail(data.email, data.nickname);
+        } catch (e) {
+          console.error("welcome email failed", e);
+        }
+      },
+    },
+  },
+},
+```
+
+2) Stripe 決済成功後（確認メール）
+
+- Stripe が webhook で通知：`POST /api/pay/webhook/stripe`
+- `checkout.session.completed` の handler で `sendMail()` を呼ぶ
+
+抜粋：
+
+```ts
+if (event.type === "checkout.session.completed") {
+  const session = event.data.object as Stripe.Checkout.Session;
+  const email = session.customer_details?.email;
+  if (email) {
+    await sendMail({
+      to: email,
+      subject: "Payment received",
+      html: `<p>Thanks for your purchase! Order: ${session.metadata?.order_no ?? session.id}</p>`
+    });
+  }
+}
+```
+
+ヒント：Stripe を待たせないでください。webhook はすぐ応答し、その後バックグラウンドで送信（`queueMicrotask` やキュー）します。webhook が失敗した場合のみ Stripe は再試行します。
+
+---
+
+## 送信確認方法
+
+- Resend ダッシュボード → Emails：各送信のログ（宛先、件名、ステータス、エラー）
+- Resend のイベント/webhook（任意）：配信/開封/バウンス
+- 手動テスト：一時的な API ルートで自分に送る
+
+テストルート（Node ランタイム）：
+
+```ts
+export const runtime = "nodejs";
+
+export async function POST() {
+  try {
+    const { sendWelcomeEmail } = await import("@/services/email/send");
+    await sendWelcomeEmail("you@example.com", "Friend");
+    return new Response("ok");
+  } catch (e) {
+    console.error(e);
+    return new Response("failed", { status: 500 });
+  }
+}
+```
+
+コマンド：
+
+```bash
+curl -X POST http://localhost:3000/api/email-test
+```
+
+Resend ダッシュボードでメール到達を確認します。
+
+---
+
+## Worker/キューは必要？
+
+最初は不要です。API ルートや webhook 内で送って問題ありません。信頼性やタイムアウト対策として：
+
+- ジョブ/キュー（Inngest、Trigger.dev、DB ベースのキュー等）
+- または Stripe 応答後にスケジュール（`queueMicrotask` など）
+
+まずはシンプルに。問題が出たら後から強化しましょう。
+
+---
+
+## よくある落とし穴
+
+- 未認証ドメインから送信：スパムやバウンスになりやすい
+- クライアントに API キーを晒す：厳禁
+- Stripe webhook をネットワーク待ちでブロック：先に応答、作業は裏で
+- webhook 再試行による重複送信：`event.id` を保存して冪等化
+
+---
+
+## チェックリスト
+
+- [ ] Resend アカウント作成＋ドメイン認証
+- [ ] `.env.local` に `RESEND_API_KEY` と `EMAIL_FROM`
+- [ ] `@react-email/render` をインストール
+- [ ] `src/services/email/`（送信関数＋テンプレート）を用意
+- [ ] トリガー接続（サインアップ＋Stripe webhook）
+- [ ] ローカルでテストし、Resend で確認
+
+開発中は `/:locale/blogs/email-service` で閲覧できます。

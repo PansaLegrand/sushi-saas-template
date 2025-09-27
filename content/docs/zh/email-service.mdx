@@ -1,0 +1,255 @@
+---
+title: 邮件服务（Resend）
+icon: "Mail"
+---
+
+## 目标
+
+在应用发生事件时自动发送邮件，例如：
+
+- 用户完成 Stripe 支付
+- 用户注册成功（欢迎邮件）
+
+我们使用 Resend 负责投递。你在服务端渲染模板为 HTML，然后调用 Resend 的 API 发送。
+
+---
+
+## Resend 的位置与作用
+
+- 应用检测到事件（如 Stripe Webhook 或用户创建）
+- 应用用模板渲染出邮件（HTML + 可选文本）
+- 应用调用 Resend API 提交邮件
+- Resend 负责投递并提供日志/事件
+
+Resend 是投递服务，不是队列或后台任务。起步阶段可直接在 Next.js 服务器路由里调用；需要更高可靠性时再接入队列/Worker。
+
+---
+
+## 一次性配置
+
+1) 注册 Resend 并验证域名
+
+- 访问 https://resend.com 注册
+- 添加发送域名（如 `your-domain.com`）
+- 按要求添加 DNS 记录（DKIM、SPF，建议加 DMARC），这对投递很关键
+
+2) 创建 API Key
+
+- Resend 控制台 → API Keys → 新建密钥
+- 妥善保管，绝不在客户端暴露
+
+3) 添加环境变量
+
+把下面内容加到 `.env.local`（随后同步到 `.env.example`）：
+
+```bash
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=你的_resend_api_key
+EMAIL_FROM="你的名字 <founder@your-domain.com>"
+```
+
+说明：
+
+- `EMAIL_FROM` 的域名必须是已在 Resend 验证的
+- 机密不要入库；使用 `.env.local`
+
+注意事项：
+
+- DNS：建议使用子域名 `send.your-domain.com`。在 DNS 服务商里，把主机名/服务器填为 `send`，然后将 Resend 给出的 DKIM/SPF/CNAME 值原样复制粘贴（不要改动）。
+- 友好的发件人：`EMAIL_FROM` 的前半部分会显示为“发件人名称”。用真实姓名更亲切，例如 `"Li from ToldYou <founder@toldyou.app>"`。避免使用 `no-reply@…`，推荐 `founder@` 或 `hello@`。
+
+4) 安装模板渲染库
+
+```bash
+pnpm add @react-email/render
+```
+
+`@react-email/render` 将 React 组件转为适配各家邮箱客户端的 HTML。
+
+---
+
+## 项目结构
+
+将邮件逻辑独立，便于后续替换或扩展：
+
+- `src/services/email/send.ts` — 统一的发送函数（Resend）
+- `src/services/email/templates/` — 小型 React 模板（欢迎邮件等）
+
+---
+
+## 准备模板（React Email）
+
+在 `src/services/email/templates/welcome.tsx` 新建欢迎模板：
+
+```tsx
+import * as React from "react";
+
+export default function WelcomeEmail({ name }: { name?: string }) {
+  return (
+    <div style={{ fontFamily: 'Arial, sans-serif', lineHeight: 1.5 }}>
+      <h1>Welcome{ name ? `, ${name}` : '' }!</h1>
+      <p>Thanks for signing up — we’re excited to have you.</p>
+      <p>Questions? Just reply to this email.</p>
+    </div>
+  );
+}
+```
+
+这是普通 React 组件；发送前渲染为 HTML。
+
+---
+
+## 发送函数（Resend）
+
+`src/services/email/send.ts` 中的示例：
+
+```ts
+import { Resend } from "resend";
+import { render } from "@react-email/render";
+
+type MailInput = { to: string; subject: string; html: string; text?: string; from?: string };
+
+const resend = new Resend(process.env.RESEND_API_KEY!);
+
+export async function sendMail({ to, subject, html, text, from }: MailInput) {
+  const fromEmail = from ?? process.env.EMAIL_FROM!;
+  const res = await resend.emails.send({
+    from: fromEmail,
+    to: [to],
+    subject,
+    html,
+    text,
+  });
+  if (res.error) throw res.error;
+  return res;
+}
+
+export async function sendWelcomeEmail(to: string, name?: string) {
+  const { default: WelcomeEmail } = await import("./templates/welcome");
+  const html = render(WelcomeEmail({ name }));
+  await sendMail({ to, subject: "Welcome to our app!", html });
+}
+```
+
+要点：
+
+- Resend 代码仅在服务端运行；不要把 API Key 暴露在浏览器
+- `render()` 生成的 HTML 适配主流邮箱
+
+---
+
+## 在哪里触发邮件
+
+从服务端事件触发。两处常见：
+
+1) 用户注册后（欢迎邮件）
+
+- 项目使用 Better Auth（`src/lib/auth.ts`），可挂载数据库生命周期
+- 在 `databaseHooks.user.create.after` 中调用 `sendWelcomeEmail()`
+
+示例（在 `betterAuth({...})` 配置中）：
+
+```ts
+databaseHooks: {
+  user: {
+    create: {
+      after: async (data) => {
+        try {
+          void (await import("@/services/email/send")).sendWelcomeEmail(data.email, data.nickname);
+        } catch (e) {
+          console.error("welcome email failed", e);
+        }
+      },
+    },
+  },
+},
+```
+
+2) Stripe 支付成功后（确认/收据）
+
+- Stripe 通过 webhook 通知：`POST /api/pay/webhook/stripe`
+- 在 `checkout.session.completed` 处理器里调用 `sendMail()` 确认
+
+代码片段：
+
+```ts
+if (event.type === "checkout.session.completed") {
+  const session = event.data.object as Stripe.Checkout.Session;
+  const email = session.customer_details?.email;
+  if (email) {
+    await sendMail({
+      to: email,
+      subject: "Payment received",
+      html: `<p>Thanks for your purchase! Order: ${session.metadata?.order_no ?? session.id}</p>`
+    });
+  }
+}
+```
+
+提示：不要让 Stripe 等待邮件发送。先快速响应 webhook，再在后台发送（`queueMicrotask` 或队列）。Stripe 只会在 webhook 失败时重试，不会管你内部发送是否失败。
+
+---
+
+## 如何确认已发送
+
+- Resend 控制台 → Emails：查看每封邮件日志（收件人、主题、状态、错误）
+- Resend 事件/Webhook（可选）：接收投递/打开/退信事件
+- 手动测试：临时 API 路由给自己发一封测试邮件
+
+测试路由（Node 运行时）：
+
+```ts
+export const runtime = "nodejs";
+
+export async function POST() {
+  try {
+    const { sendWelcomeEmail } = await import("@/services/email/send");
+    await sendWelcomeEmail("you@example.com", "Friend");
+    return new Response("ok");
+  } catch (e) {
+    console.error(e);
+    return new Response("failed", { status: 500 });
+  }
+}
+```
+
+发送请求：
+
+```bash
+curl -X POST http://localhost:3000/api/email-test
+```
+
+在 Resend 控制台查看是否收到。
+
+---
+
+## 是否需要 Worker/队列？
+
+起步不需要。可直接在 API 路由或 webhook 中发送。若想更可靠、避免超时：
+
+- 使用任务/队列（Inngest、Trigger.dev 或基于数据库的队列）
+- 或在响应 Stripe 后再安排发送（如 `queueMicrotask`）
+
+先简单，再视情况增强。
+
+---
+
+## 常见坑
+
+- 未验证的域名发信：易被退信或进垃圾箱
+- 在客户端暴露 API Key：绝对禁止
+- 等待网络导致阻塞 Stripe webhook：先响应，再后台处理
+- webhook 重试导致重复发送：存储 `event.id` 做幂等
+
+---
+
+## 快速清单
+
+- [ ] 已开通 Resend 并验证域名
+- [ ] `.env.local` 中设置 `RESEND_API_KEY` 和 `EMAIL_FROM`
+- [ ] 安装 `@react-email/render`
+- [ ] 建好 `src/services/email/`（发送函数 + 模板）
+- [ ] 接好触发点（注册 + Stripe webhook）
+- [ ] 本地测试，并在 Resend 控制台确认
+
+开发时访问 `/:locale/blogs/email-service`。

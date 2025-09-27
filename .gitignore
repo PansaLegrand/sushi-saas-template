@@ -11,3 +11,4 @@ out
 .env
 /.source
 /.next
+/scripts
