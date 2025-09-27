@@ -1,5 +1,4 @@
 import Stripe from "stripe";
-import { newStripeClient } from "@/integrations/stripe";
 import { handleCheckoutSession } from "@/services/stripe";
 
 // Stripe sends webhook events via POST requests with a signed payload.
@@ -22,12 +21,10 @@ export async function POST(req: Request) {
 
     const rawBody = await req.text();
 
-    const client = newStripeClient();
-    const stripe = client.stripe();
-
     let event: Stripe.Event;
     try {
-      event = stripe.webhooks.constructEvent(rawBody, signature, secret);
+      // Verify using static helper; no API key needed.
+      event = Stripe.webhooks.constructEvent(rawBody, signature, secret);
     } catch (err) {
       console.warn("invalid stripe signature", err);
       return new Response("invalid signature", { status: 400 });
@@ -36,6 +33,11 @@ export async function POST(req: Request) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
+        const apiKey = process.env.STRIPE_PRIVATE_KEY;
+        if (!apiKey) {
+          return new Response("stripe secret not configured", { status: 500 });
+        }
+        const stripe = new Stripe(apiKey);
         await handleCheckoutSession(stripe, session);
         break;
       }
@@ -56,4 +58,3 @@ export async function POST(req: Request) {
     return new Response("webhook error", { status: 500 });
   }
 }
-
