@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import { handleCheckoutSession } from "@/services/stripe";
+import { sendPaymentSuccessEmail } from "@/services/email/send";
 
 // Stripe sends webhook events via POST requests with a signed payload.
 // Configure Stripe CLI or dashboard to forward events to this endpoint:
@@ -39,6 +40,20 @@ export async function POST(req: Request) {
         }
         const stripe = new Stripe(apiKey);
         await handleCheckoutSession(stripe, session);
+        // Send a confirmation email in the background; do not block webhook ack
+        const to = session.customer_details?.email;
+        if (to) {
+          const orderNo = session.metadata?.order_no || session.id;
+          const amount = typeof session.amount_total === "number" && session.amount_total != null
+            ? session.amount_total / 100
+            : undefined;
+          const currency = session.currency ?? undefined;
+          queueMicrotask(() => {
+            sendPaymentSuccessEmail(to, { orderNo, amount, currency }).catch((e) => {
+              console.error("payment email failed", e);
+            });
+          });
+        }
         break;
       }
       // You can extend handling for renewals:

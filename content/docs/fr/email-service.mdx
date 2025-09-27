@@ -1,0 +1,255 @@
+---
+title: Service Email (Resend)
+icon: "Mail"
+---
+
+## Objectif
+
+Envoyer des emails automatiquement quand un événement se produit dans votre app, par exemple :
+
+- Un utilisateur termine un paiement Stripe
+- Un utilisateur s’inscrit (email de bienvenue)
+
+Nous utilisons Resend pour l’envoi. Votre app prépare le contenu (template) et appelle l’API de Resend pour le délivrer.
+
+---
+
+## Resend : rôle et emplacement dans le flux
+
+- L’app détecte un événement (webhook Stripe ou création d’utilisateur)
+- L’app génère un email (HTML + texte optionnel) depuis une template
+- L’app appelle l’API Resend avec les détails
+- Resend envoie l’email et fournit des journaux/événements de délivrance
+
+Resend est le fournisseur d’envoi/livraison. Ce n’est ni une file ni un worker. Vous pouvez l’appeler directement depuis une route serveur Next.js (parfait pour démarrer) ou déporter l’envoi vers un job/une file plus tard.
+
+---
+
+## Configuration (une seule fois)
+
+1) Créez un compte Resend et vérifiez votre domaine
+
+- Inscrivez‑vous sur https://resend.com
+- Ajoutez votre domaine d’envoi (ex. `votre-domaine.com`)
+- Ajoutez les enregistrements DNS indiqués (DKIM, SPF, et DMARC conseillé). Indispensable pour la délivrabilité.
+
+2) Créez une clé API
+
+- Dans le dashboard Resend → API Keys → créez une clé secrète
+- Gardez‑la privée ; ne l’exposez jamais côté client
+
+3) Variables d’environnement
+
+Ajoutez ceci à `.env.local` (et reportez dans `.env.example` ensuite) :
+
+```bash
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=cle_api_resend
+EMAIL_FROM="Votre Nom <founder@votre-domaine.com>"
+```
+
+Notes :
+
+- `EMAIL_FROM` doit utiliser un domaine vérifié chez Resend
+- Ne commitez pas de secrets ; utilisez `.env.local`
+
+À surveiller :
+
+- DNS : privilégiez un sous‑domaine comme `send.votre-domaine.com`. Dans votre DNS, mettez l’hôte/serveur à `send` pour les enregistrements DKIM/SPF/CNAME fournis par Resend, et copiez/collez exactement les valeurs.
+- From chaleureux : La première partie de `EMAIL_FROM` est le nom affiché dans la boîte de réception. Utilisez un vrai nom, ex. `"Jean de ToldYou <founder@toldyou.app>"`. Évitez `no-reply@…` ; préférez `founder@` ou `hello@`.
+
+4) Installez l’outil de rendu de templates
+
+```bash
+pnpm add @react-email/render
+```
+
+`@react-email/render` convertit un composant React en HTML compatible avec les principaux clients mail.
+
+---
+
+## Structure du projet
+
+Nous isolons la logique email pour des changements faciles :
+
+- `src/services/email/send.ts` — fonction unique d’envoi via Resend
+- `src/services/email/templates/` — petits composants React (bienvenue, etc.)
+
+---
+
+## Préparer une template (React Email)
+
+Exemple de template de bienvenue dans `src/services/email/templates/welcome.tsx` :
+
+```tsx
+import * as React from "react";
+
+export default function WelcomeEmail({ name }: { name?: string }) {
+  return (
+    <div style={{ fontFamily: 'Arial, sans-serif', lineHeight: 1.5 }}>
+      <h1>Welcome{ name ? `, ${name}` : '' }!</h1>
+      <p>Thanks for signing up — we’re excited to have you.</p>
+      <p>Questions? Just reply to this email.</p>
+    </div>
+  );
+}
+```
+
+C’est un composant React classique ; on le rend en HTML avant l’envoi.
+
+---
+
+## Fonction d’envoi (Resend)
+
+Helper dans `src/services/email/send.ts` :
+
+```ts
+import { Resend } from "resend";
+import { render } from "@react-email/render";
+
+type MailInput = { to: string; subject: string; html: string; text?: string; from?: string };
+
+const resend = new Resend(process.env.RESEND_API_KEY!);
+
+export async function sendMail({ to, subject, html, text, from }: MailInput) {
+  const fromEmail = from ?? process.env.EMAIL_FROM!;
+  const res = await resend.emails.send({
+    from: fromEmail,
+    to: [to],
+    subject,
+    html,
+    text,
+  });
+  if (res.error) throw res.error;
+  return res;
+}
+
+export async function sendWelcomeEmail(to: string, name?: string) {
+  const { default: WelcomeEmail } = await import("./templates/welcome");
+  const html = render(WelcomeEmail({ name }));
+  await sendMail({ to, subject: "Welcome to our app!", html });
+}
+```
+
+Points clés :
+
+- Gardez le code Resend côté serveur. N’exposez jamais la clé au navigateur.
+- `render()` génère un HTML compatible clients mail.
+
+---
+
+## Où déclencher les envois
+
+Depuis des événements serveur. Deux cas fréquents :
+
+1) Après inscription (bienvenue)
+
+- Ce projet utilise Better Auth (`src/lib/auth.ts`). On peut accrocher le cycle de vie BD.
+- Ajoutez `databaseHooks.user.create.after` pour appeler `sendWelcomeEmail()` une fois l’utilisateur enregistré.
+
+Exemple (dans la config `betterAuth({...})`) :
+
+```ts
+databaseHooks: {
+  user: {
+    create: {
+      after: async (data) => {
+        try {
+          void (await import("@/services/email/send")).sendWelcomeEmail(data.email, data.nickname);
+        } catch (e) {
+          console.error("welcome email failed", e);
+        }
+      },
+    },
+  },
+},
+```
+
+2) Après paiement Stripe (confirmation)
+
+- Stripe notifie via webhook : `POST /api/pay/webhook/stripe`
+- Dans le handler de `checkout.session.completed`, appelez `sendMail()` pour confirmer
+
+Extrait :
+
+```ts
+if (event.type === "checkout.session.completed") {
+  const session = event.data.object as Stripe.Checkout.Session;
+  const email = session.customer_details?.email;
+  if (email) {
+    await sendMail({
+      to: email,
+      subject: "Payment received",
+      html: `<p>Thanks for your purchase! Order: ${session.metadata?.order_no ?? session.id}</p>`
+    });
+  }
+}
+```
+
+Astuce : ne faites pas attendre Stripe. Accusez réception vite, puis envoyez en arrière‑plan (`queueMicrotask`, `setImmediate` ou une file). Stripe retente si le webhook échoue — pas si votre envoi interne échoue.
+
+---
+
+## Vérifier l’envoi
+
+- Dashboard Resend → Emails : logs par envoi (destinataire, sujet, statut, erreurs)
+- Événements/Webhooks Resend (optionnel) : livraison/ouverture/rejet
+- Test manuel : route API ad‑hoc pour s’envoyer un email de test
+
+Route de test (runtime Node) :
+
+```ts
+export const runtime = "nodejs";
+
+export async function POST() {
+  try {
+    const { sendWelcomeEmail } = await import("@/services/email/send");
+    await sendWelcomeEmail("you@example.com", "Friend");
+    return new Response("ok");
+  } catch (e) {
+    console.error(e);
+    return new Response("failed", { status: 500 });
+  }
+}
+```
+
+Commande de test :
+
+```bash
+curl -X POST http://localhost:3000/api/email-test
+```
+
+Vérifiez l’email dans le dashboard Resend.
+
+---
+
+## Besoin d’un worker/file ?
+
+Pas nécessaire pour démarrer. Vous pouvez envoyer depuis la route API ou le webhook. Pour plus de fiabilité et éviter les timeouts :
+
+- Utilisez un job/une file (Inngest, Trigger.dev, ou file basée BD)
+- Ou planifiez l’envoi après la réponse à Stripe (ex. `queueMicrotask`)
+
+Commencez simple ; ajoutez une file si besoin plus tard.
+
+---
+
+## Pièges fréquents
+
+- Domaine non vérifié : spam ou rebonds
+- Clé API côté client : le navigateur ne doit jamais la voir
+- Bloquer le webhook Stripe en attendant le réseau : répondez d’abord, travaillez en arrière‑plan
+- Doublons lors des retentes Stripe : stockez `event.id` pour l’idempotence
+
+---
+
+## Liste de contrôle
+
+- [ ] Compte Resend + domaine vérifié
+- [ ] `RESEND_API_KEY` et `EMAIL_FROM` dans `.env.local`
+- [ ] `@react-email/render` installé
+- [ ] `src/services/email/` en place (envoi + templates)
+- [ ] Déclencheurs branchés (signup + webhook Stripe)
+- [ ] Testé en local et visible dans Resend
+
+Page accessible via `/:locale/blogs/email-service` en développement.

@@ -95,6 +95,24 @@ export const auth = betterAuth({
             },
           };
         },
+        after: async (created) => {
+          try {
+            const email = (created as any).email as string | undefined;
+            const name = (created as any).nickname as string | undefined;
+            if (email) {
+              queueMicrotask(() => {
+                import("@/services/email/send").then((m) =>
+                  m
+                    .sendWelcomeEmail(email, name)
+                    .catch((e) => console.error("welcome email failed", e))
+                );
+              });
+            }
+          } catch (e) {
+            console.error("failed to dispatch welcome email", e);
+          }
+          // Do not block or modify result; just side-effect
+        },
       },
     },
   },
