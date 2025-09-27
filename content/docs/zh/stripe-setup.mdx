@@ -74,3 +74,41 @@ stripe trigger checkout_session_completed
 - `handleCheckoutSession` 同时支持一次性与订阅（订阅场景从最新账单获取 PaymentIntent）。
 - 可扩展处理 `invoice.payment_succeeded` 实现订阅续费时自动充值积分。
 
+---
+
+## 计费与订阅
+
+### 客户门户（Customer Portal）
+
+在 Stripe 后台启用 Customer Portal，并配置可用功能（取消/恢复、更新卡片、查看发票等）。
+
+本模板提供：
+
+- API：`GET /api/billing/portal` — 创建门户会话并 302 跳转到 Stripe
+- UI：`/:locale/account/billing` — “Manage billing” 按钮打开门户
+
+实现位置：
+
+- API 路由：`src/app/api/billing/portal/route.ts`
+  - 通过登录用户的邮箱查找或创建 Stripe Customer
+  - 使用 `return_url` 返回到 `/:locale/account/billing`
+
+页面（Server Component）：
+
+- `src/app/[locale]/account/billing/page.tsx` 链接到 `/api/billing/portal?locale=<locale>`
+
+### 催款（支付失败）
+
+Webhook `invoice.payment_failed`：通过 Resend 发送“更新付款方式”的提示邮件。
+
+- 模板：`src/services/email/templates/payment-failed.tsx`
+- 发送函数：`sendPaymentFailedEmail()`（`src/services/email/send.ts`）
+- Webhook：`src/app/api/pay/webhook/stripe/route.ts`
+
+本地测试（Stripe CLI）：
+
+```bash
+stripe trigger invoice_payment_failed
+```
+
+说明：邮件中包含 `/:locale/account/billing` 链接，用户可从你的应用打开门户。

@@ -72,3 +72,39 @@ stripe trigger checkout_session_completed
 - `handleCheckoutSession` は一括・サブスク両対応（サブスクは最新請求書から PaymentIntent を取得）。
 - 更新時は `invoice.payment_succeeded` のハンドラ追加も検討。
 
+## 請求とサブスクリプション
+
+### カスタマーポータル
+
+Stripe の Customer Portal を有効化し、顧客が行える操作（解約/再開、カード更新、請求書閲覧）を設定します。
+
+本テンプレートには以下を用意しています：
+
+- API: `GET /api/billing/portal` — ポータルセッションを作成して Stripe にリダイレクト
+- UI: `/:locale/account/billing` — 「Manage billing」ボタンでポータルを開く
+
+実装箇所：
+
+- API ルート: `src/app/api/billing/portal/route.ts`
+  - ログイン中ユーザーのメールで Stripe Customer を検索/作成
+  - `return_url` を `/:locale/account/billing` に設定
+
+UI（Server Component）：
+
+- `src/app/[locale]/account/billing/page.tsx` から `/api/billing/portal?locale=<locale>` へリンク
+
+### 督促（支払い失敗）
+
+Webhook `invoice.payment_failed` で、支払い方法の更新を促すメール（Resend）を送信します。
+
+- テンプレート: `src/services/email/templates/payment-failed.tsx`
+- 送信関数: `sendPaymentFailedEmail()`（`src/services/email/send.ts`）
+- Webhook 実装: `src/app/api/pay/webhook/stripe/route.ts`
+
+Stripe CLI でのテスト：
+
+```bash
+stripe trigger invoice_payment_failed
+```
+
+備考：メールに `/:locale/account/billing` へのリンクを含め、アプリからポータルを開けます。

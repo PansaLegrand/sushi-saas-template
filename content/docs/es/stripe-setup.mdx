@@ -78,3 +78,41 @@ Nota: `payment_intent.succeeded` no se maneja por defecto. Usa el evento `checko
 - `handleCheckoutSession` soporta pagos únicos y suscripciones (busca el PaymentIntent en la factura más reciente para suscripciones).
 - Extiende el webhook para `invoice.payment_succeeded` si quieres recargar créditos en renovaciones.
 
+---
+
+## Facturación y Suscripciones
+
+### Portal del Cliente
+
+Activa el Customer Portal de Stripe y personaliza qué puede gestionar el usuario (cancelar/reanudar, actualizar tarjeta, ver facturas).
+
+Incluido en este template:
+
+- API: `GET /api/billing/portal` — crea una sesión de portal y redirige a Stripe
+- UI: `/:locale/account/billing` — botón “Manage billing” que abre el portal
+
+Implementación:
+
+- Ruta API: `src/app/api/billing/portal/route.ts`
+  - Busca o crea un Customer de Stripe por el email del usuario autenticado
+  - Crea una sesión de portal con `return_url` a `/:locale/account/billing`
+
+Uso en la interfaz (Server Component):
+
+- `src/app/[locale]/account/billing/page.tsx` enlaza a `/api/billing/portal?locale=<locale>`
+
+### Cobros fallidos (Dunning)
+
+Webhook: `invoice.payment_failed` envía un email para actualizar el método de pago mediante Resend.
+
+- Plantilla: `src/services/email/templates/payment-failed.tsx`
+- Envío: `sendPaymentFailedEmail()` en `src/services/email/send.ts`
+- Webhook: ver `src/app/api/pay/webhook/stripe/route.ts`
+
+Prueba local con Stripe CLI:
+
+```bash
+stripe trigger invoice_payment_failed
+```
+
+Nota: El email incluye enlace a `/:locale/account/billing` para abrir el portal.

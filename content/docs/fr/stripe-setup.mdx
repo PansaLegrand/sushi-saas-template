@@ -71,3 +71,41 @@ stripe trigger checkout_session_completed
 - `handleCheckoutSession` gère paiement unique et abonnement (PaymentIntent via `latest_invoice`).
 - Ajoutez `invoice.payment_succeeded` si nécessaire pour les renouvellements.
 
+---
+
+## Facturation et Abonnements
+
+### Portail Client
+
+Activez le Customer Portal de Stripe et choisissez ce que vos clients peuvent gérer (annuler/reprendre, mettre à jour la carte, consulter les factures).
+
+Dans ce template :
+
+- API : `GET /api/billing/portal` — crée une session du portail et redirige vers Stripe
+- UI : `/:locale/account/billing` — bouton « Manage billing » qui ouvre le portail
+
+Implémentation :
+
+- Route API : `src/app/api/billing/portal/route.ts`
+  - Recherche ou crée un Customer Stripe via l’email de l’utilisateur connecté
+  - Crée une session de portail avec `return_url` vers `/:locale/account/billing`
+
+Côté interface (Server Component) :
+
+- `src/app/[locale]/account/billing/page.tsx` pointe vers `/api/billing/portal?locale=<locale>`
+
+### Relance (Paiements échoués)
+
+Webhook : `invoice.payment_failed` déclenche un email demandant la mise à jour du moyen de paiement (via Resend).
+
+- Template : `src/services/email/templates/payment-failed.tsx`
+- Envoi : `sendPaymentFailedEmail()` dans `src/services/email/send.ts`
+- Webhook : voir `src/app/api/pay/webhook/stripe/route.ts`
+
+Test local avec Stripe CLI :
+
+```bash
+stripe trigger invoice_payment_failed
+```
+
+Remarque : l’email inclut un lien vers `/:locale/account/billing` pour ouvrir le portail depuis l’app.

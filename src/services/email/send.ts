@@ -62,3 +62,19 @@ export async function sendPaymentSuccessEmail(
   );
   return sendMail({ to, subject: "Payment received", html });
 }
+
+export async function sendPaymentFailedEmail(
+  to: string,
+  opts: { invoiceNumber?: string | null; amount?: number | null; currency?: string | null; manageUrl?: string }
+) {
+  const { default: PaymentFailed } = await import("./templates/payment-failed");
+  const html = render(
+    PaymentFailed({
+      invoiceNumber: opts.invoiceNumber ?? undefined,
+      amount: typeof opts.amount === "number" ? opts.amount : undefined,
+      currency: opts.currency ?? undefined,
+      manageUrl: opts.manageUrl,
+    })
+  );
+  return sendMail({ to, subject: "Payment failed — update your payment method", html });
+}

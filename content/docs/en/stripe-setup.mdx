@@ -113,3 +113,41 @@ If you enable RMB/WeChat Pay, ensure those payment methods are active in your St
 - Persist Stripe IDs (subscription, invoice) alongside orders for richer admin views.
 - Add idempotency keys if you extend the flow to multiple writes per event.
 
+---
+
+## Billing & Subscriptions
+
+### Customer Portal
+
+Enable Stripe’s Customer Portal in the dashboard and customize the features you want (cancel/resume, update payment method, view invoices).
+
+This template exposes:
+
+- API: `GET /api/billing/portal` — creates a portal session and redirects to Stripe
+- UI: `/:locale/account/billing` — contains a “Manage billing” button that opens the portal
+
+Implementation:
+
+- API route: `src/app/api/billing/portal/route.ts`
+  - Finds or creates a Stripe Customer by the signed-in user’s email
+  - Creates a portal session with a `return_url` back to `/:locale/account/billing`
+
+Usage in the UI (server component):
+
+- `src/app/[locale]/account/billing/page.tsx` renders a link to `/api/billing/portal?locale=<locale>`
+
+### Dunning (Failed Payments)
+
+Webhook: `invoice.payment_failed` is handled to send a friendly “update your payment method” email via Resend.
+
+- Template: `src/services/email/templates/payment-failed.tsx`
+- Sender: `sendPaymentFailedEmail()` in `src/services/email/send.ts`
+- Webhook wiring: see `src/app/api/pay/webhook/stripe/route.ts`
+
+Local test via Stripe CLI:
+
+```bash
+stripe trigger invoice_payment_failed
+```
+
+Note: Emails include a link back to `/:locale/account/billing` so users can open the Customer Portal from your app.

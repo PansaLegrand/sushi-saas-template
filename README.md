@@ -11,6 +11,14 @@ This repo aims to be a clean base that you can ship fast and grow safely.
 
 ---
 
+## Contact
+
+I have 5+ years of experience in NLP and I’m now doing a lot of full‑stack work. I speak English, French, and Chinese. I’m actively looking for remote opportunities and can help you build with this template — paid implementation or consultancy.
+
+Contact: pansalegrand@gmail.com
+
+---
+
 ## Contributor Guide
 
 New contributors should review [Repository Guidelines](./AGENTS.md) for project structure, workflows, and review expectations before making changes.
@@ -173,6 +181,30 @@ See `/en/blogs/database-setup` for the full guide.
 - `pnpm dev` – generates MDX map and starts Next with Turbopack
 - `pnpm dev:webpack` – same but using Webpack (useful if Turbopack plugins misbehave)
 - `pnpm build` / `pnpm start` – production build & start
+
+---
+
+## Email (Resend)
+
+This template integrates transactional email via Resend.
+
+- Code
+  - Service: `src/services/email/send.ts` (sendMail, sendWelcomeEmail, sendPaymentSuccessEmail)
+  - Templates: `src/services/email/templates/*` (welcome, payment-success)
+  - Triggers: welcome on user create (`src/lib/auth.ts`), payment confirmation in Stripe webhook (`src/app/api/pay/webhook/stripe/route.ts`)
+- Env
+
+```env
+RESEND_API_KEY=...
+EMAIL_FROM="Your Name <founder@your-domain.com>"  # use your verified domain/subdomain
+```
+
+- Notes
+  - Verify your domain in Resend; prefer a subdomain like `send.your-domain.com` and copy DNS values exactly.
+  - Use a friendly From name and address (avoid `no-reply@`).
+  - Emails are sent in the background; webhooks are acknowledged quickly.
+
+Read the full guide at `/en/blogs/email-service` (also available in es/fr/ja/zh).
 
 ---
 

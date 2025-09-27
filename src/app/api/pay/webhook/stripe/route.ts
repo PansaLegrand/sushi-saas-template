@@ -1,6 +1,6 @@
 import Stripe from "stripe";
 import { handleCheckoutSession } from "@/services/stripe";
-import { sendPaymentSuccessEmail } from "@/services/email/send";
+import { sendPaymentSuccessEmail, sendPaymentFailedEmail } from "@/services/email/send";
 
 // Stripe sends webhook events via POST requests with a signed payload.
 // Configure Stripe CLI or dashboard to forward events to this endpoint:
@@ -52,6 +52,24 @@ export async function POST(req: Request) {
             sendPaymentSuccessEmail(to, { orderNo, amount, currency }).catch((e) => {
               console.error("payment email failed", e);
             });
+          });
+        }
+        break;
+      }
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const to = invoice.customer_email || (invoice.customer as string | null) || null;
+        if (invoice.customer_email) {
+          const amountDue = typeof invoice.amount_due === "number" ? invoice.amount_due / 100 : undefined;
+          const manageUrlBase = process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000";
+          const manageUrl = `${manageUrlBase}/en/account/billing`;
+          queueMicrotask(() => {
+            sendPaymentFailedEmail(invoice.customer_email!, {
+              invoiceNumber: invoice.number || invoice.id,
+              amount: amountDue,
+              currency: invoice.currency || undefined,
+              manageUrl,
+            }).catch((e) => console.error("dunning email failed", e));
           });
         }
         break;
