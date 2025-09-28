@@ -1,0 +1,58 @@
+---
+title: 招待・アフィリエイトと報酬
+icon: "Users"
+---
+
+本テンプレートは、招待リンク／アフィリエイトを標準搭載します。リンク共有→Cookieでの帰属→登録／決済での報酬付与まで一通り揃っています。
+
+---
+
+## コードマップ
+
+- 招待リダイレクト（ローカライズ）: `src/app/[locale]/i/[inviteCode]/route.ts`
+- 署名後の帰属確定 API: `src/app/api/affiliate/update-invite/route.ts`
+- 招待コード API: `src/app/api/affiliate/invite-code/route.ts`
+- 報酬ロジック＋重複排除: `src/services/affiliate.ts`
+- Stripe 連携（支払い後）: `src/services/stripe.ts`
+- ユーザーページ: `src/app/[locale]/my-invites/page.tsx`
+  - コンポーネント: `invite-link.tsx`, `summary-cards.tsx`, `affiliate-table.tsx`
+- 管理ページ: `src/app/(admin)/admin/affiliates/page.tsx`
+- クライアント初期化: `src/providers/affiliate-init.tsx`（`src/providers/theme.tsx` から読み込み）
+
+---
+
+## 全体の流れ
+
+1) `/:locale/i/<inviteCode>` にアクセス → `ref` Cookie を30日間設定し、トップへリダイレクト。
+2) 登録／ログイン後 → `/api/affiliate/update-invite` を1回呼び出し、`invited_by` が未設定なら保存し、登録行を追加（デフォルトでは報酬0）。
+3) 決済成功（Stripe） → 固定／割合／ハイブリッドのいずれかで報酬を算出、`paid_order_no` で重複排除した行を追加。
+4) 画面 → `/[locale]/my-invites`（ユーザー）、`/admin/affiliates`（管理者）。
+
+---
+
+## 設定
+
+ファイル: `src/data/affiliate.ts`
+
+- プログラム: `enabled`, `attributionWindowDays`, `allowSelfReferral`, `attributionModel`
+- 報酬: `commissionMode`（fixed_only / percent_only / greater_of / sum）, `signup`, `paid`
+- 付与タイプ: `payoutType = "cash"`（通貨の最小単位）または `"credits"`（アプリ内クレジット）
+- リンク: `sharePath`（デフォルト `/i`）, `myInvitesPath`
+
+共有ベースURL: `NEXT_PUBLIC_WEB_URL`。
+
+---
+
+## ローカル検証
+
+- `/[locale]/my-invites` でリンクを生成・コピー。
+- シークレットウィンドウで開いて登録→ログイン後、`my-invites` で件数を確認。
+- Stripe テスト決済後、管理画面で報酬行を確認。
+
+---
+
+## ヒント
+
+- Cookie は同一ホスト（`NEXT_PUBLIC_WEB_URL`）で設定されます。
+- クライアントは 200 応答でのみ成功フラグをセット。ログイン前に呼ばれた場合はログイン後に再試行します。
+- 二重付与はありません（`paid_order_no` で重複排除）。

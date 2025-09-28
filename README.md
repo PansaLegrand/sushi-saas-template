@@ -6,6 +6,7 @@ Launch‑ready SaaS starter with:
 - Health endpoint (`/api/health`)
 - Authentication server scaffold (Better Auth)
 - Docs/blogs powered by MDX (Fumadocs)
+- Affiliates & referrals (invite links, attribution, configurable rewards)
 
 This repo aims to be a clean base that you can ship fast and grow safely.
 
@@ -73,7 +74,9 @@ src/
 │  ├─ auth.ts               # Better Auth server config
 │  └─ utils.ts              # small helpers
 ├─ providers/
-│  └─ theme.tsx             # theme + Toaster
+│  ├─ theme.tsx             # theme + Toaster + global providers
+│  ├─ google-analytics.tsx  # GA injection (prod only)
+│  └─ affiliate-init.tsx    # one-shot client hook to finalize attribution
 └─ contexts/
    └─ app.tsx               # app-level provider (placeholder)
 
@@ -175,6 +178,33 @@ Drizzle. Before testing auth, make sure:
 See `/en/blogs/database-setup` for the full guide.
 
 ---
+
+## Affiliates & Referrals
+
+Turn on referrals to reward users for signups and purchases.
+
+- Share links: `/:locale/i/<inviteCode>` set a 30‑day `ref` cookie and redirect.
+- Finalize attribution after login/signup via `/api/affiliate/update-invite`.
+- Rewards on paid orders via `src/services/affiliate.ts` (fixed/percent/hybrid, deduped by order).
+- User page: `/:locale/my-invites` shows link, summary, activity. Admin page: `/admin/affiliates`.
+
+Configuration: `src/data/affiliate.ts`
+
+- Program: `enabled`, `attributionWindowDays`, `allowSelfReferral`, `attributionModel`
+- Rewards: `commissionMode` (fixed_only | percent_only | greater_of | sum), `signup`, `paid`
+- Payout type: `payoutType = "cash"` (cents) or `"credits"` (in‑app credits)
+- Share path: `sharePath` (default `/i`); base URL uses `NEXT_PUBLIC_WEB_URL`
+
+Local test
+
+1. Visit `/:locale/my-invites`, copy your link
+2. Open in incognito, sign up, then revisit `my-invites`
+3. Run a Stripe test payment; check admin page for rewards
+
+Gotchas
+
+- Ensure `NEXT_PUBLIC_WEB_URL` matches your local origin (e.g., `http://localhost:3000`).
+- The client hook only marks success when the API returns 200; if it fires pre‑login, it will retry post‑login.
 
 ## Health Check
 

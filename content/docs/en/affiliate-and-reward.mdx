@@ -1,0 +1,186 @@
+---
+title: Invite, Affiliates & Rewards
+icon: "Users"
+---
+
+## Overview
+
+This template includes an invite + affiliate system you can turn on to reward users for bringing new users and purchases. It is privacy‑friendly and simple by default, and you can customize the rules without changing the database schema.
+
+---
+
+## Concepts
+
+- Invite link: a shareable URL like `/i/<inviteCode>` that attributes visits.
+- Attribution: we store who invited whom (`users.invited_by`) on first signup.
+- Affiliate record: rows in `affiliates` track meaningful events (signup or paid order) and the reward granted for that event.
+- Rewards: can be a fixed amount (e.g., $50) and/or a percent of order amount (e.g., 20%).
+
+---
+
+## Data Model
+
+- `users` (existing)
+  - `invite_code` (string): user’s personal code (not a secret).
+  - `invited_by` (string): UUID of the inviter (empty if none/self).
+  - `is_affiliate` (boolean): optional toggle to highlight affiliate users in the UI.
+
+- `affiliates` (existing)
+  - `user_uuid`: the user who performed the action (registered or paid).
+  - `invited_by`: the referrer’s user UUID.
+  - `status`: `pending` | `completed` | `canceled` | `ignored`.
+  - `paid_order_no`: order number for paid events (empty for signup-only rows).
+  - `paid_amount`: order amount in minor units (e.g., cents).
+  - `reward_percent`: percent used for this event (0 if unused).
+  - `reward_amount`: final reward granted for this event (fixed amount in minor units).
+
+This allows both “record at signup” and “reward at payment” without extra tables.
+
+---
+
+## Default Program Rules
+
+You can change these in `src/data/affiliate.ts`.
+
+- Program is enabled.
+- Attribution model: first‑touch (first invite wins; we ignore later invites).
+- Attribution window: 30 days (via cookie).
+- Self‑referrals are ignored.
+- Signup reward: off by default (record status only, no payout).
+- Paid order reward: on by default
+  - Fixed: $50 per paid order.
+  - Percent: 20% (optional; if both fixed and percent are set, you decide how to combine them — see Implementation Notes).
+
+---
+
+## User Flows
+
+### 1) Generate a personal invite link
+
+- Page: `/[locale]/my-invites`
+- The page shows the user’s `invite_code` and share URL: `${NEXT_PUBLIC_WEB_URL}/i/<inviteCode>`.
+- If the code is missing, the user can generate it (persist via `updateUserInviteCode`).
+
+### 2) Share link handling
+
+- Route: `/i/[inviteCode]`
+- Behavior:
+  - Look up the inviter with `findUserByInviteCode(inviteCode)`.
+  - If found, set a `ref` cookie with the inviter’s `uuid` for 30 days, then redirect to the landing page (localized home or signup).
+  - If not found, redirect normally without cookie.
+
+### 3) Signup attribution
+
+- On successful signup:
+  - If the `ref` cookie exists and points to a different user, set `users.invited_by` to that UUID and clear the cookie.
+  - Optionally, insert an `affiliates` row with `status = pending` for the signup event and the configured signup reward (defaults to 0 so it’s just an audit row).
+
+### 4) Paid order commission
+
+- When an order transitions to `paid`:
+  - Load the buyer; if `invited_by` is present and not self, check `affiliates` for an existing row with the same `paid_order_no`.
+  - If none exists, insert a row with `status = completed`, fill `paid_order_no`, `paid_amount`, and compute `reward_amount` based on the config (fixed and/or percent).
+  - Do not duplicate rewards for the same order.
+  - Subscriptions: each successful renewal that produces a `paid` order can generate its own affiliate row and reward (configurable if you want only the first payment to count).
+
+### 5) Admin views & payout
+
+- Admin page `/admin/affiliates` can list:
+  - Invited users per referrer, signup vs paid counts, and total rewards.
+  - Export CSV for manual payouts.
+- Online withdrawals are not implemented by default; payout is manual.
+
+---
+
+## Implementation Notes
+
+- Attribution policy: the simplest is first‑touch — if a user already has `invited_by`, ignore new cookies.
+- Cookie name: `ref` (customizable) and a 30‑day max age.
+- Anti‑abuse: ignore self‑referrals; dedupe by `paid_order_no`; allow admins to cancel rows (set `status = canceled`).
+- Currencies: `paid_amount` and `reward_amount` are stored in minor units (e.g., cents) and should match the order’s currency.
+- Reward math (suggested):
+  - If both percent and fixed are configured, either: (a) pay the greater of the two, or (b) pay both (hybrid). The template exposes a `CommissionMode` toggle to pick the strategy.
+
+---
+
+## Configuration Surface
+
+All knobs live in `src/data/affiliate.ts`:
+
+- Program: `enabled`, `attributionWindowDays`, `allowSelfReferral`, `attributionModel`.
+- Links: `sharePath` (default `/i`), `myInvitesPath` (`/[locale]/my-invites`).
+- Rewards: `signup.fixed`, `signup.percent`, `paid.fixed`, `paid.percent`, `commissionMode`.
+  - If `payoutType = "credits"`, treat `reward_amount` as credits. In that case, prefer using fixed amounts (set percent to 0), or convert currency→credits in code.
+
+You can also mirror a subset to environment variables later if you want runtime toggles.
+
+---
+## What’s Included (Code Map)
+
+- Invite redirect route: sets cookie then redirects (localized)
+  - `src/app/[locale]/i/[inviteCode]/route.ts:1`
+- Signup attribution API: finalizes `invited_by` and records signup row
+  - `src/app/api/affiliate/update-invite/route.ts:1`
+- Invite code API: get or generate personal invite link
+  - `src/app/api/affiliate/invite-code/route.ts:1`
+- Affiliate service: reward math + dedupe per order
+  - `src/services/affiliate.ts:1`
+- Stripe integration: calls affiliate update after payment
+  - `src/services/stripe.ts:1`
+- User page: invite link, summary, and activity
+  - `src/app/[locale]/my-invites/page.tsx:1`
+  - Components: `src/components/affiliate/invite-link.tsx:1`, `src/components/affiliate/summary-cards.tsx:1`, `src/components/affiliate/affiliate-table.tsx:1`
+- Admin page: global affiliate list
+  - `src/app/(admin)/admin/affiliates/page.tsx:1`
+- Client init: calls attribution API once per session after login/signup
+  - `src/providers/affiliate-init.tsx:1`
+  - Included globally via: `src/providers/theme.tsx:1`
+
+---
+
+## End‑to‑End Walkthrough
+
+1) User visits your share link
+- Format: `${NEXT_PUBLIC_WEB_URL}/i/<inviteCode>`
+- Server looks up the inviter and sets a `ref` cookie for 30 days, then redirects to your home/signup.
+
+2) User signs up or logs in
+- A lightweight client hook runs once per session and POSTs to `/api/affiliate/update-invite`.
+- If the `ref` cookie is set and the user has no `invited_by`, we set it to the inviter’s UUID and record a signup row (no payout by default).
+
+3) User purchases
+- When Stripe marks an order paid, we compute a reward using your config (fixed, percent, or hybrid) and insert a completed affiliate row.
+- Dedupe by `paid_order_no` prevents double rewards.
+
+4) Users and Admins view results
+- User page (`/[locale]/my-invites`) shows the share link, invited/paid counts, and reward activity.
+- Admin page lists all affiliate rows and totals for manual payout/export.
+
+---
+
+## Customize The Defaults
+
+- Commission math: edit `commissionMode` and the values in `paid` and `signup` inside `src/data/affiliate.ts:1`.
+- Payout semantics: set `payoutType` to `cash` (default; minor currency units) or `credits` (treat `reward_amount` as in‑app credits to grant to the inviter).
+- Attribution window: change `attributionWindowDays` (cookie max‑age), and `allowSelfReferral` to permit/deny self‑referrals.
+- Link structure: adjust `sharePath` (default `/i`) and `myInvitesPath`. Share URLs use `NEXT_PUBLIC_WEB_URL` as the base.
+- Subscriptions: by default, each paid period can reward; to pay only the first payment, add a guard in `src/services/affiliate.ts:1` (e.g., check buyer’s first paid order).
+
+After edits, rebuild the app: `pnpm build && pnpm start`.
+
+---
+
+## Verify Locally
+
+- Generate invite link: visit `/<locale>/my-invites`, copy link.
+- Open link in an incognito window, sign up, then refresh `my-invites` to see a new invited user (pending signup row).
+- Complete a test Stripe checkout; after the webhook updates the order, a completed affiliate row appears with the calculated reward.
+
+---
+
+## Gotchas & Tips
+
+- Base URL: set `NEXT_PUBLIC_WEB_URL` to match the origin you’re testing (e.g., `http://localhost:3000`).
+- Cookies: the referral cookie is set on the same host; incognito testing avoids existing sessions.
+- Attribution timing: the client hook only marks success if the server returns 200; if the first call happens pre‑login it will retry after login.
+- Dedupe: rewards are deduped by `paid_order_no`; reprocessing a webhook won’t double‑pay.

@@ -5,6 +5,7 @@ import {
   updateOrderStatus,
 } from "@/models/order";
 import { increaseCredits, CreditsTransType } from "@/services/credit";
+import { updateAffiliateForOrder } from "@/services/affiliate";
 
 export async function handleCheckoutSession(
   stripe: Stripe,
@@ -72,4 +73,10 @@ export async function handleCheckoutSession(
       order_no: order.order_no,
     });
   }
+
+  // Update affiliate rewards for this paid order.
+  await updateAffiliateForOrder({
+    ...order,
+    interval: (order as any).interval ?? "",
+  } as any);
 }

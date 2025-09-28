@@ -12,3 +12,4 @@ out
 /.source
 /.next
 /scripts
+tsconfig.tsbuildinfo
