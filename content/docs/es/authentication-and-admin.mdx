@@ -1,0 +1,57 @@
+---
+title: Autenticación y Admin
+description: Configura roles de administrador de solo lectura y lectura/escritura, protege las APIs de admin y entiende el flujo de autenticación del template.
+---
+
+# Autenticación y Admin
+
+Este template usa Better Auth + Drizzle. El control de acceso (RBAC) se basa en la base de datos, sin elevación por variables de entorno.
+
+## Roles
+
+- `user`: por defecto.
+- `admin_ro`: solo lectura; puede listar usuarios, pedidos y ver créditos de un usuario.
+- `admin_rw`: lectura + operaciones; además puede otorgar créditos (`trans_type = system_add`).
+
+La migración `0001_add_user_role.sql` añade `users.role` con valor por defecto `user`.
+
+## Autorización
+
+- `src/lib/authz.ts` obtiene el rol desde la sesión/BD:
+  - `requireAdminRead()` → permite `admin_ro`/`admin_rw`.
+  - `requireAdminWrite()` → permite `admin_rw`.
+
+## Endpoints de Admin
+
+- `GET /api/admin/users` → lista de usuarios (paginación `page`, `limit`).
+- `GET /api/admin/orders` → pedidos pagados (paginación).
+- `GET /api/admin/users/:uuid/credits` → resumen de créditos.
+- `POST /api/admin/credits/grant` → otorga créditos como `system_add`.
+
+## Pasos de configuración
+
+1) Migrar BD:
+
+```bash
+pnpm drizzle-kit migrate --config src/db/config.ts
+```
+
+2) Verificar endpoints (con una cuenta admin).
+
+## Cambiar roles
+
+Usa la base de datos como fuente de verdad:
+
+- SQL:
+  ```sql
+  update users set role = 'admin_rw' where uuid = '<uuid>';
+  ```
+- Helper de código:
+  - `updateUserRole(uuid, 'admin_ro' | 'admin_rw' | 'user')` en `src/models/user.ts`.
+
+## Notas
+
+- Protege cuentas admin con MFA/SSO y sesiones más cortas.
+- Asegura páginas de admin en componentes de servidor y redirige si no hay permisos.
+- Los roles no se configuran por .env; cámbialos en la BD.
+

@@ -29,6 +29,8 @@ export const users = pgTable(
     invited_by: varchar({ length: 255 }).notNull().default(""),
     is_affiliate: boolean().notNull().default(false),
     email_verified: boolean().notNull().default(false),
+    // Role-based access control: "user" | "admin_ro" | "admin_rw"
+    role: varchar({ length: 50 }).notNull().default("user"),
   },
   (table) => [
     uniqueIndex("email_provider_unique_idx").on(

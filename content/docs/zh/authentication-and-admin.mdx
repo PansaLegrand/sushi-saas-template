@@ -1,0 +1,57 @@
+---
+title: 认证与管理员角色
+description: 使用数据库管理只读/读写管理员角色，保护管理 API，并介绍本模板的认证流程。
+---
+
+# 认证与管理员角色
+
+本模板基于 Better Auth + Drizzle。RBAC 仅存储在数据库中，不支持通过环境变量临时提升权限。
+
+## 角色
+
+- `user`：默认角色。
+- `admin_ro`：只读管理员；可查看用户列表/订单列表及用户积分汇总。
+- `admin_rw`：读写管理员；在只读权限基础上可为用户增加积分（`system_add`）。
+
+迁移 `0001_add_user_role.sql` 会为 `users` 表新增 `role` 字段，默认 `user`。
+
+## 授权
+
+- `src/lib/authz.ts` 仅从会话/数据库获取角色：
+  - `requireAdminRead()` → 允许 `admin_ro`/`admin_rw`。
+  - `requireAdminWrite()` → 仅允许 `admin_rw`。
+
+## 管理 API
+
+- `GET /api/admin/users` → 用户列表（分页：`page`, `limit`）。
+- `GET /api/admin/orders` → 已支付订单（分页）。
+- `GET /api/admin/users/:uuid/credits` → 用户积分汇总。
+- `POST /api/admin/credits/grant` → 以 `system_add` 方式增加积分。
+
+## 配置步骤
+
+1) 数据库迁移：
+
+```bash
+pnpm drizzle-kit migrate --config src/db/config.ts
+```
+
+2) 使用管理员账号验证以上接口。
+
+## 修改角色
+
+以数据库为唯一来源：
+
+- SQL：
+  ```sql
+  update users set role = 'admin_rw' where uuid = '<uuid>';
+  ```
+- 代码助手：
+  - `updateUserRole(uuid, 'admin_ro' | 'admin_rw' | 'user')` 位于 `src/models/user.ts`。
+
+## 说明
+
+- 管理账号建议开启 MFA/SSO，并缩短会话有效期。
+- 管理页面需在服务端做权限校验，未授权则重定向。
+- 角色不通过 .env 控制；请在数据库中进行赋权/回收。
+

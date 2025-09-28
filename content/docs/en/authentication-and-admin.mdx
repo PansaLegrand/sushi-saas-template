@@ -1,0 +1,86 @@
+---
+title: Admin Roles & Authorization
+description: Configure read-only and read/write admin roles, protect admin APIs, and understand the authentication pipeline used by this template.
+---
+
+# Authentication & Admin
+
+This template uses Better Auth + Drizzle for authentication and sessions. A simple, DB‑backed RBAC layer adds two admin roles on top of regular users. Roles are stored in the database only (no env-based elevation).
+
+## Auth Pipeline Overview
+
+- Library: Better Auth (`src/lib/auth.ts`) with Drizzle adapter to Postgres (`src/db/schema.ts`).
+- Users are stored in `users`. Sessions, accounts, and verifications live in `sessions`, `accounts`, `verifications`.
+- The session is fetched in App Router via `auth.api.getSession({ headers })`.
+- Custom user fields are exposed to the session via `additionalFields` (we include `uuid` and `role`).
+
+## Roles
+
+- `user`: default for everyone.
+- `admin_ro`: read‑only admin; can list users, list orders, and view a user’s credit summary.
+- `admin_rw`: read + operation admin; includes all read‑only powers and can grant credits to users (`trans_type = system_add`).
+
+Table changes (migration `0001_add_user_role.sql`) add `users.role` with default `user`.
+
+## How Authorization Works
+
+- Helpers in `src/lib/authz.ts` derive the current user’s role from the session/DB only:
+  - `requireAdminRead()` → allows `admin_ro`/`admin_rw`.
+  - `requireAdminWrite()` → allows `admin_rw`.
+
+## Admin APIs
+
+All endpoints are server‑only and role‑guarded:
+
+- `GET /api/admin/users` → list users. Query: `page`, `limit`.
+- `GET /api/admin/orders` → list paid orders. Query: `page`, `limit`.
+- `GET /api/admin/users/:uuid/credits` → credit summary + recent ledger.
+- `POST /api/admin/credits/grant` → grant credits as `system_add`.
+
+```jsonc
+// POST /api/admin/credits/grant body
+{
+  "userUuid": "<target-user-uuid>",
+  "credits": 100,
+  "expiredAt": null,     // optional ISO string or null
+  "orderNo": "",         // optional
+  "note": "promo Q4"     // reserved for future auditing
+}
+```
+
+## Setup Steps
+
+1) Migrate DB
+
+Run migrations to add the `role` column:
+
+```bash
+pnpm drizzle-kit generate --config src/db/config.ts
+pnpm drizzle-kit migrate --config src/db/config.ts
+```
+
+This repo includes `src/db/migrations/0001_add_user_role.sql` so a generate is optional if you don’t change the schema further.
+
+2) Verify endpoints
+
+- Call `GET /api/admin/users` as an admin to confirm access.
+- Call `POST /api/admin/credits/grant` with a target `userUuid` to add credits; the ledger shows `trans_type = system_add`.
+
+## Changing Roles
+
+Update roles in the database (authoritative source):
+
+- SQL (direct):
+  ```sql
+  update users set role = 'admin_rw' where uuid = '<uuid>';
+  ```
+- Update via code helper:
+  - `updateUserRole(uuid, 'admin_ro' | 'admin_rw' | 'user')` in `src/models/user.ts`.
+
+## Notes & Tips
+
+- The existing dev endpoint `POST /api/account/credits/grant` is for local testing; lock it down or remove in production in favor of the admin endpoint above.
+- Consider adding an audit log table if you need to track who granted credits (operator UUID, timestamp, reason).
+- Protect admin accounts with MFA/SSO and shorter session TTLs.
+- Only expose admin UI/pages after guarding them on the server (check role in the server component and redirect if unauthorized).
+- Roles are not controlled by environment variables; use DB changes for assignment/revocation.

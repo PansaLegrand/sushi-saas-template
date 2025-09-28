@@ -134,3 +134,18 @@ export async function getUserCountByDate(
 
   return dateCountMap;
 }
+
+export type UserRole = "user" | "admin_ro" | "admin_rw";
+
+export async function updateUserRole(
+  user_uuid: string,
+  role: UserRole
+): Promise<typeof users.$inferSelect | undefined> {
+  const [user] = await db()
+    .update(users)
+    .set({ role, updated_at: new Date() })
+    .where(eq(users.uuid, user_uuid))
+    .returning();
+
+  return user;
+}

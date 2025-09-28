@@ -45,3 +45,9 @@ export function respNoAuth(message = "no auth"): Response {
     status: 401,
   });
 }
+
+export function respForbidden(message = "forbidden"): Response {
+  return respJson(ApiResponseCode.Unauthorized, message, undefined, {
+    status: 403,
+  });
+}

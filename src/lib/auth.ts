@@ -32,6 +32,10 @@ export const auth = betterAuth({
         input: false,
         fieldName: "uuid",
       }),
+      role: createFieldAttribute("string", {
+        input: false,
+        fieldName: "role",
+      }),
     },
   },
   session: {

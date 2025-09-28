@@ -1,0 +1,57 @@
+---
+title: 認証と管理者ロール
+description: 読み取り専用/読み取り+操作の管理者ロールをDBで管理し、管理APIを保護し、このテンプレートの認証パイプラインを説明します。
+---
+
+# 認証と管理者ロール
+
+このテンプレートは Better Auth + Drizzle を使用します。RBAC はデータベースに保存し、環境変数での昇格は行いません。
+
+## ロール
+
+- `user`: 既定ロール。
+- `admin_ro`: 読み取り専用。ユーザー/注文の一覧、ユーザーのクレジット閲覧。
+- `admin_rw`: 読み取り+操作。`system_add` でクレジット付与も可能。
+
+マイグレーション `0001_add_user_role.sql` で `users.role`（既定値 `user`）を追加します。
+
+## 認可
+
+- `src/lib/authz.ts` がセッション/DB からロールを取得します：
+  - `requireAdminRead()` → `admin_ro`/`admin_rw` を許可。
+  - `requireAdminWrite()` → `admin_rw` を許可。
+
+## 管理API
+
+- `GET /api/admin/users` → ユーザー一覧（`page`, `limit`）。
+- `GET /api/admin/orders` → 支払い済み注文（ページング）。
+- `GET /api/admin/users/:uuid/credits` → クレジット要約。
+- `POST /api/admin/credits/grant` → `system_add` でクレジット付与。
+
+## セットアップ手順
+
+1) DB をマイグレーション：
+
+```bash
+pnpm drizzle-kit migrate --config src/db/config.ts
+```
+
+2) 管理アカウントでエンドポイントを確認。
+
+## ロールの変更方法
+
+権威は DB 側に持たせます：
+
+- SQL：
+  ```sql
+  update users set role = 'admin_rw' where uuid = '<uuid>';
+  ```
+- ヘルパー：
+  - `updateUserRole(uuid, 'admin_ro' | 'admin_rw' | 'user')`（`src/models/user.ts`）。
+
+## 注意
+
+- 管理アカウントは MFA/SSO と短いセッション期限を推奨。
+- 管理ページはサーバー側でチェックし、未認可はリダイレクト。
+- ロールは .env では管理しません。DB で設定/解除します。
+

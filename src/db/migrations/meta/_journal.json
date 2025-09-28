@@ -6,6 +6,13 @@
       "when": 1758812821414,
       "tag": "0000_damp_wonder_man",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1759049837620,
+      "tag": "0001_red_wolverine",
+      "breakpoints": true
     }
   ]
 }

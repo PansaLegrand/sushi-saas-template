@@ -11,6 +11,12 @@ This repo aims to be a clean base that you can ship fast and grow safely.
 
 ---
 
+## Showcase
+
+- DojoClip — https://dojoclip.com — Browser‑based video editing with laser‑focused multilingual subtitles.
+
+---
+
 ## Contact
 
 I have 5+ years of experience in NLP and I’m now doing a lot of full‑stack work. I speak English, French, and Chinese. I’m actively looking for remote opportunities and can help you build with this template — paid implementation or consultancy.

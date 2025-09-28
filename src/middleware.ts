@@ -8,6 +8,6 @@ export const config = {
     "/",
     "/(en|en-US|zh|zh-CN|zh-TW|zh-HK|zh-MO|ja|ko|ru|fr|de|ar|es|it)/:path*",
 
-    "/((?!api|_next|_vercel|.*\\..*).*)",
+    "/((?!api|_next|_vercel|admin|.*\\..*).*)",
   ],
 };
