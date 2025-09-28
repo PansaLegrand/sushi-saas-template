@@ -5,6 +5,7 @@ import { ReactNode, useEffect } from "react";
 import { useLocale } from "next-intl";
 import { Toaster } from "sonner";
 import Adsense from "./adsense";
+import { GoogleAnalytics } from "./google-analytics";
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const locale = useLocale();
@@ -25,6 +26,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       {children}
 
       <Toaster position="top-center" richColors />
+      <GoogleAnalytics />
       <Adsense />
     </NextThemesProvider>
   );
