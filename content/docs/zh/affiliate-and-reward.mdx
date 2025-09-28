@@ -1,0 +1,58 @@
+---
+title: 邀请、推广与奖励
+icon: "Users"
+---
+
+模板已内置邀请/推广系统：分享邀请链接 → Cookie 归因 → 注册/支付奖励，开箱即用，可配置。
+
+---
+
+## 代码总览
+
+- 邀请跳转（本地化）: `src/app/[locale]/i/[inviteCode]/route.ts`
+- 登录后归因 API: `src/app/api/affiliate/update-invite/route.ts`
+- 邀请码 API: `src/app/api/affiliate/invite-code/route.ts`
+- 奖励计算与去重: `src/services/affiliate.ts`
+- Stripe 集成（支付后）: `src/services/stripe.ts`
+- 用户页面: `src/app/[locale]/my-invites/page.tsx`
+  - 组件: `invite-link.tsx`, `summary-cards.tsx`, `affiliate-table.tsx`
+- 管理页面: `src/app/(admin)/admin/affiliates/page.tsx`
+- 客户端初始化: `src/providers/affiliate-init.tsx`（在 `src/providers/theme.tsx` 引入）
+
+---
+
+## 流程
+
+1) 访问 `/:locale/i/<inviteCode>` → 服务端设置 `ref` Cookie（30天）并重定向。
+2) 注册/登录后 → 客户端一次性调用 `/api/affiliate/update-invite`，如用户 `invited_by` 未设置则写入，插入注册记录（默认无奖励）。
+3) 支付成功（Stripe）→ 计算固定/比例/混合奖励，按 `paid_order_no` 去重写入完成记录。
+4) 页面 → 用户页 `/[locale]/my-invites`；管理员页 `/admin/affiliates`。
+
+---
+
+## 配置
+
+文件: `src/data/affiliate.ts`
+
+- 项目开关: `enabled`, `attributionWindowDays`, `allowSelfReferral`, `attributionModel`
+- 奖励: `commissionMode`（fixed_only / percent_only / greater_of / sum）, `signup`, `paid`
+- 发放类型: `payoutType = "cash"`（分）或 `"credits"`（站内积分）
+- 路径: `sharePath`（默认 `/i`）, `myInvitesPath`
+
+分享地址基于 `NEXT_PUBLIC_WEB_URL`。
+
+---
+
+## 本地验证
+
+- 在 `/[locale]/my-invites` 生成并复制邀请链接。
+- 无痕窗口中打开、注册并登录；返回查看统计。
+- Stripe 测试支付后，在管理页查看奖励记录。
+
+---
+
+## 提示
+
+- Cookie 写在同一域名（请设置正确的 `NEXT_PUBLIC_WEB_URL`）。
+- 客户端仅在接口返回 200 时标记成功；若登录前调用会在登录后重试。
+- 奖励按 `paid_order_no` 去重，不会重复发放。

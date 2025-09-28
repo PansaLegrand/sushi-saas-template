@@ -6,6 +6,7 @@ import { useLocale } from "next-intl";
 import { Toaster } from "sonner";
 import Adsense from "./adsense";
 import { GoogleAnalytics } from "./google-analytics";
+import AffiliateInit from "./affiliate-init";
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const locale = useLocale();
@@ -27,6 +28,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
       <Toaster position="top-center" richColors />
       <GoogleAnalytics />
+      <AffiliateInit />
       <Adsense />
     </NextThemesProvider>
   );

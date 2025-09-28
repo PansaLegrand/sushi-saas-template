@@ -1,0 +1,58 @@
+---
+title: Parrainage, affiliés et récompenses
+icon: "Users"
+---
+
+Système d’affiliation prêt à l’emploi : liens d’invitation, cookie d’attribution et récompenses configurables pour inscriptions et paiements.
+
+---
+
+## Cartographie du code
+
+- Redirection d’invitation (localisée) : `src/app/[locale]/i/[inviteCode]/route.ts`
+- Attribution après login : `src/app/api/affiliate/update-invite/route.ts`
+- Code d’invitation (API) : `src/app/api/affiliate/invite-code/route.ts`
+- Calcul des récompenses + dédoublonnage : `src/services/affiliate.ts`
+- Intégration Stripe (après paiement) : `src/services/stripe.ts`
+- Page utilisateur : `src/app/[locale]/my-invites/page.tsx`
+  - Composants : `invite-link.tsx`, `summary-cards.tsx`, `affiliate-table.tsx`
+- Page admin : `src/app/(admin)/admin/affiliates/page.tsx`
+- Hook client d’attribution : `src/providers/affiliate-init.tsx` (inclus via `src/providers/theme.tsx`)
+
+---
+
+## Parcours de bout en bout
+
+1) `/:locale/i/<inviteCode>` → cookie `ref` (30 jours) puis redirection.
+2) Après inscription/connexion → appel unique à `/api/affiliate/update-invite`; on renseigne `invited_by` si absent et on crée une ligne d’inscription (pas de paiement par défaut).
+3) Paiement Stripe → calcul de la commission (fixe/pourcentage/hybride) et insertion d’une ligne « completed » (dédoublonnée par `paid_order_no`).
+4) Vues → `/[locale]/my-invites` (utilisateur), `/admin/affiliates` (admin).
+
+---
+
+## Configuration
+
+Fichier : `src/data/affiliate.ts`
+
+- Programme : `enabled`, `attributionWindowDays`, `allowSelfReferral`, `attributionModel`
+- Récompenses : `commissionMode` (fixed_only, percent_only, greater_of, sum), `signup`, `paid`
+- Type de versement : `payoutType = "cash"` (centimes) ou `"credits"` (crédits internes)
+- Liens : `sharePath` (par défaut `/i`), `myInvitesPath`
+
+Base URL : `NEXT_PUBLIC_WEB_URL`.
+
+---
+
+## Tester en local
+
+- Générer/voir le lien sur `/[locale]/my-invites`.
+- Ouvrir en navigation privée, s’inscrire, revenir sur la page et vérifier les compteurs.
+- Simuler un paiement Stripe et vérifier la ligne de commission.
+
+---
+
+## Astuces
+
+- Cookie sur le même hôte (utiliser la bonne `NEXT_PUBLIC_WEB_URL`).
+- Le hook client ne valide que si la réponse est 200 ; en cas d’appel pré‑login, il réessaie après login.
+- Pas de double versement : dédoublonnage via `paid_order_no`.

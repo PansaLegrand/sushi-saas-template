@@ -1,0 +1,58 @@
+---
+title: Invitaciones, afiliados y recompensas
+icon: "Users"
+---
+
+Este template incluye un sistema de referidos/afiliados listo para usar: enlaces de invitación, atribución por cookie y recompensas configurables por registro/pago.
+
+---
+
+## Mapa de código
+
+- Redirección de invitación (localizada): `src/app/[locale]/i/[inviteCode]/route.ts`
+- Finalizar atribución tras login: `src/app/api/affiliate/update-invite/route.ts`
+- Gestión del código de invitación: `src/app/api/affiliate/invite-code/route.ts`
+- Recompensas (lógica y deduplicación): `src/services/affiliate.ts`
+- Webhook Stripe (dispara recompensa pagada): `src/services/stripe.ts`
+- Página de usuario: `src/app/[locale]/my-invites/page.tsx`
+  - Componentes: `src/components/affiliate/invite-link.tsx`, `summary-cards.tsx`, `affiliate-table.tsx`
+- Página de admin: `src/app/(admin)/admin/affiliates/page.tsx`
+- Hook cliente para atribución: `src/providers/affiliate-init.tsx` (incluido en `src/providers/theme.tsx`)
+
+---
+
+## Flujo completo
+
+1) Visita `/:locale/i/<inviteCode>` → el server guarda cookie `ref` (30 días) y redirige.
+2) Tras registro/login → el cliente llama una vez a `/api/affiliate/update-invite`; si el usuario no tiene `invited_by`, lo fija y crea una fila de registro (sin pago por defecto).
+3) Pago exitoso (Stripe) → se calcula recompensa fija/porcentaje/mixta y se inserta una fila completada (deduplicada por `paid_order_no`).
+4) Vistas → `/[locale]/my-invites` para el usuario; `/admin/affiliates` para administradores.
+
+---
+
+## Configuración
+
+Archivo: `src/data/affiliate.ts`
+
+- Programa: `enabled`, `attributionWindowDays`, `allowSelfReferral`, `attributionModel` (first/last touch)
+- Recompensas: `commissionMode` (fixed_only, percent_only, greater_of, sum), `signup`, `paid`
+- Tipo de pago: `payoutType = "cash"` (centavos) o `"credits"` (créditos internos)
+- Enlaces: `sharePath` (por defecto `/i`), `myInvitesPath`
+
+Base URL para compartir: `NEXT_PUBLIC_WEB_URL`.
+
+---
+
+## Verificar en local
+
+- Genera tu enlace en `/[locale]/my-invites` y cópialo.
+- Ábrelo en incógnito, regístrate e inicia sesión; vuelve a `my-invites` y revisa el conteo.
+- Realiza un pago de prueba y comprueba la fila con recompensa en admin.
+
+---
+
+## Consejos
+
+- La cookie se establece en el mismo host (`NEXT_PUBLIC_WEB_URL`).
+- El hook cliente solo marca éxito si el servidor devuelve 200; si llama antes del login, reintenta después.
+- No hay doble pago: deduplicación por `paid_order_no`.
