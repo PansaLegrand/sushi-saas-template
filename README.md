@@ -54,6 +54,31 @@ Open:
 - Docs example: `/:locale/blogs/quick-start`
 - Credit sandbox: `/:locale/credits-test`
 
+### Demo: Reservations (modular feature)
+
+This template includes an optional reservations feature to demonstrate a mini product flow (availability + deposit checkout + webhook confirmation) in a modular way.
+
+- Toggle on/off with `NEXT_PUBLIC_FEATURE_RESERVATIONS_ENABLED`.
+- UI at `/:locale/reserve` (e.g., `/en/reserve`).
+- After payment, the webhook confirms the reservation and sends an email (Resend) with an ICS calendar file.
+- View bookings at `/:locale/account/reservations`.
+
+Setup
+
+1) Configure env vars: `STRIPE_PRIVATE_KEY`, `STRIPE_WEBHOOK_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`, `NEXT_PUBLIC_WEB_URL`.
+2) Generate and run DB migrations:
+
+   pnpm drizzle-kit generate --config src/db/config.ts
+   pnpm drizzle-kit migrate --config src/db/config.ts
+
+3) Start dev server:
+
+   pnpm dev
+
+4) Test webhooks locally with Stripe CLI:
+
+   stripe listen --forward-to localhost:3000/api/pay/webhook/stripe
+
 ---
 
 ## Project Structure

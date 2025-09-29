@@ -1,0 +1,74 @@
+---
+title: Fonction Réservations — Disponibilités, Acomptes, Google Agenda
+icon: "Calendar"
+description: Activez une fonctionnalité modulaire de réservation avec créneaux ouvrés, dépôt via Stripe Checkout, confirmation webhook, pièces jointes ICS et liens Google Agenda.
+keywords:
+  - réservations
+  - Stripe
+  - calendrier
+  - acompte
+  - ICS
+  - Next.js
+  - i18n
+  - fuseau horaire
+tags: [reservations, Stripe, calendar]
+author: "Pansa Legrand"
+publishedAt: "2025-09-29T00:00:00.000Z"
+updatedAt: "2025-09-29T00:00:00.000Z"
+canonical: "https://sushi-saas-template.io/fr/blogs/reservations-feature"
+---
+
+# Réservations (Démo)
+
+Fonction modulaire couvrant :
+
+- Disponibilités sur heures ouvrées avec marges et anti‑chevauchement
+- Réservation en attente jusqu’au paiement
+- Stripe Checkout pour acompte ou prépaiement
+- Confirmation via webhook
+- Email avec ICS joint
+- Lien “Ajouter à Google Agenda” (sans OAuth)
+- i18n : `/:locale/reserve`, `/:locale/account/reservations`
+
+## Mise en place
+
+1) Environnement & configuration côté code
+
+```bash
+NEXT_PUBLIC_FEATURE_RESERVATIONS_ENABLED=true
+STRIPE_PRIVATE_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+RESEND_API_KEY=...
+EMAIL_FROM="Votre App <no-reply@votre-domaine.com>"
+NEXT_PUBLIC_WEB_URL="http://localhost:3000"
+```
+
+Ajustez les horaires, la durée de rétention et le fuseau horaire dans `src/data/reservations.ts`.
+
+2) Base de données
+
+```bash
+pnpm drizzle-kit generate --config src/db/config.ts
+pnpm drizzle-kit migrate --config src/db/config.ts
+```
+
+3) Webhook (local)
+
+```bash
+stripe listen --forward-to localhost:3000/api/pay/webhook/stripe
+```
+
+4) Lancer
+
+```bash
+pnpm dev
+```
+
+Ouvrez `/fr/reserve` pour tester.
+
+## Personnalisation
+
+- Fuseau horaire : modifiez `baseTimeZone` dans `src/data/reservations.ts` (ex. `Europe/Paris`).
+- Acompte/prépaiement : `deposit_amount`, `require_deposit` par service.
+- Marges : `buffer_before_min`, `buffer_after_min`.
+- Agenda : lien Google sans OAuth ; pour une synchro fournisseur, ajoutez OAuth et l’API Calendar.

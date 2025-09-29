@@ -10,6 +10,22 @@ import * as schema from "@/db/schema";
 
 const database = db();
 
+const socialProviders = (() => {
+  const id = process.env.GOOGLE_CLIENT_ID;
+  const secret = process.env.GOOGLE_CLIENT_SECRET;
+  if (id && secret) {
+    return {
+      google: {
+        clientId: id,
+        clientSecret: secret,
+        accessType: "offline",
+        prompt: "select_account",
+      },
+    } as const;
+  }
+  return {} as const;
+})();
+
 export const auth = betterAuth({
   appName: process.env.NEXT_PUBLIC_APP_NAME || "Sushi SaaS",
   baseURL: process.env.BETTER_AUTH_URL,
@@ -17,6 +33,7 @@ export const auth = betterAuth({
     schema,
     provider: "pg",
   }),
+  socialProviders,
   user: {
     modelName: "users",
     fields: {

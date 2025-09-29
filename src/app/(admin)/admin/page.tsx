@@ -2,6 +2,7 @@ import { getAdminContext } from "@/lib/authz";
 import { getUsers } from "@/models/user";
 import { getPaiedOrders } from "@/models/order";
 import GrantCreditsPanel from "@/components/admin/grant-credits";
+import Link from "next/link";
 
 export default async function AdminHomePage() {
   const admin = await getAdminContext();
@@ -15,6 +16,14 @@ export default async function AdminHomePage() {
 
   return (
     <div className="grid grid-cols-1 gap-6">
+      <section className="rounded-lg border p-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-medium">Reservations</h2>
+          <Link href="/admin/reservations" className="text-sm underline">View all</Link>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">Check upcoming and past appointments.</p>
+      </section>
+
       <section className="rounded-lg border p-4">
         <h2 className="mb-3 text-lg font-medium">Users (latest 20)</h2>
         <div className="overflow-x-auto">

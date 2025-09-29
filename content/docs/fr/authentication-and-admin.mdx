@@ -68,3 +68,12 @@ La base de données est la source d’autorité :
 - Protéger les comptes admin (MFA/SSO) et réduire la durée des sessions.
 - Protéger les pages admin côté serveur et rediriger si non autorisé.
 - Pas de rôles via .env ; utilisez la base pour assigner/révoquer.
+
+## Connexion sociale (Google)
+
+- Le provider Google est configuré dans `src/lib/auth.ts` sous `socialProviders.google` et lit `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` depuis `.env`.
+- Vérifiez les variables : `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, ainsi que `BETTER_AUTH_URL` et `NEXT_PUBLIC_AUTH_BASE_URL` (ex. `http://localhost:3000` en dev).
+- Dans Google Cloud Console → Identifiants, ajoutez l’URI de redirection autorisée :
+  - `http://localhost:3000/api/auth/callback/google` (dev)
+  - `https://votre-domaine.com/api/auth/callback/google` (prod)
+- L’écran `/[locale]/login` affiche un bouton “Continuer avec Google” qui lance le flux OAuth.

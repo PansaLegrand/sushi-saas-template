@@ -1,0 +1,74 @@
+---
+title: 预约功能 — 可用时段、订金、Google 日历
+icon: "Calendar"
+description: 基于营业时间的可用时段、Stripe Checkout 订金/全额支付、Webhook 确认、ICS 附件与 Google 日历链接，一体化的模块化预订功能。
+keywords:
+  - 预约
+  - Stripe
+  - 日历
+  - 订金
+  - ICS
+  - Next.js
+  - i18n
+  - 时区
+tags: [reservations, Stripe, calendar]
+author: "Pansa Legrand"
+publishedAt: "2025-09-29T00:00:00.000Z"
+updatedAt: "2025-09-29T00:00:00.000Z"
+canonical: "https://sushi-saas-template.io/zh/blogs/reservations-feature"
+---
+
+# 预约（演示功能）
+
+该功能展示了从空闲时段到支付、确认、日历的完整流程：
+
+- 按营业时间生成可用时段，支持缓冲与冲突检测
+- 支付完成前的软占位（hold）
+- Stripe Checkout 订金或全额预付
+- Webhook 确认后标记为已预约
+- 通过 Resend 发送确认邮件，附带 ICS 文件
+- 一键 “添加到 Google 日历”（无需 OAuth）
+- 多语言路由：`/:locale/reserve`、`/:locale/account/reservations`
+
+## 配置步骤
+
+1）环境变量与代码配置
+
+```bash
+NEXT_PUBLIC_FEATURE_RESERVATIONS_ENABLED=true
+STRIPE_PRIVATE_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+RESEND_API_KEY=...
+EMAIL_FROM="Your App <no-reply@your-domain.com>"
+NEXT_PUBLIC_WEB_URL="http://localhost:3000"
+```
+
+营业时间、持有时长与基准时区请在 `src/data/reservations.ts` 中调整。
+
+2）数据库
+
+```bash
+pnpm drizzle-kit generate --config src/db/config.ts
+pnpm drizzle-kit migrate --config src/db/config.ts
+```
+
+3）本地 Webhook
+
+```bash
+stripe listen --forward-to localhost:3000/api/pay/webhook/stripe
+```
+
+4）启动
+
+```bash
+pnpm dev
+```
+
+访问 `/zh/reserve` 体验流程。
+
+## 自定义
+
+- 基准时区：在 `src/data/reservations.ts` 的 `baseTimeZone` 修改（如 `Asia/Shanghai`）。
+- 订金/全额：按服务配置 `deposit_amount` 与 `require_deposit`。
+- 缓冲：`buffer_before_min`、`buffer_after_min`。
+- 日历：Google 链接无需 OAuth；如需服务提供方日历自动同步，请接入 OAuth 与 Calendar API。

@@ -196,3 +196,53 @@ export const feedbacks = pgTable("feedbacks", {
   content: text(),
   rating: integer(),
 });
+
+// Reservation Services (demo feature)
+export const reservationServices = pgTable(
+  "reservation_services",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    slug: varchar({ length: 255 }).notNull().unique(),
+    title: varchar({ length: 255 }).notNull(),
+    description: text(),
+    duration_min: integer().notNull().default(30),
+    price: integer().notNull().default(0), // cents
+    currency: varchar({ length: 10 }).notNull().default("usd"),
+    deposit_amount: integer().notNull().default(0), // cents
+    require_deposit: boolean().notNull().default(true),
+    cancellation_window_hours: integer().notNull().default(24),
+    buffer_before_min: integer().notNull().default(0),
+    buffer_after_min: integer().notNull().default(0),
+    active: boolean().notNull().default(true),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("reservation_services_active_idx").on(table.active),
+  ]
+);
+
+// Reservations (demo feature)
+export const reservations = pgTable(
+  "reservations",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    reservation_no: varchar({ length: 255 }).notNull().unique(),
+    user_uuid: varchar({ length: 255 }).notNull(),
+    service_id: integer().notNull(),
+    start_at: timestamp({ withTimezone: true }).notNull(),
+    end_at: timestamp({ withTimezone: true }).notNull(),
+    timezone: varchar({ length: 64 }).notNull(),
+    status: varchar({ length: 32 }).notNull().default("pending"), // pending|confirmed|canceled|expired
+    hold_expires_at: timestamp({ withTimezone: true }),
+    order_no: varchar({ length: 255 }),
+    contact_email: varchar({ length: 255 }),
+    contact_phone: varchar({ length: 64 }),
+    notes: text(),
+    policy_snapshot: text(),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("reservations_service_time_idx").on(table.service_id, table.start_at),
+    index("reservations_user_idx").on(table.user_uuid),
+  ]
+);

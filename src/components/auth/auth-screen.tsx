@@ -234,6 +234,37 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
           </button>
         </form>
 
+        {/* Social sign-in */}
+        <div className="flex items-center gap-3 py-2">
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-xs text-muted-foreground">or continue with</span>
+          <div className="h-px flex-1 bg-border" />
+        </div>
+        <button
+          type="button"
+          onClick={() =>
+            signIn.social({
+              provider: "google",
+              callbackURL: buildPath(),
+              errorCallbackURL: buildPath("/login"),
+            })
+          }
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={isSubmitting}
+        >
+          {/* Simple G icon substitute */}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            aria-hidden
+          >
+            <path fill="#EA4335" d="M12 10.2v3.84h5.34c-.24 1.26-1.6 3.7-5.34 3.7a6.18 6.18 0 1 1 0-12.36c1.76 0 2.94.74 3.62 1.38l2.46-2.38C16.7 3.38 14.6 2.5 12 2.5a9.5 9.5 0 1 0 0 19c5.48 0 9.08-3.84 9.08-9.24 0-.62-.06-1.1-.14-1.56H12Z"/>
+          </svg>
+          Continue with Google
+        </button>
+
         {mode === "signIn" ? (
           <p className="text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}

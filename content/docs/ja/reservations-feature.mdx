@@ -1,0 +1,73 @@
+---
+title: 予約機能 — 空き状況・デポジット・Googleカレンダー
+icon: "Calendar"
+description: 営業時間ベースの空き状況、Stripe Checkout によるデポジット決済、Webhook による確定、ICS 添付と Google カレンダー連携を備えたモジュール機能です。
+keywords:
+  - 予約
+  - Stripe
+  - カレンダー
+  - デポジット
+  - ICS
+  - Next.js
+  - i18n
+  - タイムゾーン
+tags: [reservations, Stripe, calendar]
+author: "Pansa Legrand"
+publishedAt: "2025-09-29T00:00:00.000Z"
+updatedAt: "2025-09-29T00:00:00.000Z"
+canonical: "https://sushi-saas-template.io/ja/blogs/reservations-feature"
+---
+
+# 予約（デモ機能）
+
+以下を一通り備えたプラグイン可能な機能です：
+
+- 営業時間に基づく空き状況（バッファ・重複チェック対応）
+- 決済完了までのソフトホールド
+- デポジット/全額の Stripe Checkout
+- Webhook による予約確定
+- ICS 添付メールと「Google カレンダーに追加」リンク（OAuth 不要）
+- i18n 対応 UI：`/:locale/reserve`、`/:locale/account/reservations`
+
+## セットアップ
+
+1) 環境変数とコード設定
+
+```bash
+NEXT_PUBLIC_FEATURE_RESERVATIONS_ENABLED=true
+STRIPE_PRIVATE_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+RESEND_API_KEY=...
+EMAIL_FROM="Your App <no-reply@your-domain.com>"
+NEXT_PUBLIC_WEB_URL="http://localhost:3000"
+```
+
+営業時間・ホールド時間・基準タイムゾーンは `src/data/reservations.ts` を編集してください。
+
+2) データベース
+
+```bash
+pnpm drizzle-kit generate --config src/db/config.ts
+pnpm drizzle-kit migrate --config src/db/config.ts
+```
+
+3) Webhook（ローカル）
+
+```bash
+stripe listen --forward-to localhost:3000/api/pay/webhook/stripe
+```
+
+4) 起動
+
+```bash
+pnpm dev
+```
+
+`/ja/reserve` で確認できます。
+
+## カスタマイズ
+
+- 基準タイムゾーン：`src/data/reservations.ts` の `baseTimeZone` を編集（例：`Asia/Tokyo`）
+- デポジット/全額：サービスごとに `deposit_amount` と `require_deposit` を調整
+- バッファ：`buffer_before_min`、`buffer_after_min`
+- カレンダー：Google のリンクは OAuth 不要。提供者側の同期は OAuth と Calendar API を追加してください。
