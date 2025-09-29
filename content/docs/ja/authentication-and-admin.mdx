@@ -1,6 +1,20 @@
 ---
 title: 認証と管理者ロール
 description: 読み取り専用/読み取り+操作の管理者ロールをDBで管理し、管理APIを保護し、このテンプレートの認証パイプラインを説明します。
+keywords:
+  - 認証
+  - RBAC
+  - 管理者
+  - ロール
+  - 認可
+  - Next.js
+  - Better Auth
+  - Drizzle ORM
+tags: [auth, roles, admin]
+author: "Pansa Legrand"
+publishedAt: "2025-09-29T00:00:00.000Z"
+updatedAt: "2025-09-29T00:00:00.000Z"
+canonical: "https://sushi-saas-template.io/ja/blogs/authentication-and-admin"
 ---
 
 # 認証と管理者ロール
@@ -54,4 +68,3 @@ pnpm drizzle-kit migrate --config src/db/config.ts
 - 管理アカウントは MFA/SSO と短いセッション期限を推奨。
 - 管理ページはサーバー側でチェックし、未認可はリダイレクト。
 - ロールは .env では管理しません。DB で設定/解除します。
-
