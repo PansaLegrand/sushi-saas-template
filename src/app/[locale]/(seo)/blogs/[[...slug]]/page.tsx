@@ -1,4 +1,7 @@
 import { source } from "@/lib/source";
+import type { Metadata } from "next";
+import { locales as supportedLocales } from "@/i18n/locale";
+import Script from "next/script";
 import {
   DocsPage,
   DocsBody,
@@ -18,6 +21,33 @@ export default async function DocsContentPage(props: {
   if (!page) notFound();
 
   const MDXContent = page.data.body;
+  const base = process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000";
+  const slugPath = (params.slug ?? []).join("/");
+  // Basic BlogPosting JSON-LD to help search engines understand the content
+  const fm: any = page.data;
+  const canonicalUrl = (fm.canonical as string | undefined)?.trim()
+    ? (fm.canonical as string)
+    : `${base}/${params.locale ?? "en"}/blogs/${slugPath}`;
+  const authors = Array.isArray(fm.authors)
+    ? fm.authors
+    : fm.author
+    ? Array.isArray(fm.author)
+      ? fm.author
+      : [fm.author]
+    : undefined;
+  const image = fm.image as string | undefined;
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: page.data.title,
+    description: page.data.description,
+    datePublished: fm.publishedAt,
+    dateModified: fm.updatedAt ?? fm.publishedAt,
+    inLanguage: params.locale,
+    author: authors?.map((name: string) => ({ "@type": "Person", name })),
+    image: image ? [image.startsWith("http") ? image : `${base}${image}`] : undefined,
+    mainEntityOfPage: canonicalUrl,
+  };
 
   return (
     <DocsPage
@@ -29,6 +59,11 @@ export default async function DocsContentPage(props: {
     >
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
+      <Script
+        id="blog-jsonld"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <DocsBody>
         <MDXContent
           components={getMDXComponents({
@@ -47,13 +82,73 @@ export async function generateStaticParams() {
 
 export async function generateMetadata(props: {
   params: Promise<{ slug?: string[]; locale?: string }>;
-}) {
+}): Promise<Metadata> {
   const params = await props.params;
   const page = source.getPage(params.slug, params.locale);
   if (!page) notFound();
 
+  const fm: any = page.data;
+  const base = process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000";
+  const slugPath = (params.slug ?? []).join("/");
+  const canonical = (fm.canonical as string | undefined)?.trim()
+    ? (fm.canonical as string)
+    : `${base}/${params.locale ?? "en"}/blogs/${slugPath}`;
+
+  const keywords: string[] | undefined = Array.isArray(fm.keywords)
+    ? fm.keywords
+    : typeof fm.keywords === "string"
+    ? fm.keywords.split(",").map((s: string) => s.trim()).filter(Boolean)
+    : Array.isArray(fm.tags)
+    ? fm.tags
+    : undefined;
+
+  const authors = Array.isArray(fm.authors)
+    ? fm.authors
+    : fm.author
+    ? Array.isArray(fm.author)
+      ? fm.author
+      : [fm.author]
+    : undefined;
+  const image = fm.image as string | undefined;
+  const noindex = fm.noindex === true;
+  const publishedTime = fm.publishedAt as string | undefined;
+  const modifiedTime = (fm.updatedAt as string | undefined) ?? publishedTime;
+
+  const languages: Record<string, string> = {};
+  for (const loc of supportedLocales) {
+    const localized = source.getPage(params.slug, loc);
+    if (localized) {
+      languages[loc] = `${base}/${loc}/blogs/${slugPath}`;
+    }
+  }
+
   return {
+    metadataBase: new URL(base),
     title: page.data.title,
     description: page.data.description,
-  };
+    keywords,
+    alternates: {
+      canonical,
+      languages,
+    },
+    openGraph: {
+      type: "article",
+      url: canonical,
+      title: page.data.title,
+      description: page.data.description,
+      siteName: process.env.NEXT_PUBLIC_APP_NAME || "Sushi SaaS",
+      locale: params.locale,
+      images: image ? [{ url: image }] : undefined,
+      publishedTime,
+      modifiedTime,
+      authors,
+    },
+    twitter: {
+      card: image ? "summary_large_image" : "summary",
+      title: page.data.title,
+      description: page.data.description,
+      images: image ? [image] : undefined,
+    },
+    robots: noindex ? { index: false, follow: true } : undefined,
+  } satisfies Metadata;
 }

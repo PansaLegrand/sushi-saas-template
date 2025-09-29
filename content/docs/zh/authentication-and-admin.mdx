@@ -1,6 +1,20 @@
 ---
 title: 认证与管理员角色
 description: 使用数据库管理只读/读写管理员角色，保护管理 API，并介绍本模板的认证流程。
+keywords:
+  - 认证
+  - RBAC
+  - 管理员
+  - 角色
+  - 授权
+  - Next.js
+  - Better Auth
+  - Drizzle ORM
+tags: [auth, roles, admin]
+author: "Pansa Legrand"
+publishedAt: "2025-09-29T00:00:00.000Z"
+updatedAt: "2025-09-29T00:00:00.000Z"
+canonical: "https://sushi-saas-template.io/zh/blogs/authentication-and-admin"
 ---
 
 # 认证与管理员角色
@@ -54,4 +68,3 @@ pnpm drizzle-kit migrate --config src/db/config.ts
 - 管理账号建议开启 MFA/SSO，并缩短会话有效期。
 - 管理页面需在服务端做权限校验，未授权则重定向。
 - 角色不通过 .env 控制；请在数据库中进行赋权/回收。
-
