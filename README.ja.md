@@ -21,6 +21,8 @@ SaaS をより速くリリース — i18n、認証、決済、クレジット、
 
 - DojoClip — https://dojoclip.com — ブラウザで動く動画編集。多言語字幕に強み。
 
+- Sushi Templates — https://sushi-templates.com — Vercel にデプロイしたときの本サイトの見え方をご確認ください。
+
 ---
 
 ## 連絡先

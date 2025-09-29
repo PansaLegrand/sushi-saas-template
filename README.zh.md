@@ -21,6 +21,8 @@
 
 - DojoClip — https://dojoclip.com — 基于浏览器的视频编辑，支持多语言字幕。
 
+- Sushi Templates — https://sushi-templates.com — 查看该网站部署到 Vercel 后的效果。
+
 ---
 
 ## 联系方式

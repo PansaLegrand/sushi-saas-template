@@ -21,6 +21,8 @@ Build and launch your SaaS faster — production‑ready starter with i18n, auth
 
 - DojoClip — https://dojoclip.com — Browser‑based video editing with laser‑focused multilingual subtitles.
 
+- Sushi Templates — https://sushi-templates.com — See how this site looks when deployed on Vercel.
+
 ---
 
 ## Contact

@@ -21,6 +21,8 @@ Construisez et lancez votre SaaS plus vite — base prête pour la prod avec i18
 
 - DojoClip — https://dojoclip.com — Édition vidéo dans le navigateur avec sous‑titres multilingues.
 
+- Sushi Templates — https://sushi-templates.com — Voir à quoi ressemble ce site lorsqu’il est déployé sur Vercel.
+
 ---
 
 ## Contact
