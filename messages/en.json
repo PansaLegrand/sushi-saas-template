@@ -39,4 +39,10 @@
     "intro": "This is a minimal docs page used to test i18n.",
     "back": "Back to home"
   }
+  
+  ,
+  "reservation": {
+    "title": "Reserve a service",
+    "subtitle": "Pick a service, choose a time, and confirm with a small deposit."
+  }
 }

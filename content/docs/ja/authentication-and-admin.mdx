@@ -68,3 +68,12 @@ pnpm drizzle-kit migrate --config src/db/config.ts
 - 管理アカウントは MFA/SSO と短いセッション期限を推奨。
 - 管理ページはサーバー側でチェックし、未認可はリダイレクト。
 - ロールは .env では管理しません。DB で設定/解除します。
+
+## ソーシャルログイン（Google）
+
+- Google プロバイダは `src/lib/auth.ts` の `socialProviders.google` で設定され、`.env` の `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` を参照します。
+- `.env` に `GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET` を設定し、`BETTER_AUTH_URL` と `NEXT_PUBLIC_AUTH_BASE_URL` が正しいことを確認してください（開発では `http://localhost:3000`）。
+- Google Cloud Console → Credentials で認可済みリダイレクト URI に次を追加：
+  - `http://localhost:3000/api/auth/callback/google`（開発）
+  - `https://あなたのドメイン.com/api/auth/callback/google`（本番）
+- `/[locale]/login` のログイン画面に「Google で続行」ボタンが表示され、OAuth フローが開始されます。

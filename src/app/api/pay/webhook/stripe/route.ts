@@ -1,6 +1,10 @@
 import Stripe from "stripe";
 import { handleCheckoutSession } from "@/services/stripe";
-import { sendPaymentSuccessEmail, sendPaymentFailedEmail } from "@/services/email/send";
+import { sendPaymentSuccessEmail, sendPaymentFailedEmail, sendReservationConfirmedEmail } from "@/services/email/send";
+import { markReservationConfirmed, findReservationByNo, getServiceById } from "@/features/reservations/models";
+import { buildReservationICS } from "@/features/reservations/ics";
+import { buildGoogleCalendarUrl } from "@/features/reservations/google";
+import { ReservationsConfig } from "@/features/reservations/config";
 
 // Stripe sends webhook events via POST requests with a signed payload.
 // Configure Stripe CLI or dashboard to forward events to this endpoint:
@@ -40,6 +44,48 @@ export async function POST(req: Request) {
         }
         const stripe = new Stripe(apiKey);
         await handleCheckoutSession(stripe, session);
+        // If this checkout was for a reservation, confirm it now
+        if (ReservationsConfig.enabled && session.metadata?.type === "reservation") {
+          const reservationNo = session.metadata?.reservation_no;
+          if (reservationNo) {
+            try {
+              const confirmed = await markReservationConfirmed(reservationNo);
+              const to = session.customer_details?.email;
+              if (to && confirmed) {
+                const svc = await getServiceById(confirmed.service_id);
+                const start = new Date(confirmed.start_at as any);
+                const end = new Date(confirmed.end_at as any);
+                const ics = buildReservationICS({
+                  uid: reservationNo,
+                  start,
+                  end,
+                  title: `Reservation: ${svc?.title ?? "Service"}`,
+                  description: `Reservation #${reservationNo} — ${svc?.title ?? "Service"}`,
+                  url: process.env.NEXT_PUBLIC_WEB_URL ? `${process.env.NEXT_PUBLIC_WEB_URL}/en/reserve?reservation_no=${reservationNo}` : undefined,
+                });
+                const googleUrl = buildGoogleCalendarUrl({
+                  title: `Reservation: ${svc?.title ?? "Service"}`,
+                  start,
+                  end,
+                  description: `Reservation #${reservationNo}`,
+                  timeZone: ReservationsConfig.baseTimeZone,
+                });
+                queueMicrotask(() => {
+                  sendReservationConfirmedEmail(to, {
+                    reservationNo,
+                    serviceTitle: svc?.title ?? undefined,
+                    startsAt: start.toISOString(),
+                    timezone: confirmed.timezone ?? undefined,
+                    icsContent: ics,
+                    googleCalendarUrl: googleUrl,
+                  }).catch((e) => console.error("reservation email failed", e));
+                });
+              }
+            } catch (e) {
+              console.error("failed to confirm reservation", e);
+            }
+          }
+        }
         // Send a confirmation email in the background; do not block webhook ack
         const to = session.customer_details?.email;
         if (to) {

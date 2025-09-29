@@ -68,3 +68,12 @@ Usa la base de datos como fuente de verdad:
 - Protege cuentas admin con MFA/SSO y sesiones más cortas.
 - Asegura páginas de admin en componentes de servidor y redirige si no hay permisos.
 - Los roles no se configuran por .env; cámbialos en la BD.
+
+## Inicio de sesión social (Google)
+
+- El proveedor está configurado en `src/lib/auth.ts` dentro de `socialProviders.google` y toma `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` de `.env`.
+- Asegúrate de definir: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, y también `BETTER_AUTH_URL` y `NEXT_PUBLIC_AUTH_BASE_URL` (por ejemplo `http://localhost:3000` en desarrollo).
+- En Google Cloud Console → Credentials, añade la URI de redirección autorizada:
+  - `http://localhost:3000/api/auth/callback/google` (dev)
+  - `https://tu-dominio.com/api/auth/callback/google` (prod)
+- La pantalla `/[locale]/login` muestra un botón “Continuar con Google” que inicia el flujo OAuth.

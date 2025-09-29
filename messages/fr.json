@@ -27,5 +27,10 @@
     "intro": "Ceci est une page de documentation minimale pour tester l’i18n.",
     "back": "Retour à l’accueil"
   }
+  ,
+  "reservation": {
+    "title": "Réserver un service",
+    "subtitle": "Choisissez un service, une heure et confirmez avec un petit acompte."
+  }
 }
 

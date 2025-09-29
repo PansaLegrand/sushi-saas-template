@@ -1,0 +1,97 @@
+---
+title: Reservations Feature — Availability, Deposits, Google Calendar
+icon: "Calendar"
+description: Enable a modular reservations feature with business-hours availability, Stripe Checkout deposits, webhook confirmation, ICS attachments, and Google Calendar links.
+keywords:
+  - reservations
+  - booking
+  - Stripe
+  - deposits
+  - calendar
+  - ICS
+  - Next.js
+  - i18n
+  - timezone
+tags: [reservations, Stripe, calendar]
+author: "Pansa Legrand"
+publishedAt: "2025-09-29T00:00:00.000Z"
+updatedAt: "2025-09-29T00:00:00.000Z"
+canonical: "https://sushi-saas-template.io/en/blogs/reservations-feature"
+---
+
+# Reservations (Demo Feature)
+
+This modular feature showcases a complete reservation flow you can plug into your app:
+
+- Business‑hours availability with buffers and conflict checks
+- Soft holds until payment completes
+- Stripe Checkout for deposits or full prepay
+- Webhook confirmation to mark bookings confirmed
+- Email confirmation via Resend with ICS calendar attachments
+- One‑click “Add to Google Calendar” links (no OAuth required)
+- i18n‑ready UI at `/:locale/reserve` and `/:locale/account/reservations`
+
+## Core Concepts
+
+- Services — title, duration, price/currency, deposit, buffers, cancellation window
+- Availability — generated from business hours in a base time zone (configurable)
+- Reservations — `pending` → Stripe payment → webhook → `confirmed`
+- Modularity — feature can be toggled off; routes return 404 when disabled
+
+## Setup
+
+1) Environment & Code Config
+
+Add these to `.env` (see `.env.example`):
+
+```bash
+NEXT_PUBLIC_FEATURE_RESERVATIONS_ENABLED=true
+STRIPE_PRIVATE_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+RESEND_API_KEY=...
+EMAIL_FROM="Your App <no-reply@your-domain.com>"
+NEXT_PUBLIC_WEB_URL="http://localhost:3000"
+```
+
+Then adjust business hours, hold minutes, horizon, and base timezone in code at:
+
+`src/data/reservations.ts`
+
+2) Database
+
+Generate and apply the reservations tables (`reservation_services`, `reservations`):
+
+```bash
+pnpm drizzle-kit generate --config src/db/config.ts
+pnpm drizzle-kit migrate --config src/db/config.ts
+```
+
+3) Webhooks (local)
+
+```bash
+stripe listen --forward-to localhost:3000/api/pay/webhook/stripe
+```
+
+4) Run
+
+```bash
+pnpm dev
+```
+
+Visit `/en/reserve` to try the flow. A demo service is auto‑seeded by default. Tweak hours/timezone in `src/data/reservations.ts`.
+
+## Usage
+
+1. Choose a service and date; select an available time
+2. Enter contact info → Stripe Checkout opens
+3. On success, you return to the calendar with a confirmation banner
+4. You receive an email with an ICS attachment and a Google Calendar link
+5. Review bookings at `/en/account/reservations`
+
+## Customization
+
+- Base timezone: edit `baseTimeZone` in `src/data/reservations.ts` (e.g., `Europe/Paris`). Availability uses this tz; the UI displays in the user’s local tz.
+- Deposit vs full prepay: configure `deposit_amount` and `require_deposit` per service.
+- Buffers: `buffer_before_min`, `buffer_after_min` to avoid back‑to‑back scheduling.
+- Cancellation: tune `cancellation_window_hours` and surface your policy in the UI/email.
+- Calendar: Google link builder needs no OAuth. For provider-side sync, add Google OAuth and create events via the Calendar API.

@@ -68,3 +68,12 @@ pnpm drizzle-kit migrate --config src/db/config.ts
 - 管理账号建议开启 MFA/SSO，并缩短会话有效期。
 - 管理页面需在服务端做权限校验，未授权则重定向。
 - 角色不通过 .env 控制；请在数据库中进行赋权/回收。
+
+## 社交登录（Google）
+
+- 提供商在 `src/lib/auth.ts` 的 `socialProviders.google` 中配置，并从 `.env` 读取 `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`。
+- 在 `.env` 中设置：`GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`，并确保 `BETTER_AUTH_URL` 与 `NEXT_PUBLIC_AUTH_BASE_URL` 正确（开发可用 `http://localhost:3000`）。
+- 在 Google Cloud Console → Credentials 添加授权回调 URI：
+  - `http://localhost:3000/api/auth/callback/google`（开发）
+  - `https://你的域名.com/api/auth/callback/google`（生产）
+- `/[locale]/login` 登录页包含“使用 Google 继续”按钮，点击后进入 OAuth 流程。

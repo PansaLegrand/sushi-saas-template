@@ -98,3 +98,12 @@ Update roles in the database (authoritative source):
 - Protect admin accounts with MFA/SSO and shorter session TTLs.
 - Only expose admin UI/pages after guarding them on the server (check role in the server component and redirect if unauthorized).
 - Roles are not controlled by environment variables; use DB changes for assignment/revocation.
+
+## Social Sign‑In (Google)
+
+- The Google provider is configured in `src/lib/auth.ts` under `socialProviders.google` and reads `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` from `.env`.
+- Ensure these envs are set: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, plus `BETTER_AUTH_URL` and `NEXT_PUBLIC_AUTH_BASE_URL` (e.g. `http://localhost:3000` in development).
+- In Google Cloud Console → Credentials, add the Authorized redirect URI:
+  - `http://localhost:3000/api/auth/callback/google` (dev)
+  - `https://your-domain.com/api/auth/callback/google` (prod)
+- The login screen at `/[locale]/login` shows a “Continue with Google” button that starts the OAuth flow.

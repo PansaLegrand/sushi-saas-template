@@ -1,0 +1,74 @@
+---
+title: Función de Reservas — Disponibilidad, Depósitos, Google Calendar
+icon: "Calendar"
+description: Activa una función modular de reservas con horarios laborales, depósitos en Stripe Checkout, confirmación por webhook, archivos ICS y enlaces a Google Calendar.
+keywords:
+  - reservas
+  - Stripe
+  - calendario
+  - depósitos
+  - ICS
+  - Next.js
+  - i18n
+  - zona horaria
+tags: [reservations, Stripe, calendar]
+author: "Pansa Legrand"
+publishedAt: "2025-09-29T00:00:00.000Z"
+updatedAt: "2025-09-29T00:00:00.000Z"
+canonical: "https://sushi-saas-template.io/es/blogs/reservations-feature"
+---
+
+# Reservas (Función Demo)
+
+Incluye un flujo completo y modular:
+
+- Disponibilidad por horario laboral con márgenes y control de choques
+- Retenciones suaves hasta que se complete el pago
+- Stripe Checkout para depósitos o prepago total
+- Confirmación por webhook
+- Email con archivo ICS adjunto
+- Enlace “Agregar a Google Calendar” (sin OAuth)
+- Listo para i18n: `/:locale/reserve` y `/:locale/account/reservations`
+
+## Configuración
+
+1) Variables de entorno y configuración en código
+
+```bash
+NEXT_PUBLIC_FEATURE_RESERVATIONS_ENABLED=true
+STRIPE_PRIVATE_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+RESEND_API_KEY=...
+EMAIL_FROM="Tu App <no-reply@tu-dominio.com>"
+NEXT_PUBLIC_WEB_URL="http://localhost:3000"
+```
+
+Ajusta horarios, retención y zona horaria en `src/data/reservations.ts`.
+
+2) Base de datos
+
+```bash
+pnpm drizzle-kit generate --config src/db/config.ts
+pnpm drizzle-kit migrate --config src/db/config.ts
+```
+
+3) Webhooks locales
+
+```bash
+stripe listen --forward-to localhost:3000/api/pay/webhook/stripe
+```
+
+4) Ejecutar
+
+```bash
+pnpm dev
+```
+
+Abre `/es/reserve` para probar.
+
+## Personalización
+
+- Zona horaria base: edita `baseTimeZone` en `src/data/reservations.ts` (p.ej., `Europe/Madrid`).
+- Depósito vs prepago: `deposit_amount` y `require_deposit` por servicio.
+- Márgenes: `buffer_before_min`, `buffer_after_min`.
+- Calendario: enlace de Google sin OAuth; para sincronización del proveedor, usa OAuth y la API de Calendar.

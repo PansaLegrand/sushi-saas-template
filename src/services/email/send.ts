@@ -78,3 +78,33 @@ export async function sendPaymentFailedEmail(
   );
   return sendMail({ to, subject: "Payment failed — update your payment method", html });
 }
+
+export async function sendReservationConfirmedEmail(
+  to: string,
+  opts: { reservationNo: string; serviceTitle?: string; startsAt?: string; timezone?: string; icsContent?: string; googleCalendarUrl?: string }
+) {
+  const { default: ReservationConfirmed } = await import("./templates/reservation-confirmed");
+  const html = render(
+    ReservationConfirmed({
+      reservationNo: opts.reservationNo,
+      serviceTitle: opts.serviceTitle,
+      startsAt: opts.startsAt,
+      timezone: opts.timezone,
+      googleCalendarUrl: opts.googleCalendarUrl,
+    })
+  );
+  return sendMail({
+    to,
+    subject: "Your reservation is confirmed",
+    html,
+    attachments: opts.icsContent
+      ? [
+          {
+            filename: `reservation-${opts.reservationNo}.ics`,
+            content: opts.icsContent,
+            type: "text/calendar",
+          },
+        ]
+      : undefined,
+  });
+}
