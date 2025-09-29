@@ -1,14 +1,19 @@
 # Sushi SaaS 🍣
 
-Launch‑ready SaaS starter with:
+Build and launch your SaaS faster — production‑ready starter with i18n, auth, billing, credits, affiliates, MDX docs, and admin tools.
 
-- Localized landing (next‑intl)
-- Health endpoint (`/api/health`)
-- Authentication server scaffold (Better Auth)
-- Docs/blogs powered by MDX (Fumadocs)
-- Affiliates & referrals (invite links, attribution, configurable rewards)
+**Languages**: English | [Français](./README.fr.md) | [Español](./README.es.md) | [日本語](./README.ja.md) | [中文](./README.zh.md)
 
-This repo aims to be a clean base that you can ship fast and grow safely.
+**Why Sushi SaaS**
+
+- Revenue‑ready: Stripe Checkout + credit ledger for usage‑based products.
+- Auth that lasts: Better Auth + Postgres via Drizzle (typed, migratable).
+- Global from day one: next‑intl routing and localized content.
+- Growth loops: affiliates + referrals with configurable rewards.
+- Content & SEO: MDX blogs with frontmatter → metadata + JSON‑LD.
+- Admin & RBAC: server‑guarded admin with read‑only/read‑write roles.
+- Solid DX: pnpm, Turbopack/Webpack toggle, typed configs, ESLint/Tailwind.
+- Ops‑friendly: health endpoint, environment templates, explicit migrations.
 
 ---
 
@@ -20,9 +25,10 @@ This repo aims to be a clean base that you can ship fast and grow safely.
 
 ## Contact
 
-I have 5+ years of experience in NLP and I’m now doing a lot of full‑stack work. I speak English, French, and Chinese. I’m actively looking for remote opportunities and can help you build with this template — paid implementation or consultancy.
+I build and ship production SaaS applications. If you want help customizing or launching with this template (implementation, features, or advisory), I’m available for freelance/contract.
 
-Contact: pansalegrand@gmail.com
+- Languages: English, French, Chinese
+- Email: pansalegrand@gmail.com
 
 ---
 
@@ -251,13 +257,6 @@ Read the full guide at `/en/blogs/email-service` (also available in es/fr/ja/zh)
 - Docs 404: confirm your file path under `content/docs/<locale>/...` matches the slug after `/blogs/`.
 
 
----
-
-## Stripe
-
-stripe login
-stripe listen --forward-to localhost:3000/api/pay/callback/stripe
-stripe trigger payment_intent.succeeded
 ---
 
 ## License
