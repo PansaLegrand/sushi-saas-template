@@ -19,6 +19,7 @@ Legend:
 - Email (Resend): welcome, payment success/failure, reservation confirmed
 - Admin area + role-guarded APIs
 - Docs/blog (MDX), Next.js 15, Drizzle migrations, health endpoint
+- Password reset: email link flow (completed)
 
 ---
 
@@ -87,12 +88,12 @@ Legend:
 
 ### B1. Authentication & Account Hardening [P0]
 
-- Password reset flow (email link + token, rate-limited)
-- Email verification (on signup & on email change)
-- 2FA (TOTP) with backup codes; recovery flow
-- Passkeys/WebAuthn (passwordless) – optional
-- Account deletion & data export (GDPR)
-- OAuth provider link/unlink in account settings
+- [x] Password reset flow (email link + token, rate-limited)
+- [ ] Email verification (on signup & on email change)
+- [ ] 2FA (TOTP) with backup codes; recovery flow
+- [ ] Passkeys/WebAuthn (passwordless) – optional
+- [ ] Account deletion & data export (GDPR)
+- [ ] OAuth provider link/unlink in account settings
 
 ### B2. Organizations/Teams (Multi-Tenancy) [P0]
 
@@ -187,4 +188,3 @@ Legend:
 - Each unchecked item should include: schema changes (if any), API routes, UI, tests, docs.
 - Keep features modular & togglable (feature flags), mirroring the Reservations module.
 - Prefer type-safe boundaries (Drizzle types + Zod validation) and audited side-effects (emails, webhooks, billing).
-
