@@ -1,4 +1,4 @@
-import { redirect } from "@/i18n/navigation";
+import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -19,8 +19,10 @@ export async function GET(req: Request) {
     redirectUrl = process.env.NEXT_PUBLIC_PAY_FAIL_URL || "/";
   }
 
-  redirect({
-    href: redirectUrl,
-    locale: locale,
-  });
+  // Build absolute URL and prefix with locale for app routes
+  const base = process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000";
+  const isAbsolute = /^https?:\/\//i.test(redirectUrl);
+  const path = redirectUrl.startsWith("/") ? redirectUrl : `/${redirectUrl}`;
+  const target = isAbsolute ? redirectUrl : `${base}/${locale}${path}`;
+  return NextResponse.redirect(target, { status: 303 });
 }

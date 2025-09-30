@@ -221,3 +221,17 @@ export async function getOrderCountByDate(
 
   return dateCountMap;
 }
+
+export async function findOrderBySubscriptionPeriod(
+  sub_id: string,
+  sub_period_start: number
+): Promise<typeof orders.$inferSelect | undefined> {
+  const [order] = await db()
+    .select()
+    .from(orders)
+    .where(
+      and(eq(orders.sub_id, sub_id), eq(orders.sub_period_start, sub_period_start))
+    )
+    .limit(1);
+  return order;
+}

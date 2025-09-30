@@ -31,6 +31,9 @@ const sharedMonthlyPlans = [
     credits: 200,
     valid_months: 1,
     group: "monthly",
+    // Optional Stripe Price IDs; set via NEXT_PUBLIC_* so they’re safe to expose.
+    price_id: process.env.NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY,
+    cn_price_id: process.env.NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY_CNY,
   },
   {
     title: "Scale",
@@ -60,6 +63,8 @@ const sharedMonthlyPlans = [
     credits: 800,
     valid_months: 1,
     group: "monthly",
+    price_id: process.env.NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY,
+    cn_price_id: process.env.NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY_CNY,
   },
 ];
 
@@ -89,6 +94,8 @@ const sharedYearlyPlans = [
     credits: 2_400,
     valid_months: 12,
     group: "yearly",
+    price_id: process.env.NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY,
+    cn_price_id: process.env.NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY_CNY,
   },
   {
     title: "Scale",
@@ -115,6 +122,8 @@ const sharedYearlyPlans = [
     credits: 9_600,
     valid_months: 12,
     group: "yearly",
+    price_id: process.env.NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY,
+    cn_price_id: process.env.NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY_CNY,
   },
 ];
 

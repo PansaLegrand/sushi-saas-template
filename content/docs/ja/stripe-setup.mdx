@@ -49,7 +49,7 @@ canonical: "https://sushi-saas-template.io/ja/blogs/stripe-setup"
 ## 必要な環境変数
 
 ```bash
-STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PRIVATE_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 NEXT_PUBLIC_WEB_URL=http://localhost:3000
 NEXT_PUBLIC_PAY_CANCEL_URL=/pricing
@@ -84,7 +84,6 @@ stripe trigger checkout_session_completed
 
 - プラン: `src/data/pricing.ts` に定義（型安全）。
 - `handleCheckoutSession` は一括・サブスク両対応（サブスクは最新請求書から PaymentIntent を取得）。
-- 更新時は `invoice.payment_succeeded` のハンドラ追加も検討。
 
 ## 請求とサブスクリプション
 
@@ -122,3 +121,66 @@ stripe trigger invoice_payment_failed
 ```
 
 備考：メールに `/:locale/account/billing` へのリンクを含め、アプリからポータルを開けます。
+
+---
+
+## 製品と価格（Stripe）
+
+Stripe は「販売するもの（製品）」と「価格設定（価格）」を分離しています：
+
+- 製品（`prod_...`）：名称・説明、カタログ用メタデータ。1つの製品に複数の価格が紐づきます。
+- 価格（`price_...`）：通貨、金額、課金間隔（毎月/毎年）、トライアル、税設定、ティアなど。サブスクは価格に紐づきます。
+
+Checkout で価格 ID を使う理由
+
+- サブスクには正確な課金条件が必要です。`price_...` に紐づけることで、更新課金、按分、トライアル、Stripe Tax が正しく機能します。
+- 更新時の請求書行にも同じ `price_...` が入り、Webhook がプランを特定して各サイクルでクレジットを付与できます。
+- 一時的なインライン価格より安全で運用しやすい：金額やルールは Stripe 側で管理し、コードは安定します。
+
+Stripe で価格 ID を見つける手順
+
+1) ダッシュボード → 製品 → 対象の製品を選択。
+2) 価格テーブルの行末「︙」(三点) をクリック → 「価格 ID をコピー」。
+3) `price_...` で始まります。`prod_...`（製品 ID）と混同しないでください。
+
+環境変数（任意だが推奨）
+
+```bash
+# プランと Stripe 価格をマッピング。空ならインライン price_data にフォールバック
+NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY=price_...
+NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY=price_...
+NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY=price_...
+NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY=price_...
+# CNY 価格（任意）
+NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY_CNY=price_...
+NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY_CNY=price_...
+NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY_CNY=price_...
+NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY_CNY=price_...
+```
+
+価格 ID の有無による動作
+
+- サブスクプランに Price ID があれば、Checkout はそれを直接使用します。
+- 無い場合は、`src/data/pricing.ts` の金額でインライン `price_data` を使ってセッションを作成します（安全なフォールバック）。
+
+---
+
+## 更新（リニューアル）とクレジット
+
+本テンプレートは更新時のクレジット自動付与に対応しています：
+
+- Webhook `invoice.payment_succeeded`（`billing_reason=subscription_cycle` の場合）で、当該期間の更新注文を作成し、プランのクレジットを付与します。
+- 冪等性：同一 `(subscription_id, period_start)` の注文が既にあればスキップします。
+- 初回購入は引き続き `checkout.session.completed` で処理します。二重付与を避けるため、サイクル外の請求書は無視します。
+
+---
+
+## リマインダー：テスト時は Webhook 転送を設定
+
+ローカル（または本番以外）での検証では、Stripe のイベントを必ずバックエンドに転送してください。そうしないと支払いは成功しても、注文/クレジットが確定しません。
+
+```bash
+stripe listen --forward-to localhost:3000/api/pay/webhook/stripe
+```
+
+トンネル/リモート URL を利用する場合は、localhost の代わりにそのドメインを指定してください。

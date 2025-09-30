@@ -277,6 +277,30 @@ Read the full guide at `/en/blogs/email-service` (also available in es/fr/ja/zh)
 
 ---
 
+## Stripe Subscriptions with Price IDs
+
+For subscription plans, you can optionally use Stripe Price IDs instead of inline prices. This enables cleaner upgrades/downgrades, trials, and automatic credit grants on renewals.
+
+Setup
+
+1) In Stripe Dashboard, create Prices for your monthly/yearly plans.
+2) Set the corresponding env vars in `.env.local`:
+
+   NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY=price_...
+   NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY=price_...
+   NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY=price_...
+   NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY=price_...
+
+   Optional CNY variants are also supported (see `.env.example`).
+
+Behavior
+
+- Checkout uses Price IDs for subscriptions when provided (falls back to inline prices otherwise).
+- Renewals (`invoice.payment_succeeded` with `billing_reason=subscription_cycle`) create a new Order and automatically grant the plan’s credits for the next period.
+- Dunning emails still send on `invoice.payment_failed` and the Billing page links to the Stripe customer portal.
+
+---
+
 ## Troubleshooting
 
 - MDX “Unknown module type”: ensure the Fumadocs MDX plugin is active in `next.config.ts`, then restart (you should see `[MDX] types generated`).

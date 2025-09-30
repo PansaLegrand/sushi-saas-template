@@ -49,7 +49,7 @@ Le webhook est la source de vérité ; le callback ne fait que rediriger.
 ## Pré-requis
 
 ```bash
-STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PRIVATE_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 NEXT_PUBLIC_WEB_URL=http://localhost:3000
 NEXT_PUBLIC_PAY_CANCEL_URL=/pricing
@@ -83,7 +83,59 @@ stripe trigger checkout_session_completed
 
 - Plans : `src/data/pricing.ts`.
 - `handleCheckoutSession` gère paiement unique et abonnement (PaymentIntent via `latest_invoice`).
-- Ajoutez `invoice.payment_succeeded` si nécessaire pour les renouvellements.
+
+---
+
+## Produits vs Prix (Stripe)
+
+Stripe dissocie le catalogue (ce que vous vendez) de la tarification (comment c’est facturé) :
+
+- Produit (`prod_...`) : nom/description, métadonnées catalogue ; un produit peut avoir plusieurs prix.
+- Prix (`price_...`) : devise, montant, récurrence (mois/an), essais, comportement fiscal, paliers. Les abonnements s’attachent à un Prix.
+
+Pourquoi référencer des IDs de Prix en Checkout
+
+- Un abonnement nécessite des conditions tarifaires exactes. S’attacher à `price_...` permet les renouvellements corrects, le prorrata, les essais et Stripe Tax.
+- Les renouvellements référencent le même `price_...` sur les lignes de facture, ce qui permet au webhook d’identifier le plan et d’accorder les crédits à chaque cycle.
+- Plus sûr que des prix « ad‑hoc » : gérez montants/règles dans Stripe, le code reste stable.
+
+Où trouver vos IDs de Prix dans Stripe
+
+1) Dashboard → Produits → choisissez un produit.
+2) Dans le tableau des Prix, cliquez sur les 3 points au bout de la ligne → « Copier l’ID du prix ».
+3) Il commence par `price_...` — ne pas confondre avec l’ID produit (`prod_...`).
+
+Variables d’environnement (optionnel mais recommandé)
+
+```bash
+# Faites correspondre vos plans aux Prix Stripe ; à défaut, fallback en price_data inline
+NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY=price_...
+NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY=price_...
+NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY=price_...
+NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY=price_...
+# Variantes CNY (optionnel)
+NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY_CNY=price_...
+NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY_CNY=price_...
+NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY_CNY=price_...
+NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY_CNY=price_...
+```
+
+Comportement avec/sans IDs de Prix
+
+- Si un plan d’abonnement possède un Price ID, Checkout l’utilise directement.
+- Sinon, Checkout crée la session avec `price_data` inline depuis `src/data/pricing.ts` (repli sûr).
+
+---
+
+## Renouvellements et Crédits
+
+Les renouvellements sont gérés automatiquement :
+
+- Webhook `invoice.payment_succeeded` (avec `billing_reason=subscription_cycle`) crée une commande de renouvellement et accorde les crédits du plan pour la période.
+- Idempotence : on saute si une commande existe déjà pour `(subscription_id, period_start)`.
+- L’achat initial reste géré par `checkout.session.completed` ; pour éviter le double crédit, les factures hors cycle sont ignorées.
+
+---
 
 ---
 
@@ -123,3 +175,15 @@ stripe trigger invoice_payment_failed
 ```
 
 Remarque : l’email inclut un lien vers `/:locale/account/billing` pour ouvrir le portail depuis l’app.
+
+---
+
+## Rappel : redirigez les webhooks en test
+
+En local (ou toute URL hors production), assurez‑vous que Stripe redirige les événements vers votre backend ; sinon le paiement aboutit mais la commande/les crédits ne sont pas finalisés :
+
+```bash
+stripe listen --forward-to localhost:3000/api/pay/webhook/stripe
+```
+
+Si vous utilisez un domaine/tunnel distant, redirigez vers cette URL au lieu de localhost.
