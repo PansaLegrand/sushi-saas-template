@@ -49,7 +49,7 @@ canonical: "https://sushi-saas-template.io/zh/blogs/stripe-setup"
 ## 必要环境变量
 
 ```bash
-STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PRIVATE_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 NEXT_PUBLIC_WEB_URL=http://localhost:3000
 NEXT_PUBLIC_PAY_CANCEL_URL=/pricing
@@ -89,6 +89,69 @@ stripe trigger checkout_session_completed
 - 可扩展处理 `invoice.payment_succeeded` 实现订阅续费时自动充值积分。
 
 ---
+
+## 产品与价格（Stripe）
+
+Stripe 将“售卖的内容”和“定价方式”分离：
+
+- 产品（`prod_...`）：名称/描述、目录与会计元数据；一个产品可以对应多条价格。
+- 价格（`price_...`）：币种、金额、是否按月/按年循环、试用、税务行为、分级等。订阅绑定到价格。
+
+为何在 Checkout 使用价格 ID（Price ID）
+
+- 订阅需要明确的计费条款。绑定到 `price_...` 才能启用续费、按比例结算（proration）、试用和 Stripe Tax。
+- 续费账单行会引用同一 `price_...`，Webhook 能据此映射到计划并在每个周期自动发放积分。
+- 比“临时内联价格”更安全：把金额与规则放在 Stripe 管理，代码保持稳定。
+
+如何在 Stripe 找到价格 ID
+
+1) 仪表盘 → 产品 → 选择你的产品。
+2) 在“价格（Prices）”表中，点击该行末尾的省略号（三点） → 复制价格 ID。
+3) 价格 ID 以 `price_...` 开头；不要与产品 ID（`prod_...`）混淆。
+
+环境变量（可选但推荐）
+
+```bash
+# 把计划配置映射到 Stripe 的价格；留空则回退为内联 price_data
+NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY=price_...
+NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY=price_...
+NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY=price_...
+NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY=price_...
+# 可选人民币价格
+NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY_CNY=price_...
+NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY_CNY=price_...
+NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY_CNY=price_...
+NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY_CNY=price_...
+```
+
+有/无价格 ID 的行为
+
+- 若订阅计划配置了 Price ID，Checkout 将直接引用该 `price_...`。
+- 若未配置，Checkout 会使用 `src/data/pricing.ts` 的金额通过内联 `price_data` 创建会话（安全回退）。
+
+---
+
+## 续费与积分
+
+模板已支持订阅自动续费时的积分发放：
+
+- Webhook 处理 `invoice.payment_succeeded`，当且仅当 `billing_reason=subscription_cycle` 时：
+  - 创建当期的续费订单（Order）。
+  - 根据计划发放当期积分，过期时间对齐账单周期（+24h 宽限）。
+- 幂等：若同一 `(subscription_id, period_start)` 已有订单，则跳过。
+- 首次购买仍由 `checkout.session.completed` 处理；为避免重复发放，非续费账单会被忽略。
+
+---
+
+## 提醒：本地测试记得转发 Webhook
+
+本地或非生产环境测试时，务必将 Stripe 事件转发到你的后端，否则支付虽然成功，但订单与积分不会最终入账：
+
+```bash
+stripe listen --forward-to localhost:3000/api/pay/webhook/stripe
+```
+
+如果使用外网域名或隧道，请将 `forward-to` 换成对应地址。
 
 ## 计费与订阅
 

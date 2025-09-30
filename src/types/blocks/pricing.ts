@@ -29,6 +29,10 @@ export interface PricingItem {
   credits?: number;
   valid_months?: number;
   group?: string;
+  // Optional Stripe Price IDs for subscription checkout.
+  // If provided, server checkout will reference these IDs instead of building price_data.
+  price_id?: string;
+  cn_price_id?: string;
 }
 
 export interface Pricing {

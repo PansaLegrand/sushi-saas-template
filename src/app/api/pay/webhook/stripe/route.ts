@@ -5,6 +5,13 @@ import { markReservationConfirmed, findReservationByNo, getServiceById } from "@
 import { buildReservationICS } from "@/features/reservations/ics";
 import { buildGoogleCalendarUrl } from "@/features/reservations/google";
 import { ReservationsConfig } from "@/features/reservations/config";
+import { getPricingConfig } from "@/data/pricing";
+import { locales } from "@/i18n/locale";
+import { getSnowId } from "@/lib/hash";
+import { insertOrder, OrderStatus, findOrderBySubscriptionPeriod } from "@/models/order";
+import { increaseCredits, CreditsTransType } from "@/services/credit";
+import { updateAffiliateForOrder } from "@/services/affiliate";
+import { findUserByEmail } from "@/models/user";
 
 // Stripe sends webhook events via POST requests with a signed payload.
 // Configure Stripe CLI or dashboard to forward events to this endpoint:
@@ -99,6 +106,127 @@ export async function POST(req: Request) {
               console.error("payment email failed", e);
             });
           });
+        }
+        break;
+      }
+      case "invoice.payment_succeeded": {
+        const invoice = event.data.object as Stripe.Invoice;
+        // Avoid double-provisioning on initial subscription creation; handle only recurring cycles
+        if (invoice.billing_reason && invoice.billing_reason !== "subscription_cycle") {
+          break;
+        }
+
+        try {
+          const apiKey = process.env.STRIPE_PRIVATE_KEY;
+          if (!apiKey) return new Response("stripe secret not configured", { status: 500 });
+          const stripe = new Stripe(apiKey);
+
+          const subId = (invoice.subscription as string) || "";
+          if (!subId) break;
+
+          // Period boundaries from the first subscription line
+          const line = invoice.lines?.data?.find((l) => (l as any).type !== "invoiceitem") || invoice.lines?.data?.[0];
+          const periodStart = line?.period?.start ?? undefined;
+          const periodEnd = line?.period?.end ?? undefined;
+          const priceId = line?.price?.id ?? undefined;
+          const interval = line?.price?.recurring?.interval ?? undefined;
+
+          if (periodStart && (await findOrderBySubscriptionPeriod(subId, periodStart))) {
+            // Idempotency: we already created an order for this cycle
+            break;
+          }
+
+          // Resolve the plan from configured price IDs
+          function findPlanByPriceId(id?: string) {
+            if (!id) return undefined;
+            // Search across locales (price IDs should be the same per currency)
+            for (const loc of locales) {
+              const cfg = getPricingConfig(loc);
+              const item = cfg.items?.find((it: any) => it?.price_id === id || it?.cn_price_id === id);
+              if (item) return item as any;
+            }
+            // Fallback: try default locale
+            const en = getPricingConfig("en");
+            return en.items?.find((it: any) => it?.price_id === id || it?.cn_price_id === id) as any;
+          }
+
+          const plan = findPlanByPriceId(priceId);
+
+          // Resolve user identity
+          let userUuid = (invoice as any).metadata?.user_uuid as string | undefined;
+          let userEmail = invoice.customer_email || (invoice as any).customer_email || undefined;
+          // Try subscription metadata for uuid/email if missing
+          if (!userUuid || !userEmail) {
+            try {
+              const sub = await stripe.subscriptions.retrieve(subId, { expand: ["customer"] as any });
+              userUuid = (sub as any).metadata?.user_uuid ?? userUuid;
+              userEmail = (sub as any).metadata?.user_email ?? userEmail;
+              if (!userEmail && (sub.customer as any)?.email) {
+                userEmail = (sub.customer as any).email;
+              }
+            } catch (e) {
+              // continue with whatever we have
+            }
+          }
+
+          // Fallback: resolve uuid by email from DB
+          if (!userUuid && userEmail) {
+            const dbUser = await findUserByEmail(userEmail);
+            userUuid = dbUser?.uuid;
+          }
+          if (!userUuid) break; // cannot provision without user
+
+          // Compute expiry: use period end + 24h grace similar to checkout route
+          const graceMs = 24 * 60 * 60 * 1000;
+          const expiredAt = periodEnd ? new Date(periodEnd * 1000 + graceMs) : null;
+
+          const amount = typeof invoice.amount_paid === "number" ? invoice.amount_paid : 0;
+          const currency = (invoice.currency || "usd") as string;
+          const product_name = (plan?.product_name as string | undefined) ?? line?.price?.nickname ?? "Subscription";
+          const product_id = (plan?.product_id as string | undefined) ?? priceId ?? "subscription";
+          const credits = (plan?.credits as number | undefined) ?? 0;
+
+          const order_no = getSnowId();
+          const order = await insertOrder({
+            order_no,
+            created_at: new Date(),
+            user_uuid: userUuid,
+            user_email: userEmail || "",
+            amount,
+            interval: (interval as string) || "month",
+            expired_at: expiredAt,
+            status: OrderStatus.Paid,
+            credits,
+            currency,
+            product_id,
+            product_name,
+            valid_months: plan?.valid_months ?? (interval === "year" ? 12 : 1),
+            sub_id: subId,
+            sub_interval_count: line?.quantity ?? 1,
+            sub_cycle_anchor: undefined,
+            sub_period_end: periodEnd ?? undefined,
+            sub_period_start: periodStart ?? undefined,
+            sub_times: undefined,
+            paid_at: new Date(),
+            paid_email: userEmail || undefined,
+            paid_detail: JSON.stringify({ invoiceId: invoice.id }),
+          } as any);
+
+          if (credits && credits > 0) {
+            await increaseCredits({
+              user_uuid: userUuid,
+              trans_type: CreditsTransType.OrderPay,
+              credits,
+              expired_at: expiredAt ?? undefined,
+              order_no: order_no,
+            });
+          }
+
+          // Affiliate reward for renewal orders (optional; follows current model)
+          await updateAffiliateForOrder(order as any);
+        } catch (e) {
+          console.error("invoice.payment_succeeded handling failed", e);
+          // do not fail webhook; continue
         }
         break;
       }

@@ -62,7 +62,7 @@ On successful payment:
 Set these variables in `.env.local` and restart dev:
 
 ```bash
-STRIPE_SECRET_KEY=sk_test_...             # Test mode secret key
+STRIPE_PRIVATE_KEY=sk_test_...            # Test mode secret key
 STRIPE_WEBHOOK_SECRET=whsec_...           # From Stripe CLI / dashboard
 NEXT_PUBLIC_WEB_URL=http://localhost:3000 # External URL for callbacks
 NEXT_PUBLIC_PAY_CANCEL_URL=/pricing       # Optional; relative or absolute
@@ -72,8 +72,7 @@ NEXT_PUBLIC_PAY_FAIL_URL=/pricing         # Optional
 
 Notes:
 
-- `src/integrations/stripe.ts` expects `STRIPE_SECRET_KEY`.
-- If you previously used `STRIPE_PRIVATE_KEY`, replace it with `STRIPE_SECRET_KEY`.
+- `src/integrations/stripe.ts` expects `STRIPE_PRIVATE_KEY` (your Stripe secret key).
 
 ---
 
@@ -121,10 +120,60 @@ If you enable RMB/WeChat Pay, ensure those payment methods are active in your St
 
 ---
 
+## Products vs Prices (Stripe)
+
+Stripe separates the catalog item (Product) from how it’s sold (Price):
+
+- Product (`prod_...`): name/description, catalog metadata; a single Product can have many Prices.
+- Price (`price_...`): currency, amount, recurring interval (month/year), trials, tax behavior, tiers. Subscriptions attach to a Price.
+
+Why we reference Price IDs in Checkout
+
+- Subscriptions need exact commercial terms. Attaching to a `price_...` enables proper renewals, proration, trials, and Stripe Tax.
+- Renewals reference the same Price on invoice lines so our webhook can map the plan and grant credits each cycle.
+- Operationally safer than ad‑hoc prices: you manage amounts and rules in Stripe; code stays stable.
+
+Finding your Price IDs in Stripe
+
+1) Dashboard → Products → pick your product.
+2) In the Prices table, click the 3 dots at the end of the row → “Copy price ID”.
+3) It begins with `price_...` — don’t confuse it with the Product ID (`prod_...`).
+
+Environment variables (optional but recommended)
+
+```bash
+# Map your plan config to Stripe Prices; if empty, checkout falls back to inline prices
+NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY=price_...
+NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY=price_...
+NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY=price_...
+NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY=price_...
+# Optional CNY variants
+NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY_CNY=price_...
+NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY_CNY=price_...
+NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY_CNY=price_...
+NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY_CNY=price_...
+```
+
+Behavior with/without Price IDs
+
+- If a Price ID is set for a subscription plan, Checkout uses it directly.
+- If not, Checkout creates the session with inline `price_data` using amounts from `src/data/pricing.ts` (safe fallback).
+
+---
+
+## Renewals and Credits
+
+This template handles renewals automatically:
+
+- Webhook `invoice.payment_succeeded` (with `billing_reason=subscription_cycle`) creates a renewal Order and grants plan credits for the period.
+- Idempotency: we skip if an Order already exists for the same `(subscription_id, period_start)`.
+- Initial purchase still uses `checkout.session.completed`; we avoid double‑crediting by ignoring non‑cycle invoices.
+
+---
+
 ## Optional Enhancements
 
-- Add an `invoice.payment_succeeded` handler to grant credits on subscription renewals.
-- Persist Stripe IDs (subscription, invoice) alongside orders for richer admin views.
+- Persist additional Stripe IDs (subscription, invoice) alongside orders for richer admin views.
 - Add idempotency keys if you extend the flow to multiple writes per event.
 
 ---
@@ -165,3 +214,15 @@ stripe trigger invoice_payment_failed
 ```
 
 Note: Emails include a link back to `/:locale/account/billing` so users can open the Customer Portal from your app.
+
+---
+
+## Reminder: Forward Webhooks During Testing
+
+When testing locally (or against any non‑production URL), make sure Stripe forwards events to your environment; otherwise payments will complete but credits/orders won’t be finalized.
+
+```bash
+stripe listen --forward-to localhost:3000/api/pay/webhook/stripe
+```
+
+If you use a tunnel or remote domain, forward to that full URL instead of localhost.

@@ -65,6 +65,12 @@ export async function POST(req: Request) {
 
     const is_subscription = interval === "month" || interval === "year";
 
+    // Prefer using Stripe Price IDs for subscriptions when provided.
+    // Choose price id by currency variant if present.
+    const resolvedPriceId = is_subscription
+      ? (currency === "cny" ? (item as any).cn_price_id : (item as any).price_id) || undefined
+      : undefined;
+
     // get signed user
     const user_uuid = await getUserUuid(req);
     if (!user_uuid) {
@@ -126,6 +132,7 @@ export async function POST(req: Request) {
       order: order as any,
       locale,
       cancel_url,
+      priceId: resolvedPriceId,
     });
 
     return respData(result);
@@ -139,19 +146,30 @@ async function stripeCheckout({
   order,
   locale,
   cancel_url,
+  priceId,
 }: {
   order: Order;
   locale: string;
   cancel_url: string;
+  priceId?: string;
 }) {
   const intervals = ["month", "year"];
   const is_subscription = intervals.includes(order.interval);
 
   const client = newStripeClient();
 
-  let options: Stripe.Checkout.SessionCreateParams = {
-    payment_method_types: ["card"],
-    line_items: [
+  // If a Price ID is provided (subscriptions), reference it directly.
+  // Otherwise fall back to inline price_data.
+  let lineItems: Stripe.Checkout.SessionCreateParams.LineItem[];
+  if (is_subscription && priceId) {
+    lineItems = [
+      {
+        price: priceId,
+        quantity: 1,
+      },
+    ];
+  } else {
+    lineItems = [
       {
         price_data: {
           currency: order.currency || "usd",
@@ -167,7 +185,12 @@ async function stripeCheckout({
         },
         quantity: 1,
       },
-    ],
+    ];
+  }
+
+  let options: Stripe.Checkout.SessionCreateParams = {
+    payment_method_types: ["card"],
+    line_items: lineItems,
     allow_promotion_codes: true,
     metadata: {
       project: process.env.NEXT_PUBLIC_PROJECT_NAME || "",
