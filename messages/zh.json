@@ -10,25 +10,22 @@
     },
     "hero": {
       "title": "让你的 SaaS 上线更快",
-      "subtitle": "内置生产级模版、多语言落地页以及 Better Auth 驱动的认证体系，帮助你快速启动产品。",
+      "subtitle": "基于 Next.js 15 的开源模板，内置 i18n、Better Auth、Stripe 等，从第一天起即面向生产。",
       "ctaPrimary": "立即开始",
-      "ctaSecondary": "查看文档"
+      "ctaSecondary": "查看文档",
+      "ctaGitHub": "在 GitHub 查看"
     },
     "features": {
       "title": "核心能力",
       "items": [
-        {
-          "title": "多语言就绪",
-          "description": "从第一天起就以本地化内容服务全球客户。"
-        },
-        {
-          "title": "Better Auth 集成",
-          "description": "现代化的认证基建，轻松扩展邮箱、社交或 Passkey 登录。"
-        },
-        {
-          "title": "健康监控",
-          "description": "简单的心跳接口确保部署状态可观测。"
-        }
+        { "title": "现代开源栈", "description": "Next.js 15、TypeScript、Tailwind —— 生产就绪的起步模版。" },
+        { "title": "认证与 RBAC（Better Auth）", "description": "邮箱 + Google 登录，安全会话与角色校验，基于 Drizzle。" },
+        { "title": "全球化 i18n", "description": "本地化路由与文案，轻松支持多语言。" },
+        { "title": "Stripe 计费 + 积分", "description": "Checkout、订阅，以及灵活的积分台账以支持按量计费。" },
+        { "title": "预约模块", "description": "可用时段、订金/全额支付、确认邮件与日历邀请。" },
+        { "title": "推广与返佣", "description": "邀请链接、归因注册、可配置奖励，助力增长。" },
+        { "title": "管理面板", "description": "按角色管理用户、订单、积分、预约与推广。" },
+        { "title": "文档与 MDX", "description": "内置 MDX + Fumadocs 文档/博客与完善的 SEO。" }
       ]
     },
     "footer": "基于 Next.js 15、Tailwind CSS 与 Better Auth 构建。"
@@ -43,6 +40,39 @@
   "reservation": {
     "title": "预约服务",
     "subtitle": "选择服务、选择时间，并支付少量订金以确认。"
+  },
+  "auth": {
+    "signInTitle": "欢迎回来",
+    "signUpTitle": "创建账户",
+    "signInSubtitle": "使用您的凭据登录控制台。",
+    "signUpSubtitle": "填写以下信息开始使用。",
+    "email": "邮箱",
+    "password": "密码",
+    "name": "姓名",
+    "submitSignIn": "登录",
+    "submitSignUp": "创建账户",
+    "orContinueWith": "或继续使用",
+    "continueWithGoogle": "使用 Google 继续",
+    "noAccount": "还没有账户？",
+    "haveAccount": "已经有账户？",
+    "linkSignIn": "登录",
+    "linkSignUp": "注册",
+    "forgotPassword": "忘记密码？",
+    "forgotTitle": "忘记密码？",
+    "forgotSubtitle": "我们会发送一封邮件来重置密码。",
+    "sendResetLink": "发送重置链接",
+    "resetTitle": "设置新密码",
+    "resetSubtitle": "请输入你的新密码。",
+    "resetPassword": "重置密码",
+    "msgResetSent": "如果该邮箱存在账户，我们已发送重置链接。",
+    "msgResetDone": "密码已重置，现在可以登录。",
+    "errorInvalidToken": "重置链接无效或已过期。",
+    "backToLogin": "返回登录",
+    "pleaseWait": "请稍候…",
+    "sending": "发送中…",
+    "updating": "更新中…",
+    "errorGeneric": "发生了错误。",
+    "msgAccountCreated": "账户创建成功，正在跳转...",
+    "logout": "退出登录"
   }
 }
-

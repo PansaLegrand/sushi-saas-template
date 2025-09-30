@@ -1,0 +1,311 @@
+---
+title: SaaSのためのGoogle — 重要な理由と使い方
+icon: "Search"
+description: Googleのエコシステム（Search Console、GA4、Business Profile、Merchant Center、Trends）を活用して、見つけてもらい、行動を計測し、2025年にSaaSを成長させるための初心者向けガイド。
+keywords:
+  - Google
+  - SEO
+  - Search Console
+  - GA4
+  - コアウェブバイタル
+  - 構造化データ
+  - Google ビジネス プロフィール
+  - Merchant Center
+  - Looker Studio
+  - キーワードプランナー
+  - Trends
+tags: [google, seo, アナリティクス, 成長]
+author: "Pansa Legrand"
+publishedAt: "2025-09-30T00:00:00.000Z"
+updatedAt: "2025-09-30T00:00:00.000Z"
+canonical: "https://sushi-saas-template.io/ja/blogs/google-for-saas"
+---
+
+## SaaSにGoogleが重要な理由
+
+Googleは人々が疑問を投げかけ、解決策を見つける場所です。SaaSにとってGoogleで勝つことは次の2点につながります。
+
+- 時間とともに積み上がる、質の高い検索トラフィックを獲得できる。
+- ユーザーが何を求め、どうやってプロダクトを見つけたかが分かり、ページ・コンテンツ・オンボーディングを改善できる。
+
+小手先は不要です。必要なのは、検索対象としての適格性、見つけやすさ、良好なページ体験、そして有用なコンテンツ。Googleの公式ツールが、直すべき点と来訪後のユーザー行動を教えてくれます。
+
+---
+
+## Googleをどう使うか（ツールキット）
+
+### Search Console と Google Analytics（GA4）の違い
+
+- Search Console（search.google.com/search-console）
+  - Google検索での表示状況：クエリ、表示回数、クリック、平均掲載順位。
+  - クロール/インデックスの問題、コアウェブバイタル、サイトマップ、手動対策、構造化データの適格性を可視化。
+  - データはGoogle検索由来（タグ不要）。検索以外の流入やサイト内行動は分かりません。
+
+- Google Analytics 4（analytics.google.com）
+  - サイト/アプリ内の行動：ユーザー、セッション、イベント、コンバージョン、チャネル。
+  - イベントベースのモデル。タグ（Googleタグ or Tag Manager）が必要。
+
+両者は補完関係です。Search Consoleは「どうやって来たか」を、GA4は「来てから何をしたか」を教えてくれます。Looker Studioで両方を可視化することも可能です。
+
+### 他に重視するGoogleの面
+
+- Google ビジネス プロフィール（GBP）：地図/「近くの〜」でのローカル可視性。
+- Merchant Center + 製品の構造化データ：リッチリザルト/Shoppingの適格性（ECの導線）。
+- Trends + キーワードプランナー：需要・季節性・クエリテーマの把握。
+- PageSpeed Insights + Search Consoleのコアウェブバイタル：実ユーザーのパフォーマンス指標。
+
+---
+
+## 実践プレイブック（2025年版）
+
+1) 基本を満たす（適格性とポリシー）
+- Search Essentialsとスパムポリシーに準拠（操作的なリンク、役に立たない量産コンテンツはNG）。
+- 人に役立つ、信頼できるコンテンツを作る（誰/何が書いたかに関わらず有用性が評価されます）。
+
+2) Googleが見つけてインデックスできるようにする
+- Search Console：ページのインデックス登録レポートの問題を修正。クリーンなXMLサイトマップを送信し、robots.txtやnoindexで重要ページをブロックしていないか確認。
+- URL検査ツールで個別URLをチェックし、必要に応じて再クロールをリクエスト。
+
+3) ページ体験（Core Web Vitals）を満たす
+- 目標：LCP ≤ 2.5s、INP ≤ 200ms、CLS ≤ 0.1（75パーセンタイル）。
+- PageSpeed InsightsとSearch Consoleのコアウェブバイタルを監視。INPは2024年3月にFIDを置き換えました。
+
+4) 正しく構造化データを追加
+- 一般ガイドラインに従い、Rich Results Testで検証。
+- 目的に合うタイプ（Product、Event、Article、Local Businessなど）をSearch Galleryから実装。
+- 最近の変更：HowToと多くのFAQのリッチリザルトは非推奨/限定。製品バリアントのマークアップはサポート。
+
+5) 情報設計を強化
+- 分かりやすいURL、意味のあるアンカーのクロール可能なリンク、正しいcanonical、マルチ言語サイトではhreflang。
+
+6) ローカル可視性（該当する場合）
+- Google ビジネス プロフィールを作成・最適化（営業時間、カテゴリ、写真、サービス）。
+- ローカル順位要因：関連性・距離・知名度。直近の高評価レビューが有利。
+
+7) ECの露出（オンライン販売する場合）
+- 製品/マーチャントの構造化データを実装し、Search ConsoleのMerchant listingsレポートを監視。
+- Merchant Centerアカウントを作成して、Google全体（Search/Shopping/Maps/YouTube）に掲載。返品ポリシーのマークアップは任意。
+
+8) 需要とトピックを調査
+- Google Trendsで関心度/季節性、キーワードプランナーでクエリテーマを把握（完全アクセスには課金設定済みのGoogle Adsアカウントが必要）。
+
+9) 計測して改善
+- Search Console：パフォーマンス（Search/News/Discover）でクエリ・CTR・順位を確認。Crawl StatsとSearch Status Dashboardも注視。
+- GA4：コンバージョンイベント（登録、購入など）を定義し、獲得 vs. エンゲージメントを分析。EEAで運用する場合はConsent Mode v2を実装。
+- Search Console + GA4をLooker Studioで統合ダッシュボード化。
+
+---
+
+## 早見表（クイック比較）
+
+- どのクエリがトラフィックをもたらす？CTR/掲載順位は？
+  - Search Console → パフォーマンス（Search/News/Discover）
+- このページはインデックス登録されている？理由は？
+  - Search Console → URL検査 / ページのインデックス登録
+- ページはユーザーにとって速く/使いやすい？
+  - PageSpeed Insights + Search Console → Core Web Vitals
+- 製品はリッチリザルト/Shoppingの対象？
+  - Search Console → Merchant listings + Rich Results Test
+- ランディング後に何をしている？
+  - GA4（イベント/コンバージョン）
+
+---
+
+## 避けるべき落とし穴
+
+- 操作的なリンクの購入/参加、役に立たない大量コンテンツの量産（スパムポリシー違反）。最近の更新は「期限切れドメインの悪用」「スケールしたコンテンツの悪用」「サイトの評判の悪用」を対象。
+- 非推奨になったリッチリザルトタイプ（例：HowTo、多くのFAQ）に依存。
+- INPを無視（2024年3月にFIDから置換）。
+
+---
+
+## 重要概念：「タグ」とは？
+
+ウェブの分析/マーケでいう「タグ」は、サービス（Analytics、Adsなど）へデータを送るためにサイトへ追加する小さなJavaScriptスニペットです。
+
+- GA4 → タグが必要。例：計測ID（G‑XXXXXXX）を読み込む`<script>`でページビュー、イベント、コンバージョンを計測。
+- Google Tag Manager（GTM） → 複数タグ（Analytics、Ads、リマーケなど）をコード編集なしで管理できるコンテナ。
+- Search Console → タグ不要。サイトの所有権を一度だけ確認（DNS TXT、HTMLファイル、`<head>`内の`<meta>`）すれば、検索/インデックスのデータはGoogle側で収集されます。
+
+---
+
+## Google ビジネス プロフィールの設定手順（ローカルSEO）
+
+エリアを提供する、または地図での可視性が必要な場合：
+
+1. https://www.google.com/business/ にアクセスし、ログイン。
+2. ビジネス情報を入力：名前、カテゴリ、住所または提供エリア、連絡先、営業時間、写真。
+3. 認証（はがき、電話、メール、ビデオ）。
+4. 最適化：情報更新、写真追加、レビュー獲得、返信、投稿/オファー活用。
+
+---
+
+## ステップ順（新規サイト）
+
+1) Search Console
+- 所有権の確認（DNS TXT推奨）、サイトマップ送信、インデックス登録レポートの確認。
+- ブロック要因（noindex、robots.txt、canonical）を解消し、必要に応じて再クロール依頼。
+
+2) GA4（+ 任意でGTM）
+- GA4タグを設置（またはGTM経由）。登録/購入などのコンバージョンイベントを定義。
+- EEAで運用する場合はConsent Mode v2を実装。
+
+3) Google ビジネス プロフィール（ローカルの場合）
+- プロフィール作成/取得、認証、主要項目（営業時間、サービス）を充実。レビュー獲得を開始。
+
+4) 任意：Merchant Center（製品を掲載する場合）
+- 製品/マーチャントの構造化データ実装、Merchant Center連携、Search Consoleで適格性を監視。
+
+5) レポーティング
+- Search Console + GA4をLooker Studioで可視化し、クエリ、CTR、コンバージョン、ページ別の推移を追跡。
+
+---
+
+## 次のアクション
+
+- あなたのSaaSに関係する面を決める（検索のみ？ローカル？製品？）。
+- 当スタック（Next.js + MDX + Better Auth）向けの導入チェックリスト（Search Console、GA4、Consent Mode v2）とLooker Studioのスターターテンプレートも用意できます。必要なら追加します。
+
+---
+
+## 付録：Google ツールを使うタイミング（特にローカルSMB）
+
+次のニーズがあるときに活用します：
+
+1) 発見される — ページのインデックス登録、検索/マップで正確なビジネス情報の表示、リッチリザルト適格。 (Search Console、Business Profile、構造化データ)
+
+2) 効果測定 — 流入元、イベント、コンバージョン、クエリ、ページ体験。 (GA4、Search Console、PageSpeed Insights)
+
+3) 体験改善 — 低速や操作性の悪さ（INP）を改善し、営業時間/写真/レビューを最新に。 (web.dev、Business Profile)
+
+4) 成長 — 広告の実施、無料の製品掲載、適格な職種でのLocal Services Ads。 (Google Ads、Merchant Center、LSA)
+
+---
+
+## 付録：必須ツール（概要）
+
+- Google Search Console（GSC） — SEOコントロールルーム
+  - 役割：クエリ/CTR/順位、インデックス、Core Web Vitals、リッチリザルト適格性；サイトマップ送信；インデックス依頼；Merchant/Productのレポート。
+  - 最初の10分：所有権を確認（HTMLファイル、DNS TXT、meta；GA4/GTMでも可）、サイトマップ送信、重要URLを検査/インデックス。ECならMerchant listingsとProduct snippetsを確認。
+
+- Google ビジネス プロフィール（GBP） — 検索/地図のローカル掲載
+  - 役割：名称/住所/電話、営業時間、カテゴリ、写真、サービス/商品、予約リンク；レビュー収集；ローカル指標。
+  - 注意：チャット/通話履歴は2024/07/31に廃止。地域によってWhatsApp/SMSのリンクを追加可能。対面での接点が要件（私書箱/バーチャルオフィス不可）。サービス提供エリア型は住所を非表示にしエリアを設定。
+
+- Google Analytics 4（GA4） — イベントベース計測
+  - 役割：Web/Appのトラフィック・イベント・コンバージョン；Ads/BigQueryと連携。
+  - 最初の10分：プロパティ作成、タグ設置（またはGTM配信）、主要コンバージョン定義。EEA対象ならConsent Mode v2を実装（CMP+GTM経由が一般的）。
+
+- Google Tag Manager（GTM） — コードリリースなしでタグ管理
+  - 役割：Analytics/Ads/同意関連タグを一元配信・更新。
+
+- PageSpeed Insights（PSI）とCore Web Vitals — パフォーマンス/UX
+  - 役割：実測（CrUX）+ ラボ（Lighthouse）でLCP/INP/CLSを改善。目標：LCP ≤ 2.5s、INP ≤ 200ms、CLS ≤ 0.1。INPは2024年にFIDを置換。
+
+- Merchant Center — 無料の製品掲載面
+  - 役割：Search/Shopping/Maps/Images/YouTube/Lens/Geminiに無料掲載；広告は任意。フィードまたは構造化データに対応。開発者向け：Product/Offer（配送/返品、価格/在庫）を追加し、GSCのMerchant listingsを監視。
+
+- Google Ads — 有料の成長施策（任意）
+  - 役割：Search/Performance Max/YouTube/Maps；職種によってLocal Services Ads（審査ありの成果課金）。GBPと連携して住所表示を拡張。
+
+- Looker Studio — レポートダッシュボード
+  - 役割：無料ダッシュボード；GA4 + GSCを接続し併せて可視化。
+
+- リサーチツール — Trends / キーワードプランナー
+  - 役割：トピックの伸長と用語比較（Trends）；キーワードのアイデア/ボリューム（プランナー；一部はAds設定完了が必要）。
+
+---
+
+## 付録：シナリオ別 必須 / あればなお良い
+
+- すべての新規サイト
+  - 必須：Search Console（検証、サイトマップ、URL検査）、GA4（基本コンバージョン）、PSI/CWVの改善。
+  - あると良い：Looker Studioダッシュボード；GSC ↔ GA4を統合表示。
+
+- ローカル（店舗/サービスエリア）
+  - 必須：ビジネスプロフィール（NAP、営業時間、カテゴリ、写真、レビュー）；ローカル要因（関連性/距離/知名度）。
+  - あると良い：予約/注文リンク、メニュー/商品；適格ならLocal Services Ads。
+
+- オンラインストア / カタログ
+  - 必須：Merchant Center（無料掲載）+ Product/Offer；GSCのMerchant listingsを監視。
+  - あると良い：ローカル在庫（実店舗がある場合）、Google Ads（Search/PMax）。
+
+- EEAトラフィック
+  - 必須：Consent Mode v2（CMP/GTM経由）。
+  - あると良い：同意に配慮した高度なリマーケ。
+
+---
+
+## 付録：ローカルビジネス必須（手順）
+
+1) ビジネスプロフィールを取得・認証。主/副カテゴリ、営業時間（祝日含む）、サービス、写真、「店舗から」の短い説明を追加。私書箱/バーチャルオフィス不可。
+
+2) 出張型ならサービス提供エリアを設定し、住所は非表示に。
+
+3) レビューを集め、返信する。質と新しさが知名度に寄与；返信はエンゲージメントの証明。
+
+4) 予約/注文リンク、メニュー/商品などのアクションを追加。注：組み込みのチャット/通話履歴は2024年に廃止。地域によりWhatsApp/SMSリンクを検討。
+
+5) （任意）GBP ↔ Google Ads を連携し、広告に住所や経路を表示。
+
+6) GBPの「パフォーマンス」で検索数、閲覧、通話、経路、サイトクリックを確認。
+
+---
+
+## 付録：EC向けアドオン（ローカルにも有効）
+
+- 無料の掲載：Merchant Centerと同期し、Search/Shopping/Maps/Images/YouTube/Lens/Geminiに無料掲載。
+- 構造化データ：Product/Offer（価格、在庫、配送/返品）を実装し、Rich Results Testで検証；GSCのMerchant listingsで監視。
+- ローカル在庫 / 無料ローカル掲載：近隣の在庫を提示し来店を促進。
+
+---
+
+## 付録：ページ体験とテクニカル衛生
+
+- Core Web Vitals：LCP ≤ 2.5s、INP ≤ 200ms、CLS ≤ 0.1。PSIで実測（CrUX）とラボ（Lighthouse）の両方を確認。
+- サイトマップ：標準XMLを生成・送信；内部リンクを整える。
+- Robotsとインデックス：robots.txtはクロール制御であり、インデックス制御ではない；Searchから除外はnoindexや認証で。
+- 単一ページの原因切り分けはURL検査（ライブテスト、インデックス依頼）。
+- 変動時はSearch Status Dashboardでコアアップデート/障害を確認。
+
+---
+
+## 付録：リサーチと計画（軽量ワークフロー）
+
+- Trendsで語彙、季節性、地域を把握；最大5グループの用語比較。
+- キーワードプランナーで需要規模と関連テーマを確認（Adsアカウント設定が必要な機能あり）。
+- コンテンツ品質は「役立つ/信頼できる/人中心のコンテンツ」とSearch Essentialsに準拠。
+
+---
+
+## 新規サイトの1ページチェックリスト
+
+Day 1–2
+- Search Consoleを検証（HTMLファイル、DNS TXT、meta）。sitemap.xmlを送信。主要URLを数件チェック。
+- GA4を導入（gtagまたはGTM）。1–3件のコンバージョン（リード/購入/電話クリック）を設定。
+- PageSpeed Insightsをホームと主要テンプレートで実行し、LCP/INP/CLS課題を整理。
+
+Week 1
+- ビジネスプロフィール：取得/認証；カテゴリ、営業時間（祝日含む）、サービスエリア（該当時）、説明、写真；必要に応じ予約/注文リンク。レビュー計画を開始。
+- ECなら：Product/Offerを実装しRich Results Testで検証；GSCのMerchant listingsを開く。
+
+Month 1
+- GA4（エンゲージ/コンバージョン）+ GSC（クエリ/順位）をLooker Studioで可視化する小さなダッシュボードを作成。
+- EEA対象なら、CMP経由でConsent Mode v2をGTM配信。
+- Local Services Ads（職種）や小規模なSearch Adsを検討；Ads ↔ GBPを連携。
+
+---
+
+## 用語集
+
+- タグ — サイトが読み込む小さなコード（Analytics、Adsなど）。GTMでコードリリースなしに管理可能。
+- 構造化データ / スキーマ — 機械可読な情報（JSON‑LD推奨）でリッチリザルトを解放（例：価格/評価）。Rich Results Testで検証。
+- Core Web Vitals（CWV） — LCP/INP/CLS。目標は“良好”しきい値。
+- サイトマップ — 重要URLの一覧。GSCで送信。
+- Robots.txt — クロールを制御するファイル。インデックス除外はnoindexまたは認証で。
+
+---
+
+## 最後に
+
+Googleは依然として多くのユーザーにとって主要な入口であり、ローカル発見では特に重要です。可視性（有用なコンテンツ、健全なサイト）を獲得し、正しく計測（GA4/GSC）し、体験（CWV）を改善し、結果を強化（構造化データ、Business Profile、Merchant Center）できれば、持続的成長の80/20をカバーできます。広告や高度なレポートはスケール段階で追加すればOKです。

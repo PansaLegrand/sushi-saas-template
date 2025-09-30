@@ -56,6 +56,14 @@ export default async function LandingPage() {
             >
               {t("hero.ctaSecondary")}
             </Link>
+            <a
+              href="https://github.com/PansaLegrand/sushi-saas-template"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-md border border-border px-6 py-3 text-base font-medium text-foreground transition hover:bg-foreground/5"
+            >
+              {t("hero.ctaGitHub")}
+            </a>
           </div>
         </div>
       </section>
