@@ -2,22 +2,9 @@ import { NextRequest } from "next/server";
 import Stripe from "stripe";
 import { getUserUuid } from "@/services/user";
 import { findUserByUuid } from "@/models/user";
+import { getOrCreateCustomerIdForUser } from "@/services/stripe-customer";
 
 export const runtime = "nodejs";
-
-async function getStripe() {
-  const key = process.env.STRIPE_PRIVATE_KEY;
-  if (!key) throw new Error("STRIPE_PRIVATE_KEY not configured");
-  return new Stripe(key);
-}
-
-async function getOrCreateCustomerId(email: string, name?: string) {
-  const stripe = await getStripe();
-  const list = await stripe.customers.list({ email, limit: 1 });
-  if (list.data.length > 0) return list.data[0].id;
-  const created = await stripe.customers.create({ email, name });
-  return created.id;
-}
 
 function withLocaleReturnUrl(locale: string | null | undefined) {
   const base = process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000";
@@ -36,9 +23,16 @@ export async function GET(req: NextRequest) {
     const locale = searchParams.get("locale");
     const return_url = withLocaleReturnUrl(locale || user.locale || undefined);
 
-    const customerId = await getOrCreateCustomerId(user.email, user.nickname || undefined);
+    const customerId = await getOrCreateCustomerIdForUser({
+      uuid: user.uuid,
+      email: user.email,
+      nickname: user.nickname || undefined,
+      stripe_customer_id: (user as any).stripe_customer_id,
+    });
 
-    const stripe = await getStripe();
+    const key = process.env.STRIPE_PRIVATE_KEY;
+    if (!key) throw new Error("STRIPE_PRIVATE_KEY not configured");
+    const stripe = new Stripe(key);
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
       return_url,
@@ -62,8 +56,15 @@ export async function POST(req: NextRequest) {
     const locale = body?.locale ?? user.locale ?? "en";
     const return_url = withLocaleReturnUrl(locale);
 
-    const customerId = await getOrCreateCustomerId(user.email, user.nickname || undefined);
-    const stripe = await getStripe();
+    const customerId = await getOrCreateCustomerIdForUser({
+      uuid: user.uuid,
+      email: user.email,
+      nickname: user.nickname || undefined,
+      stripe_customer_id: (user as any).stripe_customer_id,
+    });
+    const key = process.env.STRIPE_PRIVATE_KEY;
+    if (!key) throw new Error("STRIPE_PRIVATE_KEY not configured");
+    const stripe = new Stripe(key);
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
       return_url,
@@ -79,4 +80,3 @@ export async function POST(req: NextRequest) {
     });
   }
 }
-

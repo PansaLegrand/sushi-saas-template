@@ -16,6 +16,8 @@ export const users = pgTable(
     id: varchar({ length: 255 }).primaryKey(),
     uuid: varchar({ length: 255 }).notNull().unique(),
     email: varchar({ length: 255 }).notNull(),
+    // Stripe customer linkage (optional)
+    stripe_customer_id: varchar({ length: 255 }),
     created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
     nickname: varchar({ length: 255 }).notNull().default(""),
     avatar_url: varchar({ length: 255 }),

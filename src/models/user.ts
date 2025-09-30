@@ -149,3 +149,16 @@ export async function updateUserRole(
 
   return user;
 }
+
+export async function updateUserStripeCustomerId(
+  user_uuid: string,
+  stripe_customer_id: string
+): Promise<typeof users.$inferSelect | undefined> {
+  const [user] = await db()
+    .update(users)
+    .set({ stripe_customer_id, updated_at: new Date() })
+    .where(eq(users.uuid, user_uuid))
+    .returning();
+
+  return user;
+}
