@@ -31,6 +31,39 @@
   "reservation": {
     "title": "Réserver un service",
     "subtitle": "Choisissez un service, une heure et confirmez avec un petit acompte."
+  },
+  "auth": {
+    "signInTitle": "Bon retour parmi nous",
+    "signUpTitle": "Créer un compte",
+    "signInSubtitle": "Utilisez vos identifiants pour accéder au tableau de bord.",
+    "signUpSubtitle": "Commencez en remplissant les informations ci‑dessous.",
+    "email": "E‑mail",
+    "password": "Mot de passe",
+    "name": "Nom",
+    "submitSignIn": "Se connecter",
+    "submitSignUp": "Créer le compte",
+    "orContinueWith": "ou continuer avec",
+    "continueWithGoogle": "Continuer avec Google",
+    "noAccount": "Pas de compte ?",
+    "haveAccount": "Vous avez déjà un compte ?",
+    "linkSignIn": "Se connecter",
+    "linkSignUp": "S’inscrire",
+    "forgotPassword": "Mot de passe oublié ?",
+    "forgotTitle": "Mot de passe oublié ?",
+    "forgotSubtitle": "Nous vous enverrons un lien pour le réinitialiser.",
+    "sendResetLink": "Envoyer le lien de réinitialisation",
+    "resetTitle": "Définir un nouveau mot de passe",
+    "resetSubtitle": "Saisissez votre nouveau mot de passe ci‑dessous.",
+    "resetPassword": "Réinitialiser le mot de passe",
+    "msgResetSent": "Si un compte existe pour cet e‑mail, un lien a été envoyé.",
+    "msgResetDone": "Votre mot de passe a été réinitialisé. Vous pouvez vous connecter.",
+    "errorInvalidToken": "Le lien de réinitialisation est invalide ou expiré.",
+    "backToLogin": "Retour à la connexion",
+    "pleaseWait": "Veuillez patienter…",
+    "sending": "Envoi…",
+    "updating": "Mise à jour…",
+    "errorGeneric": "Une erreur s’est produite.",
+    "msgAccountCreated": "Compte créé avec succès. Redirection...",
+    "logout": "Se déconnecter"
   }
 }
-

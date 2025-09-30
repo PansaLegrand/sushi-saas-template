@@ -31,6 +31,39 @@
   "reservation": {
     "title": "サービスの予約",
     "subtitle": "サービスを選び、時間を選択して、小さな前払いで確定します。"
+  },
+  "auth": {
+    "signInTitle": "お帰りなさい",
+    "signUpTitle": "アカウント作成",
+    "signInSubtitle": "ダッシュボードにアクセスするには認証情報を入力してください。",
+    "signUpSubtitle": "以下の情報を入力して開始します。",
+    "email": "メールアドレス",
+    "password": "パスワード",
+    "name": "名前",
+    "submitSignIn": "ログイン",
+    "submitSignUp": "アカウントを作成",
+    "orContinueWith": "または次で続行",
+    "continueWithGoogle": "Google で続行",
+    "noAccount": "アカウントをお持ちではありませんか？",
+    "haveAccount": "すでにアカウントをお持ちですか？",
+    "linkSignIn": "ログイン",
+    "linkSignUp": "新規登録",
+    "forgotPassword": "パスワードをお忘れですか？",
+    "forgotTitle": "パスワードをお忘れですか？",
+    "forgotSubtitle": "パスワード再設定用のリンクをメールでお送りします。",
+    "sendResetLink": "再設定リンクを送信",
+    "resetTitle": "新しいパスワードを設定",
+    "resetSubtitle": "新しいパスワードを入力してください。",
+    "resetPassword": "パスワードを再設定",
+    "msgResetSent": "該当メールのアカウントが存在する場合、再設定リンクを送信しました。",
+    "msgResetDone": "パスワードを再設定しました。ログインできます。",
+    "errorInvalidToken": "再設定リンクが無効または期限切れです。",
+    "backToLogin": "ログインに戻る",
+    "pleaseWait": "お待ちください…",
+    "sending": "送信中…",
+    "updating": "更新中…",
+    "errorGeneric": "問題が発生しました。",
+    "msgAccountCreated": "アカウントを作成しました。リダイレクト中...",
+    "logout": "ログアウト"
   }
 }
-

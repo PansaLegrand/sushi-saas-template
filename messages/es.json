@@ -31,6 +31,39 @@
   "reservation": {
     "title": "Reservar un servicio",
     "subtitle": "Elige un servicio, selecciona una hora y confirma con un pequeño depósito."
+  },
+  "auth": {
+    "signInTitle": "Bienvenido de nuevo",
+    "signUpTitle": "Crea una cuenta",
+    "signInSubtitle": "Usa tus credenciales para acceder al panel.",
+    "signUpSubtitle": "Comienza completando los detalles a continuación.",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "name": "Nombre",
+    "submitSignIn": "Iniciar sesión",
+    "submitSignUp": "Crear cuenta",
+    "orContinueWith": "o continuar con",
+    "continueWithGoogle": "Continuar con Google",
+    "noAccount": "¿No tienes una cuenta?",
+    "haveAccount": "¿Ya tienes una cuenta?",
+    "linkSignIn": "Iniciar sesión",
+    "linkSignUp": "Regístrate",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "forgotTitle": "¿Olvidaste tu contraseña?",
+    "forgotSubtitle": "Te enviaremos un enlace para restablecerla.",
+    "sendResetLink": "Enviar enlace de restablecimiento",
+    "resetTitle": "Establecer una nueva contraseña",
+    "resetSubtitle": "Ingresa tu nueva contraseña a continuación.",
+    "resetPassword": "Restablecer contraseña",
+    "msgResetSent": "Si existe una cuenta con ese correo, te hemos enviado un enlace de restablecimiento.",
+    "msgResetDone": "Tu contraseña ha sido restablecida. Ya puedes iniciar sesión.",
+    "errorInvalidToken": "El enlace de restablecimiento no es válido o ha expirado.",
+    "backToLogin": "Volver al inicio de sesión",
+    "pleaseWait": "Por favor espera…",
+    "sending": "Enviando…",
+    "updating": "Actualizando…",
+    "errorGeneric": "Algo salió mal.",
+    "msgAccountCreated": "Cuenta creada correctamente. Redirigiendo...",
+    "logout": "Cerrar sesión"
   }
 }
-

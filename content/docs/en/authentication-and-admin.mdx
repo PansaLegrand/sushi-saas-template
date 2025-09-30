@@ -107,3 +107,46 @@ Update roles in the database (authoritative source):
   - `http://localhost:3000/api/auth/callback/google` (dev)
   - `https://your-domain.com/api/auth/callback/google` (prod)
 - The login screen at `/[locale]/login` shows a “Continue with Google” button that starts the OAuth flow.
+
+## Email & Password
+
+This template enables Better Auth’s email & password authenticator and includes localized “Forgot password” and “Reset password” pages.
+
+- Server config lives in `src/lib/auth.ts` → `emailAndPassword` is enabled and wired with `sendResetPassword` and `onPasswordReset` callbacks.
+- Emails are sent via Resend using `src/services/email/send.ts` and the template `src/services/email/templates/reset-password.tsx`.
+- UI routes are localized under the App Router:
+  - `/[locale]/forgot-password` → request reset link
+  - `/[locale]/reset-password?token=...` → set new password
+- All UI strings come from `messages/*.json` under the `auth.*` namespace (see `messages/en.json`).
+
+### Client usage
+
+```ts
+// Request a reset link
+await authClient.requestPasswordReset({
+  email: "john.doe@example.com",
+  redirectTo: "/en/reset-password", // locale-aware in app
+});
+
+// Reset password (token comes from the reset link)
+await authClient.resetPassword({
+  newPassword: "newpassword1234",
+  token,
+});
+```
+
+### Pages & Components
+
+- Components: `src/components/auth/forgot-password-form.tsx`, `src/components/auth/reset-password-form.tsx` (client components; i18n with `next-intl`).
+- Pages: thin wrappers at `src/app/[locale]/(auth)/forgot-password/page.tsx` and `src/app/[locale]/(auth)/reset-password/page.tsx` render the components.
+
+### Environment
+
+- Required: `BETTER_AUTH_URL`, `RESEND_API_KEY`, `EMAIL_FROM`.
+- Optional: `NEXT_PUBLIC_AUTH_BASE_URL` for client in edge cases.
+
+### Manual check
+
+1. Visit `/[locale]/forgot-password`, submit a known user email.
+2. Open the email and follow the link to `reset-password?token=...`.
+3. Set a new password and sign in at `/[locale]/login`.

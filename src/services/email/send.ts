@@ -79,6 +79,12 @@ export async function sendPaymentFailedEmail(
   return sendMail({ to, subject: "Payment failed — update your payment method", html });
 }
 
+export async function sendResetPasswordEmail(to: string, url: string) {
+  const { default: ResetPassword } = await import("./templates/reset-password");
+  const html = render(ResetPassword({ url }));
+  return sendMail({ to, subject: "Reset your password", html, text: `Open this link to reset your password: ${url}` });
+}
+
 export async function sendReservationConfirmedEmail(
   to: string,
   opts: { reservationNo: string; serviceTitle?: string; startsAt?: string; timezone?: string; icsContent?: string; googleCalendarUrl?: string }

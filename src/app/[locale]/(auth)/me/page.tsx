@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 
 import { auth } from "@/lib/auth";
+import LogoutButton from "@/components/auth/logout-button";
 
 async function getSession() {
   const requestHeaders = await headers();
@@ -52,14 +53,9 @@ export default async function ProfilePage() {
           </div>
         </div>
 
-        <form action="/api/auth/sign-out" method="post" className="pt-4">
-          <button
-            type="submit"
-            className="inline-flex items-center rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground transition hover:opacity-90 focus-visible:outline-none focus-visible:ring focus-visible:ring-destructive/60"
-          >
-            Log out
-          </button>
-        </form>
+        <div className="pt-4">
+          <LogoutButton />
+        </div>
       </section>
     </main>
   );

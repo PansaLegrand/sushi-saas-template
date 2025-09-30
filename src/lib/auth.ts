@@ -6,6 +6,7 @@ import { createFieldAttribute } from "better-auth/db";
 import { randomUUID } from "node:crypto";
 
 import { db } from "@/db";
+import { sendResetPasswordEmail } from "@/services/email/send";
 import * as schema from "@/db/schema";
 
 const database = db();
@@ -95,6 +96,16 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
+    sendResetPassword: async ({ user, url }, _request) => {
+      try {
+        await sendResetPasswordEmail(user.email, url);
+      } catch (e) {
+        console.error("failed to send reset password email", e);
+      }
+    },
+    onPasswordReset: async ({ user }, _request) => {
+      console.log(`Password reset completed for ${user.email}`);
+    },
   },
   plugins: [nextCookies()],
   telemetry: {

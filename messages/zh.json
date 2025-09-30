@@ -43,6 +43,39 @@
   "reservation": {
     "title": "预约服务",
     "subtitle": "选择服务、选择时间，并支付少量订金以确认。"
+  },
+  "auth": {
+    "signInTitle": "欢迎回来",
+    "signUpTitle": "创建账户",
+    "signInSubtitle": "使用您的凭据登录控制台。",
+    "signUpSubtitle": "填写以下信息开始使用。",
+    "email": "邮箱",
+    "password": "密码",
+    "name": "姓名",
+    "submitSignIn": "登录",
+    "submitSignUp": "创建账户",
+    "orContinueWith": "或继续使用",
+    "continueWithGoogle": "使用 Google 继续",
+    "noAccount": "还没有账户？",
+    "haveAccount": "已经有账户？",
+    "linkSignIn": "登录",
+    "linkSignUp": "注册",
+    "forgotPassword": "忘记密码？",
+    "forgotTitle": "忘记密码？",
+    "forgotSubtitle": "我们会发送一封邮件来重置密码。",
+    "sendResetLink": "发送重置链接",
+    "resetTitle": "设置新密码",
+    "resetSubtitle": "请输入你的新密码。",
+    "resetPassword": "重置密码",
+    "msgResetSent": "如果该邮箱存在账户，我们已发送重置链接。",
+    "msgResetDone": "密码已重置，现在可以登录。",
+    "errorInvalidToken": "重置链接无效或已过期。",
+    "backToLogin": "返回登录",
+    "pleaseWait": "请稍候…",
+    "sending": "发送中…",
+    "updating": "更新中…",
+    "errorGeneric": "发生了错误。",
+    "msgAccountCreated": "账户创建成功，正在跳转...",
+    "logout": "退出登录"
   }
 }
-
