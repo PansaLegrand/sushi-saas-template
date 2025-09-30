@@ -9,6 +9,7 @@ import { getPricingPage } from "@/services/page";
 import { PricingItem } from "@/types/blocks/pricing";
 import { newStripeClient } from "@/integrations/stripe";
 import { Order } from "@/types/order";
+import { getOrCreateCustomerIdForUser } from "@/services/stripe-customer";
 
 export async function POST(req: Request) {
   try {
@@ -205,7 +206,28 @@ async function stripeCheckout({
     cancel_url: cancel_url,
   };
 
-  if (order.user_email) {
+  // Prefer binding to a Stripe Customer to avoid duplicates across checkouts
+  try {
+    const user = await findUserByUuid(order.user_uuid);
+    if (user?.email) {
+      const customerId = await getOrCreateCustomerIdForUser({
+        uuid: user.uuid,
+        email: user.email,
+        nickname: user.nickname,
+        stripe_customer_id: (user as any).stripe_customer_id,
+      });
+      if (customerId) {
+        (options as any).customer = customerId;
+      }
+    }
+  } catch (e) {
+    // Fallback to email if customer resolution fails
+    if (order.user_email) {
+      options.customer_email = order.user_email;
+    }
+  }
+  // If customer not set by the block above, set email as a fallback
+  if (!(options as any).customer && order.user_email && !options.customer_email) {
     options.customer_email = order.user_email;
   }
 
