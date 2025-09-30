@@ -8,16 +8,22 @@
     "nav": { "label": "Sushi SaaS" },
     "hero": {
       "title": "Expédiez votre SaaS plus vite",
-      "subtitle": "Démarrez votre produit avec un template prêt pour la production, une landing multilingue et une authentification Better Auth.",
+      "subtitle": "Boilerplate open‑source Next.js 15 avec i18n, Better Auth, Stripe, et plus — prêt pour la prod dès le premier jour.",
       "ctaPrimary": "Commencer",
-      "ctaSecondary": "Voir la doc"
+      "ctaSecondary": "Voir la doc",
+      "ctaGitHub": "Voir sur GitHub"
     },
     "features": {
       "title": "Ce qu’il contient",
       "items": [
-        { "title": "Prêt pour l’international", "description": "Servez des clients dans le monde entier dès le premier jour avec du contenu localisé." },
-        { "title": "Intégration Better Auth", "description": "Briques d’authentification modernes extensibles (email, social, passkeys)." },
-        { "title": "Surveillance d’état", "description": "Un endpoint de santé simple pour garder de la visibilité." }
+        { "title": "Stack moderne et open‑source", "description": "Next.js 15, TypeScript, Tailwind — boilerplate prêt à lancer rapidement." },
+        { "title": "Auth & RBAC (Better Auth)", "description": "Connexion email + Google, sessions sécurisées et rôles avec Drizzle." },
+        { "title": "i18n global", "description": "Routes et messages localisés pour servir plusieurs langues facilement." },
+        { "title": "Stripe + crédits", "description": "Checkout, abonnements et grand livre de crédits pour la facturation à l’usage." },
+        { "title": "Module de réservations", "description": "Créneaux avec disponibilité, acompte ou paiement total, confirmations et invitations calendrier." },
+        { "title": "Affiliation / parrainage", "description": "Liens d’invitation, inscriptions attribuées et récompenses configurables." },
+        { "title": "Panneau admin", "description": "Gérez utilisateurs, commandes, crédits, réservations et affiliés avec contrôle des rôles." },
+        { "title": "Docs & MDX", "description": "Docs/blog intégrés avec MDX + Fumadocs et bon SEO." }
       ]
     },
     "footer": "Conçu avec Next.js 15, Tailwind CSS et Better Auth."

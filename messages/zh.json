@@ -10,25 +10,22 @@
     },
     "hero": {
       "title": "让你的 SaaS 上线更快",
-      "subtitle": "内置生产级模版、多语言落地页以及 Better Auth 驱动的认证体系，帮助你快速启动产品。",
+      "subtitle": "基于 Next.js 15 的开源模板，内置 i18n、Better Auth、Stripe 等，从第一天起即面向生产。",
       "ctaPrimary": "立即开始",
-      "ctaSecondary": "查看文档"
+      "ctaSecondary": "查看文档",
+      "ctaGitHub": "在 GitHub 查看"
     },
     "features": {
       "title": "核心能力",
       "items": [
-        {
-          "title": "多语言就绪",
-          "description": "从第一天起就以本地化内容服务全球客户。"
-        },
-        {
-          "title": "Better Auth 集成",
-          "description": "现代化的认证基建，轻松扩展邮箱、社交或 Passkey 登录。"
-        },
-        {
-          "title": "健康监控",
-          "description": "简单的心跳接口确保部署状态可观测。"
-        }
+        { "title": "现代开源栈", "description": "Next.js 15、TypeScript、Tailwind —— 生产就绪的起步模版。" },
+        { "title": "认证与 RBAC（Better Auth）", "description": "邮箱 + Google 登录，安全会话与角色校验，基于 Drizzle。" },
+        { "title": "全球化 i18n", "description": "本地化路由与文案，轻松支持多语言。" },
+        { "title": "Stripe 计费 + 积分", "description": "Checkout、订阅，以及灵活的积分台账以支持按量计费。" },
+        { "title": "预约模块", "description": "可用时段、订金/全额支付、确认邮件与日历邀请。" },
+        { "title": "推广与返佣", "description": "邀请链接、归因注册、可配置奖励，助力增长。" },
+        { "title": "管理面板", "description": "按角色管理用户、订单、积分、预约与推广。" },
+        { "title": "文档与 MDX", "description": "内置 MDX + Fumadocs 文档/博客与完善的 SEO。" }
       ]
     },
     "footer": "基于 Next.js 15、Tailwind CSS 与 Better Auth 构建。"

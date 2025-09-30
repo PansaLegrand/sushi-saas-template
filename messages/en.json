@@ -10,25 +10,22 @@
     },
     "hero": {
       "title": "Ship your SaaS faster",
-      "subtitle": "Kickstart your product with a production-ready template, multilingual landing page, and authentication powered by Better Auth.",
+      "subtitle": "Open‑source Next.js 15 boilerplate with i18n, Better Auth, Stripe billing and more — production‑ready from day one.",
       "ctaPrimary": "Get Started",
-      "ctaSecondary": "View Docs"
+      "ctaSecondary": "View Docs",
+      "ctaGitHub": "View on GitHub"
     },
     "features": {
-      "title": "What's inside",
+      "title": "What’s inside",
       "items": [
-        {
-          "title": "International ready",
-          "description": "Serve global customers from day one with localized content and routing."
-        },
-        {
-          "title": "Better Auth integration",
-          "description": "Modern authentication primitives you can extend with email, social, or passkeys."
-        },
-        {
-          "title": "Health monitoring",
-          "description": "Simple heartbeat endpoint ensures deployments stay observable."
-        }
+        { "title": "Modern, open‑source stack", "description": "Next.js 15, TypeScript, Tailwind — a production‑ready boilerplate to launch faster." },
+        { "title": "Auth & RBAC (Better Auth)", "description": "Email + Google sign‑in, secure sessions, and role checks with Drizzle." },
+        { "title": "Global i18n", "description": "Localized routes and messages so you can serve multiple languages easily." },
+        { "title": "Stripe billing + Credits", "description": "Checkout, subscriptions, and a flexible credits ledger for usage‑based models." },
+        { "title": "Reservations module", "description": "Bookings with availability, deposits or full payment, confirmations, and calendar invites." },
+        { "title": "Affiliate referrals", "description": "Invite links, tracked signups, and configurable rewards to fuel growth." },
+        { "title": "Admin panel", "description": "Manage users, orders, credits, reservations, and affiliates with role‑based access." },
+        { "title": "Docs & MDX", "description": "Built‑in docs/blog using MDX + Fumadocs with solid SEO metadata." }
       ]
     },
     "footer": "Crafted in Next.js 15 with Tailwind CSS and Better Auth."

@@ -8,16 +8,22 @@
     "nav": { "label": "Sushi SaaS" },
     "hero": {
       "title": "SaaS をより速くリリース",
-      "subtitle": "本番対応のテンプレート、多言語ランディング、Better Auth による認証で素早くスタート。",
+      "subtitle": "Next.js 15 のオープンソース・ボイラープレート。i18n、Better Auth、Stripe などを同梱し、初日から本番対応。",
       "ctaPrimary": "はじめる",
-      "ctaSecondary": "ドキュメントを見る"
+      "ctaSecondary": "ドキュメントを見る",
+      "ctaGitHub": "GitHub を見る"
     },
     "features": {
       "title": "主な内容",
       "items": [
-        { "title": "多言語対応", "description": "初日からローカライズされたコンテンツでグローバルに提供。" },
-        { "title": "Better Auth 連携", "description": "メール・ソーシャル・パスキーなど拡張可能な認証基盤。" },
-        { "title": "ヘルスチェック", "description": "シンプルなヘルスエンドポイントでデプロイ状況を可視化。" }
+        { "title": "モダンなOSSスタック", "description": "Next.js 15 / TypeScript / Tailwind — すぐに出荷できる土台。" },
+        { "title": "認証とRBAC（Better Auth）", "description": "メール + Google サインイン、セッション、ロールチェックを Drizzle と共に。" },
+        { "title": "グローバル i18n", "description": "ローカライズされたルートとメッセージで多言語提供を容易に。" },
+        { "title": "Stripe 課金 + クレジット", "description": "チェックアウト、サブスク、柔軟なクレジット元帳で従量課金も対応。" },
+        { "title": "予約モジュール", "description": "空き状況、前払いや全額決済、確認メール、カレンダー招待まで。" },
+        { "title": "アフィリエイト/紹介", "description": "招待リンク、計測されたサインアップ、設定可能な報酬で成長を後押し。" },
+        { "title": "管理画面", "description": "ユーザー/注文/クレジット/予約/アフィリエイトをロールで管理。" },
+        { "title": "Docs と MDX", "description": "MDX + Fumadocs による内蔵ドキュメント/ブログと適切な SEO。" }
       ]
     },
     "footer": "Next.js 15、Tailwind CSS、Better Auth で構築。"
