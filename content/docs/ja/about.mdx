@@ -1,0 +1,80 @@
+---
+title: Sushi SaaS について — 何なのか、なぜ信頼できるのか
+icon: "Info"
+description: "本番運用を前提とした MIT ライセンスの SaaS スターター。i18n、Better Auth、Drizzle ORM、Stripe 課金、MDX ドキュメント、RBAC 管理画面、実用的な DX を同梱。クローンして拡張して、安心して使えます。"
+keywords:
+  - SaaS テンプレート
+  - Next.js
+  - Better Auth
+  - Drizzle ORM
+  - Stripe
+  - MDX
+  - i18n
+  - MIT ライセンス
+tags: [概要, 方針, 信頼性]
+author: "Pansa Legrand"
+publishedAt: "2025-10-02T00:00:00.000Z"
+updatedAt: "2025-10-02T00:00:00.000Z"
+---
+
+## Sushi SaaS とは？
+
+Sushi SaaS は、実際の SaaS を素早く構築・ローンチするための Next.js スターターです。認証、課金、管理、コンテンツ、国際化を最初から備え、型安全なデータベースと明示的なマイグレーションで結び付けています。
+
+主なスタック:
+
+- Next.js App Router + ロケール付きルーティング（next‑intl）
+- Better Auth + Drizzle ORM 経由の Postgres
+- Stripe Checkout + Webhook での最終確定（クレジット台帳対応）
+- Fumadocs による MDX ドキュメント（SEO メタデータ + JSON‑LD）
+- サーバーサイド RBAC の管理ページ
+- 実用的な DX: pnpm, ESLint/Tailwind, ヘルスチェック, 明確な環境変数
+
+GitHub リポジトリ: https://github.com/PansaLegrand/saas-sushi-template
+
+```bash
+git clone https://github.com/PansaLegrand/saas-sushi-template.git
+cd saas-sushi-template
+pnpm install && pnpm dev
+```
+
+---
+
+## 信頼できる理由
+
+- 端から端まで型安全: Drizzle のスキーマが唯一のソース。drizzle‑kit のマイグレーションで DB を同期。
+- 実働のフロー: 認証・課金（Stripe）・管理権限が接続され、UI から確認できます。
+- 予測可能な i18n: next‑intl のロケール接頭辞ルート。メッセージはアプリやドキュメントと同居。
+- 運用上の明快さ: `/api/health`、環境テンプレート、ビルド/リント/マイグレーション手順を明記。
+- 明確なドキュメント: 認証、課金、DB、管理、メールなど、主要機能ごとに実践的な MDX ガイドを用意。
+- 実プロダクトの知見: 実際のプロダクトで使われているパターンを反映（README の Showcase 参照）。
+
+---
+
+## ユニークな点
+
+- MIT ライセンス: 商用利用・改変が自由で、スピード重視の開発に最適。`LICENSE` を参照。
+- フル機能のスターター: 認証、課金、クレジット台帳、アフィリエイト、予約デモ、MDX ドキュメント、管理、i18n を同梱。
+- コンテンツと SEO の統合: Frontmatter から Next.js メタデータ + OpenGraph + JSON‑LD を自動生成。
+- 作者のコンサル: 要件に合わせた実装・アドバイザリーを提供します。Email: pansalegrand@gmail.com
+
+---
+
+## Day 1 で手に入るもの
+
+- 認証 & RBAC: Better Auth、型付き DB アダプタ、安全な管理（読み取り専用/読書き）。
+- 腰の据わった課金: Stripe Checkout + 署名付き Webhook で確定し、クレジット付与。
+- クレジット & 注文: 従量課金やトライアル向けのシンプルな台帳。
+- 国際化: ロケール接頭辞ルート、メッセージバンドル、ローカライズされたドキュメント。
+- MDX ドキュメント: Fumadocs によるナビゲーションと目次。
+- 開発者体験: pnpm、Turbopack/Webpack、ESLint/Tailwind、明確なコンベンション。
+
+---
+
+## リンク
+
+- GitHub: https://github.com/PansaLegrand/saas-sushi-template
+- README: /README.ja.md
+- はじめに: `/:locale/blogs/quick-start`
+
+テンプレートのカスタマイズや MVP の早期検証が必要なら、pansalegrand@gmail.com までご連絡ください。

@@ -37,6 +37,11 @@
     "back": "返回首页"
   }
   ,
+  "blogs": {
+    "title": "博客",
+    "intro": "最新指南与更新，帮助你更快上线。"
+  }
+  ,
   "reservation": {
     "title": "预约服务",
     "subtitle": "选择服务、选择时间，并支付少量订金以确认。"
@@ -74,5 +79,20 @@
     "errorGeneric": "发生了错误。",
     "msgAccountCreated": "账户创建成功，正在跳转...",
     "logout": "退出登录"
+  }
+  ,
+  "feedback": {
+    "buttonLabel": "提交反馈",
+    "modalTitle": "分享你的反馈",
+    "modalSubtitle": "告诉我们哪些做得不错，以及还可以改进的地方。",
+    "ratingLabel": "评分（可选）",
+    "textareaLabel": "你的反馈",
+    "textareaPlaceholder": "你在想什么？",
+    "cancel": "取消",
+    "send": "发送",
+    "sending": "发送中…",
+    "errorTooShort": "请至少输入 3 个字符。",
+    "submitSuccess": "感谢你的反馈！",
+    "submitError": "反馈发送失败"
   }
 }

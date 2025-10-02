@@ -34,6 +34,11 @@
     "back": "ホームに戻る"
   }
   ,
+  "blogs": {
+    "title": "ブログ",
+    "intro": "最新のガイドとアップデートで開発を加速。"
+  }
+  ,
   "reservation": {
     "title": "サービスの予約",
     "subtitle": "サービスを選び、時間を選択して、小さな前払いで確定します。"
@@ -71,5 +76,20 @@
     "errorGeneric": "問題が発生しました。",
     "msgAccountCreated": "アカウントを作成しました。リダイレクト中...",
     "logout": "ログアウト"
+  }
+  ,
+  "feedback": {
+    "buttonLabel": "フィードバックを送信",
+    "modalTitle": "フィードバックをお聞かせください",
+    "modalSubtitle": "うまくいっている点や改善できる点を教えてください。",
+    "ratingLabel": "評価（任意）",
+    "textareaLabel": "フィードバック",
+    "textareaPlaceholder": "今、気になっていることは？",
+    "cancel": "キャンセル",
+    "send": "送信",
+    "sending": "送信中…",
+    "errorTooShort": "3文字以上入力してください。",
+    "submitSuccess": "フィードバックありがとうございます！",
+    "submitError": "フィードバックの送信に失敗しました"
   }
 }

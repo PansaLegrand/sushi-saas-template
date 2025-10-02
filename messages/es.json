@@ -34,6 +34,11 @@
     "back": "Volver al inicio"
   }
   ,
+  "blogs": {
+    "title": "Blog",
+    "intro": "Guías y novedades para ayudarte a lanzar más rápido."
+  }
+  ,
   "reservation": {
     "title": "Reservar un servicio",
     "subtitle": "Elige un servicio, selecciona una hora y confirma con un pequeño depósito."
@@ -71,5 +76,20 @@
     "errorGeneric": "Algo salió mal.",
     "msgAccountCreated": "Cuenta creada correctamente. Redirigiendo...",
     "logout": "Cerrar sesión"
+  }
+  ,
+  "feedback": {
+    "buttonLabel": "Enviar comentarios",
+    "modalTitle": "Comparte tus comentarios",
+    "modalSubtitle": "Cuéntanos qué funciona bien y qué podemos mejorar.",
+    "ratingLabel": "Valoración (opcional)",
+    "textareaLabel": "Tus comentarios",
+    "textareaPlaceholder": "¿Qué tienes en mente?",
+    "cancel": "Cancelar",
+    "send": "Enviar",
+    "sending": "Enviando...",
+    "errorTooShort": "Escribe al menos 3 caracteres.",
+    "submitSuccess": "¡Gracias por tus comentarios!",
+    "submitError": "No se pudo enviar el comentario"
   }
 }

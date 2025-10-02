@@ -1,0 +1,80 @@
+---
+title: À propos de Sushi SaaS — Ce que c’est et pourquoi c’est fiable
+icon: "Info"
+description: "Un starter SaaS prêt pour la production, sous licence MIT, axé sur le shipping: i18n, Better Auth, Drizzle ORM, Stripe, MDX, admin RBAC et une DX pragmatique. Conçu pour être cloné, étendu et utilisé en confiance."
+keywords:
+  - starter SaaS
+  - Next.js
+  - Better Auth
+  - Drizzle ORM
+  - Stripe
+  - MDX
+  - i18n
+  - licence MIT
+tags: [aperçu, philosophie, fiabilité]
+author: "Pansa Legrand"
+publishedAt: "2025-10-02T00:00:00.000Z"
+updatedAt: "2025-10-02T00:00:00.000Z"
+---
+
+## Qu’est‑ce que Sushi SaaS ?
+
+Sushi SaaS est un starter Next.js pragmatique, orienté production, pour construire et lancer de vrais produits SaaS. Il fournit dès le départ l’authentification, la facturation, l’admin, le contenu et l’i18n, reliés à une base typée avec des migrations explicites.
+
+Pile principale :
+
+- Next.js App Router avec routes localisées (next‑intl)
+- Better Auth + Postgres via Drizzle ORM
+- Stripe Checkout + finalisation par webhooks (journal de crédits prêt)
+- Docs/blog MDX avec Fumadocs (métadonnées SEO + JSON‑LD)
+- Pages d’admin avec RBAC côté serveur
+- DX saine : pnpm, ESLint/Tailwind, endpoint de santé, variables d’environnement claires
+
+Dépôt GitHub : https://github.com/PansaLegrand/saas-sushi-template
+
+```bash
+git clone https://github.com/PansaLegrand/saas-sushi-template.git
+cd saas-sushi-template
+pnpm install && pnpm dev
+```
+
+---
+
+## Pourquoi vous pouvez lui faire confiance
+
+- Typage de bout en bout : les schémas Drizzle sont la source de vérité ; les migrations drizzle‑kit gardent la base en phase.
+- Vrais parcours, pas des mocks : auth, facturation (Stripe) et permissions admin sont connectées et visibles dans l’UI.
+- i18n prévisible : routes préfixées par locale via next‑intl ; messages au même endroit que l’app et les docs.
+- Clarté opérationnelle : `/api/health`, modèles d’environnement et consignes de build/lint/migrations.
+- Documentation claire : chaque capacité (auth, billing, base, admin, e‑mails) a un guide MDX avec commandes et chemins utiles.
+- Éprouvé sur le terrain : reflète des patterns utilisés pour livrer de vrais produits (voir README « Showcase »).
+
+---
+
+## Ce qui le rend unique
+
+- Licence MIT : usage commercial, modification libre, vitesse maximale. Voir `LICENSE` dans le dépôt.
+- Starter complet : auth, billing, journal de crédits, affiliés, démo de réservations, docs MDX, admin et i18n prêts à l’emploi.
+- Contenu + SEO intégrés : frontmatter → metadata Next.js + OpenGraph + JSON‑LD pour chaque page MDX.
+- Conseil par l’auteur : besoin d’adapter à votre cas ? L’auteur propose implémentation et advisory. Email : pansalegrand@gmail.com
+
+---
+
+## Ce que vous obtenez dès le premier jour
+
+- Authentification & RBAC : Better Auth, adaptateur BD typé, admin sécurisé (lecture seule / lecture‑écriture).
+- Facturation solide : Stripe Checkout + webhooks signés pour finaliser et créditer.
+- Crédits & commandes : un petit journal pour produits à l’usage et essais.
+- Internationalisation : routes par locale, bundles de messages et docs localisées.
+- Documentation MDX : Fumadocs avec navigation et table des matières.
+- DX développeur : pnpm, Turbopack/Webpack, ESLint/Tailwind et conventions claires.
+
+---
+
+## Liens
+
+- GitHub : https://github.com/PansaLegrand/saas-sushi-template
+- README : /README.fr.md
+- Démarrage : `/:locale/blogs/quick-start`
+
+Pour adapter ce template à votre produit ou valider un MVP rapidement, écrivez‑nous : pansalegrand@gmail.com.

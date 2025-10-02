@@ -152,3 +152,4 @@ export async function generateMetadata(props: {
     robots: noindex ? { index: false, follow: true } : undefined,
   } satisfies Metadata;
 }
+

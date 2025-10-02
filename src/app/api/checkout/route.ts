@@ -193,6 +193,7 @@ async function stripeCheckout({
     payment_method_types: ["card"],
     line_items: lineItems,
     allow_promotion_codes: true,
+    client_reference_id: order.order_no,
     metadata: {
       project: process.env.NEXT_PUBLIC_PROJECT_NAME || "",
       product_name: order.product_name || "",
@@ -204,6 +205,9 @@ async function stripeCheckout({
     mode: is_subscription ? "subscription" : "payment",
     success_url: `${process.env.NEXT_PUBLIC_WEB_URL}/api/pay/callback/stripe?locale=${locale}&session_id={CHECKOUT_SESSION_ID}&order_no=${order.order_no}`,
     cancel_url: cancel_url,
+    billing_address_collection: "auto",
+    customer_update: { address: "auto", name: "auto" },
+    expand: ["subscription", "payment_intent"],
   };
 
   // Prefer binding to a Stripe Customer to avoid duplicates across checkouts
@@ -237,7 +241,7 @@ async function stripeCheckout({
     };
   }
 
-  if (order.currency === "cny") {
+  if (order.currency === "cny" && !is_subscription) {
     options.payment_method_types = ["wechat_pay", "alipay", "card"];
     options.payment_method_options = {
       wechat_pay: {
@@ -247,7 +251,17 @@ async function stripeCheckout({
     };
   }
 
-  const session = await client.stripe().checkout.sessions.create(options);
+  // For one-time payments, save the payment method for future off-session usage
+  if (!is_subscription) {
+    (options as any).payment_intent_data = {
+      setup_future_usage: "off_session",
+      metadata: options.metadata,
+    } as Stripe.Checkout.SessionCreateParams.PaymentIntentData;
+  }
+
+  const session = await client
+    .stripe()
+    .checkout.sessions.create(options, { idempotencyKey: order.order_no });
 
   // update order detail
   await updateOrderSession(order.order_no, session.id, JSON.stringify(options));

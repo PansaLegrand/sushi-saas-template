@@ -18,6 +18,14 @@ export default async function AdminHomePage() {
     <div className="grid grid-cols-1 gap-6">
       <section className="rounded-lg border p-4">
         <div className="flex items-center justify-between">
+          <h2 className="text-lg font-medium">Feedbacks</h2>
+          <Link href="/admin/feedbacks" className="text-sm underline">View all</Link>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">Read user feedback and improve your product.</p>
+      </section>
+
+      <section className="rounded-lg border p-4">
+        <div className="flex items-center justify-between">
           <h2 className="text-lg font-medium">Reservations</h2>
           <Link href="/admin/reservations" className="text-sm underline">View all</Link>
         </div>
