@@ -7,6 +7,15 @@ export default async function LandingPage() {
     title: string;
     description: string;
   }>;
+  const showcases = t.raw("showcases.items") as Array<{
+    name: string;
+    url: string;
+    description: string;
+  }>;
+  const stack = t.raw("stack.items") as Array<{
+    name: string;
+    description?: string;
+  }>;
 
   return (
     <main className="relative flex min-h-[calc(100vh-4rem)] flex-col">
@@ -88,6 +97,56 @@ export default async function LandingPage() {
               </p>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section id="showcases" className="py-16">
+        <div className="container grid gap-8 md:grid-cols-3">
+          <div className="md:col-span-3">
+            <h2 className="text-center text-2xl font-semibold md:text-3xl">
+              {t("showcases.title")}
+            </h2>
+          </div>
+          {showcases.map((s) => (
+            <a
+              key={s.url}
+              href={s.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-xl border border-border/70 bg-background p-6 text-left shadow-sm transition hover:shadow-md"
+            >
+              <h3 className="text-lg font-semibold text-foreground">{s.name}</h3>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                {s.description}
+              </p>
+              <span className="mt-4 inline-block text-xs text-muted-foreground underline">
+                {s.url}
+              </span>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <section id="stack" className="bg-muted/40 py-16">
+        <div className="container">
+          <h2 className="mb-6 text-center text-2xl font-semibold md:text-3xl">
+            {t("stack.title")}
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+            {stack.map((tech) => (
+              <div
+                key={tech.name}
+                className="rounded-lg border border-border/70 bg-background p-4 text-center"
+              >
+                <div className="text-sm font-medium">{tech.name}</div>
+                {tech.description && (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {tech.description}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 

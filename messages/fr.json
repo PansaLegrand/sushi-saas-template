@@ -26,6 +26,25 @@
         { "title": "Docs & MDX", "description": "Docs/blog intégrés avec MDX + Fumadocs et bon SEO." }
       ]
     },
+    "showcases": {
+      "title": "Exemples",
+      "items": [
+        {
+          "name": "DojoClip",
+          "url": "https://dojoclip.com",
+          "description": "Éditeur vidéo dans le navigateur dédié aux sous‑titres multilingues et à la traduction vidéo."
+        }
+      ]
+    },
+    "stack": {
+      "title": "Stack technique",
+      "items": [
+        { "name": "Next.js 15", "description": "App Router, composants serveur" },
+        { "name": "Tailwind CSS", "description": "CSS utilitaire" },
+        { "name": "Better Auth", "description": "Authentification et sessions" },
+        { "name": "Drizzle ORM", "description": "SQL typé et migrations" }
+      ]
+    },
     "footer": "Conçu avec Next.js 15, Tailwind CSS et Better Auth."
   },
   "docs": {

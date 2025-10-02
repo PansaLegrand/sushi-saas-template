@@ -28,6 +28,25 @@
         { "title": "Docs & MDX", "description": "Built‑in docs/blog using MDX + Fumadocs with solid SEO metadata." }
       ]
     },
+    "showcases": {
+      "title": "Showcases",
+      "items": [
+        {
+          "name": "DojoClip",
+          "url": "https://dojoclip.com",
+          "description": "Browser-based video editor for multilingual subtitle and video translation."
+        }
+      ]
+    },
+    "stack": {
+      "title": "Tech stack",
+      "items": [
+        { "name": "Next.js 15", "description": "App Router, React Server Components" },
+        { "name": "Tailwind CSS", "description": "Utility-first styling" },
+        { "name": "Better Auth", "description": "Authentication & sessions" },
+        { "name": "Drizzle ORM", "description": "Type-safe SQL and migrations" }
+      ]
+    },
     "footer": "Crafted in Next.js 15 with Tailwind CSS and Better Auth."
   }
   ,

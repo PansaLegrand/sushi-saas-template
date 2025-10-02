@@ -26,6 +26,25 @@
         { "title": "Docs と MDX", "description": "MDX + Fumadocs による内蔵ドキュメント/ブログと適切な SEO。" }
       ]
     },
+    "showcases": {
+      "title": "導入事例",
+      "items": [
+        {
+          "name": "DojoClip",
+          "url": "https://dojoclip.com",
+          "description": "多言語字幕・動画翻訳に特化したブラウザベースの動画編集ツール。"
+        }
+      ]
+    },
+    "stack": {
+      "title": "使用技術",
+      "items": [
+        { "name": "Next.js 15", "description": "App Router とサーバーコンポーネント" },
+        { "name": "Tailwind CSS", "description": "ユーティリティファーストなスタイル" },
+        { "name": "Better Auth", "description": "認証とセッション" },
+        { "name": "Drizzle ORM", "description": "型安全な SQL とマイグレーション" }
+      ]
+    },
     "footer": "Next.js 15、Tailwind CSS、Better Auth で構築。"
   },
   "docs": {

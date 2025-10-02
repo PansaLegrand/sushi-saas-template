@@ -28,6 +28,25 @@
         { "title": "文档与 MDX", "description": "内置 MDX + Fumadocs 文档/博客与完善的 SEO。" }
       ]
     },
+    "showcases": {
+      "title": "案例展示",
+      "items": [
+        {
+          "name": "DojoClip",
+          "url": "https://dojoclip.com",
+          "description": "专注于多语言字幕与视频翻译的浏览器端视频编辑器。"
+        }
+      ]
+    },
+    "stack": {
+      "title": "技术栈",
+      "items": [
+        { "name": "Next.js 15", "description": "App Router 与服务端组件" },
+        { "name": "Tailwind CSS", "description": "原子化实用类样式" },
+        { "name": "Better Auth", "description": "认证与会话" },
+        { "name": "Drizzle ORM", "description": "类型安全的 SQL 与迁移" }
+      ]
+    },
     "footer": "基于 Next.js 15、Tailwind CSS 与 Better Auth 构建。"
   }
   ,
