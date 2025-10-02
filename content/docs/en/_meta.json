@@ -1,0 +1,18 @@
+{
+  "title": "Docs",
+  "root": true,
+  "defaultOpen": true,
+  "pages": [
+    "about",
+    "budget",
+    "quick-start",
+    "database-setup",
+    "authentication-and-admin",
+    "stripe-setup",
+    "account-ledger",
+    "email-service",
+    "affiliate-and-reward",
+    "reservations-feature",
+    "google-for-saas"
+  ]
+}

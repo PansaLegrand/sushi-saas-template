@@ -34,6 +34,11 @@
     "back": "Retour à l’accueil"
   }
   ,
+  "blogs": {
+    "title": "Blog",
+    "intro": "Guides et actualités pour expédier plus vite."
+  }
+  ,
   "reservation": {
     "title": "Réserver un service",
     "subtitle": "Choisissez un service, une heure et confirmez avec un petit acompte."
@@ -71,5 +76,20 @@
     "errorGeneric": "Une erreur s’est produite.",
     "msgAccountCreated": "Compte créé avec succès. Redirection...",
     "logout": "Se déconnecter"
+  }
+  ,
+  "feedback": {
+    "buttonLabel": "Envoyer un avis",
+    "modalTitle": "Partagez votre avis",
+    "modalSubtitle": "Dites‑nous ce qui fonctionne bien et ce que nous pouvons améliorer.",
+    "ratingLabel": "Note (optionnel)",
+    "textareaLabel": "Votre avis",
+    "textareaPlaceholder": "Qu’avez‑vous en tête ?",
+    "cancel": "Annuler",
+    "send": "Envoyer",
+    "sending": "Envoi…",
+    "errorTooShort": "Veuillez saisir au moins 3 caractères.",
+    "submitSuccess": "Merci pour votre avis !",
+    "submitError": "Échec de l’envoi de l’avis"
   }
 }

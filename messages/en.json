@@ -38,6 +38,12 @@
   }
   
   ,
+  "blogs": {
+    "title": "Blog",
+    "intro": "Latest guides and updates to help you ship faster."
+  }
+  
+  ,
   "reservation": {
     "title": "Reserve a service",
     "subtitle": "Pick a service, choose a time, and confirm with a small deposit."
@@ -75,5 +81,20 @@
     "errorGeneric": "Something went wrong.",
     "msgAccountCreated": "Account created successfully. Redirecting...",
     "logout": "Log out"
+  }
+  ,
+  "feedback": {
+    "buttonLabel": "Send Feedback",
+    "modalTitle": "Share Your Feedback",
+    "modalSubtitle": "Tell us what’s working well and what we can improve.",
+    "ratingLabel": "Rating (optional)",
+    "textareaLabel": "Your feedback",
+    "textareaPlaceholder": "What’s on your mind?",
+    "cancel": "Cancel",
+    "send": "Send",
+    "sending": "Sending...",
+    "errorTooShort": "Please enter at least 3 characters.",
+    "submitSuccess": "Thanks for your feedback!",
+    "submitError": "Failed to send feedback"
   }
 }

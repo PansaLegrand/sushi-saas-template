@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 
 import { auth } from "@/lib/auth";
 import LogoutButton from "@/components/auth/logout-button";
+import FeedbackModal from "@/components/feedback/feedback-modal";
 
 async function getSession() {
   const requestHeaders = await headers();
@@ -52,8 +53,8 @@ export default async function ProfilePage() {
             <p>{session.createdAt.toISOString()}</p>
           </div>
         </div>
-
-        <div className="pt-4">
+        <div className="flex items-center justify-between pt-4">
+          <FeedbackModal />
           <LogoutButton />
         </div>
       </section>

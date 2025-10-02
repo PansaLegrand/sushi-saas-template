@@ -1,0 +1,97 @@
+---
+title: Budget SaaS — Coûts, hébergement et l’essentiel
+icon: "Wallet"
+description: "Guide pratique des coûts réels pour démarrer un SaaS : hébergement, base de données, paiements, email, et où va réellement l’argent. Commencez gratuitement, validez tôt et ne payez que lorsque vous grandissez."
+keywords:
+  - budget SaaS
+  - coût démarrage SaaS
+  - hébergement
+  - frais Stripe
+  - Neon
+  - Vercel
+  - Resend
+tags: [budget, coûts, hébergement]
+author: "Pansa Legrand"
+publishedAt: "2025-10-02T00:00:00.000Z"
+updatedAt: "2025-10-02T00:00:00.000Z"
+canonical: "https://sushi-saas-template.io/fr/blogs/budget"
+---
+
+## En bref
+
+Vous pouvez lancer un SaaS fonctionnel pour quelques euros par mois — et souvent 0 € au début grâce aux offres gratuites. Payez uniquement lorsque vous avez de l’usage ou des revenus.
+
+---
+
+## Combien ça coûte de démarrer un SaaS ?
+
+Pour un MVP, vos coûts peuvent être proches de zéro :
+
+- Domaine : ~10–20 €/an (optionnel pour les tout premiers tests).
+- Dépôt/CI : GitHub + CI de base sont gratuits dans la plupart des cas.
+- App et BD : Vercel et Neon proposent des paliers gratuits généreux.
+- Paiements : Stripe n’a pas d’abonnement ; vous payez par transaction réussie.
+- Email : Resend propose un plan gratuit ; parfait pour l’onboarding et les notifications.
+
+Premier mois type : 0–10 € si vous restez simple.
+
+---
+
+## Combien coûte l’hébergement ?
+
+- [Vercel](https://vercel.com/pricing) : Le plan Hobby gratuit couvre bien un petit SaaS (serverless + edge). Vous paierez en cas de dépassement des limites, de besoins avancés ou de fort trafic.
+- Alternatives : VM/containers auto‑gérés coûtent souvent plus et augmentent l’opérationnel.
+
+Conclusion : commencez gratuit et montez de palier quand nécessaire.
+
+---
+
+## Et la base de données ?
+
+- [Neon](https://neon.tech/pricing) : Le palier gratuit Postgres suffit pour le dev et les premiers utilisateurs. Passez à un plan payant pour plus de stockage/compute/fonctionnalités.
+- Dev local : Vous pouvez développer en local et provisionner une BD managée plus tard.
+
+---
+
+## Combien coûte Stripe ?
+
+La tarification Stripe dépend du pays, au pourcentage par transaction. Généralement pas d’abonnement — vous payez quand vous encaissez. En mode test, l’intégration et les tests bout‑à‑bout sont gratuits. Voir [tarifs Stripe](https://stripe.com/pricing) et n’hésitez pas à [contacter le support Stripe](https://support.stripe.com/) pour les tarifs exacts de votre pays.
+
+En cas de doute, contactez Stripe pour les tarifs exacts de votre pays.
+
+---
+
+## Combien coûte l’email ?
+
+- [Resend](https://resend.com/pricing) : Plan gratuit disponible. Idéal pour inscriptions, vérifications et notifications simples.
+- À l’échelle : Un plan payant peut être nécessaire pour plus de volume ou la délivrabilité.
+
+---
+
+## Postes de dépenses majeurs réels
+
+- Domaine + DNS : domaine, SSL, services DNS.
+- Email + boîtes : email transactionnel (Resend) et éventuellement une boîte support.
+- Stockage + médias : uploads, images, sauvegardes.
+- Monitoring + logs : erreurs, performance, observabilité.
+- Tâches de fond + files : CRON, jobs longs.
+- Analytics + outils : analytics produit, A/B testing, feature flags.
+- Légal + conformité : CGU/Confidentialité, compta, taxes, PCI/DSA/RGPD.
+- Design + contenu : icônes, templates, copy, marketing.
+- Votre temps : le plus gros coût au départ.
+
+Beaucoup peuvent être différés jusqu’à la traction.
+
+---
+
+## Budget simple par phase
+
+- Pré‑PMF (MVP) : 0–10 €/mois (paliers gratuits + domaine).
+- Lancement : 20–100 €/mois (quand vous dépassez les limites).
+- Croissance : 100–500+ €/mois (selon volume et outillage).
+
+---
+
+## Encouragement pour débutants
+
+Commencez maintenant. Utilisez les paliers gratuits (Vercel, Neon, Resend) et intégrez Stripe en mode test. Livrez une tranche minimale, parlez aux utilisateurs et ne payez que lorsque vous avez réellement besoin de capacité. Quelques euros suffisent pour un SaaS basique — l’essentiel est de valider l’idée au plus tôt.

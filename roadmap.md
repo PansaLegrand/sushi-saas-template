@@ -20,6 +20,7 @@ Legend:
 - Admin area + role-guarded APIs
 - Docs/blog (MDX), Next.js 15, Drizzle migrations, health endpoint
 - Password reset: email link flow (completed)
+- Feedback v1: in-app modal (i18n), API submission, admin review page
 
 ---
 

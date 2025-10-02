@@ -1,0 +1,97 @@
+---
+title: SaaS Budget Guide — Costs, Hosting, and What Matters
+icon: "Wallet"
+description: "Practical guide to the real costs of starting a SaaS: hosting, database, payments, email, and where money actually goes. Start free, validate early, and pay only when you grow."
+keywords:
+  - SaaS budget
+  - cost to start SaaS
+  - hosting
+  - Stripe fees
+  - Neon
+  - Vercel
+  - Resend
+tags: [budget, costs, hosting]
+author: "Pansa Legrand"
+publishedAt: "2025-10-02T00:00:00.000Z"
+updatedAt: "2025-10-02T00:00:00.000Z"
+canonical: "https://sushi-saas-template.io/en/blogs/budget"
+---
+
+## TL;DR
+
+You can launch a working SaaS for a few dollars per month — and often $0 at the beginning using free tiers. Spend money only when you have usage or income.
+
+---
+
+## How much does it cost to start a SaaS?
+
+For an MVP, your cash costs can be close to zero:
+
+- Domain: typically $10–$20/year (optional for the very first tests).
+- Repo/CI: GitHub + basic CI are free for most needs.
+- App and DB: Vercel and Neon both offer generous free tiers.
+- Payments: Stripe has no monthly fee; you pay per successful charge.
+- Email: Resend has a free plan; great for onboarding and notifications.
+
+Typical first month: $0–$10 if you keep things lean.
+
+---
+
+## How much does hosting cost?
+
+- [Vercel](https://vercel.com/pricing): Free Hobby plan covers a small SaaS nicely (serverless + edge). You’ll only pay when you need higher limits, advanced features, or significant traffic.
+- Alternatives: You can also run on your own VM or containers, but that generally costs more up front and increases ops complexity.
+
+Bottom line: Start free, upgrade when you hit usage caps.
+
+---
+
+## What about the database?
+
+- [Neon](https://neon.tech/pricing): Free Postgres tier is enough for development and early users. Upgrade when you need more storage, compute, or features.
+- Local dev: You can also develop locally and only provision a managed DB for staging/prod when needed.
+
+---
+
+## What does Stripe cost?
+
+Stripe’s pricing is region‑dependent and per‑transaction. There’s usually no monthly fee — you pay when you get paid. In test mode, it’s free to integrate and end‑to‑end test. See [Stripe pricing](https://stripe.com/pricing) and feel free to [contact Stripe support](https://support.stripe.com/) for your country’s exact rates.
+
+If you’re unsure, contact Stripe support for your country’s exact rates.
+
+---
+
+## What does email cost?
+
+- [Resend](https://resend.com/pricing): Free plan available. Great to get started for sign‑ups, verifications, and simple notifications.
+- As you scale: You might need a paid tier for higher volume, dedicated IPs, or deliverability controls.
+
+---
+
+## Major areas where money actually goes
+
+- Domain + DNS: custom domain, SSL, DNS services.
+- Email + inboxes: transactional email (Resend) and possibly a support inbox.
+- Storage + media: user uploads, images, and backups.
+- Monitoring + logs: error tracking, performance metrics, observability.
+- Background jobs + queues: scheduled tasks, long‑running jobs.
+- Analytics + tooling: product analytics, A/B testing, feature flags.
+- Legal + compliance: terms/privacy, accounting, taxes, PCI/DSA/GDPR needs.
+- Design + content: icons, templates, copy, marketing.
+- Your time: the biggest cost early on.
+
+You can defer many of these until you have traction.
+
+---
+
+## A simple budget by phase
+
+- Pre‑PMF MVP: $0–$10/month (free tiers + domain).
+- Early launch: $20–$100/month (when you outgrow free limits).
+- Growing: $100–$500+/month (depends on volume and team needs).
+
+---
+
+## Encouragement for beginners
+
+Start now. Use free tiers (Vercel, Neon, Resend) and integrate Stripe in test mode. Ship a thin slice, talk to users, and only pay when you actually need more capacity. A few dollars are enough to run a basic SaaS — the best investment is validating the idea as early as possible.

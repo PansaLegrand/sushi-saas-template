@@ -1,0 +1,80 @@
+---
+title: 关于 Sushi SaaS — 它是什么、为何值得信赖
+icon: "Info"
+description: "面向生产的 MIT 许可 SaaS 起步模板：i18n、Better Auth、Drizzle ORM、Stripe 计费、MDX 文档、RBAC 管理与实用 DX，开箱即用；可放心克隆与扩展。"
+keywords:
+  - SaaS 模板
+  - Next.js
+  - Better Auth
+  - Drizzle ORM
+  - Stripe
+  - MDX
+  - i18n
+  - MIT 许可
+tags: [概览, 方法论, 可信]
+author: "Pansa Legrand"
+publishedAt: "2025-10-02T00:00:00.000Z"
+updatedAt: "2025-10-02T00:00:00.000Z"
+---
+
+## Sushi SaaS 是什么？
+
+Sushi SaaS 是一个务实的 Next.js 模板，帮助你更快地构建与上线真正的 SaaS。它把你在第 1 天就需要的能力放在一起——认证、计费、管理、内容与国际化——并通过类型安全的数据库与明确的迁移串联起来。
+
+核心栈：
+
+- Next.js App Router + 基于 next‑intl 的本地化路由
+- Better Auth + 通过 Drizzle ORM 连接 Postgres
+- Stripe Checkout + Webhook 最终入账（内置积分台账）
+- 基于 Fumadocs 的 MDX 文档（含 SEO 元数据 + JSON‑LD）
+- 服务器端 RBAC 的管理页面
+- 实用 DX：pnpm、ESLint/Tailwind、健康检查、清晰的环境变量
+
+GitHub 仓库： https://github.com/PansaLegrand/saas-sushi-template
+
+```bash
+git clone https://github.com/PansaLegrand/saas-sushi-template.git
+cd saas-sushi-template
+pnpm install && pnpm dev
+```
+
+---
+
+## 为何值得信赖
+
+- 端到端类型安全：Drizzle 模式为单一事实来源；drizzle‑kit 迁移保持数据库一致。
+- 真实业务流：认证、计费（Stripe）和管理权限打通，并在 UI 中可见。
+- 可预期的 i18n：基于 next‑intl 的显式前缀路由；消息与应用/文档同处。
+- 运维清晰：`/api/health`、环境模板，以及构建/Lint/迁移的明确流程。
+- 文档完善：核心能力（认证、计费、数据库、管理、邮件）均有 MDX 指南与实际命令、文件路径。
+- 实战沉淀：来源于真实产品的经验模式（见 README 的 Showcase）。
+
+---
+
+## 项目独特性
+
+- MIT 许可：可商用可改造，助你快速推进。详见仓库中的 `LICENSE`。
+- 功能完整：认证、计费、积分台账、推广/返利、预约演示、MDX 文档、管理与 i18n 开箱即用。
+- 内容 + SEO 一体化：Frontmatter 自动映射到 Next.js Metadata、OpenGraph 与 JSON‑LD。
+- 作者可提供咨询：需要按需落地？作者可提供实现与顾问服务。Email：pansalegrand@gmail.com
+
+---
+
+## 第一天你就拥有
+
+- 认证与 RBAC：Better Auth、类型化数据库适配、安全的管理角色（只读/读写）。
+- 可依赖的计费：Stripe Checkout + 签名 Webhook 最终入账并发放积分。
+- 积分与订单：适合按量计费与试用的简单台账模型。
+- 国际化：显式本地化路由、消息包与本地化文档。
+- MDX 文档：Fumadocs 导航与目录。
+- 开发体验：pnpm、Turbopack/Webpack、ESLint/Tailwind 与统一规范。
+
+---
+
+## 链接
+
+- GitHub： https://github.com/PansaLegrand/saas-sushi-template
+- README： /README.zh.md
+- 入门文档： `/:locale/blogs/quick-start`
+
+如果你需要将此模板快速定制到你的产品或加速 MVP 验证，请联系：pansalegrand@gmail.com。
