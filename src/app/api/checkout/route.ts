@@ -10,6 +10,7 @@ import { PricingItem } from "@/types/blocks/pricing";
 import { newStripeClient } from "@/integrations/stripe";
 import { Order } from "@/types/order";
 import { getOrCreateCustomerIdForUser } from "@/services/stripe-customer";
+import { buildIntroDiscounts } from "@/services/stripe-promotions";
 
 export async function POST(req: Request) {
   try {
@@ -42,6 +43,9 @@ export async function POST(req: Request) {
     }
 
     let { amount, interval, valid_months, credits, product_name } = item;
+    const trial_days = (item as any).trial_days as number | undefined;
+    const intro_price_cents = (item as any).intro_price_cents as number | undefined;
+    const intro_months = (item as any).intro_months as number | undefined;
 
     if (!["year", "month", "one-time"].includes(interval)) {
       return respErr("invalid interval");
@@ -134,6 +138,11 @@ export async function POST(req: Request) {
       locale,
       cancel_url,
       priceId: resolvedPriceId,
+      promo: {
+        trial_days: trial_days && trial_days > 0 ? trial_days : undefined,
+        intro_price_cents: intro_price_cents && intro_price_cents > 0 ? intro_price_cents : undefined,
+        intro_months: intro_months && intro_months > 0 ? intro_months : undefined,
+      },
     });
 
     return respData(result);
@@ -148,11 +157,17 @@ async function stripeCheckout({
   locale,
   cancel_url,
   priceId,
+  promo,
 }: {
   order: Order;
   locale: string;
   cancel_url: string;
   priceId?: string;
+  promo?: {
+    trial_days?: number;
+    intro_price_cents?: number;
+    intro_months?: number;
+  };
 }) {
   const intervals = ["month", "year"];
   const is_subscription = intervals.includes(order.interval);
@@ -239,6 +254,9 @@ async function stripeCheckout({
     options.subscription_data = {
       metadata: options.metadata,
     };
+    if (promo?.trial_days && promo.trial_days > 0) {
+      (options.subscription_data as any).trial_period_days = promo.trial_days;
+    }
   }
 
   if (order.currency === "cny" && !is_subscription) {
@@ -257,6 +275,26 @@ async function stripeCheckout({
       setup_future_usage: "off_session",
       metadata: options.metadata,
     } as Stripe.Checkout.SessionCreateParams.PaymentIntentData;
+  }
+
+  // Introductory price: apply a one-time coupon to the first invoice
+  if (is_subscription && promo?.intro_months && promo.intro_months > 0 && promo.intro_price_cents) {
+    try {
+      const discounts = await buildIntroDiscounts({
+        currency: (order.currency || "usd") as string,
+        baseAmount: order.amount,
+        introAmount: promo.intro_price_cents,
+      });
+      if (discounts && discounts.length > 0) {
+        (options as any).discounts = discounts;
+        // Stripe Checkout requires choosing between explicit discounts and
+        // allow_promotion_codes; remove the latter when discounts are set.
+        delete (options as any).allow_promotion_codes;
+      }
+    } catch (e) {
+      // Non-fatal; continue without discount if it fails
+      console.warn("failed to apply intro discount", e);
+    }
   }
 
   const session = await client
