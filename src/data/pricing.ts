@@ -1,6 +1,63 @@
 import type { Pricing } from "@/types/blocks/pricing";
+import { FREE_TRIAL_DAYS, INTRO_BASE_USD_CENTS, INTRO_FIRST_MONTH_USD_CENTS } from "@/data/billing";
 
 const sharedMonthlyPlans = [
+  // Demo: Starter plan with trial and intro options
+  {
+    title: "Starter (Trial)",
+    description: "One-month free trial, then $20/mo.",
+    label: "Trial",
+    price: "$20",
+    currency: "usd",
+    unit: "/month",
+    features_title: "Includes",
+    features: [
+      "One-month free trial",
+      "Core features to get started",
+    ],
+    button: {
+      title: "Start free trial",
+      icon: "Play",
+    },
+    tip: `Free for ${FREE_TRIAL_DAYS} days, cancel anytime` as any,
+    interval: "month" as const,
+    product_id: "starter-monthly-trial",
+    product_name: "Starter Monthly (Trial)",
+    amount: INTRO_BASE_USD_CENTS, // standard price after trial
+    credits: 100,
+    valid_months: 1,
+    group: "monthly",
+    // Promotions
+    trial_days: FREE_TRIAL_DAYS,
+  },
+  {
+    title: "Starter (Intro $5)",
+    description: "First month $5, then $20/mo.",
+    label: "Intro",
+    price: "$20",
+    currency: "usd",
+    unit: "/month",
+    features_title: "Includes",
+    features: [
+      "First month only $5",
+      "Reverts to $20 after",
+    ],
+    button: {
+      title: "Try for $5",
+      icon: "Coins",
+    },
+    tip: "One-month introductory price",
+    interval: "month" as const,
+    product_id: "starter-monthly-intro",
+    product_name: "Starter Monthly (Intro)",
+    amount: INTRO_BASE_USD_CENTS, // standard ongoing price
+    credits: 100,
+    valid_months: 1,
+    group: "monthly",
+    // Promotions
+    intro_price_cents: INTRO_FIRST_MONTH_USD_CENTS,
+    intro_months: 1,
+  },
   {
     title: "Launch",
     description:
