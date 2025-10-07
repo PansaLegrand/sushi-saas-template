@@ -1,0 +1,202 @@
+---
+title: 招待・アフィリエイトと報酬（初心者向け）
+icon: "Users"
+description: 招待リンク、アトリビューション、固定額/パーセント報酬の仕組みを初心者向けに解説。Cookie によるリファラ計測、ログイン後の最終確定、支払い時の報酬計算、既定ルールとカスタマイズ、検証手順までカバーします。
+keywords:
+  - アフィリエイト
+  - リファラル
+  - 招待リンク
+  - アトリビューション
+  - 報酬
+  - Cookie
+  - Stripe
+  - Next.js
+  - Drizzle ORM
+  - Better Auth
+tags: [アフィリエイト, リファラル, 報酬]
+author: "Pansa Legrand"
+publishedAt: "2025-09-29T00:00:00.000Z"
+updatedAt: "2025-09-29T00:00:00.000Z"
+canonical: "https://sushi-saas-template.io/ja/blogs/affiliate-and-reward"
+---
+
+## 概要
+
+このテンプレートには、ユーザーが新規登録や購入を促したときに報酬を付与できる「招待 + アフィリエイト」機能が含まれます。プライバシーに配慮したシンプルな初期設定で、DB スキーマを変えずにルールを調整できます。
+
+---
+
+## 基本概念
+
+- 招待リンク: `/i/<inviteCode>` のような共有 URL。訪問の帰属に使います。
+- アトリビューション: 初回サインアップ時に「誰が誰を招待したか」を `users.invited_by` に保存します。
+- アフィリエイト記録: `affiliates` テーブルの行で「意味のあるイベント（登録/支払い）」と、それに対して付与された報酬を記録します。
+- 報酬: 固定額（例 $50）とパーセント（例 20%）のいずれか/両方を構成可能。
+
+---
+
+## データモデル
+
+- `users`（既存）
+  - `invite_code`（文字列）: 個人の招待コード（秘密ではありません）。
+  - `invited_by`（文字列）: 招待者の UUID（不在/自己なら空）。
+  - `is_affiliate`（boolean）: UI でアフィリエイターを強調したい場合の任意フラグ。
+
+- `affiliates`（既存）
+  - `user_uuid`: 行為者（登録/支払いを行ったユーザー）。
+  - `invited_by`: リファラー（招待者）の UUID。
+  - `status`: `pending` | `completed` | `canceled` | `ignored`。
+  - `paid_order_no`: 支払いイベントの注文番号（登録イベントでは空）。
+  - `paid_amount`: 注文金額（通貨の最小単位）。
+  - `reward_percent`: このイベントに使われたパーセント（未使用なら 0）。
+  - `reward_amount`: 最終報酬の固定額（最小単位）。
+
+登録時の監査と、支払い完了時の報酬確定の両方を追加テーブルなしで扱えます。
+
+---
+
+## 既定プログラムのルール
+
+設定場所: `src/data/affiliate.ts`
+
+- プログラムは有効。
+- アトリビューション: ファーストタッチ（最初の招待が優先。後発は無視）。
+- アトリビューション有効期間: 30 日（Cookie）。
+- 自己紹介は無視（self‑referral 無効）。
+- 登録報酬: 既定では無効（行は記録するが支払いなし）。
+- 支払いイベントの報酬: 既定で有効
+  - 固定額: 1 注文ごとに $50。
+  - パーセント: 20%（任意）。両方設定時の扱いは実装メモ参照。
+
+---
+
+## ユーザーフロー
+
+### 1) 個人の招待リンクを生成
+
+- ページ: `/[locale]/my-invites`
+- 画面に `invite_code` と共有 URL（`${NEXT_PUBLIC_WEB_URL}/i/<inviteCode>`）を表示。
+- コード未発行なら生成可能（`updateUserInviteCode` で保存）。
+
+### 2) 共有リンクの処理
+
+- ルート: `/i/[inviteCode]`
+- 動作:
+  - `findUserByInviteCode(inviteCode)` で招待者を検索。
+  - 見つかれば `ref` Cookie に招待者の `uuid` を 30 日で設定し、ランディング（トップ/サインアップ）へリダイレクト。
+  - 見つからなければ Cookie なしで通常リダイレクト。
+
+### 3) サインアップ時の帰属確定
+
+- サインアップ成功時:
+  - `ref` Cookie が他人を指していれば、`users.invited_by` に設定して Cookie を消去。
+  - 任意で `affiliates` に `status = pending` の登録行を追加（既定の報酬は 0 なので監査のみ）。
+
+### 4) 支払い完了時のコミッション
+
+- 注文が `paid` になったら:
+  - 購入者を読み込み、`invited_by` が存在かつ自己でない場合、同一 `paid_order_no` の行がないか `affiliates` を確認。
+  - 既存がなければ `completed` 行を挿入し、`paid_order_no` と `paid_amount` を記録、設定に基づき `reward_amount` を計算。
+  - 同一注文の二重付与は禁止。
+  - サブスク: 各更新課金ごとに新しい `paid` 注文ができるなら、その都度報酬行を作成可能（初回のみを対象にしたい場合はガードを追加）。
+
+### 5) 管理画面と支払い
+
+- 管理ページ `/admin/affiliates` では以下を一覧:
+- 招待者ごとの招待/有料件数と合計報酬。
+- CSV エクスポート（手動払い出し用）。
+- 既定ではオンライン出金機能は未実装。支払いは手動が前提です。
+
+---
+
+## 実装メモ
+
+- アトリビューション方針: 最も簡単なのはファーストタッチ。すでに `invited_by` があるユーザーには後発 Cookie を無視。
+- Cookie 名: 既定は `ref`。Max‑Age は 30 日。
+- 不正対策: 自己紹介の無効化、`paid_order_no` による重複排除、`status = canceled` による管理側の取り消し。
+- 通貨: `paid_amount` と `reward_amount` は最小単位（例: セント）で持ち、注文通貨と一致させる。
+- 報酬計算（例）:
+  - 固定とパーセントを両方設定した場合、(a) 大きい方のみ、または (b) 両方を合算（ハイブリッド）。`CommissionMode` で切り替え。
+
+---
+
+## 構成と設定
+
+ファイル: `src/data/affiliate.ts`
+
+- プログラム: `enabled`, `attributionWindowDays`, `allowSelfReferral`, `attributionModel`
+- リンク: `sharePath`（既定 `/i`）, `myInvitesPath`（`/[locale]/my-invites`）
+- 報酬: `signup.fixed`, `signup.percent`, `paid.fixed`, `paid.percent`, `commissionMode`
+  - `payoutType = "credits"` の場合、`reward_amount` をアプリ内クレジットとして扱います。固定額推奨（%は 0 にする）、もしくは通貨→クレジットの換算処理を実装してください。
+
+共有ベース URL: `NEXT_PUBLIC_WEB_URL`。
+
+---
+
+## 含まれるもの（コードマップ）
+
+- 招待リダイレクト: Cookie 設定→リダイレクト（ローカライズ）
+  - `src/app/[locale]/i/[inviteCode]/route.ts:1`
+- 帰属確定 API: `invited_by` を確定し、登録行を記録
+  - `src/app/api/affiliate/update-invite/route.ts:1`
+- 招待コード API: 個人の招待リンクを取得/生成
+  - `src/app/api/affiliate/invite-code/route.ts:1`
+- アフィリエイトサービス: 報酬計算 + 注文ごとの重複排除
+  - `src/services/affiliate.ts:1`
+- Stripe 連携: 決済後にアフィリエイト更新を呼び出し
+  - `src/services/stripe.ts:1`
+- ユーザーページ: 招待リンク、集計カード、アクティビティ
+  - `src/app/[locale]/my-invites/page.tsx:1`
+  - `src/components/affiliate/invite-link.tsx:1`, `summary-cards.tsx:1`, `affiliate-table.tsx:1`
+- 管理ページ: 全体一覧と集計
+  - `src/app/(admin)/admin/affiliates/page.tsx:1`
+- クライアント初期化: ログイン/登録後に 1 度だけ帰属確定 API を呼ぶ
+  - `src/providers/affiliate-init.tsx:1`
+  - グローバル読込: `src/providers/theme.tsx:1`
+
+---
+
+## エンドツーエンドの流れ
+
+1) ユーザーが共有リンクにアクセス
+- 形式: `${NEXT_PUBLIC_WEB_URL}/i/<inviteCode>`
+- サーバーは招待者を検索し、`ref` Cookie を 30 日で設定→ホーム/サインアップへリダイレクト。
+
+2) ユーザーが登録/ログイン
+- クライアントの軽量フックが 1 セッションに 1 回 `/api/affiliate/update-invite` に POST。
+- `ref` Cookie があり `invited_by` 未設定なら、招待者 UUID を保存し、登録行を追加（既定では支払いなし）。
+
+3) ユーザーが購入
+- Stripe の `paid` を受け、設定（固定/パーセント/ハイブリッド）に基づき報酬を算出し、`completed` 行を追加。
+- `paid_order_no` による重複排除で二重付与を防止。
+
+4) ユーザー/管理者が結果を確認
+- ユーザー: `/[locale]/my-invites` でリンク/集計/履歴。
+- 管理者: `/admin/affiliates` で全行/合計/CSV エクスポート。
+
+---
+
+## カスタマイズのヒント
+
+- コミッション計算: `src/data/affiliate.ts:1` の `commissionMode` と `paid`/`signup` の値を編集。
+- 付与方式: `payoutType` を `cash`（既定。通貨の最小単位）/`credits`（アプリ内クレジット）から選択。
+- ウィンドウ期間: `attributionWindowDays` を変更。`allowSelfReferral` で自己紹介の可否。
+- リンク構造: `sharePath`（既定 `/i`）と `myInvitesPath` を調整。共有 URL は `NEXT_PUBLIC_WEB_URL` をベースに生成。
+- サブスク: 既定では各支払い期間に報酬を付与可能。初回のみなら `src/services/affiliate.ts:1` にガード条件を追加（例: 最初の paid 注文かどうか）。
+
+---
+
+## ローカルでの検証手順
+
+- `/[locale]/my-invites` でリンクを生成・コピー。
+- シークレットウィンドウで開いて登録→ログイン後、`my-invites` で件数を確認。
+- Stripe テスト決済後、管理画面で報酬行を確認。
+
+---
+
+## よくある落とし穴 & Tips
+
+- Base URL は `NEXT_PUBLIC_WEB_URL` と一致させる。
+- クライアント初期化は 200 応答時のみ成功扱い。未ログイン実行時は、ログイン後に再試行されます。
+- 二重付与は `paid_order_no` で防止。
+

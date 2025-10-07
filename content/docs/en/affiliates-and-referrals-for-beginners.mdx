@@ -1,0 +1,104 @@
+---
+title: "Affiliates & Referrals for Beginners"
+icon: "Info"
+description: "Set up invite links, 30‑day cookies, attribution at signup, reward models, and anti‑abuse basics for a beginner‑friendly SaaS affiliate/referral program."
+keywords:
+  - saas affiliate program
+  - referrals beginners
+  - attribution
+  - cookie duration
+  - commission
+  - anti‑fraud
+  - invite links
+tags: [growth, affiliates, referrals]
+author: "Pansa Legrand"
+publishedAt: "2025-10-07T00:00:00.000Z"
+updatedAt: "2025-10-07T00:00:00.000Z"
+canonical: "https://sushi-saas-template.io/en/blogs/affiliates-and-referrals-for-beginners"
+---
+
+## Affiliates & Referrals for Beginners
+
+Affiliate and referral programs are powerful growth tools for SaaS startups and online businesses. They turn your users or partners into advocates who bring in new customers, in exchange for a reward. If you’re new to this, don’t worry – this guide will walk you through setting up a basic SaaS affiliate program or customer referral system from scratch. We’ll cover how invite links and tracking cookies work, how to attribute referrals when someone signs up, choosing reward models (fixed payouts vs. percentage commissions), and how to prevent abuse of the program. By the end, you should have a clear roadmap to launch your own referral program for beginners – and even test it out yourself.
+
+---
+
+## Sharing Invite Links and Using 30‑Day Cookies
+
+The first step is to give each user a unique invite link they can share with others. Typically, this is a special URL containing a referral code. For example, your application might generate a link like `https://yourapp.com/en/i/ABC123`, where `ABC123` is the invite code tied to a specific user’s account. When a new visitor clicks this link, you’ll want to track that referral. This is commonly done by setting a tracking cookie in the visitor’s browser so you remember who referred them.
+
+Why a 30‑day cookie? In many referral or affiliate programs, the cookie (and thus the referral attribution) remains active for a set window, often 30 days by default <a href="https://slicewp.com/docs/referral-tracking/" target="_blank" rel="noopener noreferrer">[1]</a>. A 30‑day “attribution window” means that if someone clicks an invite link but doesn’t sign up right away, you can still credit the referrer as long as the person signs up within 30 days <a href="https://forum.bubble.io/t/guide-implementing-a-referral-affiliate-program-in-bubble/289986" target="_blank" rel="noopener noreferrer">[2]</a>. This window is adjustable (some programs use shorter or longer durations), but 30 days is a popular balance <a href="https://medium.com/@nrichardbiz_91133/what-is-cookie-duration-in-affiliate-marketing-explained-001ee3af5c9e" target="_blank" rel="noopener noreferrer">[3]</a>. It gives potential customers ample time to consider and return, while still ensuring the referrer gets credit if the signup happens within a month.
+
+When the invite link is clicked, your app should drop the referral code into a first‑party cookie on the visitor’s browser. First‑party cookies (set by your own domain) are more reliable for tracking than third‑party cookies, which browsers often block <a href="https://medium.com/@nrichardbiz_91133/what-is-cookie-duration-in-affiliate-marketing-explained-001ee3af5c9e" target="_blank" rel="noopener noreferrer">[4]</a>. The cookie simply stores the referral code or ID. For example, it might store something like `referrer=ABC123` and be set to expire after 30 days. If the visitor navigates around or closes the tab, that cookie persists, ready to attribute the referral if they return and sign up later. Without cookies (or some equivalent storage), you’d lose the referral info once the session ends, making it impossible to attribute the signup to the referrer if the user comes back later <a href="https://forum.bubble.io/t/guide-implementing-a-referral-affiliate-program-in-bubble/289986" target="_blank" rel="noopener noreferrer">[5]</a>.
+
+Tip: Only set the referral cookie for brand new visitors (not logged‑in users). In other words, if an already registered user clicks a referral link, you generally wouldn’t override anything or count it, since referrals are meant for bringing new users. Most programs limit credit to new signups to prevent abuse or gaming the system <a href="https://forum.bubble.io/t/guide-implementing-a-referral-affiliate-program-in-bubble/289986" target="_blank" rel="noopener noreferrer">[6]</a>.
+
+---
+
+## Finalizing Referral Attribution at Signup
+
+Capturing the referral code in a cookie is only half the battle – you also need to finalize the attribution when the user actually signs up (or performs whatever conversion your program rewards). The typical approach is: when a visitor creates a new account (or completes a purchase), check for that referral cookie. If it’s present, look up which user (referrer) that code corresponds to, and attach that information to the new account. For instance, you might set a field on the new user like `referred_by = [Referrer User ID]`. This way, the referral is officially recorded in your database.
+
+One important detail: only set the referral attribution if it hasn’t been set already. In practice, that means if a new user signs up and there’s a referral cookie, but somehow the user already had a referrer recorded, you should not override it <a href="https://forum.bubble.io/t/guide-implementing-a-referral-affiliate-program-in-bubble/289986" target="_blank" rel="noopener noreferrer">[7]</a>. In a well‑designed flow, a brand new user shouldn’t have any referrer yet – so this is mostly a safeguard against edge cases or multiple referral attempts. It prevents a scenario where multiple referral links could fight over the same user credit. In short, each new user should be linked to at most one referrer. Once that link is made, lock it in.
+
+You might wonder what happens if a person clicked multiple invite links from different people before signing up. Which referrer gets credit? Most affiliate and referral systems use a “last touch” attribution model by default – meaning the last referral link the user clicked is the one that counts <a href="https://slicewp.com/docs/referral-tracking/" target="_blank" rel="noopener noreferrer">[8]</a>. The rationale is that the final person who convinced the customer should get the reward. However, some programs choose a first‑touch model (credit the first person who invited them) to encourage users to spread the word early <a href="https://slicewp.com/docs/referral-tracking/" target="_blank" rel="noopener noreferrer">[8]</a>. In any case, the key is to have a clear rule and stick to it. Using cookies as described naturally lends itself to last‑touch attribution (each new click would overwrite the cookie with the latest referrer code). If you prefer first‑touch, you’d implement it by not updating the cookie if one already exists – thereby keeping the original referrer saved. Decide which model fits your philosophy, but ensure your system deduplicates referrals so that one new customer can only ever reward one referrer.
+
+Once the new user’s account is tagged with who referred them, you can use that information to grant rewards or track program performance. Some programs might immediately credit the referrer (e.g. give them points or mark a successful referral), while others might wait until the new user performs a certain action (like making a payment or after being active for X days) before confirming the reward. We’ll talk more about reward options next.
+
+---
+
+## Reward Models: Fixed, Percentage, or Hybrid (and Avoiding Dupes)
+
+Designing the incentive is a crucial part of your affiliate/referral program. There are a few common reward models:
+
+- Fixed Reward (Flat Rate): A simple approach is to give a fixed bonus for each successful referral. For example, “Earn $50 for each new customer you refer,” or a fixed credit (like one free month of service). This is straightforward – every referred signup yields the same reward regardless of that customer’s value. Flat payouts are easy to understand and manage, but they don’t directly scale with the referred customer’s spending <a href="https://www.rewardful.com/articles/affiliate-commission-explained" target="_blank" rel="noopener noreferrer">[9]</a>.
+- Percentage Commission: This model gives a percentage of either the sale amount or the new customer’s payments. Affiliate programs for SaaS often offer a percentage of revenue – for example, 20–30% recurring commission on subscription payments <a href="https://www.rewardful.com/articles/affiliate-commission-explained" target="_blank" rel="noopener noreferrer">[10]</a>. That means if you refer someone who spends $100/month, you might earn $20–30 each month they remain a paying customer. Percent commissions align the reward with the customer’s value. Many SaaS companies have high gross margins (~75–80%), so sharing ~30% with affiliates is sustainable and still profitable <a href="https://www.rewardful.com/articles/affiliate-commission-explained" target="_blank" rel="noopener noreferrer">[11]</a>.
+- Hybrid Models: You can combine both to get the best of both worlds. Some programs, for instance, pay a fixed bounty plus a smaller ongoing commission. Example: give $20 upfront for each referral, and 10% of their purchases for the first year. This kind of hybrid structure rewards both the acquisition (signing a new customer) and retention (long‑term value) <a href="https://www.rewardful.com/articles/affiliate-commission-explained" target="_blank" rel="noopener noreferrer">[12]</a>. It can motivate affiliates to not only sign up people but also encourage those referrals to stick around as paying customers. The downside is complexity – it’s a bit harder to explain and track a mixed model <a href="https://www.rewardful.com/articles/affiliate-commission-explained" target="_blank" rel="noopener noreferrer">[13]</a>.
+
+When picking a reward model, consider what makes sense for your business. If you run a SaaS or subscription service, recurring percentage commissions can be very attractive to affiliates (since they earn passive income as long as the customer stays) and align with your monthly revenue. If margins are tight or you want to cap the payout, a one‑time fixed reward might be safer. You can also benchmark competitors or industry standards: for instance, many SaaS affiliate programs offer around 20–30% recurring commissions <a href="https://www.rewardful.com/articles/affiliate-commission-explained" target="_blank" rel="noopener noreferrer">[10]</a>, whereas retail product affiliates might only get 5–10% due to lower margins. The goal is to offer enough incentive to make it worthwhile for people to refer, while still maintaining your own profitability.
+
+Avoiding duplicate rewards: As mentioned earlier, ensure each actual referred customer only triggers one reward. If two different affiliates claim the same person, you don’t want to pay twice. Your attribution system (cookie + sign‑up logic) should handle this by assigning one referrer per new user. It’s also wise to prevent gaming the system. For example, if an existing customer somehow creates multiple accounts to refer “themselves” just to get rewards, those should be disqualified (this is typically against the rules – more on that next) <a href="https://www.prefinery.com/blog/referral-marketing/fraud-prevention/" target="_blank" rel="noopener noreferrer">[14]</a>. Similarly, if the same referral accidentally comes through two channels, you may need to decide which channel gets credit. For a beginner setup, the simplest approach is: one new user = one referral credit, no matter what. Any subsequent signups by that person or duplicate entries should not create new rewards.
+
+---
+
+## Admin Oversight and Anti‑Abuse Measures
+
+Once your program is up and running, it’s crucial to keep an eye on it. Anytime you offer rewards, there’s a possibility someone will try to exploit the system. Referral fraud can take many forms, so build in some protections and policies from the start <a href="https://www.prefinery.com/blog/referral-marketing/fraud-prevention/" target="_blank" rel="noopener noreferrer">[15]</a>:
+
+- Self‑referrals are not allowed. Almost every affiliate/referral program explicitly prohibits referring yourself (using different emails, fake accounts, etc.) <a href="https://www.freshbooks.com/affiliate-program?srsltid=AfmBOoofy72UcxpAoeLA4h7OGFGNXuhlnT9KgyY-xf4afXm3UeqFxxy8" target="_blank" rel="noopener noreferrer">[16]</a>. If you detect that a user referred what appears to be themselves (for example, the “new” account uses the same IP address or device as the referrer), you should mark that referral as invalid. Make this clear in your terms to deter attempts.
+- Review referrals for validity. Have an admin dashboard showing new sign‑ups and their referrers. Watch for suspicious spikes or patterns – e.g. one referrer suddenly inviting 100 people in a day, or multiple signups with obviously fake email addresses. Some programs put referrals in a “pending” state and manually approve them after verification. For example, you might require that the referred user stays active for at least a week, or makes a valid purchase, before the referrer gets the reward. This helps ensure the referral is genuine (not just a throwaway account to claim a reward) <a href="https://www.freshbooks.com/affiliate-program?srsltid=AfmBOoofy72UcxpAoeLA4h7OGFGNXuhlnT9KgyY-xf4afXm3UeqFxxy8" target="_blank" rel="noopener noreferrer">[16]</a>.
+- Limit abuse through program rules. Set reasonable terms: one reward per new customer, no duplicate or fake accounts, etc. You can also limit the maximum rewards a single referrer can earn in a day or other period if relevant. Clearly outline that any attempt to game the system (bots, referring non‑eligible accounts, collusion) can lead to loss of rewards or removal from the program <a href="https://www.prefinery.com/blog/referral-marketing/fraud-prevention/" target="_blank" rel="noopener noreferrer">[14]</a>. Some companies reserve the right to void referrals or commissions that are found to be fraudulent within a certain timeframe <a href="https://www.freshbooks.com/affiliate-program?srsltid=AfmBOoofy72UcxpAoeLA4h7OGFGNXuhlnT9KgyY-xf4afXm3UeqFxxy8" target="_blank" rel="noopener noreferrer">[17]</a>.
+- Use unique links wisely. Encourage users to share their invite link with friends, colleagues, or their audience, but be cautious if those links start circulating on coupon sites or forums where random people can use them. Decide whether your program is intended for private “invite friends” referrals or broader affiliate marketing, and set guidelines accordingly.
+
+---
+
+## Common Questions from New Program Owners
+
+Can users self‑refer? No – users should not refer themselves. Self‑referrals (creating another account or using your own invite code on yourself) are almost always against the rules of referral programs. For example, FreshBooks explicitly states: “Self referrals are strictly prohibited and will be disqualified from earnings.” <a href="https://www.freshbooks.com/affiliate-program?srsltid=AfmBOoofy72UcxpAoeLA4h7OGFGNXuhlnT9KgyY-xf4afXm3UeqFxxy8" target="_blank" rel="noopener noreferrer">[16]</a>. Implement checks to prevent this and clearly communicate that any attempt to self‑refer will not be rewarded.
+
+How should I pick a commission or reward amount? Choosing the right commission rate or reward amount comes down to balancing attractiveness with sustainability. Start by looking at your profit margins and customer lifetime value – how much can you afford to give away per new customer and still come out ahead? For affiliate percentage commissions, see what’s standard in your industry. In SaaS, a 20–30% recurring commission is common <a href="https://www.rewardful.com/articles/affiliate-commission-explained" target="_blank" rel="noopener noreferrer">[10]</a>. If you’re doing a one‑time payout (bounty per referral), consider the average value of a new user. Some companies choose a fixed reward equal to a month’s subscription fee, or a certain dollar amount that feels motivating but still less than the profit the new customer will generate. You can start modest and adjust as you learn what attracts referrers. Also consider whether to reward just the referrer, or both the referrer and the new customer (double‑sided incentive).
+
+---
+
+## Getting Started: Turn It On and Test It
+
+With the basics covered, you’re ready to implement your affiliate/referral program. In our project template, all the building blocks are in place – you just need to activate them. Turn it on in `src/data/affiliate.ts` and test with an incognito window. This means enabling the feature flag or configuration in that file, and then using a private browsing session to simulate a new user clicking an invite link and signing up (incognito mode ensures you aren’t recognized as the same user and that the referral cookie flow works properly). Try sending yourself an invite link, opening it in incognito, signing up as a new user, and confirming that the referral gets attributed and the reward triggers as expected. This end‑to‑end test will let you verify that the 30‑day cookie is setting, the attribution on signup is working, and your chosen reward model is being applied.
+
+By following these steps, you’ve set up a beginner‑friendly referral program: users can share invite links, the system tracks referrals reliably, rewards are given out fairly, and you have safeguards against misuse. An affiliate or referral program can be a game‑changer for growth when done right. Now it’s time to flip that switch and watch your happy customers bring in more customers!
+
+---
+
+## References
+
+<a href="https://slicewp.com/docs/referral-tracking/" target="_blank" rel="noopener noreferrer">[1] [8] How referral tracking works - SliceWP</a>
+
+<a href="https://forum.bubble.io/t/guide-implementing-a-referral-affiliate-program-in-bubble/289986" target="_blank" rel="noopener noreferrer">[2] [5] [6] [7] [GUIDE] Implementing a Referral/Affiliate Program in Bubble - Tips - Bubble Forum</a>
+
+<a href="https://medium.com/@nrichardbiz_91133/what-is-cookie-duration-in-affiliate-marketing-explained-001ee3af5c9e" target="_blank" rel="noopener noreferrer">[3] [4] What Is Cookie Duration in Affiliate Marketing? | Medium</a>
+
+<a href="https://www.rewardful.com/articles/affiliate-commission-explained" target="_blank" rel="noopener noreferrer">[9] [10] [11] [12] [13] Affiliate Commission Guide for 2025 (Standard Rate & Models)</a>
+
+<a href="https://www.prefinery.com/blog/referral-marketing/fraud-prevention/" target="_blank" rel="noopener noreferrer">[14] [15] How to Prevent and Deal with Referral Marketing Fraud?</a>
+
+<a href="https://www.freshbooks.com/affiliate-program?srsltid=AfmBOoofy72UcxpAoeLA4h7OGFGNXuhlnT9KgyY-xf4afXm3UeqFxxy8" target="_blank" rel="noopener noreferrer">[16] [17] FreshBooks Affiliate Program Terms</a>
+
