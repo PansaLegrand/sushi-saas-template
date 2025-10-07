@@ -1,0 +1,104 @@
+---
+title: "联盟与推荐计划入门"
+icon: "Info"
+description: "为初学者搭建 SaaS 联盟/推荐计划：邀请链接、30 天 Cookie、注册归因、奖励模型与基础反滥用。"
+keywords:
+  - SaaS 联盟
+  - 推荐入门
+  - 归因
+  - Cookie 有效期
+  - 分佣
+  - 反欺诈
+  - 邀请链接
+tags: [增长, 联盟, 推荐]
+author: "Pansa Legrand"
+publishedAt: "2025-10-07T00:00:00.000Z"
+updatedAt: "2025-10-07T00:00:00.000Z"
+canonical: "https://sushi-saas-template.io/zh/blogs/affiliates-and-referrals-for-beginners"
+---
+
+## 联盟与推荐计划入门
+
+联盟/推荐计划是 SaaS 与在线业务常用的增长工具：把用户或合作伙伴变成“推广者”，为你带来新客户，以奖励作为回报。若你对此尚属新手，别担心——本文将从零讲清如何搭建一套基础的 SaaS 联盟或推荐系统：邀请链接与跟踪 Cookie 如何工作、在注册时如何“落定”归因、如何选择奖励模型（固定奖金 vs 百分比分成），以及如何预防滥用。读完后，你就有一张清晰的路线图，可启动并自测你的入门级推荐计划。
+
+---
+
+## 分享邀请链接与 30 天 Cookie
+
+第一步是给每个用户生成一个“可分享的邀请链接”。通常它包含一个推荐码，例如：`https://yourapp.com/zh/i/ABC123`，其中 `ABC123` 关联到某位用户的账户。当新访客点击该链接时，你需要“记住”是谁推荐的——最常见做法是在访客浏览器里设置一个“跟踪 Cookie”。
+
+为什么是 30 天？不少联盟/推荐计划会设定一个“归因窗口”，默认常见为 30 天 <a href="https://slicewp.com/docs/referral-tracking/" target="_blank" rel="noopener noreferrer">[1]</a>。也就是说，用户点击邀请链接后即使没有立刻注册，只要在 30 天内注册成功，推荐人仍可获得归因 <a href="https://forum.bubble.io/t/guide-implementing-a-referral-affiliate-program-in-bubble/289986" target="_blank" rel="noopener noreferrer">[2]</a>。这个时长可调整（有的项目更短或更长），但 30 天是较为平衡的选择 <a href="https://medium.com/@nrichardbiz_91133/what-is-cookie-duration-in-affiliate-marketing-explained-001ee3af5c9e" target="_blank" rel="noopener noreferrer">[3]</a>——既给潜在客户考虑与回访的时间，又能确保推荐人合理获益。
+
+点击邀请链接时，建议把推荐码写入“第一方 Cookie”（由你自己的域名设置）。第一方 Cookie 的可用性通常比第三方 Cookie 更高（后者常被浏览器拦截）<a href="https://medium.com/@nrichardbiz_91133/what-is-cookie-duration-in-affiliate-marketing-explained-001ee3af5c9e" target="_blank" rel="noopener noreferrer">[4]</a>。该 Cookie 只需存储推荐码或推荐人 ID（例如 `referrer=ABC123`），并设置 30 天过期。这样即使访客暂时离开、日后回访注册，系统也能完成归因。若没有 Cookie（或等价存储），会在会话结束后丢失推荐信息，从而无法在“稍后注册”时给推荐人记功 <a href="https://forum.bubble.io/t/guide-implementing-a-referral-affiliate-program-in-bubble/289986" target="_blank" rel="noopener noreferrer">[5]</a>。
+
+提示：仅对“新访客”设置推荐 Cookie（而非已登录用户）。即，若已注册的用户点击了推荐链接，一般不应覆盖或计入，因为推荐计划的目标是带来“新用户”。多数计划都限制“仅新注册可获记功”，以防被滥用 <a href="https://forum.bubble.io/t/guide-implementing-a-referral-affiliate-program-in-bubble/289986" target="_blank" rel="noopener noreferrer">[6]</a>。
+
+---
+
+## 在注册时落定归因
+
+Cookie 只完成“记住推荐码”的上半程；当用户真正注册（或完成你设定的转化动作）时，还需要“落定”归因。常规做法是：当访客创建新账户（或完成购买）时，检查是否存在推荐 Cookie；若存在，就根据其中的推荐码找到对应的“推荐人用户”，并把该信息写入新账户（例如 `referred_by = [推荐人用户 ID]`），在数据库中正式记录。
+
+要点：仅当“尚未写入过推荐人”时才设置归因。也就是，如果新用户注册时检测到 Cookie，但该用户记录里“已经有推荐人”，就不应覆盖 <a href="https://forum.bubble.io/t/guide-implementing-a-referral-affiliate-program-in-bubble/289986" target="_blank" rel="noopener noreferrer">[7]</a>。理想流程里，真正“全新”的用户不会已有推荐人——这个规则主要用于兜底边界与竞态，避免多个推荐链接“争抢”同一用户。简言之：一位新用户仅应归属一个推荐人，一旦落定就“锁定”。
+
+若同一人注册前点了多个不同人的邀请链接，谁获记功？多数系统默认采用“最后触达（last‑touch）”模型——最后点击的链接生效 <a href="https://slicewp.com/docs/referral-tracking/" target="_blank" rel="noopener noreferrer">[8]</a>。也有计划采用“首次触达（first‑touch）”，以鼓励尽早传播 <a href="https://slicewp.com/docs/referral-tracking/" target="_blank" rel="noopener noreferrer">[8]</a>。关键是“制定清晰规则并坚持”。使用 Cookie 的默认实现更偏向 last‑touch（每次新点击会覆盖 Cookie）；若想 first‑touch，就在检测到已有 Cookie 时“不再覆盖”。无论哪种，都要确保“去重”：一个新客户只能奖励一位推荐人。
+
+当新账户打上“被谁推荐”的标记后，就可以据此发放奖励或做效果统计。有的计划会即时奖励（如加积分/记一次成功推荐），也有的会等待“新用户完成某动作”（如付费、活跃满 X 天）后再确认奖励。
+
+---
+
+## 奖励模型：固定、比例或混合（以及避免重复记奖）
+
+奖励设计是计划成败的关键之一，常见模型有：
+
+- 固定奖励（固定金额/时长）：每次成功推荐给固定奖金（如每位新客户 $50）或固定抵扣（如赠送一个月）。易懂、易管，但与被推荐客户的后续价值不直接挂钩 <a href="https://www.rewardful.com/articles/affiliate-commission-explained" target="_blank" rel="noopener noreferrer">[9]</a>。
+- 百分比分成：按成交额或订阅付款给一定比例的分成。SaaS 常见做法是“订阅营收的 20–30% 持续分成” <a href="https://www.rewardful.com/articles/affiliate-commission-explained" target="_blank" rel="noopener noreferrer">[10]</a>。例如被推荐用户每月 $100，你每月得 $20–30，持续到其不再付费为止。SaaS 的毛利率通常较高（约 75–80%），因此拿出 ~30% 做分成在经济上常可行 <a href="https://www.rewardful.com/articles/affiliate-commission-explained" target="_blank" rel="noopener noreferrer">[11]</a>。
+- 混合模型：兼顾两者，例如“每个有效推荐先给 $20 的一次性奖励 + 第一年的 10% 持续分成”。这样既奖励获客，也鼓励留存 <a href="https://www.rewardful.com/articles/affiliate-commission-explained" target="_blank" rel="noopener noreferrer">[12]</a>，但解释与结算会更复杂 <a href="https://www.rewardful.com/articles/affiliate-commission-explained" target="_blank" rel="noopener noreferrer">[13]</a>。
+
+选择模型时，结合自身业务：订阅类 SaaS 往往更偏好“持续分成”，与月度营收一致；若毛利紧或想封顶成本，“一次性固定奖励”更稳。也可参考同行基准：SaaS 常见 20–30% 持续分成 <a href="https://www.rewardful.com/articles/affiliate-commission-explained" target="_blank" rel="noopener noreferrer">[10]</a>，而零售因毛利低，分成比例通常 5–10%。目标是在“足够有吸引力”和“自身可持续”之间找到平衡。
+
+避免重复记奖：务必保证“一个新客户只触发一次奖励”。若两个推荐人声称同一人，不应“双倍发放”。Cookie + 注册落定的去重逻辑应保证“一位新用户只绑定一个推荐人”。也要防“薅羊毛”：例如老用户批量注册新号“自我推荐”套奖励，应视为无效 <a href="https://www.prefinery.com/blog/referral-marketing/fraud-prevention/" target="_blank" rel="noopener noreferrer">[14]</a>。简单规则：一人首次注册=一次记功；重复注册/重复渠道不再重复奖励。
+
+---
+
+## 管理与反滥用
+
+计划上线后，务必“有人看着”。凡是涉及奖励，都可能出现钻空子。常见防护与政策 <a href="https://www.prefinery.com/blog/referral-marketing/fraud-prevention/" target="_blank" rel="noopener noreferrer">[15]</a>：
+
+- 禁止自我推荐：几乎所有计划都会明确“不能给自己推荐”（换邮箱/假账号等）<a href="https://www.freshbooks.com/affiliate-program?srsltid=AfmBOoofy72UcxpAoeLA4h7OGFGNXuhlnT9KgyY-xf4afXm3UeqFxxy8" target="_blank" rel="noopener noreferrer">[16]</a>。若发现“新号与推荐人 IP/设备相同”等迹象，应判定无效，并在条款中明示。
+- 人工复核：用管理后台查看“新注册及其推荐人”，关注异常峰值/模式（某人一天 100 次、明显假邮箱等）。很多计划会把推荐标成“待确认”，在“被推荐者活跃满 X 天或完成有效付费”后再发放奖励 <a href="https://www.freshbooks.com/affiliate-program?srsltid=AfmBOoofy72UcxpAoeLA4h7OGFGNXuhlnT9KgyY-xf4afXm3UeqFxxy8" target="_blank" rel="noopener noreferrer">[16]</a>。
+- 明确规则限制：例如“每位新客户仅记一次功、不得重复/虚假注册、不得串谋”等；必要时限制单日最高奖励数。条款里写明：一旦发现利用漏洞（机器人、非合格账户、串通），可取消奖励或移出计划 <a href="https://www.prefinery.com/blog/referral-marketing/fraud-prevention/" target="_blank" rel="noopener noreferrer">[14]</a>，并保留一定期限内“追认无效”的权利 <a href="https://www.freshbooks.com/affiliate-program?srsltid=AfmBOoofy72UcxpAoeLA4h7OGFGNXuhlnT9KgyY-xf4afXm3UeqFxxy8" target="_blank" rel="noopener noreferrer">[17]</a>。
+- 合理引导分享：鼓励把专属链接分享给朋友/同事/自有受众；若链接开始出现在优惠券站/随意散播，需要评估你的计划是“私域邀请”还是“广义联盟”，并为之制定边界。
+
+---
+
+## 新手常见问题
+
+能否自我推荐？不能。自我推荐（自己给自己下单/注册）几乎都会被判无效，且常见条款会明确禁止 <a href="https://www.freshbooks.com/affiliate-program?srsltid=AfmBOoofy72UcxpAoeLA4h7OGFGNXuhlnT9KgyY-xf4afXm3UeqFxxy8" target="_blank" rel="noopener noreferrer">[16]</a>。建议在技术上做校验，并在文案上明确告知。
+
+如何确定分成/奖励额度？本质是“吸引力 vs 可持续”的平衡。先看你的毛利与 LTV，你能“拿出多少”仍不亏？若是百分比分成，参考行业常见值（SaaS 多为 20–30% 持续分成）<a href="https://www.rewardful.com/articles/affiliate-commission-explained" target="_blank" rel="noopener noreferrer">[10]</a>。若是一次性奖金，可参考“一个月订阅价”或一个“既有吸引力又低于预期利润”的金额。也可以从保守开始，边跑边调；同时考虑“只奖推荐人”还是“推荐人与被推荐人双向激励”。
+
+---
+
+## 开始上手：打开开关并自测
+
+准备实现？在本项目模板中，基础模块已就绪——你只需开启它们。到 `src/data/affiliate.ts` 打开开关，然后用无痕窗口自测：给自己发送邀请链接、在无痕中打开并以“新用户”注册，确认 30 天 Cookie 正常写入、注册时完成归因、并触发你设定的奖励模型。一次端到端的自测能帮你验证关键环节是否都在工作。
+
+做到这些，你就拥有了一套“对新手友好”的推荐计划：用户可分享邀请链接、系统可靠跟踪、奖励公平发放、并具备基础的反滥用护栏。做好之后，就把开关推上去，见证满意用户带来更多用户吧！
+
+---
+
+## 参考
+
+<a href="https://slicewp.com/docs/referral-tracking/" target="_blank" rel="noopener noreferrer">[1] [8] How referral tracking works - SliceWP</a>
+
+<a href="https://forum.bubble.io/t/guide-implementing-a-referral-affiliate-program-in-bubble/289986" target="_blank" rel="noopener noreferrer">[2] [5] [6] [7] [GUIDE] Implementing a Referral/Affiliate Program in Bubble</a>
+
+<a href="https://medium.com/@nrichardbiz_91133/what-is-cookie-duration-in-affiliate-marketing-explained-001ee3af5c9e" target="_blank" rel="noopener noreferrer">[3] [4] What Is Cookie Duration in Affiliate Marketing?</a>
+
+<a href="https://www.rewardful.com/articles/affiliate-commission-explained" target="_blank" rel="noopener noreferrer">[9] [10] [11] [12] [13] Affiliate Commission Guide</a>
+
+<a href="https://www.prefinery.com/blog/referral-marketing/fraud-prevention/" target="_blank" rel="noopener noreferrer">[14] [15] Referral Marketing Fraud Prevention</a>
+
+<a href="https://www.freshbooks.com/affiliate-program?srsltid=AfmBOoofy72UcxpAoeLA4h7OGFGNXuhlnT9KgyY-xf4afXm3UeqFxxy8" target="_blank" rel="noopener noreferrer">[16] [17] FreshBooks Affiliate Program Terms</a>
+

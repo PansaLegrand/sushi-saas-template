@@ -1,0 +1,104 @@
+---
+title: "Afiliados y referidos para principiantes"
+icon: "Info"
+description: "Configura enlaces de invitación, cookies de 30 días, atribución en el registro, modelos de recompensa y nociones antiabuso para un programa de afiliados/referidos de SaaS apto para principiantes."
+keywords:
+  - programa de afiliados saas
+  - referidos principiantes
+  - atribución
+  - duración de cookie
+  - comisión
+  - antifraude
+  - enlaces de invitación
+tags: [crecimiento, afiliados, referidos]
+author: "Pansa Legrand"
+publishedAt: "2025-10-07T00:00:00.000Z"
+updatedAt: "2025-10-07T00:00:00.000Z"
+canonical: "https://sushi-saas-template.io/es/blogs/affiliates-and-referrals-for-beginners"
+---
+
+## Afiliados y referidos para principiantes
+
+Los programas de afiliados y referidos son potentes palancas de crecimiento para startups SaaS y negocios online. Convierten a tus usuarios o partners en promotores que traen clientes nuevos a cambio de una recompensa. Si es tu primera vez, no te preocupes: esta guía te explica cómo montar desde cero un programa básico de afiliados o un sistema de referidos de clientes. Veremos cómo funcionan los enlaces de invitación y las cookies de seguimiento, cómo atribuir el referido cuando alguien se registra, cómo elegir modelos de recompensa (importe fijo vs. porcentaje) y cómo prevenir abusos del programa. Al terminar tendrás una hoja de ruta para lanzar tu propio programa —e incluso probarlo tú mismo.
+
+---
+
+## Compartir enlaces de invitación y usar cookies de 30 días
+
+El primer paso es dar a cada usuario un enlace único que pueda compartir. Normalmente es una URL especial con un código de referido. Por ejemplo: `https://tuapp.com/es/i/ABC123`, donde `ABC123` está vinculado a la cuenta del usuario. Cuando un visitante nuevo hace clic, debes rastrear ese referido. Lo habitual es colocar una cookie de seguimiento en el navegador del visitante para recordar quién lo remitió.
+
+¿Por qué una cookie de 30 días? En muchos programas, la cookie (y por tanto la atribución) permanece activa un tiempo fijo, a menudo 30 días por defecto <a href="https://slicewp.com/docs/referral-tracking/" target="_blank" rel="noopener noreferrer">[1]</a>. Una “ventana de atribución” de 30 días significa que, si alguien hace clic pero no se registra de inmediato, aún puedes acreditar al remitente siempre que el alta ocurra dentro de esos 30 días <a href="https://forum.bubble.io/t/guide-implementing-a-referral-affiliate-program-in-bubble/289986" target="_blank" rel="noopener noreferrer">[2]</a>. Esta ventana es ajustable (hay programas más cortos o largos), pero 30 días suele ser un buen equilibrio <a href="https://medium.com/@nrichardbiz_91133/what-is-cookie-duration-in-affiliate-marketing-explained-001ee3af5c9e" target="_blank" rel="noopener noreferrer">[3]</a>: da tiempo a decidirse y volver, y asegura crédito si el registro sucede en el mes.
+
+Al hacer clic en el enlace, tu app debería guardar el código de referido en una cookie de primera parte en el dominio. Las cookies de primera parte (puestas por tu propio dominio) son más fiables que las de terceros, que muchos navegadores bloquean <a href="https://medium.com/@nrichardbiz_91133/what-is-cookie-duration-in-affiliate-marketing-explained-001ee3af5c9e" target="_blank" rel="noopener noreferrer">[4]</a>. La cookie almacena el código o ID (p. ej., `referrer=ABC123`) y caduca en 30 días. Si el visitante navega o cierra la pestaña, la cookie persiste y permitirá atribuir el referido si luego vuelve y se registra. Sin cookies (o almacenamiento equivalente), perderías la información al acabar la sesión y no podrías atribuir el alta si regresa más tarde <a href="https://forum.bubble.io/t/guide-implementing-a-referral-affiliate-program-in-bubble/289986" target="_blank" rel="noopener noreferrer">[5]</a>.
+
+Consejo: coloca la cookie de referido solo para visitantes nuevos (no usuarios logueados). Es decir, si un usuario ya registrado hace clic en un enlace de referido, normalmente no deberías sobreescribir nada ni contarlo: los referidos cuentan para altas nuevas. Casi todos los programas limitan el crédito a registros de usuarios nuevos para evitar abusos <a href="https://forum.bubble.io/t/guide-implementing-a-referral-affiliate-program-in-bubble/289986" target="_blank" rel="noopener noreferrer">[6]</a>.
+
+---
+
+## Finalizar la atribución del referido en el registro
+
+Capturar el código en la cookie es solo la mitad: debes cerrar la atribución cuando el usuario se registra (o realiza la conversión que premias). Al crear una cuenta nueva (o completar una compra), revisa la cookie de referido; si existe, busca a qué usuario corresponde ese código y guarda esa relación en la cuenta nueva (por ejemplo, un campo `referred_by = [UserID del remitente]`). Así, el referido queda registrado oficialmente en tu base de datos.
+
+Un detalle importante: solo establece el remitente si aún no existe. En la práctica, si hay cookie de referido pero el usuario ya tiene un `referred_by` guardado, no lo sobrescribas <a href="https://forum.bubble.io/t/guide-implementing-a-referral-affiliate-program-in-bubble/289986" target="_blank" rel="noopener noreferrer">[7]</a>. En un flujo bien diseñado, un usuario nuevo no debería tener remitente —esto es una salvaguarda ante casos límite o múltiples intentos—. Evita que varios enlaces compitan por el mismo usuario: cada alta nueva debe vincularse a lo sumo con un remitente. Una vez hecho, “bloquéalo”.
+
+¿Y si la persona hizo clic en varios enlaces antes de registrarse? ¿Quién recibe el crédito? La mayoría de sistemas usan “last touch” por defecto: cuenta el último enlace clicado <a href="https://slicewp.com/docs/referral-tracking/" target="_blank" rel="noopener noreferrer">[8]</a>. La lógica: quien dio el empujón final merece la recompensa. Otros eligen “first touch” (primer enlace) para incentivar compartir cuanto antes <a href="https://slicewp.com/docs/referral-tracking/" target="_blank" rel="noopener noreferrer">[8]</a>. Sea cual sea, define la regla y aplícala de forma consistente. Con cookies, el modelo natural es “last touch” (cada clic sobrescribe el código). Para “first touch”, no reescribas la cookie si ya existe. En cualquier caso, deduplica: un cliente nuevo debe recompensar a un único remitente.
+
+Una vez etiquetada la cuenta nueva con su remitente, puedes usar esa información para conceder recompensas o medir el programa. Algunos acreditan de inmediato (puntos o marcar “referido exitoso”); otros esperan a una acción (primer pago, o X días de actividad) antes de confirmar la recompensa. Hablamos de opciones de recompensa a continuación.
+
+---
+
+## Modelos de recompensa: fijo, porcentaje o híbrido (y evitar duplicados)
+
+Diseñar el incentivo es clave. Modelos comunes:
+
+- Recompensa fija (pago plano): das un bono fijo por cada referido exitoso (p. ej., “$50 por cliente nuevo” o un mes gratis). Es simple y fácil de gestionar, pero no escala con el gasto del cliente <a href="https://www.rewardful.com/articles/affiliate-commission-explained" target="_blank" rel="noopener noreferrer">[9]</a>.
+- Comisión porcentual: das un porcentaje de la venta o de pagos del cliente. En SaaS es habitual ofrecer 20–30% de comisión recurrente sobre suscripciones <a href="https://www.rewardful.com/articles/affiliate-commission-explained" target="_blank" rel="noopener noreferrer">[10]</a>. Si el referido paga $100/mes, el afiliado gana $20–30/mes mientras siga activo. Alinea incentivo con el valor del cliente; con márgenes brutos altos (~75–80%) compartir ~30% suele ser sostenible <a href="https://www.rewardful.com/articles/affiliate-commission-explained" target="_blank" rel="noopener noreferrer">[11]</a>.
+- Modelos híbridos: combinas ambos (p. ej., $20 al alta + 10% de sus pagos el primer año) <a href="https://www.rewardful.com/articles/affiliate-commission-explained" target="_blank" rel="noopener noreferrer">[12]</a>. Premias adquisición y retención, a costa de algo más de complejidad <a href="https://www.rewardful.com/articles/affiliate-commission-explained" target="_blank" rel="noopener noreferrer">[13]</a>.
+
+Elige el modelo que tenga sentido para tu negocio. En SaaS, la comisión recurrente suele ser atractiva (ingreso pasivo para el afiliado y alineado a tu MRR). Si los márgenes son ajustados o quieres limitar el coste, una recompensa única puede ser más segura. Compara con estándares del sector (en SaaS, 20–30% recurrente es común <a href="https://www.rewardful.com/articles/affiliate-commission-explained" target="_blank" rel="noopener noreferrer">[10]</a>). En retail físico, los porcentajes son menores por margen. Busca un incentivo suficiente y sostenible.
+
+Evitar duplicados: Asegúrate de que cada cliente real dispare una sola recompensa. Si dos afiliados reclaman a la misma persona, no debes pagar dos veces. Tu sistema (cookie + lógica de alta) debe asignar un único remitente por usuario nuevo. También evita el “gaming”: si un cliente existente crea cuentas para auto‑referirse, invalídalo (suele ir contra las normas) <a href="https://www.prefinery.com/blog/referral-marketing/fraud-prevention/" target="_blank" rel="noopener noreferrer">[14]</a>. Para un setup inicial, aplica la regla simple: 1 usuario nuevo = 1 crédito de referido.
+
+---
+
+## Supervisión de admin y medidas anti‑abuso
+
+Cuando el programa esté activo, vigílalo. Donde hay recompensas, puede haber intentos de explotación. El fraude en referidos adopta varias formas; añade protecciones desde el principio <a href="https://www.prefinery.com/blog/referral-marketing/fraud-prevention/" target="_blank" rel="noopener noreferrer">[15]</a>:
+
+- Prohibir auto‑referidos. Casi todos los programas prohíben referirse a uno mismo (emails distintos, cuentas falsas, etc.) <a href="https://www.freshbooks.com/affiliate-program?srsltid=AfmBOoofy72UcxpAoeLA4h7OGFGNXuhlnT9KgyY-xf4afXm3UeqFxxy8" target="_blank" rel="noopener noreferrer">[16]</a>. Si detectas que un usuario se “refiere” a sí mismo (misma IP/dispositivo), marca como inválido. Déjalo claro en las condiciones.
+- Revisar la validez de referidos. Ten un panel admin con altas nuevas y sus remitentes. Busca picos o patrones sospechosos (100 altas en un día desde un mismo remitente, correos obviamente falsos). Algunos programas dejan referidos en “pendiente” y aprueban tras verificar (p. ej., que el referido se mantenga activo X días o realice un pago) <a href="https://www.freshbooks.com/affiliate-program?srsltid=AfmBOoofy72UcxpAoeLA4h7OGFGNXuhlnT9KgyY-xf4afXm3UeqFxxy8" target="_blank" rel="noopener noreferrer">[16]</a>.
+- Limitar abusos con reglas. Define: una recompensa por cliente nuevo, sin cuentas duplicadas o falsas, límites por día si aplica, y posibilidad de anular comisiones fraudulentas <a href="https://www.prefinery.com/blog/referral-marketing/fraud-prevention/" target="_blank" rel="noopener noreferrer">[14]</a><a href="https://www.freshbooks.com/affiliate-program?srsltid=AfmBOoofy72UcxpAoeLA4h7OGFGNXuhlnT9KgyY-xf4afXm3UeqFxxy8" target="_blank" rel="noopener noreferrer">[17]</a>.
+- Usar enlaces únicos con criterio. Anima a compartir con amigos/colegas/audiencia, pero decide si tu programa es “invita a amigos” (más privado) o afiliados a gran escala, y ajusta las pautas.
+
+---
+
+## Preguntas frecuentes de quien inicia un programa
+
+¿Pueden los usuarios auto‑referirse? No. Crear otra cuenta o usar tu propio código en ti mismo infringe casi siempre las reglas. Por ejemplo, FreshBooks indica: “Self referrals are strictly prohibited and will be disqualified from earnings.” <a href="https://www.freshbooks.com/affiliate-program?srsltid=AfmBOoofy72UcxpAoeLA4h7OGFGNXuhlnT9KgyY-xf4afXm3UeqFxxy8" target="_blank" rel="noopener noreferrer">[16]</a>.
+
+¿Cómo elijo comisión o recompensa? Equilibra atractivo y sostenibilidad. Mira márgenes y LTV; en SaaS, 20–30% recurrente es común <a href="https://www.rewardful.com/articles/affiliate-commission-explained" target="_blank" rel="noopener noreferrer">[10]</a>. Para pago único, muchas empresas eligen un importe cercano a una cuota mensual o una cifra motivadora pero menor que el beneficio esperado. Considera también incentivos de doble cara (premiar a remitente y nuevo cliente).
+
+---
+
+## Empezar: actívalo y pruébalo
+
+Con lo básico listo, implementa tu programa. En esta plantilla, tienes las piezas: solo actívalo en `src/data/affiliate.ts` y prueba en una ventana de incógnito. Activa el flag o la configuración en ese archivo y usa navegación privada para simular un usuario nuevo que hace clic en un enlace y se registra (incógnito evita que te reconozca como el mismo usuario y valida el flujo de la cookie). Envíate un enlace, ábrelo en incógnito, regístrate como usuario nuevo y confirma que el referido se atribuye y la recompensa se dispara. Este test extremo a extremo te permite verificar que la cookie de 30 días se crea, la atribución en el alta funciona y se aplica el modelo de recompensa elegido.
+
+Siguiendo estos pasos, tendrás un programa de referidos apto para principiantes: enlaces para compartir, seguimiento fiable, recompensas justas y salvaguardas contra usos indebidos. Bien implementado, un programa de afiliados/referidos puede ser un acelerador de crecimiento. ¡Hora de encender el interruptor y ver a tus clientes felices traer más clientes!
+
+---
+
+## Referencias
+
+<a href="https://slicewp.com/docs/referral-tracking/" target="_blank" rel="noopener noreferrer">[1] [8] How referral tracking works - SliceWP</a>
+
+<a href="https://forum.bubble.io/t/guide-implementing-a-referral-affiliate-program-in-bubble/289986" target="_blank" rel="noopener noreferrer">[2] [5] [6] [7] [GUIDE] Implementing a Referral/Affiliate Program in Bubble - Tips - Bubble Forum</a>
+
+<a href="https://medium.com/@nrichardbiz_91133/what-is-cookie-duration-in-affiliate-marketing-explained-001ee3af5c9e" target="_blank" rel="noopener noreferrer">[3] [4] What Is Cookie Duration in Affiliate Marketing? | Medium</a>
+
+<a href="https://www.rewardful.com/articles/affiliate-commission-explained" target="_blank" rel="noopener noreferrer">[9] [10] [11] [12] [13] Affiliate Commission Guide for 2025 (Standard Rate & Models)</a>
+
+<a href="https://www.prefinery.com/blog/referral-marketing/fraud-prevention/" target="_blank" rel="noopener noreferrer">[14] [15] How to Prevent and Deal with Referral Marketing Fraud?</a>
+
+<a href="https://www.freshbooks.com/affiliate-program?srsltid=AfmBOoofy72UcxpAoeLA4h7OGFGNXuhlnT9KgyY-xf4afXm3UeqFxxy8" target="_blank" rel="noopener noreferrer">[16] [17] FreshBooks Affiliate Program Terms</a>
+

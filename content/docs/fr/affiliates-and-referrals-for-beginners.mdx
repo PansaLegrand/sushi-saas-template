@@ -1,0 +1,204 @@
+---
+title: Parrainage, affiliés et récompenses
+icon: "Users"
+description: Configurez des liens d’invitation, l’attribution et des récompenses d’affiliation (montant fixe et/ou pourcentage). Découvrez comment les cookies capturent la provenance, comment l’attribution est finalisée après connexion, et comment les récompenses sont calculées lors des commandes payées.
+keywords:
+  - affiliation
+  - parrainage
+  - invitations
+  - attribution
+  - récompenses
+  - cookies
+  - Stripe
+  - Next.js
+  - Drizzle ORM
+  - Better Auth
+tags: [affiliation, parrainage, récompenses]
+author: "Pansa Legrand"
+publishedAt: "2025-09-29T00:00:00.000Z"
+updatedAt: "2025-09-29T00:00:00.000Z"
+canonical: "https://sushi-saas-template.io/fr/blogs/affiliate-and-reward"
+---
+
+## Aperçu
+
+Ce template inclut un système d’invitation + affiliation que vous pouvez activer pour récompenser les utilisateurs qui amènent de nouveaux utilisateurs et des achats. Il est sobre et respectueux de la vie privée par défaut, et vous pouvez ajuster les règles sans changer le schéma de base de données.
+
+---
+
+## Concepts
+
+- Lien d’invitation : une URL partageable comme `/i/<inviteCode>` qui attribue les visites.
+- Attribution : on enregistre qui a invité qui (`users.invited_by`) à la première inscription.
+- Ligne d’affiliation : des lignes dans `affiliates` tracent les événements significatifs (inscription ou commande payée) et la récompense accordée.
+- Récompenses : montant fixe (ex. 50 $) et/ou pourcentage du montant de commande (ex. 20 %).
+
+---
+
+## Modèle de données
+
+- `users` (existant)
+  - `invite_code` (string) : code personnel de l’utilisateur (non secret).
+  - `invited_by` (string) : UUID du parrain (vide si aucun/soi‑même).
+  - `is_affiliate` (boolean) : optionnel pour mettre en avant l’utilisateur dans l’UI.
+
+- `affiliates` (existant)
+  - `user_uuid` : l’utilisateur qui a effectué l’action (inscription ou paiement).
+  - `invited_by` : l’UUID du parrain.
+  - `status` : `pending` | `completed` | `canceled` | `ignored`.
+  - `paid_order_no` : numéro de commande pour les événements « payés » (vide pour une simple inscription).
+  - `paid_amount` : montant de commande en unités mineures (ex. centimes).
+  - `reward_percent` : pourcentage utilisé pour cet événement (0 si non utilisé).
+  - `reward_amount` : récompense finale accordée (montant fixe en unités mineures).
+
+Ce schéma permet à la fois « enregistrer à l’inscription » et « récompenser au paiement » sans tables supplémentaires.
+
+---
+
+## Règles par défaut du programme
+
+Modifiables dans `src/data/affiliate.ts`.
+
+- Programme activé.
+- Modèle d’attribution : first‑touch (le premier parrain gagne ; les suivants sont ignorés).
+- Fenêtre d’attribution : 30 jours (via cookie).
+- Auto‑parrainage ignoré.
+- Récompense à l’inscription : désactivée (ligne d’audit uniquement, pas de paiement).
+- Récompense à la commande payée : activée
+  - Fixe : 50 $ par commande payée.
+  - Pourcentage : 20 % (optionnel). Si fixe + pourcentage sont définis, vous choisissez la combinaison — voir Notes d’implémentation.
+
+---
+
+## Parcours utilisateurs
+
+### 1) Générer un lien personnel
+
+- Page : `/[locale]/my-invites`
+- La page affiche `invite_code` et l’URL partageable : `${NEXT_PUBLIC_WEB_URL}/i/<inviteCode>`.
+- Si le code manque, l’utilisateur peut le générer (persistance via `updateUserInviteCode`).
+
+### 2) Traitement du partage
+
+- Route : `/i/[inviteCode]`
+- Comportement :
+  - Récupérer le parrain via `findUserByInviteCode(inviteCode)`.
+  - S’il existe, poser un cookie `ref` (UUID du parrain) pour 30 jours puis rediriger vers la page d’accueil/inscription localisée.
+  - Sinon, rediriger normalement sans cookie.
+
+### 3) Attribution à l’inscription
+
+- Après une inscription réussie :
+  - Si le cookie `ref` existe et pointe vers un autre utilisateur, renseigner `users.invited_by` puis supprimer le cookie.
+  - Optionnel : insérer une ligne `affiliates` avec `status = pending` pour l’inscription (récompense par défaut à 0 = ligne d’audit).
+
+### 4) Commission sur commande payée
+
+- Quand une commande passe à `paid` :
+  - Charger l’acheteur ; si `invited_by` est présent et n’est pas lui‑même, vérifier l’absence de ligne existante pour `paid_order_no`.
+  - Si aucune, insérer une ligne `status = completed`, remplir `paid_order_no`, `paid_amount`, et calculer `reward_amount` selon la config (fixe/pourcentage).
+  - Ne pas dupliquer les récompenses pour une même commande.
+  - Abonnements : chaque renouvellement payé peut créer sa propre ligne (configurable si vous ne voulez récompenser que le premier paiement).
+
+### 5) Vues admin & versement
+
+- Page admin `/admin/affiliates` :
+  - Liste des parrainages, décompte inscriptions/paiements et totaux de récompenses.
+  - Export CSV pour versements manuels.
+- Les retraits en ligne ne sont pas implémentés par défaut ; versement manuel.
+
+---
+
+## Notes d’implémentation
+
+- Politique d’attribution : le plus simple est first‑touch — si `invited_by` est déjà présent, ignorer les nouveaux cookies.
+- Nom du cookie : `ref` (personnalisable) et max‑age 30 jours.
+- Anti‑abus : ignorer l’auto‑parrainage ; dédoublonner par `paid_order_no` ; permettre l’annulation côté admin (`status = canceled`).
+- Devises : `paid_amount` et `reward_amount` sont stockés en unités mineures (centimes) et doivent correspondre à la devise de la commande.
+- Calcul des récompenses (suggestion) :
+  - Si pourcentage et fixe existent, soit (a) payer le plus grand des deux, soit (b) payer les deux (hybride). Un `CommissionMode` permet de choisir.
+
+---
+
+## Surface de configuration
+
+Tous les réglages : `src/data/affiliate.ts` :
+
+- Programme : `enabled`, `attributionWindowDays`, `allowSelfReferral`, `attributionModel`.
+- Liens : `sharePath` (défaut `/i`), `myInvitesPath` (`/[locale]/my-invites`).
+- Récompenses : `signup.fixed`, `signup.percent`, `paid.fixed`, `paid.percent`, `commissionMode`.
+  - Si `payoutType = "credits"`, traiter `reward_amount` comme des crédits. Dans ce cas, privilégiez le fixe (mettre le pourcentage à 0) ou convertissez devise→crédits en code.
+
+Vous pouvez refléter une partie en variables d’environnement si vous voulez des bascules runtime.
+
+---
+
+## Cartographie du code
+
+- Route de redirection d’invitation : pose le cookie puis redirige (localisé)
+  - `src/app/[locale]/i/[inviteCode]/route.ts:1`
+- API d’attribution à l’inscription : finalise `invited_by` et enregistre la ligne d’inscription
+  - `src/app/api/affiliate/update-invite/route.ts:1`
+- API code d’invitation : obtenir/générer le lien personnel
+  - `src/app/api/affiliate/invite-code/route.ts:1`
+- Service d’affiliation : calcul des rewards + dédoublonnage par commande
+  - `src/services/affiliate.ts:1`
+- Intégration Stripe : déclenche l’update après paiement
+  - `src/services/stripe.ts:1`
+- Page utilisateur : lien, synthèse et activité
+  - `src/app/[locale]/my-invites/page.tsx:1`
+  - Composants : `src/components/affiliate/invite-link.tsx:1`, `src/components/affiliate/summary-cards.tsx:1`, `src/components/affiliate/affiliate-table.tsx:1`
+- Page admin : liste globale
+  - `src/app/(admin)/admin/affiliates/page.tsx:1`
+- Initialisation client : appelle l’API d’attribution une fois par session après login/inscription
+  - `src/providers/affiliate-init.tsx:1`
+  - Inclus globalement via : `src/providers/theme.tsx:1`
+
+---
+
+## Parcours de bout en bout
+
+1) Visite du lien partagé
+- Format : `${NEXT_PUBLIC_WEB_URL}/i/<inviteCode>`
+- Le serveur cherche le parrain, pose un cookie `ref` (30 jours) puis redirige vers accueil/inscription.
+
+2) Inscription ou connexion
+- Un hook client léger s’exécute une fois par session et POST vers `/api/affiliate/update-invite`.
+- Si le cookie `ref` est présent et que l’utilisateur n’a pas `invited_by`, on le renseigne et on enregistre une ligne d’inscription (pas de paiement par défaut).
+
+3) Achat
+- Quand Stripe marque une commande « paid », on calcule la récompense selon la config (fixe, pourcentage ou hybride) et on insère une ligne « completed ».
+- Dédoublonnage par `paid_order_no`.
+
+4) Consultation
+- Côté utilisateur (`/[locale]/my-invites`) : lien de partage, compteurs « invités/payés », activité.
+- Côté admin : toutes les lignes et totaux pour versement/export.
+
+---
+
+## Personnaliser les paramètres par défaut
+
+- Calcul des commissions : modifiez `commissionMode` et les valeurs de `paid`/`signup` dans `src/data/affiliate.ts:1`.
+- Nature du versement : `payoutType = cash` (par défaut ; unités mineures) ou `credits` (considérer `reward_amount` comme crédits internes).
+- Fenêtre d’attribution : ajustez `attributionWindowDays` (max‑age cookie) et `allowSelfReferral`.
+- Structure des liens : ajustez `sharePath` (défaut `/i`) et `myInvitesPath`. Les URLs utilisent `NEXT_PUBLIC_WEB_URL` comme base.
+- Abonnements : par défaut, chaque période payée peut récompenser ; pour ne payer que la première, ajoutez un garde‑fou dans `src/services/affiliate.ts:1`.
+
+Après modification : `pnpm build && pnpm start`.
+
+---
+
+## Vérifier en local
+
+- Générer le lien : `/<locale>/my-invites`, copier le lien.
+- Ouvrir en navigation privée, s’inscrire, puis rafraîchir `my-invites` pour voir l’inscription (ligne pending).
+- Effectuer un checkout Stripe de test ; après webhook, une ligne « completed » apparaît avec la récompense calculée.
+
+---
+
+## Pièges & astuces
+
+- Base URL : `NEXT_PUBLIC_WEB_URL` doit correspondre à l’origine testée (ex. `http://localhost:3000`).
+- Cookies : le cookie de parrainage est posé sur le même hôte ; l’incognito évite les sessions existantes.
+- Timing de l’attribution : le hook client ne valide que si le serveur renvoie 200 ; si le premier appel a lieu avant login, il réessaie après login.
+- Dédoublonnage : les récompenses sont dédoublonnées par `paid_order_no` ; retraitement d’un webhook ≠ double paiement.
