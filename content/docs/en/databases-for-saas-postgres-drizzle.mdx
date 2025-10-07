@@ -1,0 +1,263 @@
+---
+title: "Databases for SaaS: Postgres + Drizzle in Beginner Terms"
+icon: "Info"
+description: "Beginner-friendly guide to PostgreSQL and Drizzle ORM for SaaS: tables, rows, relationships, why Postgres, typed schema in TypeScript, querying, indexes, data safety, migrations, and local vs production."
+keywords:
+  - PostgreSQL
+  - Postgres
+  - Drizzle ORM
+  - TypeScript
+  - SQL
+  - migrations
+  - indexes
+  - constraints
+  - Next.js
+  - database
+tags: [database, Drizzle, Postgres]
+author: "Pansa Legrand"
+publishedAt: "2025-10-07T00:00:00.000Z"
+updatedAt: "2025-10-07T00:00:00.000Z"
+canonical: "https://sushi-saas-template.io/en/blogs/databases-for-saas-postgres-drizzle"
+---
+
+## Databases for SaaS: Postgres + Drizzle in Beginner Terms
+
+When building a SaaS app, you need a place to store data – users, orders, posts, you name it. That’s where a database comes in. In this post, we’ll demystify databases using PostgreSQL (Postgres) as our go-to choice, and show how to use the Drizzle ORM (Object-Relational Mapper) in TypeScript to interact with Postgres in a beginner-friendly way. We’ll cover what tables and rows are (without overwhelming jargon), why Postgres is a solid default, how Drizzle lets you define and query your schema with ease, and the basics of queries, indexes, and keeping your data safe. We’ll also explain the difference between using a database in local development vs. in production, and answer common questions like “Do I need SQL?” and “What happens if I change a column?”. By the end, you should understand your database’s role in your SaaS and feel confident running migrations to evolve your schema. Let’s dive in!
+
+---
+
+## Tables, Rows, and Relationships (No Jargon)
+
+Think of a database table as a spreadsheet or a simple table in a document. It has columns (fields) and rows (entries):
+
+- Table: A collection of data organized into rows and columns – for example, a Users table.
+- Row: A single entry in a table. If the table is Users, one row might represent one user account (like one person’s data).
+- Column: A piece of information for each row, defined by a name and type. For instance, in a Users table you might have columns like email, password, created_at (when the user signed up), etc. Each row will have values for these columns (e.g. a specific email address, a specific sign-up date).
+- Primary Key: Usually one column (or a combination) that uniquely identifies each row. It’s like a unique ID for each entry so we can tell them apart easily.
+- Relationship: A connection between tables. For example, if you have a Sessions table to track user login sessions, it might have a column user_id that references a row in the Users table. That way, you know which user a session belongs to. This concept of linking rows between tables is the essence of relational databases (the “R” in RDBMS). In simple terms, a relationship means one table has a reference (an ID) to a row in another table – kind of like how a contact list entry might reference an address in a separate address book.
+
+In plain English: A database table is like an Excel sheet; each row is a record (like one user, one order, etc.), each column is a property of that record (email, amount, date, etc.), and tables can link to each other via IDs (so an order can link to the user who placed it). We avoid heavy jargon here – just remember: tables hold types of things, rows hold individual things, and relationships connect things.
+
+---
+
+## Why PostgreSQL is a Great Default Database
+
+When choosing a database for a SaaS application, PostgreSQL is often recommended as a great default choice <a href="https://docs.hashboard.com/docs/database-connections/postgresql" target="_blank" rel="noopener noreferrer">[1]</a>. Here’s why many developers love Postgres:
+
+- Proven Reliability: PostgreSQL (often just called “Postgres”) has been around for decades and is known for being rock-solid. It properly handles your data with full ACID compliance (which means it safely handles transactions, like ensuring money isn’t lost mid-transfer).
+- General-Purpose & Powerful: Postgres isn’t a niche or specialized database – it’s general-purpose, which means you can use it for a wide range of applications. Whether you’re storing user accounts, blog posts, or financial transactions, Postgres can handle it. It also has advanced features (like JSON columns, full-text search, GIS support, etc.) if you need them later.
+- Scales Well: You can start small and grow big. Many tiny startups begin with a single Postgres instance, and the same database can scale up to handle millions of users (with proper tuning and hardware) <a href="https://docs.hashboard.com/docs/database-connections/postgresql" target="_blank" rel="noopener noreferrer">[1]</a>. It’s adaptable to both small apps and large-scale systems.
+- Huge Ecosystem & Support: Because Postgres is so popular, there are many hosting options and tools. You can run it yourself on a server, or use easy cloud services (including free tiers) like Heroku Postgres, Neon, Supabase, Railway, AWS RDS, and others <a href="https://docs.hashboard.com/docs/database-connections/postgresql" target="_blank" rel="noopener noreferrer">[2]</a>. The community is large, so if you run into issues, a quick search will often find solutions.
+- Open Source & Cost-Effective: Postgres is free and open source. You’re not locked into a vendor, and you won’t pay licensing fees. Even managed services for Postgres are relatively cheap because of its popularity.
+- Compatibility: Many other databases (like Amazon Redshift, CockroachDB, TimescaleDB) speak the Postgres language or are built on Postgres <a href="https://docs.hashboard.com/docs/database-connections/postgresql" target="_blank" rel="noopener noreferrer">[2]</a>. This means if you learn Postgres, that knowledge transfers to these systems too. It’s a skill that sticks with you.
+
+In short, Postgres is a trustworthy, flexible foundation for your data. It’s often said that “Postgres is a great default” for good reason – it covers a wide range of use cases and has a track record of success <a href="https://docs.hashboard.com/docs/database-connections/postgresql" target="_blank" rel="noopener noreferrer">[1]</a>. Unless you have a very special use case, you usually can’t go wrong choosing Postgres for your SaaS.
+
+---
+
+## Introducing Drizzle ORM: Typed Schema in TypeScript
+
+Now that we have a database, how do we talk to it from our code? Instead of writing raw SQL queries by hand each time, we can use an ORM (Object-Relational Mapper). ORMs let you work with your database using your programming language’s syntax and objects. Drizzle is a modern TypeScript ORM that offers a typed approach to interacting with SQL databases like Postgres. It’s a bit like Prisma or Sequelize, but with a focus on type safety and familiarity for SQL users.
+
+One of the standout features of Drizzle is that you define your database schema in TypeScript code. This means you describe your tables and columns in code, and Drizzle uses that as the single source of truth for both queries and migrations <a href="https://orm.drizzle.team/docs/sql-schema-declaration" target="_blank" rel="noopener noreferrer">[3]</a>. In other words, your TypeScript definitions represent the actual structure of your database:
+
+- Single Source of Truth: Your schema is defined in one place (in code). Drizzle uses this to ensure that any queries you write match the schema, and it can also use the schema definition to generate migration scripts (we’ll discuss migrations soon).
+- Type Safety: Because the schema is in TypeScript, when you write queries, you get auto-completion and type checking. If you try to query a column that doesn’t exist, your code won’t compile. This catches a lot of mistakes early – for example, mistyping a column name or using the wrong data type.
+- No Magic Strings: Traditional SQL queries are strings in your code, which means a typo or error might only show up at runtime. With Drizzle, you use functions and constants instead of raw SQL strings, so everything is checked. It’s like having a guardian angel for your database interactions.
+
+Let’s look at an example of defining a table with Drizzle. Imagine we want a sessions table to track user login sessions (with fields like token, user ID, timestamps, etc.). In Drizzle, we can define it like this:
+
+```ts
+import { pgTable, varchar, text, timestamp, index, uniqueIndex } from "drizzle-orm/pg-core";
+
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: varchar({ length: 255 }).primaryKey(),          // Primary key column, a string ID
+    user_id: varchar({ length: 255 }).notNull(),        // ID of the user who owns this session (must have a value)
+    token: varchar({ length: 512 }).notNull(),          // A unique session token (must have a value)
+    expires_at: timestamp({ withTimezone: true }).notNull(), // When the session expires
+    ip_address: varchar({ length: 255 }),               // (Optional) IP address of the session
+    user_agent: text(),                                 // (Optional) User agent string of the browser/device
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // Indexes and constraints:
+    uniqueIndex("sessions_token_unique_idx").on(table.token),  // Ensure no two sessions have the same token
+    index("sessions_user_id_idx").on(table.user_id),           // Index to quickly look up sessions by user_id
+  ]
+);
+```
+
+Don’t worry if not every part of that code makes sense immediately. Here’s what’s happening in plain terms:
+
+- We use `pgTable("sessions", {...columns...}, (table) => [...indexes...])` to define a new table named "sessions" in Postgres.
+- In the columns object:
+  - `id` is a primary key of type `varchar(255)` (a string up to 255 chars). Primary key means it uniquely identifies a session row.
+  - `user_id` is a string that must have a value (`notNull()`), representing which user this session belongs to. (Likely this would correspond to an `id` in a `users` table, forming a relationship).
+  - `token` is a string for the session token and also must have a value. We intend tokens to be unique so each session can be looked up by its token.
+  - `expires_at` is a timestamp (with timezone info) that must have a value – it marks when the session should expire.
+  - `ip_address` and `user_agent` are optional (they can be null if not provided). They store extra info about the session.
+  - `created_at` and `updated_at` are timestamps that default to `now()` when a row is created/updated. This automatically tracks when the session was created and last updated.
+- The third argument `(table) => [...]` is where we define indexes and constraints beyond the basic column types:
+  - We add a unique index on `table.token` so that the database ensures no two rows have the same token. This is important for security (no duplicate active session tokens).
+  - We add a regular index on `table.user_id` to speed up queries that search sessions by `user_id`. This is a performance tweak – if you often need “find all sessions for user X”, the index makes that lookup much faster, especially when the table grows large.
+
+This entire definition is in TypeScript, so if we mistyped "sessions" or `table.user_id`, the editor would alert us. Also, any query we write against `sessions` will know about these columns and their types.
+
+By defining the schema in code, Drizzle makes the schema part of your application logic. It’s easy for new developers on the team to see what tables exist and what columns they have by just reading the code, rather than digging into the database manually. And because Drizzle’s schema is the “source of truth”, it will use this to manage database migrations (changes) as we evolve our app (more on that soon).
+
+Why Drizzle in a Next.js/TypeScript app? Drizzle is a typed ORM well-suited for a Next.js project (or any Node/TypeScript setup). It embraces the TypeScript ecosystem, giving you a seamless developer experience – you get compile-time checks, auto-generated types for your tables, and you can even integrate it with Zod or other libraries for extra validation if needed. Unlike some heavier ORMs, Drizzle is pretty lightweight and doesn’t generate a large query engine or require complex setup. You just use your existing Postgres connection (e.g., a Node `pg` Pool or client) and pass it to Drizzle, and you’re ready to go. This means less overhead and even the possibility to use Drizzle in edge/serverless environments (like Vercel Edge Functions with a serverless Postgres) because it’s essentially just running straightforward SQL under the hood.
+
+---
+
+## Querying Data with Drizzle (Plus Indexes & Data Safety Basics)
+
+Defining tables is only half the story – we also need to query and manipulate data. Drizzle provides a fluent API to select, insert, update, and delete data in a type-safe way. Let’s walk through a simple example of querying data, and along the way, explain why things like indexes and constraints matter.
+
+Suppose we want to fetch all credit transactions for a user in a SaaS app’s “credits” system (imagine the app gives users some credit points, and we log whenever credits are added or used). In SQL, we might write:
+
+```sql
+SELECT *
+FROM credits
+WHERE user_uuid = 'some-user-id'
+ORDER BY created_at DESC;
+```
+
+In Drizzle’s TypeScript API, the query could look like this:
+
+```ts
+import { db } from "@/db";                      // our Drizzle database instance
+import { credits as creditsTable } from "@/db/schema";  // the credits table schema we defined
+
+const userId = "some-user-uuid";
+const userCredits = await db.select().from(creditsTable)
+  .where(creditsTable.user_uuid.eq(userId))
+  .orderBy(creditsTable.created_at.desc());
+```
+
+This code does the same thing as the SQL above: select all columns from `credits` where `user_uuid` equals our target user’s ID, and order the results by `created_at` in descending order (newest first). Notice how it reads almost like natural language and uses our schema definitions:
+
+- `creditsTable` is an object representing the `credits` table (we exported it from our schema definition file).
+- `creditsTable.user_uuid` is the column we want to filter on, and we use `.eq(userId)` to say “equals this user ID”. Drizzle provides comparison functions like `eq()` (equals) as methods on the column, which helps avoid typos (if `user_uuid` wasn’t a real column, TypeScript would complain).
+- `orderBy(creditsTable.created_at.desc())` specifies sorting. We call `.desc()` on the `created_at` column to indicate descending order. (There’s also an `.asc()` if we needed ascending.)
+
+The result `userCredits` will be a JavaScript array of objects, where each object has the shape of a row from the `credits` table. And thanks to TypeScript, the shape of those objects is known at compile time – if `credits` table has, say, `{ trans_no: string; credits: number; ... }`, that’s exactly the type of object you get from the query. No need to manually parse rows or worry about mismatched column names.
+
+Under the hood, Drizzle is building an SQL query and executing it on Postgres for you. It’s not guessing anything magical – it’s literally translating the above commands into a parameterized SQL statement. Parameterized means it sends the `userId` value safely to the database without risking SQL injection. So by using Drizzle’s methods, you inherently get protection against one of the most common security issues (SQL injection attacks), because you’re not manually string-concatenating queries.
+
+Now, let’s touch on indexes, constraints, and other safety features in queries:
+
+- Indexes for Performance: In our sessions table example, we added an index on `user_id`. If you frequently query “sessions for a given user”, that index makes those queries fast. Without an index, the database would scan all sessions to find those with a matching `user_id` – which gets slow as the table grows. With an index, it’s like having a quick lookup table on the side. For a small app, you might not notice, but as you scale to thousands or millions of rows, indexes become crucial for performance. A general tip: add indexes on columns that you search on or join on often (like foreign keys, e.g., `user_id` in related tables).
+- Unique Constraints: We also defined some unique constraints (like unique email per user, unique token per session, unique order number in orders, etc.). These are data integrity measures – they ensure the data follows certain rules. For example, a unique email constraint guarantees no two users can have the same email, which is probably what you want for login purposes. If you accidentally tried to insert a duplicate, Postgres would reject it, preserving the rule. This saves you from weird states (like two accounts controlling the same email).
+- NOT NULL Constraints: If a column is marked `.notNull()` in Drizzle, that becomes a `NOT NULL` constraint in the database, meaning that column must always have a value for each row. This prevents bugs where, say, a session might somehow be created without a `user_id` – the database itself will refuse to insert a row if a required field is missing. It’s always better to catch these issues at the database level than to allow bad data in that you have to clean up later.
+- Data Types & Safety: Because our schema defines types (string vs integer vs timestamp, etc.), the database will enforce that as well. You can’t accidentally stick a textual date like "Tomorrow" into a timestamp field – Postgres will error if the type doesn’t match. Drizzle’s TypeScript definitions help you here too: you’ll be working with correct data types in code (e.g., if a field is a boolean in the schema, Drizzle will expect a boolean value in inserts/updates).
+- Transactions: (Just a brief mention) If you need to do multiple related operations that must all succeed together (or all fail together), databases support transactions (e.g., deduct from one account and add to another – either both steps happen or neither). Drizzle does allow using transactions easily, but for a beginner, just know this is a safety mechanism to keep data consistent. We won’t dive deep here, but keep the term in mind as you advance.
+- Backups and Data Safety: Outside of Drizzle itself, remember to back up your database, especially in production. Mistakes happen (like deleting the wrong data), and a backup can save the day. Many managed Postgres providers have automated backups – another reason they’re convenient.
+
+In summary, writing queries with Drizzle is approachable and safe. You write code that looks a lot like the intent of your query, and Drizzle makes sure it’s a valid SQL query behind the scenes. Meanwhile, the constraints and indexes you set up in your schema definition work to keep your data clean and your queries fast. As a beginner, you don’t have to memorize all SQL syntax – Drizzle will handle that – but it’s good to understand conceptually that an index = speed on lookups, a constraint = guardrail for data, and a query = asking the database for something.
+
+---
+
+## Local Development vs Production Databases
+
+Working with a database on your local development environment (your laptop, for instance) is a bit different from managing the database in production (the live app used by real users). It’s important to distinguish the two and handle each properly:
+
+Local Development DB:
+
+- This is usually a database you run on your own machine or a local Docker container. For example, you might install Postgres on your laptop or use a Docker image. It’s only accessible to you (or your team) for building and testing the app.
+- In development, you have the freedom to experiment. You can add sample data, reset the database if needed, or run destructive operations without serious consequence. If something goes wrong (like you mess up a migration or drop a table by accident), it’s not the end of the world – you can often wipe the database and start fresh.
+- Usually, you’ll have connection settings for your local DB in an environment file (like `.env`) – e.g., `DATABASE_URL=postgres://postgres:password@localhost:5432/myapp_dev`. Your app reads this and connects to the local DB.
+- Team scenario: Each developer might have their own local DB, or there could be a shared dev DB. But generally, local dev DBs contain only test data or fake data, not real user info.
+- Performance: A local DB might be a small instance, not as powerful as a production server. That’s fine for testing a few users’ worth of data. Just be aware that a query that’s instant on your tiny dev dataset might be slower on a huge prod dataset – which is why we emphasize indexes and query best-practices early.
+
+Production DB:
+
+- The production database is the real deal – it stores all the real user data for your live SaaS. This is the one you must treat with care: never experiment or “try things” on the production DB, because losing or corrupting this data can mean downtime or permanently lost data for users.
+- Typically, the production DB will be hosted on a server or cloud service. Many teams use managed database services for convenience and reliability (e.g., a managed Postgres from Heroku, AWS, GCP, Azure, Supabase, Neon, etc.), so they don’t have to worry about manually installing Postgres on a VM. Managed services often handle backups, updates, and scaling for you.
+- You’ll have a separate connection string for production (never use your local connection details in production!). These are usually stored securely (in environment variables on the server). For example, your production `DATABASE_URL` will point to the cloud host, with the appropriate credentials.
+- Migrations in Production: When you need to change the database schema (we’ll discuss migrations next), you have to apply them to production carefully. Ideally, you test migrations on your local/dev database first. In production, you might run migrations during a deployment. It’s crucial that migrations on prod are done when the app is prepared to handle them (e.g., your code is updated to use the new column you added). See Drizzle Kit’s `generate` docs <a href="https://orm.drizzle.team/docs/drizzle-kit-generate" target="_blank" rel="noopener noreferrer">[5]</a>.
+- Data Volume and Monitoring: A production database likely grows larger over time. You’ll want to keep an eye on performance (slow queries, using indexes properly, etc.). Also, enabling logging and monitoring is a good idea – many cloud DB providers let you see query logs or performance insights. That’s beyond beginner scope, but just to mention why prod DB management is a continuous task.
+- Backups and Security: Always have backups for production data. Many services auto-backup daily; make sure that’s enabled. Also, secure your production DB – use strong passwords, restrict network access (so only your app server can talk to it, not the whole internet), and keep it updated. In dev, you might not worry about someone hacking your laptop’s Postgres, but in prod, security is paramount.
+
+In short: Use one database for development (where mistakes are harmless and you can iteratively build your app) and a separate database for production (which is sacred – protect it, back it up, and apply changes thoughtfully). Drizzle and your migration tools will typically allow you to point to different databases for different environments, usually by switching the connection string. For example, you might run `pnpm drizzle-kit generate` using your local DB connection to create migrations, and those migrations can later be applied to the production DB when deploying. Just never point your local app at the production database while testing, as you could inadvertently mess with real data.
+
+---
+
+## Common Beginner Questions
+
+Q: Do I need to learn SQL to use Postgres and Drizzle?
+
+A: Not immediately, but it definitely helps in the long run. One of the perks of using an ORM like Drizzle (or Prisma, etc.) is that you can get started without writing raw SQL queries for every operation – the ORM’s API handles that for you. You can build and ship features using just Drizzle’s methods and hardly ever hand-write an SQL query. In fact, many developers coming from a NoSQL background (like MongoDB) or those new to relational databases find ORMs a gentle introduction, since you interact with the database in a familiar programming language style.
+
+That said, having a basic understanding of SQL and relational databases is extremely valuable <a href="https://github.com/prisma/prisma/discussions/6697" target="_blank" rel="noopener noreferrer">[4]</a>. Why? Because even though the ORM abstracts the queries, under the hood it’s still SQL. If something goes wrong or you need to optimize a slow query, knowing how SQL works is a superpower. You don’t need to be an SQL guru from day one, but try to learn the fundamentals:
+
+- Data modeling: Understand how to design tables and relationships (which you’re already doing with Drizzle, so you’re learning this!).
+- Simple queries: Know what `SELECT`, `INSERT`, `UPDATE`, `DELETE` do, and what a `WHERE` clause is. If you ever log into your database directly or use a tool like PgAdmin or `psql`, these will come in handy.
+- Joins: Eventually, you’ll want to fetch related data (like user info with their orders in one go). ORMs can do joins, but it’s good to conceptually know what a SQL `JOIN` is doing.
+- Aggregations: Counting records, summing values, etc., are common tasks (e.g., count how many orders a user made).
+
+Many find that as they use an ORM, they gradually pick up SQL by seeing what’s generated or by looking up how to do certain things. It’s okay to rely on Drizzle for now, but don’t be afraid to peek under the hood. In fact, Drizzle’s philosophy is quite transparent – it doesn’t hide SQL from you, it embraces it (you can even get the raw SQL string if needed).
+
+In summary, you don’t need to be a SQL expert to start – focus on understanding relational concepts and using the ORM. But over time, yes, invest a bit in learning SQL. It will make you a better developer and help you when the ORM’s abstraction isn’t enough. As one guide put it, “Knowledge of SQL is not strictly required... however, understanding how data modeling works in relational databases would be greatly useful” <a href="https://github.com/prisma/prisma/discussions/6697" target="_blank" rel="noopener noreferrer">[4]</a>. Think of ORMs as training wheels – you can ride the bike with them, but knowing how to ride without them (SQL) means you can handle any terrain.
+
+Q: What happens if I change a column or table later on? (Why do migrations matter?)
+
+A: Great question! In software, change is constant – you might start with a simple `users` table, but later you want to add an `age` column, or rename `username` to `handle`, or split an `address` field into separate `city` and `zipcode` columns. When you change your schema definition in Drizzle’s code, your application now expects the database to have that new structure. However, the actual Postgres database won’t know about this change until you apply it. If you deploy your code with a new column but the database wasn’t updated, your app will likely throw errors when it tries to query or insert into that non-existent column.
+
+This is where migrations come in. A migration is a script or set of instructions to modify the database schema (and sometimes data) from one version to the next. For example, a migration can say “add a column `age INT` to the `users` table” or “rename column `username` to `handle`” or “create a new table `orders`”. By running the migration, you update the actual database to match your Drizzle schema definitions. Migrations are typically written in SQL (since ultimately the database speaks SQL), but the good news is Drizzle can generate these migration files for you automatically in many cases.
+
+Drizzle comes with a tool called Drizzle Kit for managing migrations. Here’s how it works in simple terms:
+
+1. You define or update your schema in TypeScript (like editing the table definition or adding a new table).
+2. You run the Drizzle migration generation command (often `npx drizzle-kit generate` or a script your project provides) <a href="https://orm.drizzle.team/docs/drizzle-kit-generate" target="_blank" rel="noopener noreferrer">[5]</a>. Drizzle reads your current schema definitions and compares it to a snapshot of the last applied schema.
+3. It will detect differences. For example, “User table has a new column `age` in code that is not in the last database version.” It then creates a new SQL migration file with the necessary commands (e.g., `ALTER TABLE users ADD COLUMN age INTEGER;`). Drizzle is smart – if it looks like you renamed something, it may even ask you to confirm if it’s a rename vs a new addition, to avoid accidentally dropping data <a href="https://orm.drizzle.team/docs/drizzle-kit-generate" target="_blank" rel="noopener noreferrer">[5]</a>.
+4. You then run the migration apply command (often `npx drizzle-kit migrate` or similar). This takes that SQL file and runs it against your database. Now your actual Postgres DB has the new column/table/changes.
+5. Drizzle updates the schema snapshot for next time, and you commit the migration file to your code repo (so that everyone and every environment can apply the same changes).
+
+In essence, migrations keep your database in sync with your code. They matter because without them, your code’s expectations and the database’s reality would diverge, causing crashes or incorrect behavior.
+
+A practical example: Imagine you want to change the type of the `credits` field in the `credits` table from `INT` to `BIGINT` (maybe you realize users might accumulate more credits than `INT` can handle). If you just change the Drizzle schema from `integer()` to `bigint()`, that doesn’t magically change the already-existing database column. By generating a migration, Drizzle will produce the SQL to alter the column type. When you apply it, Postgres will convert that column to `BIGINT`. If the type can’t be changed automatically, the migration tool or Postgres might warn you (e.g., changing `text` to `int` might not be directly safe). In such cases, you might need a custom migration or data migration steps (like creating a new column, moving data, etc.). But for many changes (adding columns, changing defaults, creating indexes), it’s straightforward.
+
+What about production? In development, you can be a bit fast-and-loose: tweak schema, regenerate, and reset the DB if needed. In production, you use these migrations to upgrade the schema without losing the data. Migrations are usually run as part of your deployment process. Make sure to back up before major migrations, just in case. Also, write migrations in a reversible way if possible (Drizzle’s generated migrations can usually be rolled back with a down script as well).
+
+To summarize: if you change a column or table definition in code, you need to update the database accordingly. Drizzle + migrations make this relatively easy by automating the creation of the SQL change script. This is why learning about migrations is part of becoming a competent developer – it’s the bridge between “my code models look like this now” and “my live database is updated to match”. Always run migrations in your dev environment first to verify they do what you expect, then apply to staging/prod. With Drizzle, you’ll typically run a couple commands to generate and run migrations, which leads us to…
+
+---
+
+## Next Steps: Try It Out with Drizzle Migrations (CTA)
+
+Now that you have a grasp of Postgres and Drizzle, it’s time for some hands-on practice. In the context of our SaaS example (perhaps you’re following along with a template or starter project), you likely have some predefined schema (like the tables we showed) and some migration setup ready to go. Follow the project’s README instructions for running migrations – this usually involves running a script or command to generate the latest migration and then applying it to your local database.
+
+For example, your project might have commands like:
+
+```bash
+npm run db:generate   # generates a migration based on schema differences
+npm run db:migrate    # applies the migration to the database
+```
+
+(The actual commands could be different, but the README will tell you exactly what to do for your setup.)
+
+By running the generate command, you should see a new migration file created (often in a `drizzle/` or `migrations/` folder). Open it up – you’ll find raw SQL inside, perhaps creating tables or indexes that weren’t present yet. This is a great learning moment: you can see how your TypeScript definitions translate to SQL commands. Then run the migrate command to execute that SQL on your Postgres database. If all goes well, your local Postgres now has the tables and columns defined in your schema code. 🎉
+
+Finally, try to put it all together:
+
+- Write a small query using Drizzle to insert some test data (e.g., create a new user or add a credit transaction).
+- Then query it back and print it out. This will ensure your DB is working and you know how to use the Drizzle `db` instance to talk to it.
+- If you’re feeling adventurous, add a new column to a table in the schema code (say, add `nickname` to `users` if it wasn’t there), then run the migration generate/apply again. See how Drizzle detects and applies that change. This will cement the idea of migrations in your mind.
+
+Congratulations – you’ve taken a big step into the world of databases for SaaS. You learned the fundamentals of relational data (tables, rows, relations), why we trust Postgres as a default choice, how to leverage Drizzle ORM for a smoother developer experience, and the importance of migrations to handle changes safely. With these basics in your toolbox, you’re well-equipped to build features on a solid data foundation. Happy coding, and happy data modeling!
+
+---
+
+## References
+
+<a href="https://docs.hashboard.com/docs/database-connections/postgresql" target="_blank" rel="noopener noreferrer">[1] [2] Hashboard - PostgreSQL</a>
+
+<a href="https://orm.drizzle.team/docs/sql-schema-declaration" target="_blank" rel="noopener noreferrer">[3] Drizzle ORM - Schema</a>
+
+<a href="https://github.com/prisma/prisma/discussions/6697" target="_blank" rel="noopener noreferrer">[4] Do I need to know SQL to use Prisma · Discussion</a>
+
+<a href="https://orm.drizzle.team/docs/drizzle-kit-generate" target="_blank" rel="noopener noreferrer">[5] Drizzle ORM - `generate`</a>
+

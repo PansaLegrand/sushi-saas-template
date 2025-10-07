@@ -1,0 +1,305 @@
+---
+title: "Anatomía de un SaaS moderno"
+icon: "Info"
+description: "Un plano práctico de la arquitectura SaaS moderna: ciclo de vida del cliente, autenticación, facturación, datos, docs/SEO, admin/RBAC, i18n, emails, analítica y cómo se integran las piezas."
+keywords:
+  - arquitectura SaaS
+  - autenticación
+  - facturación
+  - Stripe
+  - Better Auth
+  - Drizzle ORM
+  - PostgreSQL
+  - MDX
+  - JSON-LD
+  - RBAC
+  - i18n
+tags: [saas, arquitectura, guía]
+author: "Pansa Legrand"
+publishedAt: "2025-10-07T00:00:00.000Z"
+updatedAt: "2025-10-07T00:00:00.000Z"
+canonical: "https://sushi-saas-template.io/es/blogs/anatomy-of-modern-saas"
+---
+
+## Anatomía de un SaaS moderno
+
+Construir un producto software‑as‑a‑service (SaaS) implica ensamblar muchas piezas en movimiento. No es solo tu funcionalidad principal: son cuentas de usuario, pagos, almacenamiento de datos, herramientas de administración, documentación y más. En este artículo trazamos los componentes clave de una app SaaS moderna y cómo encajan. Desde autenticación y facturación hasta bases de datos, documentación, analítica, internacionalización (i18n) y más; tómalo como un plano mental de tu arquitectura. Al final, entenderás el bucle central de la experiencia de usuario en SaaS, qué piezas necesitas construir o integrar y cómo se comunican entre sí.
+
+---
+
+## El ciclo clave: Registro → Pago → Uso → Renovación
+
+En el corazón de todo SaaS hay un ciclo de vida del cliente: una persona descubre tu producto, se registra, paga (eventualmente), usa el servicio y, idealmente, renueva su suscripción. A diferencia de las ventas de software puntuales, SaaS depende de la interacción y los pagos recurrentes. De hecho, “los productos SaaS son diferentes porque no basta con que el cliente compre una vez: necesitas que interactúe repetidamente y vea valor continuo para que siga comprándote cada mes o año” <a href="https://blog.hubspot.com/service/saas-customer-lifecycle" target="_blank" rel="noopener noreferrer">[1]</a>. Esto significa que tu arquitectura debe soportar no solo el onboarding, sino activación (el “momento aha”), retención y una renovación sencilla.
+
+Desglosemos el ciclo:
+
+Sign Up (Adquisición): El usuario registra una cuenta —posiblemente empezando con un plan gratis o una prueba—. Un flujo de registro fluido y con poca fricción es crucial. Muchas apps incluyen un onboarding que guía los primeros pasos. Por ejemplo: verificación por email, recopilar información de perfil/empresa en multi‑tenant, invitar a miembros del equipo y provocar la primera acción significativa (como crear un proyecto) <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[2]</a>. Puedes rastrear cada paso; si el usuario abandona, recordarle retomar luego <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[3]</a>. Alcanzar rápido el primer éxito (su “¡aha!”) es clave para convertir de prueba a pago <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[2]</a>.
+
+Pay (Monetización): Si no es gratis, en algún momento deberá elegir un plan y pagar. Puede ocurrir en el registro o tras una prueba gratuita. Los SaaS modernos suelen ofrecer planes por suscripción (mensual/anual) y/o facturación por uso. Veremos facturación más adelante, pero el flujo típico es: el usuario elige plan e introduce tarjeta; tu backend crea el cliente y la suscripción en el proveedor (p. ej., Stripe); el proveedor confirma el pago vía webhook; y tu app marca al usuario como “pagado” y desbloquea las funciones <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[4]</a>. Con prueba, el sistema puede avisar para actualizar al acercarse el fin, o restringir acceso si expira sin conversión.
+
+Use (Engagement): Aquí brillan tus funciones: el usuario usa activamente la app para obtener valor. Tu trabajo es que sea fiable, rápida y valiosa para que quiera continuar. Es importante monitorizar el uso: qué funciones usa, cada cuánto inicia sesión, etc. Medir métricas de uso ayuda a saber si encuentra valor o tropieza (más sobre analítica después). Una experiencia fluida y soporte (docs, ayuda, avisos de onboarding) en esta fase aumentan la retención. Si hay cuentas de equipo o colaboración, aquí entra invitar colegas y configurar roles, lo que aumenta el “enganche”.
+
+Renew (Retención): En un modelo por suscripción, la retención lo es todo. Lo habitual es la auto‑renovación (mensual o anual), pero debes asegurar que el usuario esté lo bastante satisfecho para no cancelar. Esto implica avisos de renovaciones próximas o tarjetas por caducar, facilitar cambios de plan y seguir entregando valor. Si decide cancelar, un periodo de gracia o un bucle de feedback ayuda. Muchos SaaS aplican campañas de win‑back: si un usuario deja de usar la app (señal de posible churn), el sistema puede enviar un email amistoso o ofrecer ayuda antes de que expire su suscripción. En resumen, renuevan si demuestras valor de forma consistente. A nivel de arquitectura: alta disponibilidad, evolución de funcionalidades y buen soporte basado en datos.
+
+El ciclo continúa: un cliente que renueva puede referir a otros (retroalimentando registros). Si se marcha, analiza por qué (con analítica) y re‑engánchalo si procede. Todas las etapas requieren soporte del sistema: enviar emails, actualizar flags en BD (activo/impago), o restringir funciones según estado de suscripción.
+
+---
+
+## Fundamentos de autenticación (Better Auth)
+
+Prácticamente todo SaaS necesita registrar y autenticar usuarios de forma segura. La autenticación es la puerta de entrada: verifica identidad (login) y a menudo gestiona cuentas, perfiles y sesiones. Construir auth segura desde cero es complicado (hash de contraseñas, resets, verificación por email, OAuth sociales, etc.), por lo que muchos proyectos aprovechan librerías/servicios.
+
+Una solución moderna es Better Auth, una librería TypeScript agnóstica del framework. Facilita “montar tu propio” flujo de auth aportando gran parte del trabajo pesado. Better Auth simplifica implementar autenticación segura con funciones como <a href="https://dev.to/devrayat000/authentication-using-better-auth-basics-tutorial-1bc1" target="_blank" rel="noopener noreferrer">[5]</a>:
+
+- Registro/login con email + contraseña (hash seguro y verificación por email).
+- Inicios sociales (OAuth con Google, GitHub, etc., a golpe de configuración).
+- 2FA para capa extra de seguridad (OTP, apps autenticadoras).
+- Rate limiting integrado para evitar fuerza bruta.
+- Adaptadores de base de datos para almacenar usuarios, sesiones, etc. (por ejemplo, integrando Drizzle ORM y Postgres).
+- API cliente sencilla para estado de login, rutas protegidas, etc.
+
+En la práctica, configuras la librería con tu app (conexión a BD y credenciales OAuth) y expone rutas/funciones para acciones típicas. Better Auth puede generar el esquema de tablas requerido (users, accounts, sessions, keys, etc.) y aplicar migraciones automáticamente <a href="https://www.better-auth.com/docs/adapters/drizzle" target="_blank" rel="noopener noreferrer">[6]</a>. Luego incluyes sus endpoints en tu API (p. ej., rutas de Next.js) y usas sus hooks/cliente en React para iniciar/cerrar sesión en el frontend <a href="https://dev.to/devrayat000/authentication-using-better-auth-basics-tutorial-1bc1" target="_blank" rel="noopener noreferrer">[7]</a><a href="https://dev.to/devrayat000/authentication-using-better-auth-basics-tutorial-1bc1" target="_blank" rel="noopener noreferrer">[8]</a>. Resultado: un sistema de auth completo en una fracción del tiempo.
+
+Por supuesto, Better Auth es solo una opción. Algunos equipos externalizan a Auth0, Clerk o Supabase Auth; otros usan NextAuth.js en Next.js. Requisitos comunes: manejar credenciales o tokens OAuth de forma segura, mantener sesiones (o JWT), verificar emails y permitir restablecer contraseñas. En enterprise, quizá SSO; también opciones passwordless (enlace mágico o SMS). Sea cual sea, fiabilidad y seguridad son críticas: un fallo en auth compromete toda la plataforma.
+
+Consejo: no enredes la lógica de auth con la lógica de negocio. Auth debería ser un módulo/servicio aislado. Así será más fácil actualizar o sustituir (p. ej., cambiar de proveedor) sin romper el resto. Y aplica permisos en el servidor incluso si haces gating en cliente, para evitar saltos de UI. Hablaremos de permisos (autorización) en la sección de Admin/RBAC.
+
+---
+
+## Vías de facturación: Suscripciones y créditos
+
+La monetización es la sangre de un SaaS. ¿Cómo cobrarás por el valor que aportas? Dos modelos comunes: planes por suscripción y facturación por uso (créditos o medido). Muchos combinan ambos.
+
+1. Planes por suscripción (cobro recurrente): La mayoría empieza con planes por niveles —p. ej., Free, Pro, Enterprise— que cobran una cuota fija (mensual/anual) por cierto acceso o límites. Gestionar suscripciones implica: definir planes (qué incluye cada nivel, precio), un modo seguro de introducir pago y la integración con el procesador (cargos, facturas, reembolsos). Stripe es referencia. Sueles crear clientes y suscripciones en Stripe y ofrecer flujos de upgrade/downgrade que ajustan la suscripción vía API.
+
+Flujo típico con Stripe: “1) Usuario elige plan e introduce tarjeta. 2) Backend crea customer + subscription en Stripe. 3) Stripe envía un webhook invoice.paid (u otro). 4) La app marca al usuario como activo y desbloquea funciones” <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[4]</a>. El webhook es crucial: así sabes si el pago tuvo éxito (o falló). Tu backend debe escuchar webhooks (pago exitoso, cancelación, fallo, etc.) y actualizar BD (estado active, past_due, canceled). Mantener sincronía con el proveedor es crítico; añade reintentos y herramientas de reconciliación <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[9]</a>. Considera casos: pruebas gratis (y evitar abuso con múltiples cuentas) <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[10]</a>, periodos de gracia, prorrateo en cambios de plan, reembolsos, impuestos (IVA), etc. Paddle o Chargebee simplifican algunos (impuestos, medido avanzado) a cambio de mayores comisiones o menos control <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[11]</a>. Muchos SaaS tempranos usan Stripe por su API y soporte global <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[11]</a>.
+
+2. Facturación por uso (créditos o medido): En productos orientados a consumo (APIs, plataformas cloud, IA, envíos de email…), cobrar por uso puede alinear mejor valor y precio. Cargas según lo consumido —p. ej., $0.01 por llamada API <a href="https://www.getlago.com/blog/usage-based-billing-for-saas" target="_blank" rel="noopener noreferrer">[12]</a>. Puedes implementarlo con créditos: el usuario compra 1000 créditos por $X y cada acción consume créditos. O medir directamente (GB, miembros, minutos procesados) y facturar periódicamente. La diferencia: el precio por uso escala de forma continua; los niveles fijos introducen saltos <a href="https://www.getlago.com/blog/usage-based-billing-for-saas" target="_blank" rel="noopener noreferrer">[12]</a>. Muchos combinan: planes base con cuota incluida y sobreuso/upgrade más allá.
+
+Implementar medido añade complejidad: debes medir con precisión —instrumentar eventos de uso y agregarlos por periodo y cliente—. De forma simple, contadores en tu BD (p. ej., usuario X ha usado Y créditos este mes) o un subsistema de billing que procese eventos. Proyectos OSS como Lago ayudan con medido: “open‑source, event‑driven, API‑first y maneja casos complejos” <a href="https://www.getlago.com/blog/usage-based-billing-for-saas" target="_blank" rel="noopener noreferrer">[13]</a>. Muchos equipos empiezan simple: registrar usos en una tabla y ejecutar un job periódico que calcule y cobre.
+
+Stripe también soporta medido: puedes crear planes con componentes de uso (reportas el consumo y Stripe factura) o emitir facturas programadas. Los créditos suelen abstraer esto: el usuario prepaga y descuentas del saldo; si se agota, solicitas recarga (o auto‑recargas).
+
+Resumen de arquitectura de facturación: Sea el modelo que sea, planifica un módulo de Billing que gestione: definición de planes, integración de pagos, seguimiento de estado de suscripción/saldos y elementos de cara al cliente (upgrade/downgrade, facturas). Componentes clave <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[14]</a>:
+
+- Planes y funciones: p. ej., Free vs Basic vs Pro; flags de funcionalidades por plan.
+- Motor de suscripción: integración con proveedor (Stripe es el default de muchos).
+- Medición de uso: si aplica, recopila consumo por usuario/tenant (llamadas, almacenamiento, seats…).
+- Facturación y cobros: facturas/recibos, reintentos de pago, reembolsos. Tu app debería almacenar al menos info de resumen (próxima renovación, plan actual…).
+- Pruebas y upgrades: lógica de expiración de trial, avisos y conversión; upgrades/downgrades con prorrateo si procede.
+- Cumplimiento: impuestos (IVA/GST) si operas globalmente y seguridad de datos de pago (tokenización; nunca guardes tarjetas crudas).
+
+No reinventes la rueda aquí: usa proveedores/librerías probadas. Prueba a fondo: cambios de plan, webhooks que actualizan registros y casos borde.
+
+---
+
+## Almacenamiento de datos y migraciones (Postgres + Drizzle ORM)
+
+Toda app SaaS necesita una base de datos (o varias) para persistir datos: cuentas, suscripciones y los datos de dominio (proyectos, transacciones, etc.). Muchas eligen una relacional como PostgreSQL por su equilibrio entre fiabilidad, consistencia y flexibilidad (JSON, búsqueda de texto, etc.).
+
+Un concepto clave es multi‑tenant: cómo gestionar datos de distintos clientes (tenants) en una BD. El enfoque más simple (y común en startups) es esquema y BD compartidos con una columna tenant_id en tablas clave <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[15]</a>. Por ejemplo, tablas users y projects con tenant_id indicando a qué organización pertenecen. Todas las consultas deben filtrar por tenant_id para evitar fugas de datos —configura filtros globales en el ORM o recuerda WHERE tenant_id = ... en cada consulta <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[16]</a>. Alternativas: esquema por tenant o BD por tenant <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[15]</a>, con más complejidad (especialmente en migraciones).
+
+Hablando de migraciones: tu esquema evolucionará. Gestionar cambios de forma disciplinada es clave para no interrumpir producción. Aquí entran las herramientas de migración. ORMs tradicionales incluyen sistemas de migraciones o puedes usar herramientas específicas (Flyway, Liquibase; en Node, Prisma Migrate o Knex).
+
+En TypeScript, Drizzle ORM ha ganado tracción: un ORM type‑safe que genera SQL con el sistema de tipos —tus consultas se chequean en compilación—. Soporta varias BD (Postgres, MySQL, SQLite, etc.) y es ligero <a href="https://www.better-auth.com/docs/adapters/drizzle" target="_blank" rel="noopener noreferrer">[17]</a>. Define el esquema en TS y usa drizzle‑kit para generar SQL de migraciones a partir de cambios en código; luego aplica con drizzle‑kit migrate <a href="https://www.better-auth.com/docs/adapters/drizzle" target="_blank" rel="noopener noreferrer">[18]</a>.
+
+Si usas Better Auth con Drizzle y Postgres, verás esto en acción: Better Auth aporta esquemas de tablas para cuentas, claves, sesiones, etc. Integras, generas el esquema en tu repo y aplicas migraciones a Postgres <a href="https://dev.to/devrayat000/authentication-using-better-auth-basics-tutorial-1bc1" target="_blank" rel="noopener noreferrer">[19]</a>. Combinación potente: Postgres + Drizzle + Better Auth = acceso a BD tipado y un modelo de usuario listo, ahorrando boilerplate.
+
+No estás limitado a Postgres. Muchos SaaS usan NoSQL (MongoDB, DynamoDB) o almacenes especializados: Redis (cache), Elastic (búsqueda), S3 (archivos). Regla general: empieza simple. Modela en relacional; añade otros sistemas cuando haga falta (p. ej., Redis para cachear consultas costosas, Elastic para búsquedas complejas).
+
+No olvides backups y, si importa la disponibilidad, replicación multi‑región. Configura copias automáticas pronto y monitoriza la BD (carga, consultas lentas…).
+
+Resumen BD: Usa lo que dominas (Postgres es gran default). Diseña pensando en multi‑tenant (tenant_id). Usa ORM/constructor de consultas, pero cuida rendimiento. Gestiona el esquema con migraciones versionadas. Optimiza cuando sea necesario, no antes.
+
+---
+
+## Documentación y SEO (MDX + JSON‑LD)
+
+El mejor SaaS no llegará lejos si los usuarios no saben usarlo o si los potenciales clientes no lo encuentran. Ahí entran documentación y SEO. Muchos SaaS incluyen un sitio público de docs o base de conocimiento y mantienen un site/blog de marketing para atraer y educar. Dos términos: MDX y JSON‑LD.
+
+MDX para docs: MDX es Markdown mezclado con JSX (componentes React). Escribir docs en MDX te da la simplicidad de Markdown y la posibilidad de incrustar componentes interactivos o contenido dinámico. Muchos equipos lo usan porque versiona junto al código e incluye ejemplos vivos, UI o widgets. En Next.js puedes usar next‑mdx‑remote o Contentlayer para generar el sitio de docs.
+
+SEO y JSON‑LD: Escribir es la mitad; también quieres que buscadores muestren tu contenido (p. ej., “cómo hacer X con [TuSaaS]”). Un “quick win” en páginas de contenido es tener metadatos y datos estructurados. JSON‑LD es un formato para proveer datos estructurados a buscadores, embebido en un script de la página <a href="https://nextjs.org/docs/app/guides/json-ld" target="_blank" rel="noopener noreferrer">[20]</a>. Puedes marcar una página como “FAQPage”, “HowTo” o “Product” y habilitar resultados enriquecidos.
+
+¿Cómo encaja con MDX? Con React, puedes crear componentes que escupan scripts JSON‑LD junto al contenido. Por ejemplo, un `<FAQStructuredData>` que reciba un listado de preguntas y renderice tanto la sección FAQ en HTML como el `<script type="application/ld+json">` con el schema.org correspondiente <a href="https://johnnyreilly.com/docusaurus-structured-data-faqs-mdx" target="_blank" rel="noopener noreferrer">[21]</a><a href="https://johnnyreilly.com/docusaurus-structured-data-faqs-mdx" target="_blank" rel="noopener noreferrer">[22]</a>. Doble beneficio: lectores y crawlers obtienen lo que necesitan.
+
+Si usas Next.js, librerías como next‑seo simplifican añadir JSON‑LD y metadatos <a href="https://dev.to/pavel_buyeu/building-an-seo-optimized-blog-with-nextjs-and-mdx-from-routing-to-rendering-2h72" target="_blank" rel="noopener noreferrer">[23]</a>. Además de structured data, cuida `<title>` y meta description, HTML semántico, sitemap.xml y, si soportas varios idiomas, versiones localizadas (ver i18n). URLs limpias ayudan.
+
+¿Por qué invertir en docs y SEO? Una gran documentación reduce soporte y aumenta el éxito del usuario. También es marketing: muchos desarrolladores prueban un servicio solo si ven buenas docs. SEO aporta tráfico orgánico: un buen post puede captar búsquedas. Trata las docs y el contenido como parte del producto. Muchos SaaS tienen “Docs” o “Learn” en la navegación principal.
+
+En resumen, usa MDX (o similar) para mantener docs junto al código y enriquecerlas con componentes, y usa JSON‑LD u otras técnicas SEO para que el contenido sea descubrible.
+
+---
+
+## Panel de administración y RBAC
+
+En un SaaS tarde o temprano necesitarás un panel de administración: uno interno para tu equipo (propietario del SaaS) y roles administrativos para que tus usuarios gestionen sus organizaciones. Esto va de la mano con RBAC (control de acceso basado en roles), que formaliza permisos por roles y usuarios.
+
+Admin interno: Suele ser una sección solo para tu equipo/soporte. Ahí puedes ver cuentas, resetear contraseñas, ajustar cuotas, moderar contenido, gestionar reembolsos/créditos, etc. Al principio puede ser acceso crudo a la BD o scripts, pero no escala ni permite ayudar a no‑ingenieros. Construye una UI de admin sencilla (CRUD de modelos clave). Hay frameworks que aceleran. Claves: seguridad (solo personal autorizado) y auditoría (log de acciones sensibles).
+
+RBAC para usuarios finales: Si permites múltiples usuarios por cuenta (tenants multiusuario, “equipos”), define roles —Owner, Admin, Member, Read‑Only— y qué pueden hacer. Incluso en sistemas de un usuario, los roles pueden desbloquear features “premium”. RBAC asigna roles a usuarios y permisos a roles. Diseño clásico: un tenant tiene muchos usuarios; los usuarios tienen uno o más roles; los roles tienen muchos permisos (p. ej., “can_invite_user”, “can_edit_project”) <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[24]</a>. En BD: tablas roles y permissions (con tabla puente), y user_roles para asignar <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[25]</a>. Cada rol se delimita por tenant (el “Admin” de A es distinto al de B). Flexibilidad: roles predefinidos (simple) o roles personalizados (más complejo; rara vez al inicio).
+
+Aplicación de RBAC en dos niveles: backend (crítico) y UI. En backend, toda acción/endpoint verifica “¿este usuario, con estos roles/permisos y en este tenant, puede hacer esto sobre este recurso?”. En frontend, ocultas/mostrabas UI según permisos para mejor UX, pero no es seguridad: el backend debe validar <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[26]</a>.
+
+Marcos y librerías ayudan (Casl, Pundit, Spatie...). En Node/TS, estructura en la BD y helpers (p. ej., `user.can('delete_project', recurso)`). Considera ABAC o PBAC si tu app crece <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[28]</a>. Empieza con RBAC: más simple y cubre la mayoría.
+
+Consejos: evita roles superpuestos y permisos demasiado granulares al inicio. Empieza con pocos roles (quizá “Admin” y “User”) y un mapeo fijo de capacidades. Incluye herramientas de super‑admin/soporte, como “impersonate” para ver la app como el usuario (útil para soporte); regístralo y cuida la seguridad. Y prueba a fondo tus reglas; un check perdido puede filtrar datos. Como práctica, trata el tenant_id como parte automática de cada consulta/API (derivado de la sesión) y garantiza que todas las consultas lo apliquen <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[29]</a><a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[30]</a>.
+
+---
+
+## Consideraciones de internacionalización (i18n)
+
+Vivimos en un mercado global: aunque lances en inglés para EE. UU., te sorprenderá ver registros desde Europa o Asia. Internacionalización (i18n) es diseñar la app para varios idiomas y regionalismos; localización es traducir y adaptar. En 2025 y más allá, “localizar no es un nice‑to‑have — es esencial... servir tu sitio en varios idiomas es clave para crecer” <a href="https://utsavdesai26.medium.com/how-to-build-a-multi-language-site-with-i18n-in-next-js-2025-edition-14ea326a5e67" target="_blank" rel="noopener noreferrer">[31]</a>.
+
+Idioma y traducción: No hard‑codees textos en UI. Usa un sistema que cargue la cadena traducida según el locale (react‑i18next, next‑i18next, etc., con archivos JSON por idioma y claves como `t('welcome_message')`).
+
+Configurar i18n pronto (aunque solo tengas un idioma) ahorra refactors. Externaliza cadenas desde el inicio; luego añade servicio de traducción o archivos para nuevos idiomas. Considera formatos locales (números, fechas, moneda). Si cobras en distintas divisas, parte de la localización.
+
+Ruteo y SEO internacionalizados: Ofrece versiones localizadas (p. ej., `/es/...`). Next.js soporta ruteo i18n y etiquetas hreflang. El contenido multilenguaje mejora SEO.
+
+i18n en datos: Si tu contenido (o el generado por usuario) requiere traducción, añade proceso/servicio para ello. Asegura Unicode en BD y contempla almacenar múltiples versiones por idioma si aplica.
+
+¿Cuándo implementarlo? Si apuntas global desde el inicio, construye con i18n desde el día 1. Si no, al menos estructura el código para que no sea doloroso añadirlo después (sin textos hard‑codeados). Añadir un idioma implica traducir todo el UI y contenido estático. Ten en cuenta RTL (árabe/hebreo) y longitudes de cadenas (alemán) que rompen layouts.
+
+En resumen, i18n toca frontend (textos), backend (preferencia de locale en perfil) y contenido (docs, emails). Con Next.js es sencillo empezar: “ofrece ruteo i18n integrado... sirve múltiples locales con rutas SEO‑optimizadas y traducciones renderizadas en servidor” <a href="https://utsavdesai26.medium.com/how-to-build-a-multi-language-site-with-i18n-in-next-js-2025-edition-14ea326a5e67" target="_blank" rel="noopener noreferrer">[32]</a>.
+
+---
+
+## Emails y analítica
+
+Dos componentes transversales que suelen construirse pronto (y mantenerse) son la comunicación por email y la analítica. Aseguran que puedes comunicarte con tus usuarios (dentro y fuera de la app) y entender su comportamiento para mejorar el producto.
+
+Emails (transaccionales y lifecycle): Canal por defecto para eventos importantes. Transaccionales: verificación de registro, enlaces de reset, recibos, avisos de fin de prueba, notificaciones de cuenta, etc. Lifecycle/marketing: secuencias de onboarding, newsletters de novedades, re‑engagement si un usuario se inactiva. Integra un servicio de envío (SendGrid, Postmark, Amazon SES); no gestiones SMTP propio por fiabilidad: usa API.
+
+Mínimo implementa verificación de email en registro (reduce fraude), enlazado con el módulo de Auth (Better Auth puede enviar verificación o puedes generar token y enviarlo) <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[33]</a>. También reset de contraseña. En facturación, envía recibo o aviso de fallo de pago (Stripe puede, o personaliza).
+
+Luego, emails de onboarding/engagement. Suele montarse una secuencia: al registrarse, email de bienvenida (quizá del fundador, con enlaces útiles) <a href="https://www.poweredbysearch.com/blog/customer-lifecycle-emails-b2b-saas-trials/" target="_blank" rel="noopener noreferrer">[34]</a><a href="https://www.poweredbysearch.com/blog/customer-lifecycle-emails-b2b-saas-trials/" target="_blank" rel="noopener noreferrer">[35]</a>. Días después, si no completó acciones clave, “¿necesitas ayuda?” o recursos <a href="https://www.poweredbysearch.com/blog/customer-lifecycle-emails-b2b-saas-trials/" target="_blank" rel="noopener noreferrer">[36]</a>. Si está en trial, al acercarse el fin, recordatorio para actualizar. La clave es que sean oportunos y relevantes (disparados por comportamiento) <a href="https://www.poweredbysearch.com/blog/customer-lifecycle-emails-b2b-saas-trials/" target="_blank" rel="noopener noreferrer">[36]</a>. Personalízalos y cuida el branding <a href="https://www.poweredbysearch.com/blog/customer-lifecycle-emails-b2b-saas-trials/" target="_blank" rel="noopener noreferrer">[37]</a>. Incluye enlaces de baja en cualquier email de marketing.
+
+Analítica y tracking: Saber cómo usan tu SaaS guía decisiones. Integra herramientas como Google Analytics (páginas) y, para producto, Mixpanel/Amplitude/PostHog. Incluso métricas simples desde tu BD (activos semanales, media de proyectos por usuario, funnel de registro a uso) son valiosas.
+
+Setup básico: embebe GA en páginas de marketing y mide conversión a signup <a href="https://monday.com/appdeveloper/blog/saas-app-analytics-guide/" target="_blank" rel="noopener noreferrer">[38]</a>. En in‑app, usa eventos personalizados o Segment para enviar “CreatedProject”, “InvitedTeammate”, etc. Muchos starters también registran métricas propias (p. ej., `last_login_at` y logs de acciones).
+
+¿Por qué importa? La analítica señala problemas y oportunidades. Quizá muchos se registran, pero pocos completan onboarding: ya sabes dónde mejorar. “Si todo fluye hasta el registro y ahí caen, necesitas mejorar ese paso para evitar churn” <a href="https://monday.com/appdeveloper/blog/saas-app-analytics-guide/" target="_blank" rel="noopener noreferrer">[39]</a>. También alerta de problemas de rendimiento. Muchos tools permiten funnels y tasas de conversión entre pasos.
+
+Usando los datos: Más allá de mejorar producto, cierra el bucle en comunicación. Dispara mensajes in‑app o tooltips si un usuario parece confundido; si está muy comprometido, quizá pídele un testimonio.
+
+Cuida privacidad: recopila lo necesario, no violes la confianza. Política de privacidad y, si aplica, opt‑out. Con GDPR y demás, evita PII en eventos (salvo quizá un ID interno).
+
+En suma, Emails y Analítica trabajan juntos. La analítica te dice qué hacen (o no) y los emails te permiten reaccionar. Un patrón común: si un usuario no entra en 30 días, envía un “te echamos de menos” con novedades o ayuda <a href="https://www.poweredbysearch.com/blog/customer-lifecycle-emails-b2b-saas-trials/" target="_blank" rel="noopener noreferrer">[36]</a>.
+
+Desde implementación, probablemente construirás/integrarás:
+
+- Un servicio de emails (plantillas, pruebas anti‑spam, enlaces correctos, responsive).
+- Un pipeline de analítica —aunque sean scripts básicos o GA—; con el tiempo, un almacén de datos.
+- Dashboards: panel admin con métricas (activos, ingresos) y log de emails enviados.
+
+No es la parte “sexy”, pero descuidarlas puede marcar la diferencia entre crecer o estancarte.
+
+---
+
+## ¿Qué debo construir primero en un SaaS?
+
+Con tantas piezas (auth, billing, BD, emails...), ¿por dónde empezar? No tienes (ni debes) construirlo todo antes de lanzar. Prioriza lo que entrega valor nuclear o es prerrequisito, y añade el resto según necesidad.
+
+El producto core primero: Construye temprano la funcionalidad que resuelve el problema del usuario. Es tu diferenciador; lo demás lo soporta, pero si el core no existe o no es bueno, nadie pagará. Invierte en los flujos principales (p. ej., si es gestión de proyectos: crear proyectos/tareas y colaborar; si es analítica: ingesta y reporting). Usa datos dummy o almacenamiento local al principio si hace falta.
+
+Autenticación: suele ser inmediata. A menos que sea “single‑player” o beta cerrada, necesitas un mínimo de signup/login. No hace falta login social o 2FA el día 1: email/contraseña (o magic link) suele ser lo primero para probar multiusuario. Truco: en fases tempranas, usa auth básica (contraseña hardcodeada o códigos de invitación) y luego integra Better Auth/OAuth al acercarte al lanzamiento. Si tu starter ya trae auth, perfecto desde el inicio.
+
+Diseño de base de datos temprano: Esboza el esquema pronto. No debe ser perfecto, pero piensa en entidades y relaciones principales. Es más fácil añadir campos que rediseñar masivamente después. Incluye básicos (id, timestamps) y, si es multi‑tenant, el tenant_id en cada tabla desde el principio (aunque lances sin multiusuario, tener dueño ayuda a escalar).
+
+La facturación puede esperar (un poco): En modo MVP puro, puedes lanzar sin cobrar —prueba gratis o no cobrar inicialmente—. Retrasa pagos hasta tener beta users y claridad de pricing. Aun así, no lo pospongas demasiado si necesitas ingresos. Integrar Stripe es razonablemente rápido. Define estrategia (único pago, suscripción por niveles, uso) e implementa solo eso. Empieza con un plan de pago y maneja cambios manualmente hasta automatizar. En betas de alto contacto, incluso facturas manualmente. Para self‑service, integrar Stripe pronto vale la pena.
+
+Otros componentes “por necesidad”:
+
+- Emails: si hay auth, necesitarás transaccionales (verificación, resets). Automatiza lo básico (SendGrid y similares tienen tier gratis). Marketing/“drips” puede esperar.
+- Analítica: al principio habla con tus usuarios, pero añadir GA o un conteo simple de activos diarios es barato y útil. Es más fácil instrumentar eventos al construir que retro‑instrumentar luego.
+- i18n: puede esperar hasta tener razón para hacerlo. Pero estructura tu código para que no duela añadirlo (sin textos hard‑codeados).
+- Herramientas de admin: al principio serás “el admin” en la consola/psql; cuando crezcas, invierte en un panel de solo lectura primero y, luego, acciones simples (reenviar invitación, banear, resetear cuota...).
+
+Usar starters o plantillas: Un gran acelerador es un boilerplate OSS. Suelen traer auth, billing, testing… configurados, para ir directo a features. Por ejemplo, un stack Next.js + Better Auth + Drizzle disponible como template (muchos comparten starters <a href="https://www.reddit.com/r/opensource/comments/1lrrqom/i_built_a_modern_nextjs_saas_starter_with_better/" target="_blank" rel="noopener noreferrer">[40]</a>). Si te encaja el stack, ahorra semanas. Asegúrate de entender las piezas: tú lo mantendrás.
+
+En resumen: construye el esqueleto y luego la carne. El esqueleto son cuentas, modelo de datos, páginas básicas —lo suficiente para que un usuario se registre y use una versión mínima—. La carne es tu funcionalidad única. Extras como admin pulido, multiidioma, facturación compleja… son órganos que conectas al crecer. Pregúntate siempre: “¿Necesito esto ahora para aprender o avanzar?”. Si no, al backlog. Pero si es fundacional (seguridad, integridad de datos), no recortes.
+
+---
+
+## ¿Cómo se comunican todas las piezas?
+
+Con los componentes mapeados —auth, billing, base de datos, emails, admin, etc.—, es crucial entender su integración. Un SaaS moderno no son módulos aislados; es un sistema interconectado donde eventos en una parte desencadenan acciones en otra. Recorremos una historia de usuario y el flujo de datos:
+
+Flujo de registro: Un usuario llega a tu site de marketing y hace clic en “Sign Up”. Va a la página de registro (módulo de Auth). Rellena y envía el formulario. ¿Qué pasa?: Auth crea un nuevo usuario en la BD (tabla users vía tu ORM). Si requiere verificación por email, el módulo de Emails envía un enlace de verificación con token (SendGrid API, etc.). El registro puede quedar como unverified/pending. Cuando hace clic, Auth verifica y marca el usuario como activo. Quizá creas un workspace/tenant por defecto (si hay multi‑tenant, insertas en tenants y asocias al usuario como owner). Además, registras el evento “Signed Up” en Analítica y quizá incrementas un contador “signups today”.
+
+Si el onboarding incluye crear datos iniciales (un “sample project”), la app puede hacerlo ahora o guiar al usuario. Si tu SaaS permite invitar miembros, al invitar disparas un email y creas registros de usuario en estado pendiente hasta que acepten.
+
+Upgrade y facturación: El usuario decide mejorar a un plan de pago. Va a tu página de billing (opciones de plan y formulario de tarjeta). Al enviar, tu frontend usa Stripe Checkout o envía la tarjeta a tu backend que llama a la API de Stripe. Si todo va bien, tu backend recibe el webhook que confirma la suscripción activa <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[4]</a>. El módulo de Billing actualiza la BD: `plan = 'Pro'`, `subscription_status = 'active'`, guarda customerId/subscriptionId de Stripe y registra “Upgraded to Pro” en Analítica. El backend dispara un email de bienvenida/recibo (Stripe puede enviar recibos, o puedes enviar uno propio). Tu sistema de RBAC/feature flags reconoce el nuevo acceso —p. ej., `if user.plan == 'Pro'`— o añade el usuario a un rol “Pro Users”.
+
+Si el pago falla (p. ej., renovación), Stripe enviará el webhook y Billing marcará el estado past_due/canceled tras reintentos. Envía email “actualiza tu pago”. Si cancela, restringe acceso —quizá downgrade automático a Free— y actualiza flags/roles.
+
+Uso de la app (permisos y datos): En cada acción, el servidor verifica permisos y luego lee/escribe en BD. Si intenta acceder a una página solo admin, tu servidor comprueba el rol; si intenta leer datos de otro tenant, el filtro global garantiza WHERE tenant_id = user.tenant_id <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[16]</a>. El frontend también esconde UI sin permisos, pero el backend es la última barrera.
+
+Si tu SaaS tiene API o jobs en background, también usan los mismos datos. Un job nocturno puede encontrar usuarios cuya prueba termina mañana y encolar un email (“Tu prueba termina en 1 día”). Otro job puede computar uso y actualizar registros de facturación (restar créditos; si el saldo es bajo, avisar o auto‑recargar).
+
+Intervenciones de admin: Si soporte recibe un caso, el equipo busca la cuenta en el panel y puede usar “Impersonate” para entrar como ese usuario (solo si el operador es admin interno). Así ve lo mismo que el usuario, detecta bugs y corrige datos si hace falta. Por ejemplo, si una cuenta está en un estado extraño, el panel puede tener un botón “Reset Onboarding Status” que ponga `onboarding_state = null` en la BD para que rehaga el flujo <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[3]</a>. Cada acción de admin debe llamar a un endpoint especial que revalide permisos y registre auditoría.
+
+Es útil implementar colas de eventos/jobs al crecer. Cuando un usuario hace algo que requiere un email, encola un job “send email” en lugar de enviarlo inline (mejor rendimiento y acoplamiento débil). Igualmente, encola el procesamiento de webhooks de Stripe para evitar condiciones de carrera. Herramientas como Sidekiq (Ruby), Bull (Node) o tareas en la nube ayudan; a pequeña escala, cron/scripts bastan. La idea: desacoplar acciones del usuario de procesos lentos.
+
+IDs y enlaces consistentes: Asegura que los sistemas puedan referenciarse: un email con magic link lleva un token/ID que Auth valida contra la BD; los eventos de analítica etiquétalos con el ID de usuario (hash si quieres) para cruzarlos con datos internos. Si usas herramientas de terceros (error tracker, CRM de soporte), integra su ID/email con tu BD para una visión holística.
+
+Transversales: logging, manejo de errores y seguridad aplican a todo. Incluye tenant_id en logs/trazas para saber qué cliente afectó un error <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[41]</a>. Centraliza el reporting de errores y alerta. Seguridad pervasiva: sanitiza entradas, valida capas, HTTPS, cifra datos sensibles en BD. Si manejas datos personales, cumple (GDPR, etc.) y soporta export/eliminación (implica varios módulos).
+
+Evita acoplamiento fuerte innecesario. Por ejemplo, tu sitio de docs puede ser proyecto aparte: no necesita conocer los internos de la app. Donde sí importa (billing y auth), diseña contratos claros. Patrón común: un servicio central de cuentas/usuarios. Cuando llega un webhook de Stripe, llama `Accounts.markSubscriptionPaid(userId, plan)` que actualiza BD y quizá lanza un evento de analítica y un email. Estas funciones de servicio evitan lógica dispersa en handlers/UI y garantizan que, ante un upgrade, siempre se hagan las mismas actualizaciones.
+
+En resumen de integración: piensa en workflows y flujo de datos. Mapea secuencias (signup, upgrade) y verifica que cada paso lo maneje el módulo correcto y comunique su resultado (BD o eventos). Mantenlos acoplados débilmente pero sincronizados por contrato (p. ej., billing actualiza un campo que auth/flags leen). Prueba end‑to‑end los flujos completos.
+
+Con estas piezas bien integradas, tu arquitectura funcionará como un producto cohesionado.
+
+---
+
+## Próximos pasos: Explora la estructura del proyecto
+
+Hemos cubierto mucho. Una app SaaS moderna abarca desde seguridad de login hasta cobrar tarjetas, enviar emails y registrar acciones. Entender la “anatomía” en teoría es un gran inicio; el siguiente paso es verla en la práctica en el código.
+
+Si tienes el repositorio del proyecto, abre el README y busca “Project Structure”. Verás cómo se organizan las carpetas: `auth/`, `db/` (o `prisma/`, `drizzle/`), `pages/` o `app/` para rutas de frontend, quizá `src/emails/` para plantillas o una sección `admin/`, etc. Deberían corresponder con los componentes tratados: configuración de Better Auth, integración de Stripe, carpeta de docs/contenido, etc.
+
+Identifica y abre esas carpetas en tu editor. Lee el código con el contexto de este post en mente. Reconocerás patrones: archivo de inicialización de auth (lo visto en autenticación), esquema de BD con tablas definidas (Postgres/Drizzle), directorio de rutas/admin protegido por roles (RBAC en acción), etc. Mapear conceptos a código refuerza cómo encajan las piezas.
+
+Por último, ejecuta la app y prueba cosas. Crea una cuenta local, simula un pago (con claves de test), mira entradas en la BD, logs de webhooks, etc. Una cosa es leer la arquitectura; otra, ver los logs arder cuando interactúas con la app.
+
+---
+
+## Conclusión
+
+Un SaaS moderno es un tapiz de muchos componentes, pero todos sirven a un objetivo: entregar valor (y cobrar por ello) de forma fiable y escalable. Entendiendo el papel de cada pieza —y cómo construir o apalancar herramientas para cada una—, puedes abordar tu SaaS con confianza y claridad. Mantén este mapa mental a mano y sabrás qué construir después en cada etapa. ¡Feliz código!
+
+---
+
+## Referencias
+
+- Better‑Auth: funciones de autenticación <a href="https://dev.to/devrayat000/authentication-using-better-auth-basics-tutorial-1bc1" target="_blank" rel="noopener noreferrer">[5]</a>
+- Flujo de facturación con Stripe <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[4]</a> y componentes clave de billing <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[14]</a>
+- Explicación de precios por uso vs niveles <a href="https://www.getlago.com/blog/usage-based-billing-for-saas" target="_blank" rel="noopener noreferrer">[12]</a>
+- Modelos multi‑tenant y la importancia de filtrar por tenant <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[15]</a><a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[16]</a>
+- Drizzle ORM e introducción a migraciones <a href="https://www.better-auth.com/docs/adapters/drizzle" target="_blank" rel="noopener noreferrer">[17]</a><a href="https://www.better-auth.com/docs/adapters/drizzle" target="_blank" rel="noopener noreferrer">[18]</a>
+- Datos estructurados con JSON‑LD (p. ej., con next‑seo) <a href="https://dev.to/pavel_buyeu/building-an-seo-optimized-blog-with-nextjs-and-mdx-from-routing-to-rendering-2h72" target="_blank" rel="noopener noreferrer">[23]</a> y componente MDX para FAQ <a href="https://johnnyreilly.com/docusaurus-structured-data-faqs-mdx" target="_blank" rel="noopener noreferrer">[21]</a><a href="https://johnnyreilly.com/docusaurus-structured-data-faqs-mdx" target="_blank" rel="noopener noreferrer">[22]</a>
+- Diseño RBAC: tenants, roles, permisos <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[24]</a> y ejemplo de control en frontend <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[26]</a>
+- Pasos de onboarding (signup, verificar email, primer proyecto…) <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[2]</a>
+- Importancia de i18n para crecer (soporte multi‑idioma en Next.js) <a href="https://utsavdesai26.medium.com/how-to-build-a-multi-language-site-with-i18n-in-next-js-2025-edition-14ea326a5e67" target="_blank" rel="noopener noreferrer">[31]</a>
+- Analítica: identificar puntos de abandono para mejorar UX <a href="https://monday.com/appdeveloper/blog/saas-app-analytics-guide/" target="_blank" rel="noopener noreferrer">[39]</a>
+- Emails lifecycle disparados por eventos durante trials para mejorar conversión <a href="https://www.poweredbysearch.com/blog/customer-lifecycle-emails-b2b-saas-trials/" target="_blank" rel="noopener noreferrer">[36]</a>
+
+<br />
+
+<strong>Listado completo</strong>
+
+- <a href="https://blog.hubspot.com/service/saas-customer-lifecycle" target="_blank" rel="noopener noreferrer">[1] The 6 Stages of the SaaS Customer Lifecycle</a>
+- <a href="https://medium.com/appfoster/architecture-patterns-for-saas-platforms-billing-rbac-and-onboarding-964ea071f571" target="_blank" rel="noopener noreferrer">[2] [3] [4] [9] [10] [11] [14] [15] [16] [24] [25] [26] [27] [28] [29] [30] [33] [41] Architecture Patterns for SaaS Platforms: Billing, RBAC, and Onboarding | Appfoster</a>
+- <a href="https://dev.to/devrayat000/authentication-using-better-auth-basics-tutorial-1bc1" target="_blank" rel="noopener noreferrer">[5] [7] [8] [19] Authentication Using Better‑Auth (Basics Tutorial) - DEV Community</a>
+- <a href="https://www.better-auth.com/docs/adapters/drizzle" target="_blank" rel="noopener noreferrer">[6] [17] [18] Drizzle ORM Adapter | Better Auth</a>
+- <a href="https://www.getlago.com/blog/usage-based-billing-for-saas" target="_blank" rel="noopener noreferrer">[12] [13] Lago Blog - The how and why of usage‑based billing for SaaS</a>
+- <a href="https://nextjs.org/docs/app/guides/json-ld" target="_blank" rel="noopener noreferrer">[20] Guides: JSON‑LD - Next.js</a>
+- <a href="https://johnnyreilly.com/docusaurus-structured-data-faqs-mdx" target="_blank" rel="noopener noreferrer">[21] [22] Docusaurus: Structured Data FAQs with MDX | johnnyreilly</a>
+- <a href="https://dev.to/pavel_buyeu/building-an-seo-optimized-blog-with-nextjs-and-mdx-from-routing-to-rendering-2h72" target="_blank" rel="noopener noreferrer">[23] Building an SEO‑Optimized Blog with Next.js and MDX</a>
+- <a href="https://utsavdesai26.medium.com/how-to-build-a-multi-language-site-with-i18n-in-next-js-2025-edition-14ea326a5e67" target="_blank" rel="noopener noreferrer">[31] [32] How to Build a Multi‑Language Site with i18n in Next.js (2025 Edition)</a>
+- <a href="https://www.poweredbysearch.com/blog/customer-lifecycle-emails-b2b-saas-trials/" target="_blank" rel="noopener noreferrer">[34] [35] [36] [37] How to Increase Conversions in B2B SaaS Trials: Lifecycle Emails</a>
+- <a href="https://monday.com/appdeveloper/blog/saas-app-analytics-guide/" target="_blank" rel="noopener noreferrer">[38] [39] SaaS App Analytics Guide</a>
+- <a href="https://www.reddit.com/r/opensource/comments/1lrrqom/i_built_a_modern_nextjs_saas_starter_with_better/" target="_blank" rel="noopener noreferrer">[40] I Built a modern Next.js SaaS starter with Better Auth, Shadcn/ui, and Drizzle ORM</a>
+

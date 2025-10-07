@@ -1,0 +1,238 @@
+---
+title: "SaaS 数据库入门：Postgres + Drizzle（通俗版）"
+icon: "Info"
+description: "面向新手的 PostgreSQL 与 Drizzle ORM 指南：表/行/关系，为什么选 Postgres，用 TypeScript 编写类型化模式，查询与索引，数据安全与迁移，以及本地与生产环境的差异。"
+keywords:
+  - PostgreSQL
+  - Postgres
+  - Drizzle ORM
+  - TypeScript
+  - SQL
+  - migrations
+  - indexes
+  - constraints
+  - Next.js
+  - database
+tags: [数据库, Drizzle, Postgres]
+author: "Pansa Legrand"
+publishedAt: "2025-10-07T00:00:00.000Z"
+updatedAt: "2025-10-07T00:00:00.000Z"
+canonical: "https://sushi-saas-template.io/zh/blogs/databases-for-saas-postgres-drizzle"
+---
+
+## SaaS 数据库入门：Postgres + Drizzle（通俗版）
+
+做一款 SaaS 应用，就需要一个地方来存数据——用户、订单、文章等等。这就是数据库要做的事。本文用 PostgreSQL（Postgres）作为默认数据库，配合 TypeScript 的 Drizzle ORM（对象关系映射）来以“新手友好”的方式解释数据库：什么是表与行、为什么 Postgres 是稳妥选择、Drizzle 如何让你用类型安全的方式定义/查询模式，还会覆盖查询、索引与数据安全的基础。我们也会说明“本地开发数据库”和“生产数据库”的差异，并回答“是否必须会 SQL？”、“改列会发生什么？”等常见问题。读完后，你应当理解数据库在 SaaS 中的角色，并有信心用迁移演进你的模式。开始吧！
+
+---
+
+## 表、行与关系（尽量不讲术语）
+
+把数据库的“表”想成一张电子表格。它有“列（字段）”与“行（记录）”：
+
+- 表（Table）：由行与列构成的数据集合，例如 `users`（用户）表。
+- 行（Row）：表中的一条记录。若 `users` 表存储用户账户，一行就代表一个用户。
+- 列（Column）：每行包含的一项信息，有名字与类型。例如 `email`、`password`、`created_at` 等。每行都对应这些列的具体值。
+- 主键（Primary Key）：唯一标识每一行的列（或列的组合），就像“唯一 ID”。
+- 关系（Relationship）：表与表之间的连接。例如 `sessions`（会话）表用 `user_id` 指向 `users` 表的一行，用以表明“该会话属于哪个用户”。这就是“关系型数据库”的核心：用 ID 把不同表的记录关联起来。
+
+一句话：表像 Excel 工作表；行是一条记录（一个用户/一张订单）；列是该记录的属性（邮箱/金额/日期）；不同表之间用 ID 互相链接（比如订单链接到下单的用户）。
+
+---
+
+## 为何 PostgreSQL 是绝佳的默认选择
+
+选 SaaS 数据库时，PostgreSQL 往往是很好的默认值 <a href="https://docs.hashboard.com/docs/database-connections/postgresql" target="_blank" rel="noopener noreferrer">[1]</a>：
+
+- 可靠稳健：Postgres 历史悠久、口碑稳定，完整支持 ACID 事务（比如保证“转账”这类操作不丢数据）。
+- 通用而强大：它不是小众专用型数据库，常见场景都能覆盖；需要时还能用到 JSON 列、全文检索、GIS 等高级特性。
+- 可从小到大：从单实例的小项目到百万用户的大系统（配合合适的硬件与调优）都能支撑 <a href="https://docs.hashboard.com/docs/database-connections/postgresql" target="_blank" rel="noopener noreferrer">[1]</a>。
+- 生态完善：托管与工具选择丰富；你可以自管，也可以用各家云的托管 Postgres（很多还有免费套餐）。
+
+---
+
+## 认识 Drizzle ORM：TypeScript 中的类型化模式
+
+有了数据库，代码要怎样和它“说话”？我们可以不用每次都写原生 SQL，而是用 ORM。ORM 允许你用熟悉的编程语言操作数据库。Drizzle 是现代的 TypeScript ORM，既拥抱 SQL，又提供类型安全的开发体验。
+
+Drizzle 的一个亮点是“在 TypeScript 中定义数据库模式（Schema）” <a href="https://orm.drizzle.team/docs/sql-schema-declaration" target="_blank" rel="noopener noreferrer">[3]</a>：
+
+- 单一事实来源：模式写在代码里，查询与迁移都以它为准。
+- 类型安全：写查询时有自动补全与类型检查；写错列名或类型时，在编译期就会报错。
+- 告别“魔法字符串”：不再在字符串里手写 SQL 片段，改为用函数与常量来表达查询，减少运行时才暴雷的低级错误。
+
+例如，定义一个会话 `sessions` 表：
+
+```ts
+import { pgTable, varchar, text, timestamp, index, uniqueIndex } from "drizzle-orm/pg-core";
+
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: varchar({ length: 255 }).primaryKey(),          // Primary key column, a string ID
+    user_id: varchar({ length: 255 }).notNull(),        // ID of the user who owns this session (must have a value)
+    token: varchar({ length: 512 }).notNull(),          // A unique session token (must have a value)
+    expires_at: timestamp({ withTimezone: true }).notNull(), // When the session expires
+    ip_address: varchar({ length: 255 }),               // (Optional) IP address of the session
+    user_agent: text(),                                 // (Optional) User agent string of the browser/device
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // Indexes and constraints:
+    uniqueIndex("sessions_token_unique_idx").on(table.token),  // Ensure no two sessions have the same token
+    index("sessions_user_id_idx").on(table.user_id),           // Index to quickly look up sessions by user_id
+  ]
+);
+```
+
+通俗解释：
+
+- `pgTable("sessions", {...}, (table) => [...])` 定义了 Postgres 里的 `sessions` 表。
+- 列定义：
+  - `id` 是主键、`varchar(255)`；
+  - `user_id` 非空，表示会话属于哪个用户（通常与 `users.id` 建立关联）；
+  - `token` 非空，期望唯一；
+  - `expires_at` 非空的带时区时间戳；
+  - `ip_address`、`user_agent` 可选；
+  - `created_at`、`updated_at` 默认 `now()` 以追踪创建/更新时间。
+- 第三个参数里声明索引/约束：
+  - 为 `token` 加唯一索引，保证不会出现重复会话令牌；
+  - 为 `user_id` 加普通索引，以加速“按用户查会话”。
+
+把模式写进代码，新同事只要看源码就能知道有哪些表与列；Drizzle 也会据此生成迁移脚本，帮助你安全地进化数据库结构。
+
+为什么 Drizzle 适合 Next.js/TypeScript？它轻量、类型友好、无黑盒“大引擎”，直接基于现有 Postgres 连接工作，也便于在无服务器/边缘环境使用。
+
+---
+
+## 用 Drizzle 查询数据（顺带聊索引与数据安全基础）
+
+定义完表，还需要查询与改写数据。Drizzle 提供流式、类型安全的增删改查 API。比如获取某用户的积分变动：
+
+```sql
+SELECT *
+FROM credits
+WHERE user_uuid = 'some-user-id'
+ORDER BY created_at DESC;
+``;
+
+对应的 Drizzle 写法：
+
+```ts
+import { db } from "@/db";                      // our Drizzle database instance
+import { credits as creditsTable } from "@/db/schema";  // the credits table schema we defined
+
+const userId = "some-user-uuid";
+const userCredits = await db.select().from(creditsTable)
+  .where(creditsTable.user_uuid.eq(userId))
+  .orderBy(creditsTable.created_at.desc());
+```
+
+说明：
+
+- `creditsTable` 是我们导出的表对象；
+- `creditsTable.user_uuid.eq(userId)` 表示“等于这个用户 ID”；
+- `orderBy(creditsTable.created_at.desc())` 按创建时间倒序。
+
+返回的 `userCredits` 是一组对象，类型和表结构严格对应（TypeScript 会推导出来）。Drizzle 在底层把这段链式调用翻译为参数化 SQL，可以天然防范 SQL 注入（因为不拼接字符串）。
+
+再聊聊索引、约束与数据安全：
+
+- 索引（性能）：经常按某列查询/关联（如外键 `user_id`）就应建立索引，避免全表扫描，数据量大时尤为关键。
+- 唯一约束：如“邮箱唯一”“会话 token 唯一”等，保证数据不出现违反规则的重复。
+- 非空约束（NOT NULL）：必填列缺失时，数据库直接拒绝写入，避免脏数据。
+- 类型约束：列类型不匹配会报错（比如把“Tomorrow” 这种文本塞进时间戳列会失败）。TypeScript 也能在代码层面帮你把好关。
+- 事务（Transactions）：多步操作要么全成、要么全不成，用事务保证一致性（此处一笔带过，先有概念）。
+- 备份与数据安全：尤其在生产环境，务必做好自动备份；误删/误操作时，备份能救命。很多托管 Postgres 默认提供备份能力。
+
+小结：Drizzle 让查询更直观更安全；而你在模式中配置的索引与约束，则在数据库层面守护“正确性与性能”。
+
+---
+
+## 本地开发数据库 vs 生产数据库
+
+本地（开发机）与生产（真实用户使用）的数据库有本质区别，需要分别对待：
+
+本地开发库：
+
+- 通常跑在你自己的机器或 Docker 容器里，只用于开发/测试；
+- 可以随意试验、造假数据，必要时重置库也无妨；
+- 连接串一般放在 `.env`（如 `DATABASE_URL=postgres://postgres:password@localhost:5432/myapp_dev`）；
+- 团队中每人各自一套或共用一套“开发库”，但都不应包含真实用户数据；
+- 性能较弱也没关系，注意小数据集的“秒回”在大数据集上可能会变慢（因此及早加索引、写好查询很重要）。
+
+生产库：
+
+- 保存真实用户数据，需极度谨慎；不要在生产库“做实验”；
+- 多采用托管服务（如 Heroku/AWS/GCP/Azure/Supabase/Neon 的托管 Postgres），省心可靠；
+- 生产连接串与本地严格隔离，安全地存放为环境变量；
+- 迁移在生产：先在本地/预发验证再上线，最好把迁移纳入发布流程 <a href="https://orm.drizzle.team/docs/drizzle-kit-generate" target="_blank" rel="noopener noreferrer">[5]</a>；
+- 持续监控：数据量会增长，需要关注慢查询、索引使用情况等；
+- 备份与安全：启用自动备份；强密码、网络访问控制、及时更新补丁。
+
+归纳：开发库可“犯错与重来”，生产库是“神圣不可犯”，要备份、要防护、要谨慎变更。Drizzle/迁移工具通常通过切换连接串来区分环境。
+
+---
+
+## 新手常见问题
+
+问：用 Postgres + Drizzle 必须会 SQL 吗？
+
+答：一开始不必，但长期看很受益。ORM（如 Drizzle/Prisma）让你几乎不用写原生 SQL 就能完成大多数操作 <a href="https://github.com/prisma/prisma/discussions/6697" target="_blank" rel="noopener noreferrer">[4]</a>。但理解关系建模与 SQL 基础会让你在排查与优化时“如有神助”。至少了解：
+
+- 数据建模：表/关系如何设计（用 Drizzle 定模式的同时你也在学）。
+- 基本查询：`SELECT/INSERT/UPDATE/DELETE` 与 `WHERE`。
+- 连接（JOIN）：跨表取相关数据的基本概念。
+- 聚合：计数/求和等常用统计。
+
+很多人会在使用 ORM 的过程中“潜移默化”习得 SQL。把 ORM 当作“辅助轮”，早期依赖它没问题，但逐步了解 SQL 会让你走得更稳。
+
+问：后来改了列或表会怎样？为什么需要“迁移（migrations）”？
+
+答：软件一直在变：例如给 `users` 表新增 `age`，或把 `username` 改名 `handle`，或把 `address` 拆成 `city/zipcode`。当你在 Drizzle 的模式代码里做了这些更改，你的应用就“期望”数据库也有这些字段/结构；若数据库还没同步更新，运行时就会报错。
+
+“迁移”就是“把数据库从旧版本变更到新版本”的脚本/指令集。Drizzle 提供 Drizzle Kit 来管理迁移 <a href="https://orm.drizzle.team/docs/drizzle-kit-generate" target="_blank" rel="noopener noreferrer">[5]</a>：
+
+1) 在 TypeScript 中修改模式；
+2) 运行 `drizzle-kit generate`（或项目脚本）生成迁移；
+3) Drizzle 对比“上次快照”与“当前模式”，推导出需要的 SQL（如 `ALTER TABLE users ADD COLUMN age INTEGER;`）；
+4) 运行 `drizzle-kit migrate` 应用迁移到数据库；
+5) 更新快照并把迁移文件提交到仓库，以便团队/环境一致执行。
+
+实际例子：把 `credits` 表的 `credits` 列从 `INT` 升级为 `BIGINT`。修改模式后生成迁移，应用后 Postgres 会把列类型变更为 `BIGINT`。若变更不安全（如 `text -> int`），需要额外的数据迁移步骤（新列、搬数据、再切换）。
+
+在开发环境你可以大胆试错；在生产，要先做好备份并在预发验证，再上线执行；尽量让迁移可回滚（Drizzle 生成的迁移通常提供 down 脚本）。
+
+---
+
+## 下一步：试一试 Drizzle 迁移（CTA）
+
+现在动手实践：按项目 README 里的步骤，生成并应用一次迁移，比如：
+
+```bash
+npm run db:generate   # 基于模式差异生成迁移
+npm run db:migrate    # 将迁移应用到数据库
+```
+
+生成后会看到一个包含原生 SQL 的迁移文件（如创建表/索引）。运行迁移后，你的本地 Postgres 就会拥有模式中声明的表与列 🎉。
+
+接着：
+
+- 用 Drizzle 写一条插入与一条查询，验证读写无误；
+- 给某张表加一个新列，再跑一次生成/迁移，体会“演进”的流程。
+
+恭喜！你已经迈入 SaaS 数据库世界：理解了关系数据的基本概念、为什么默认选 Postgres、如何用 Drizzle 获得更顺手的开发体验，以及为什么迁移如此关键。祝编码顺利，也祝建模愉快！
+
+---
+
+## 参考资料
+
+<a href="https://docs.hashboard.com/docs/database-connections/postgresql" target="_blank" rel="noopener noreferrer">[1] [2] Hashboard - PostgreSQL</a>
+
+<a href="https://orm.drizzle.team/docs/sql-schema-declaration" target="_blank" rel="noopener noreferrer">[3] Drizzle ORM - Schema</a>
+
+<a href="https://github.com/prisma/prisma/discussions/6697" target="_blank" rel="noopener noreferrer">[4] Do I need to know SQL to use Prisma · Discussion</a>
+
+<a href="https://orm.drizzle.team/docs/drizzle-kit-generate" target="_blank" rel="noopener noreferrer">[5] Drizzle ORM - `generate`</a>
+
