@@ -44,17 +44,9 @@
 
 前置：Node 20+，pnpm 9+
 
-```bash
-pnpm install
-pnpm dev
-```
+接着请前往设置指南：
+https://www.sushi-templates.com/zh/blogs/quick-start
 
-访问：
-
-- 首页：`/zh`、`/en`、`/fr`、`/ja`、`/es`
-- 健康检查：`/api/health`
-- 文档示例：`/:locale/blogs/quick-start`
-- 积分沙盒：`/:locale/credits-test`
 
 ---
 

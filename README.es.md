@@ -44,17 +44,10 @@ Antes de cambiar algo, revisa [Repository Guidelines](./AGENTS.md) para estructu
 
 Requisitos: Node 20+, pnpm 9+
 
-```bash
-pnpm install
-pnpm dev
-```
+Luego, sigue la guía de configuración en:
 
-Abre:
+https://www.sushi-templates.com/es/blogs/quick-start
 
-- Landing: `/es`, `/en`, `/fr`, `/ja`, `/zh`
-- Salud: `/api/health`
-- Ejemplo de docs: `/:locale/blogs/quick-start`
-- Sandbox de créditos: `/:locale/credits-test`
 
 ---
 

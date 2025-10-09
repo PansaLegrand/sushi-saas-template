@@ -44,18 +44,11 @@ New contributors should review [Repository Guidelines](./AGENTS.md) for project 
 
 Prerequisites: Node 20+, pnpm 9+
 
-```bash
-pnpm install
-pnpm dev
-```
+For setup, follow the guide at:
 
-Open:
+https://www.sushi-templates.com/en/blogs/quick-start
 
-- Landing: `/en`, `/zh`, `/es`, `/fr`, `/ja`
-- Health: `/api/health`
-- Docs example: `/:locale/blogs/quick-start`
-- Credit sandbox: `/:locale/credits-test`
- - Files page: `/:locale/account/files` (private uploads)
+
 
 ### Demo: Reservations (modular feature)
 

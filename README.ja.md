@@ -44,17 +44,9 @@ SaaS をより速くリリース — i18n、認証、決済、クレジット、
 
 前提: Node 20+, pnpm 9+
 
-```bash
-pnpm install
-pnpm dev
-```
+次に、セットアップ手順はこちら:
+https://www.sushi-templates.com/ja/blogs/quick-start
 
-開く:
-
-- ランディング: `/ja`, `/en`, `/fr`, `/es`, `/zh`
-- ヘルス: `/api/health`
-- ドキュメント例: `/:locale/blogs/quick-start`
-- クレジット検証: `/:locale/credits-test`
 
 ---
 

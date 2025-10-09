@@ -69,6 +69,153 @@ Visita `/es/blogs/my-page`.
 
 ---
 
+## Variables de entorno
+
+Antes de seguir con la configuración, crea un archivo `.env` y copia la plantilla. Así centralizas secretos y URLs y la app puede configurar autenticación, almacenamiento y pagos.
+
+1) Crea `.env` en la raíz del proyecto (copiando desde la plantilla):
+
+```bash
+cp .env.example .env
+# o abre .env y pega la plantilla de abajo
+```
+
+2) Completa los valores necesarios (consulta las notas a continuación). Puedes dejar vacíos los bloques opcionales y volver más tarde.
+
+3) Reinicia el servidor de desarrollo tras los cambios para que Next.js y las herramientas carguen las variables.
+
+```bash
+pnpm dev
+```
+
+### Plantilla completa (.env.example)
+
+```bash title=".env.example"
+# =============================================================================
+# App Basics & URLs
+# =============================================================================
+# Public site base URL (used for canonical links, share URLs, Stripe redirects)
+NEXT_PUBLIC_WEB_URL=http://localhost:3000
+# Better Auth server base URL (usually same as site URL)
+BETTER_AUTH_URL=http://localhost:3000
+# Client-side Better Auth base (edge cases only; safe to leave as site URL)
+NEXT_PUBLIC_AUTH_BASE_URL=http://localhost:3000
+
+# App naming and UI defaults
+NEXT_PUBLIC_APP_NAME=Sushi SaaS
+NEXT_PUBLIC_PROJECT_NAME=sushi-saas-template
+NEXT_PUBLIC_DEFAULT_THEME=system           # system | light | dark
+NEXT_PUBLIC_LOCALE_DETECTION=false         # "true" to auto-detect browser locale
+# Toggle auth entirely (default enabled unless set to "false")
+NEXT_PUBLIC_AUTH_ENABLED=true
+
+# Unique ID generator worker (Snowflake). Keep as 1 in single-instance dev.
+SNOWFLAKE_WORKER_ID=1
+
+# =============================================================================
+# Database (PostgreSQL)
+# =============================================================================
+# Example: postgresql://user:password@localhost:5432/mydb
+DATABASE_URL=
+
+# =============================================================================
+# Authentication (Better Auth) & Social Providers
+# =============================================================================
+# Generate with: openssl rand -base64 32
+BETTER_AUTH_SECRET=
+
+# Google OAuth (optional). Create credentials at
+# https://console.cloud.google.com/apis/credentials
+# Redirect URI (dev): http://localhost:3000/api/auth/callback/google
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# =============================================================================
+# Email (Resend)
+# =============================================================================
+# https://resend.com — required for password reset and onboarding emails
+RESEND_API_KEY=
+EMAIL_FROM="Your Name <founder@your-domain.com>" # Use a verified domain
+
+# =============================================================================
+# Payments (Stripe)
+# =============================================================================
+# Server secret key and webhook secret
+STRIPE_PRIVATE_KEY=
+STRIPE_WEBHOOK_SECRET=
+
+# Public payment routes (can be relative or absolute)
+NEXT_PUBLIC_PAY_SUCCESS_URL=/pricing
+NEXT_PUBLIC_PAY_FAIL_URL=/pricing
+NEXT_PUBLIC_PAY_CANCEL_URL=/pricing
+
+# Optional: Stripe Price IDs (subscriptions)
+# These are safe to expose; leave blank to fall back to inline price_data
+NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY=
+NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY=
+NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY=
+NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY=
+# If using CNY prices, set the variants below
+NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY_CNY=
+NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY_CNY=
+NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY_CNY=
+NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY_CNY=
+
+# =============================================================================
+# Storage (S3-compatible: AWS S3, Cloudflare R2, MinIO)
+# =============================================================================
+# Provider selector: s3 | r2 | minio
+STORAGE_PROVIDER=s3
+# Leave endpoint empty for AWS S3; for R2 use https://<accountid>.r2.cloudflarestorage.com
+STORAGE_ENDPOINT=
+STORAGE_REGION=auto
+STORAGE_ACCESS_KEY=
+STORAGE_SECRET_KEY=
+STORAGE_BUCKET=
+# Path-style addressing (recommended true for R2/MinIO). Auto-enabled when endpoint is set.
+S3_FORCE_PATH_STYLE=true
+# Include ACL only if your bucket requires it (most R2/MinIO do not)
+S3_USE_ACL=false
+# Max single-file upload size (MB)
+STORAGE_MAX_UPLOAD_MB=25
+# Client-only hint to display max size in the uploader
+NEXT_PUBLIC_UPLOAD_MAX_MB=25
+# Alternative AWS-style names (optional synonyms). Prefer STORAGE_* above.
+S3_ENDPOINT=
+S3_REGION=
+S3_ACCESS_KEY_ID=
+S3_SECRET_ACCESS_KEY=
+S3_BUCKET=
+
+# =============================================================================
+# Analytics & Ads (optional)
+# =============================================================================
+# Google Analytics (G-XXXXXXX) — renders only in production
+NEXT_PUBLIC_GOOGLE_ANALYTICS_ID=
+# Google AdSense account code (e.g., ca-pub-XXXXXXXXXXXXXXXX)
+NEXT_PUBLIC_GOOGLE_ADCODE=
+
+# =============================================================================
+# Demo Feature Flags
+# =============================================================================
+# Reservations demo (enabled by default)
+NEXT_PUBLIC_FEATURE_RESERVATIONS_ENABLED=true
+NEXT_PUBLIC_RESERVATIONS_AUTO_SEED_DEMO=true
+```
+
+### Para qué sirve cada sección (y cuándo completarla)
+
+- App y URLs: define primero las URLs base para que funcionen enlaces y redirecciones. Los valores de UI son opcionales; `NEXT_PUBLIC_AUTH_ENABLED=false` desactiva la UI de auth. Mantén `SNOWFLAKE_WORKER_ID=1` en local.
+- Base de datos: `DATABASE_URL` es obligatorio para migraciones de Drizzle y las tablas de Better Auth.
+- Autenticación y social: `BETTER_AUTH_SECRET` (généralo con `openssl rand -base64 32`); Google OAuth es opcional.
+- Email (Resend): `RESEND_API_KEY` y `EMAIL_FROM` para restablecer contraseñas y correos de bienvenida (usa un dominio verificado).
+- Pagos (Stripe): `STRIPE_PRIVATE_KEY` y `STRIPE_WEBHOOK_SECRET` para checkout + webhooks; `NEXT_PUBLIC_PAY_*` para redirecciones; los IDs de precio son opcionales.
+- Almacenamiento (S3/R2/MinIO): configura `STORAGE_*` (o sinónimos S3_*); los flags de path‑style/ACL ajustan el comportamiento por proveedor; `NEXT_PUBLIC_UPLOAD_MAX_MB` solo afecta a la UI.
+- Analytics y Ads: GA y AdSense (solo en producción).
+- Flags de demo: alterna la demo de reservas.
+
+---
+
 ## Autenticación (Better Auth)
 
 - Configuración del servidor en `src/lib/auth.ts` con el handler
