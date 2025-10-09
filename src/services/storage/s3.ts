@@ -54,22 +54,27 @@ export function createS3Adapter(): StorageAdapter {
     },
     buildObjectKey({ userUuid, filename }) {
       const { base, ext } = sanitizeFilename(filename);
+      const userSegment = (userUuid || "user").replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 64) || "user";
       const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
       const prefix = datePrefix();
       const extPart = ext ? `.${ext}` : "";
-      return `uploads/${userUuid}/${prefix}/${id}-${base}${extPart}`;
+      return `uploads/${userSegment}/${prefix}/${id}-${base}${extPart}`;
     },
     async getPresignedUpload({ bucket, key, contentType, size, checksumSha256, metadata, expiresIn = 900 }) {
-      const cmd = new PutObjectCommand({
+      const putParams: any = {
         Bucket: bucket,
         Key: key,
         ContentType: contentType,
-        // Private by default; R2 ignores ACL but S3 supports it.
-        ACL: "private",
         ContentLength: size,
         ChecksumSHA256: checksumSha256,
         Metadata: metadata,
-      });
+      };
+      // Some buckets have Object Ownership = Bucket owner enforced (ACLs disabled).
+      // Only include ACL when explicitly requested.
+      if (getEnvFlag("S3_USE_ACL", false)) {
+        putParams.ACL = "private";
+      }
+      const cmd = new PutObjectCommand(putParams);
       const url = await getSignedUrl(client, cmd, { expiresIn });
       return {
         fileUuid: "", // filled by caller

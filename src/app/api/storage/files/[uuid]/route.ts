@@ -3,12 +3,13 @@ import { getUserUuid } from "@/services/user";
 import { findFileByUuid, softDeleteFile } from "@/models/file";
 import { getStorageAdapter } from "@/services/storage";
 
-export async function GET(req: Request, ctx: any) {
+export async function GET(req: Request, ctx: { params: Promise<{ uuid: string }> }) {
   try {
     const userUuid = await getUserUuid(req);
     if (!userUuid) return respNoAuth();
 
-    const file = await findFileByUuid(ctx.params.uuid);
+    const { uuid } = await ctx.params;
+    const file = await findFileByUuid(uuid);
     if (!file || file.user_uuid !== userUuid) {
       return respErr("file not found", { status: 404 });
     }
@@ -50,12 +51,13 @@ export async function GET(req: Request, ctx: any) {
   }
 }
 
-export async function DELETE(req: Request, ctx: any) {
+export async function DELETE(req: Request, ctx: { params: Promise<{ uuid: string }> }) {
   try {
     const userUuid = await getUserUuid(req);
     if (!userUuid) return respNoAuth();
 
-    const file = await findFileByUuid(ctx.params.uuid);
+    const { uuid } = await ctx.params;
+    const file = await findFileByUuid(uuid);
     if (!file || file.user_uuid !== userUuid) {
       return respErr("file not found", { status: 404 });
     }

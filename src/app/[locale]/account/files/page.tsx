@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import Uploader from "@/components/storage/uploader";
+import FilesList from "@/components/storage/files-list";
 
 async function getSession() {
   const h = await headers();
@@ -21,8 +22,10 @@ export default async function FilesPage() {
 
       <section className="space-y-6 rounded-lg border border-border bg-card p-6 shadow-sm">
         <Uploader />
+        <div className="border-t pt-6">
+          <FilesList />
+        </div>
       </section>
     </main>
   );
 }
-

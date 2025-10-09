@@ -12,15 +12,69 @@ export async function POST(req: Request) {
     const userUuid = await getUserUuid(req);
     if (!userUuid) return respNoAuth();
 
-    let payload: CreateUploadRequest;
-    try {
-      payload = (await req.json()) as CreateUploadRequest;
-    } catch {
-      return respErr("invalid json");
+    // Accept both JSON and multipart/form-data for convenience
+    let payload: Partial<CreateUploadRequest> &
+      Partial<{ name: string; type: string; mimeType: string; mime: string } & { file?: File }> = {};
+
+    const contentTypeHeader = req.headers.get("content-type") || "";
+    let parsedFrom: "json" | "form" | "unknown" = "unknown";
+
+    if (contentTypeHeader.includes("application/json")) {
+      try {
+        payload = (await req.json()) as any;
+        parsedFrom = "json";
+      } catch {
+        // fall through to try formData
+      }
     }
 
-    const { filename, contentType, size } = payload;
-    if (!filename || !contentType || !size || size <= 0) {
+    if (!payload || Object.keys(payload).length === 0 || contentTypeHeader.includes("multipart/form-data")) {
+      try {
+        const form = await req.formData();
+        const file = form.get("file");
+        if (file && typeof file === "object" && "name" in file && "size" in file) {
+          payload.filename = (file as any).name as string;
+          payload.contentType = ((file as any).type as string) || "application/octet-stream";
+          payload.size = Number(((file as any).size as number) || 0);
+          // optional metadata fields
+          const checksum = form.get("checksumSha256");
+          if (typeof checksum === "string") payload.checksumSha256 = checksum;
+          const visibility = form.get("visibility");
+          if (visibility === "public" || visibility === "private" || visibility === "org") payload.visibility = visibility;
+          const metadataRaw = form.get("metadata");
+          if (typeof metadataRaw === "string") {
+            try {
+              payload.metadata = JSON.parse(metadataRaw);
+            } catch {}
+          }
+          parsedFrom = "form";
+        } else {
+          // allow explicit fields in form
+          const fname = form.get("filename") || form.get("name");
+          const ctype = form.get("contentType") || form.get("type") || form.get("mimeType") || form.get("mime");
+          const sz = form.get("size");
+          if (typeof fname === "string") payload.filename = fname;
+          if (typeof ctype === "string") payload.contentType = ctype;
+          if (typeof sz === "string") payload.size = Number(sz);
+          parsedFrom = "form";
+        }
+      } catch {
+        // ignore and validate below
+      }
+    }
+
+    // Normalize alternate property names
+    const filename = (payload as any).filename || (payload as any).name;
+    const contentType =
+      (payload as any).contentType || (payload as any).type || (payload as any).mimeType || (payload as any).mime;
+    const size = typeof (payload as any).size === "string" ? Number((payload as any).size) : (payload as any).size;
+    const checksumSha256 = (payload as any).checksumSha256;
+    const visibility = (payload as any).visibility;
+    const metadata = (payload as any).metadata;
+
+    if (!filename || !contentType || !size || Number(size) <= 0) {
+      // Keep message consistent but add hint via console for developers
+      console.warn("/api/storage/uploads payload invalid", { parsedFrom, filename, contentType, size });
       return respErr("missing filename/contentType/size");
     }
 
@@ -46,19 +100,19 @@ export async function POST(req: Request) {
       original_filename: filename,
       extension: filename.includes(".") ? filename.split(".").pop()!.toLowerCase() : "",
       content_type: contentType,
-      size: size,
-      visibility: payload.visibility ?? "private",
+      size: Number(size),
+      visibility: (visibility as any) ?? "private",
       status: "uploading",
-      metadata_json: payload.metadata ? JSON.stringify(payload.metadata) : null,
+      metadata_json: metadata ? JSON.stringify(metadata) : null,
     });
 
     const signed = await storage.getPresignedUpload({
       bucket,
       key,
       contentType,
-      size,
-      checksumSha256: payload.checksumSha256,
-      metadata: payload.metadata,
+      size: Number(size),
+      checksumSha256,
+      metadata,
       expiresIn: 15 * 60,
     });
 
