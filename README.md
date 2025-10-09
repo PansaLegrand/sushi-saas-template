@@ -55,6 +55,7 @@ Open:
 - Health: `/api/health`
 - Docs example: `/:locale/blogs/quick-start`
 - Credit sandbox: `/:locale/credits-test`
+ - Files page: `/:locale/account/files` (private uploads)
 
 ### Demo: Reservations (modular feature)
 
@@ -106,6 +107,13 @@ src/
 ├─ lib/
 │  ├─ auth.ts               # Better Auth server config
 │  └─ utils.ts              # small helpers
+├─ services/
+│  └─ storage/              # S3-compatible storage adapter (S3/R2/MinIO)
+│     ├─ adapter.ts         # interface + config helpers
+│     ├─ s3.ts              # implementation using AWS SDK v3
+│     └─ index.ts           # provider selector
+├─ models/
+│  └─ file.ts               # CRUD for files table
 ├─ providers/
 │  ├─ theme.tsx             # theme + Toaster + global providers
 │  ├─ google-analytics.tsx  # GA injection (prod only)
@@ -274,6 +282,49 @@ EMAIL_FROM="Your Name <founder@your-domain.com>"  # use your verified domain/sub
   - Emails are sent in the background; webhooks are acknowledged quickly.
 
 Read the full guide at `/en/blogs/email-service` (also available in es/fr/ja/zh).
+
+---
+
+## Private File Uploads (S3 / R2)
+
+User‑private uploads backed by S3‑compatible storage. Defaults to AWS S3 and works with Cloudflare R2 or MinIO by changing env only.
+
+- UI: `/:locale/account/files` (minimal uploader component)
+- API:
+  - `POST /api/storage/uploads` → presigned PUT URL + DB record (`status=uploading`)
+  - `POST /api/storage/uploads/complete` → verify object; mark `status=active`
+  - `GET /api/storage/files` → list user files
+  - `GET /api/storage/files/[uuid]?download=1&expiresIn=3600&disposition=inline&contentType=application/octet-stream` → signed GET URL
+  - `DELETE /api/storage/files/[uuid]` → soft delete + attempt object delete
+- DB: `files` table (ownership, storage location, metadata, lifecycle)
+- Env (see `.env.example`):
+
+```env
+STORAGE_PROVIDER=s3               # s3 | r2 | minio
+STORAGE_BUCKET=your-bucket
+STORAGE_REGION=us-east-1         # use auto for R2
+STORAGE_ACCESS_KEY=...
+STORAGE_SECRET_KEY=...
+STORAGE_ENDPOINT=                # empty for AWS; R2/MinIO endpoint if used
+S3_FORCE_PATH_STYLE=true         # recommended for R2/MinIO
+STORAGE_MAX_UPLOAD_MB=25
+NEXT_PUBLIC_UPLOAD_MAX_MB=25     # UI hint only
+```
+
+Migrations
+
+```bash
+pnpm drizzle-kit generate --config src/db/config.ts
+pnpm drizzle-kit migrate --config src/db/config.ts
+```
+
+Third‑party processing
+
+- Generate a per‑file presigned download from your server and hand it to the vendor:
+  - `GET /api/storage/files/{uuid}?download=1&expiresIn=3600`
+- The URL is time‑boxed and valid for that single object only.
+
+Read the full guide at `/en/blogs/storage-uploads`.
 
 ---
 

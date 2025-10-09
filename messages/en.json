@@ -116,4 +116,19 @@
     "submitSuccess": "Thanks for your feedback!",
     "submitError": "Failed to send feedback"
   }
+  ,
+  "storage": {
+    "uploadLabel": "Upload files",
+    "hintPrivate": "Private by default. Max size {mb} MB each.",
+    "errorCreate": "Failed to create upload",
+    "errorComplete": "Failed to complete upload",
+    "errorUpload": "Upload failed",
+    "status": {
+      "pending": "pending",
+      "uploading": "uploading",
+      "verifying": "verifying",
+      "done": "done",
+      "error": "error"
+    }
+  }
 }

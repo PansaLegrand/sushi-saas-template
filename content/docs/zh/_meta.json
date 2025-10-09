@@ -21,6 +21,7 @@
     "stripe-setup",
     "account-ledger",
     "email-service",
+    "storage-uploads",
     "affiliate-and-reward",
     "reservations-feature",
     "google-for-saas"

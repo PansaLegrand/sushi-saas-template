@@ -15,6 +15,7 @@
     "quick-start",
     "database-setup",
     "databases-for-saas-postgres-drizzle",
+    "storage-uploads",
     "authentication-and-admin",
     "stripe-setup",
     "account-ledger",

@@ -1,0 +1,356 @@
+---
+title: プライベートファイルのアップロード（S3 / R2）
+icon: "CloudUpload"
+description: S3 互換ストレージでユーザープライベートなアップロードを追加する手順を、初心者向けに段階的に解説。概念、セットアップ、環境変数、API、UI、エラー対処、S3↔R2 移行までを収録。
+keywords:
+  - S3
+  - Cloudflare R2
+  - presigned URL
+  - uploads
+  - Next.js
+  - SaaS storage
+tags: [storage, uploads, S3, R2]
+author: "Pansa Legrand"
+publishedAt: "2025-10-07T00:00:00.000Z"
+updatedAt: "2025-10-07T00:00:00.000Z"
+canonical: "https://sushi-saas-template.io/ja/blogs/storage-uploads"
+---
+
+## 目的 
+
+サインイン済みユーザーに、安全にファイルをアップロードさせます。ファイルはクラウドストレージ（AWS S3 / Cloudflare R2 / MinIO）上のバケットに保存され、既定ではアップロードした本人だけがアクセス可能です。ダウンロードは短命の署名付きリンクを使うため、公開共有されません。
+
+---
+
+## S3 / バケット / オブジェクト とは？
+
+- S3 は Amazon のオブジェクトストレージ（クラウド上の無限 HDD のイメージ）。
+- バケットはトップレベルのフォルダのようなもの（アカウントが複数保有）。例: `my-product-uploads`。
+- オブジェクトはバケット内の 1 つのファイル。キー（パス）で参照します（例: `uploads/user123/2025/10/07/photo.png`）。
+
+Cloudflare R2 や MinIO も同様の概念で、いずれも「S3 API」を話すため、エンドポイントを変えるだけで同じコードが動きます。
+
+---
+
+## Presigned URL とは（なぜ必要？）
+
+Presigned URL は、特定のファイルをストレージへ直接アップロードできる「一時的な許可」をサーバーが発行する仕組みです。
+
+- サーバーが「次の 15 分間、このバケット X のキー Y に PUT してよい」と署名した URL を返します。
+- ブラウザはストレージに直接 PUT します。サーバーは中継しないため、大きなファイルでも CPU/メモリを消費しません。
+- アップロード後、クライアントはサーバーに「完了」を通知し、サーバー側で実在確認をしてアクティブ化します。
+
+比喩: 受付（サーバー）が一時通行証を発行し、倉庫の搬入口（ストレージ）に短時間だけ直接荷物を渡せるイメージです。
+
+---
+
+## 流れ（概要）
+
+1) 作成: クライアント→サーバー → `uploadUrl` と `fileUuid` を受け取る
+2) 転送: クライアントが `uploadUrl` に PUT（バイトアップロード）
+3) 完了: クライアントがサーバーに通知 → サーバーがオブジェクトを検証して有効化
+4) 取得: 必要時にサーバーへ GET 用の署名リンクを要求
+
+Postgres には所有/メタデータ/ライフサイクル管理のため `files` の行を保存します。
+
+---
+
+## クイックスタート（コピペ可）
+
+1) 環境変数
+
+```bash
+# .env.local
+STORAGE_PROVIDER=s3               # s3 | r2 | minio
+STORAGE_BUCKET=your-bucket
+STORAGE_REGION=us-east-1         # R2 は auto を使用
+STORAGE_ACCESS_KEY=...
+STORAGE_SECRET_KEY=...
+STORAGE_ENDPOINT=                # AWS は空。R2/MinIO は URL を設定
+S3_FORCE_PATH_STYLE=true         # R2/MinIO では推奨
+STORAGE_MAX_UPLOAD_MB=25
+NEXT_PUBLIC_UPLOAD_MAX_MB=25     # UI 表示用のヒント
+```
+
+2) データベース
+
+```bash
+pnpm drizzle-kit generate --config src/db/config.ts
+pnpm drizzle-kit migrate --config src/db/config.ts
+```
+
+3) 起動して動作確認
+
+```bash
+pnpm dev
+# /ja/account/files（ロケールに応じて）にアクセスしてアップロード
+```
+
+---
+
+## プロバイダ設定（CORS / 権限）
+
+なぜ CORS？ ブラウザは、ストレージが明示的に許可しない限り他オリジンへのリクエストをブロックします。アプリのオリジンからの PUT/GET/HEAD を許可する必要があります。
+
+### AWS S3 — CORS
+
+Bucket → Permissions → CORS configuration:
+
+```json
+[
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["PUT", "GET", "HEAD"],
+    "AllowedOrigins": ["http://localhost:3000"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3000
+  }
+]
+```
+
+IAM（最小権限）の例（特定バケット/プレフィックスのみ許可）:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject", "s3:HeadObject"],
+      "Resource": "arn:aws:s3:::your-bucket/uploads/*"
+    },
+    { "Effect": "Allow", "Action": ["s3:ListBucket"], "Resource": "arn:aws:s3:::your-bucket" }
+  ]
+}
+```
+
+### Cloudflare R2 — CORS
+
+R2 settings → CORS:
+
+```json
+[
+  {
+    "AllowedOrigins": ["http://localhost:3000"],
+    "AllowedMethods": ["PUT", "GET", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3000
+  }
+]
+```
+
+環境変数例: `STORAGE_PROVIDER=r2`, `STORAGE_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com`, `STORAGE_REGION=auto`, `S3_FORCE_PATH_STYLE=true`。
+
+### MinIO — ローカル開発
+
+```bash
+docker run -p 9000:9000 -p 9001:9001 \
+  -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
+  quay.io/minio/minio server /data --console-address ":9001"
+```
+
+ローカルのエンドポイントと path‑style を使う設定に変更。CORS は `mc` やコンソールで S3 と同様に追加します。
+
+---
+
+## データベース & キー設計
+
+- テーブル: `files`（src/db/schema.ts）
+- キー: `uploads/{userUuid}/YYYY/MM/DD/{random}-{sanitizedName}.{ext}`
+- インデックス: `files_user_idx`、一意 `(bucket, key)`
+- ライフサイクル: `status` は `uploading` → `active` → `deleted`（ソフトデリート）
+
+---
+
+## API 契約（サーバー）
+
+作成
+
+```
+POST /api/storage/uploads
+{
+  "filename": "photo.png",
+  "contentType": "image/png",
+  "size": 123456,
+  "checksumSha256": "...",         // 任意, base64
+  "visibility": "private",          // 既定
+  "metadata": { "label": "avatar" } // 任意
+}
+
+→ 200 OK
+{
+  "fileUuid": "...",
+  "bucket": "...",
+  "key": "uploads/.../photo.png",
+  "uploadUrl": "https://...",
+  "method": "PUT",
+  "headers": { "Content-Type": "image/png" },
+  "expiresIn": 900
+}
+```
+
+バイト転送
+
+```
+PUT {uploadUrl}
+Body: 生のファイルバイト
+Headers: response.headers の指示に従う（例: Content-Type）
+```
+
+完了
+
+```
+POST /api/storage/uploads/complete
+{ "fileUuid": "..." }
+
+→ 200 OK
+{ "ok": true, "file": { ... } }
+```
+
+一覧
+
+```
+GET /api/storage/files?page=1&limit=50
+→ { items: [ { uuid, original_filename, size, ... } ] }
+```
+
+取得（ダウンロードリンクの発行）
+
+```
+GET /api/storage/files/{uuid}?download=1
+→ { file: { ... }, downloadUrl: "https://..." }
+```
+
+削除
+
+```
+DELETE /api/storage/files/{uuid}
+→ { ok: true, file: { status: "deleted", ... } }
+```
+
+---
+
+## クライアント例（ブラウザ）
+
+```ts
+// 1) 作成
+const createRes = await fetch("/api/storage/uploads", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size })
+});
+const create = await createRes.json();
+
+// 2) ストレージに PUT
+await fetch(create.data.uploadUrl, { method: "PUT", headers: create.data.headers, body: file });
+
+// 3) 完了
+await fetch("/api/storage/uploads/complete", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ fileUuid: create.data.fileUuid })
+});
+```
+
+動くコンポーネントは `src/components/storage/uploader.tsx` を参照。
+
+---
+
+## エラーの意味と対処
+
+- 401 Unauthorized（作成時）
+  - 未ログイン。先にサインイン。Better Auth 設定を確認。
+- 400 File too large
+  - `size` が `STORAGE_MAX_UPLOAD_MB` を超過。サイズを下げるか上限を上げる。
+- 403 SignatureDoesNotMatch（PUT）
+  - 認証情報の誤り、時計ずれ、CORS 不備。env とバケット CORS を再確認。
+- 404（complete 時）
+  - オブジェクトが存在しない（PUT 中断）。再アップロードして再完了。
+- サイズ不一致（complete）
+  - HEAD のサイズと `size` が不一致。クライアントが途切れた可能性。再試行。
+- ストレージ削除失敗
+  - DB 側はソフトデリート済み。削除再試行のジョブをスケジュール。
+
+サーバー側マッピング
+
+- Unauthorized → 401（`respNoAuth()`）
+- Validation → 400（`respErr()` とメッセージ）
+- Not found → 404（所有権なし / オブジェクト欠落）
+- その他 → 500（`respErr()`）
+
+---
+
+## セキュリティの要点
+
+- すべてのルートで `user_uuid` による所有チェック
+- オブジェクトはプライベート。ダウンロードは署名付き GET のみ
+- 最小権限の IAM キー（バケット/プレフィックスにスコープ）
+- サーバー側暗号化を有効化
+- コンテンツは機微情報として扱い、共有前のウイルススキャン等も検討
+
+---
+
+## パフォーマンスと大容量
+
+- 数十 MB までは単一 PUT で十分に実用的。
+- さらに大きい/回線が遅い場合はマルチパートアップロードを追加（アダプタは `createMultipartUpload` / `uploadPart` / `completeMultipartUpload` で拡張可能）。
+- 署名 URL の有効期限は既定 15 分。ユーザーの事情に合わせて調整。
+
+---
+
+## S3 ↔ R2 の切替（ノーコード変更）
+
+1) `rclone` / `aws s3 cp` / 各種ツールで一度だけオブジェクトをコピー
+2) 環境変数だけを切り替え:
+
+```bash
+STORAGE_PROVIDER=r2
+STORAGE_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com
+STORAGE_REGION=auto
+S3_FORCE_PATH_STYLE=true
+# キーとバケットも更新
+```
+
+3) CORS を確認し、ステージングでテストアップロード
+
+コードは S3 API を前提にしており、アダプタがエンドポイントを差し替えます。
+
+---
+
+## MinIO でローカル開発
+
+```bash
+docker run -p 9000:9000 -p 9001:9001 \
+  -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
+  quay.io/minio/minio server /data --console-address ":9001"
+
+# .env.local
+STORAGE_PROVIDER=minio
+STORAGE_ENDPOINT=http://localhost:9000
+STORAGE_BUCKET=dev-bucket
+STORAGE_REGION=us-east-1
+STORAGE_ACCESS_KEY=minioadmin
+STORAGE_SECRET_KEY=minioadmin
+S3_FORCE_PATH_STYLE=true
+```
+
+---
+
+## 変更/拡張ポイント
+
+- アダプタ IF: `src/services/storage/adapter.ts`
+- S3 アダプタ: `src/services/storage/s3.ts`
+- アダプタ選択: `src/services/storage/index.ts`
+- API ルート: `src/app/api/storage/...`
+- DB: `src/db/schema.ts`, `src/models/file.ts`
+- UI: `src/components/storage/uploader.tsx`
+
+---
+
+## 参考
+
+- AWS S3 CORS: https://docs.aws.amazon.com/AmazonS3/latest/userguide/ManageCorsUsing.html
+- Cloudflare R2: https://developers.cloudflare.com/r2/
+- AWS SDK JS v3: https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/
+

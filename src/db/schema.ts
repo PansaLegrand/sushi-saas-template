@@ -248,3 +248,45 @@ export const reservations = pgTable(
     index("reservations_user_idx").on(table.user_uuid),
   ]
 );
+
+// Files (user uploads)
+export const files = pgTable(
+  "files",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    uuid: varchar({ length: 255 }).notNull().unique(),
+    user_uuid: varchar({ length: 255 }).notNull(),
+    // Optional future tenant/organization scoping
+    org_id: varchar({ length: 255 }).notNull().default(""),
+
+    // Storage location
+    provider: varchar({ length: 32 }).notNull().default("s3"),
+    bucket: varchar({ length: 255 }).notNull(),
+    key: varchar({ length: 1024 }).notNull(),
+    region: varchar({ length: 64 }),
+    endpoint: varchar({ length: 255 }),
+    version_id: varchar({ length: 255 }),
+
+    // Object properties
+    size: integer().notNull().default(0),
+    content_type: varchar({ length: 255 }).notNull().default("application/octet-stream"),
+    etag: varchar({ length: 255 }),
+    checksum_sha256: varchar({ length: 128 }),
+    storage_class: varchar({ length: 64 }),
+
+    // File metadata
+    original_filename: varchar({ length: 255 }).notNull().default(""),
+    extension: varchar({ length: 32 }).notNull().default(""),
+    visibility: varchar({ length: 32 }).notNull().default("private"), // private|public|org
+    status: varchar({ length: 32 }).notNull().default("uploading"), // uploading|active|deleted|failed
+    metadata_json: text(),
+
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    deleted_at: timestamp({ withTimezone: true }),
+  },
+  (table) => [
+    index("files_user_idx").on(table.user_uuid),
+    uniqueIndex("files_bucket_key_unique_idx").on(table.bucket, table.key),
+  ]
+);

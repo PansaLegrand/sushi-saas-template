@@ -114,4 +114,19 @@
     "submitSuccess": "感谢你的反馈！",
     "submitError": "反馈发送失败"
   }
+  ,
+  "storage": {
+    "uploadLabel": "上传文件",
+    "hintPrivate": "默认私有。单个文件最大 {mb} MB。",
+    "errorCreate": "创建上传失败",
+    "errorComplete": "完成上传失败",
+    "errorUpload": "上传失败",
+    "status": {
+      "pending": "待处理",
+      "uploading": "上传中",
+      "verifying": "验证中",
+      "done": "完成",
+      "error": "错误"
+    }
+  }
 }

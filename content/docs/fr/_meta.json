@@ -20,6 +20,7 @@
     "stripe-setup",
     "account-ledger",
     "email-service",
+    "storage-uploads",
     "legal-and-compliance-at-launch",
     "affiliate-and-reward",
     "reservations-feature",

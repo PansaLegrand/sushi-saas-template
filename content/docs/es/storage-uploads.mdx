@@ -1,0 +1,356 @@
+---
+title: Cargas de archivos privadas (S3 / R2)
+icon: "CloudUpload"
+description: Guía paso a paso, apta para principiantes, para añadir cargas privadas por usuario con almacenamiento compatible con S3. Incluye conceptos, configuración, variables de entorno, API, UI, errores y migración S3↔R2.
+keywords:
+  - S3
+  - Cloudflare R2
+  - URL prefirmada
+  - cargas
+  - Next.js
+  - almacenamiento SaaS
+tags: [almacenamiento, cargas, S3, R2]
+author: "Pansa Legrand"
+publishedAt: "2025-10-07T00:00:00.000Z"
+updatedAt: "2025-10-07T00:00:00.000Z"
+canonical: "https://sushi-saas-template.io/es/blogs/storage-uploads"
+---
+
+## Objetivo 
+
+Permitir que usuarios autenticados suban archivos de forma segura. Los archivos se guardan en un bucket de almacenamiento en la nube (AWS S3, Cloudflare R2 o MinIO). Por defecto, solo quien sube puede acceder a ellos. Las descargas usan enlaces de corta duración, de modo que no se puedan compartir públicamente.
+
+---
+
+## ¿Qué son S3, un bucket y un objeto?
+
+- S3 es el almacenamiento de objetos de Amazon: piensa en “disco duro infinito en la nube”.
+- Un bucket es como una carpeta de primer nivel (tu cuenta puede tener varios). Ejemplo: `mis‑cargas‑producto`.
+- Un objeto es un archivo dentro del bucket, direccionado por una clave (su ruta), p. ej. `uploads/user123/2025/10/07/foto.png`.
+
+Otros proveedores replican la misma idea. Cloudflare R2 y MinIO hablan la “API de S3”, por lo que el mismo código funciona con un endpoint distinto.
+
+---
+
+## ¿Qué es una URL prefirmada (y por qué)?
+
+Una URL prefirmada es un enlace temporal que crea tu servidor y que da permiso al navegador para subir un archivo concreto directamente al almacenamiento.
+
+- Tu servidor dice: “Durante los próximos 15 minutos puedes hacer PUT de bytes al bucket X clave Y”.
+- El navegador sube directamente al almacenamiento. Tu servidor no actúa de intermediario, así que no consume CPU/memoria con archivos grandes.
+- Después de subir, el cliente llama otra vez a tu servidor para “completar” la carga, y el servidor verifica que el archivo realmente existe.
+
+Analogía: imagina un pase de backstage que te permite entregar un paquete directamente en la puerta del almacén por un tiempo corto. La recepción (tu servidor) emite ese pase.
+
+---
+
+## El flujo de un vistazo
+
+1) Crear carga: cliente → servidor → recibe `uploadUrl` firmado y `fileUuid`
+2) Subir bytes: el cliente hace PUT del archivo a `uploadUrl`
+3) Completar: el cliente notifica al servidor; el servidor comprueba el objeto y lo marca como activo
+4) Descargar más tarde: el cliente pide al servidor un enlace GET firmado cuando lo necesite
+
+Mantenemos una fila `files` en Postgres para propiedad, metadatos y ciclo de vida.
+
+---
+
+## Inicio rápido (copiar‑pegar)
+
+1) Variables de entorno
+
+```bash
+# .env.local
+STORAGE_PROVIDER=s3               # s3 | r2 | minio
+STORAGE_BUCKET=your-bucket
+STORAGE_REGION=us-east-1         # usa auto para R2
+STORAGE_ACCESS_KEY=...
+STORAGE_SECRET_KEY=...
+STORAGE_ENDPOINT=                # vacío para AWS; URL de R2/MinIO si aplica
+S3_FORCE_PATH_STYLE=true         # recomendado para R2/MinIO
+STORAGE_MAX_UPLOAD_MB=25
+NEXT_PUBLIC_UPLOAD_MAX_MB=25     # solo pista de UI
+```
+
+2) Base de datos
+
+```bash
+pnpm drizzle-kit generate --config src/db/config.ts
+pnpm drizzle-kit migrate --config src/db/config.ts
+```
+
+3) Arranca la app y prueba
+
+```bash
+pnpm dev
+# visita /es/account/files (o tu locale) y sube un archivo
+```
+
+---
+
+## Configuración del proveedor (CORS + permisos)
+
+¿Por qué CORS? El navegador bloquea peticiones cross‑origin salvo que el almacenamiento indique “está bien”. Debes permitir PUT/GET/HEAD desde el origen de tu app.
+
+### AWS S3 — CORS
+
+Bucket → Permissions → CORS configuration:
+
+```json
+[
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["PUT", "GET", "HEAD"],
+    "AllowedOrigins": ["http://localhost:3000"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3000
+  }
+]
+```
+
+Ejemplo de política IAM (mínimo privilegio) para un bucket/prefijo concreto:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject", "s3:HeadObject"],
+      "Resource": "arn:aws:s3:::your-bucket/uploads/*"
+    },
+    { "Effect": "Allow", "Action": ["s3:ListBucket"], "Resource": "arn:aws:s3:::your-bucket" }
+  ]
+}
+```
+
+### Cloudflare R2 — CORS
+
+R2 settings → CORS:
+
+```json
+[
+  {
+    "AllowedOrigins": ["http://localhost:3000"],
+    "AllowedMethods": ["PUT", "GET", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3000
+  }
+]
+```
+
+Variables: `STORAGE_PROVIDER=r2`, `STORAGE_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com`, `STORAGE_REGION=auto`, `S3_FORCE_PATH_STYLE=true`.
+
+### MinIO — desarrollo local
+
+```bash
+docker run -p 9000:9000 -p 9001:9001 \
+  -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
+  quay.io/minio/minio server /data --console-address ":9001"
+```
+
+Configura el endpoint local y path‑style. Añade CORS vía `mc` o consola (similar a S3).
+
+---
+
+## Base de datos y estructura de claves
+
+- Tabla: `files` (src/db/schema.ts)
+- Claves: `uploads/{userUuid}/YYYY/MM/DD/{random}-{sanitizedName}.{ext}`
+- Índices: `files_user_idx`, único `(bucket, key)`
+- Ciclo de vida: `status` pasa de `uploading` → `active` → `deleted` (borrado lógico)
+
+---
+
+## Contratos de API (servidor)
+
+Crear carga
+
+```
+POST /api/storage/uploads
+{
+  "filename": "photo.png",
+  "contentType": "image/png",
+  "size": 123456,
+  "checksumSha256": "...",         // opcional, base64
+  "visibility": "private",          // por defecto
+  "metadata": { "label": "avatar" } // opcional
+}
+
+→ 200 OK
+{
+  "fileUuid": "...",
+  "bucket": "...",
+  "key": "uploads/.../photo.png",
+  "uploadUrl": "https://...",
+  "method": "PUT",
+  "headers": { "Content-Type": "image/png" },
+  "expiresIn": 900
+}
+```
+
+Subir bytes
+
+```
+PUT {uploadUrl}
+Body: bytes del archivo
+Headers: desde response.headers (p. ej., Content-Type)
+```
+
+Completar carga
+
+```
+POST /api/storage/uploads/complete
+{ "fileUuid": "..." }
+
+→ 200 OK
+{ "ok": true, "file": { ... } }
+```
+
+Listar archivos
+
+```
+GET /api/storage/files?page=1&limit=50
+→ { items: [ { uuid, original_filename, size, ... } ] }
+```
+
+Obtener (y enlace de descarga opcional)
+
+```
+GET /api/storage/files/{uuid}?download=1
+→ { file: { ... }, downloadUrl: "https://..." }
+```
+
+Eliminar
+
+```
+DELETE /api/storage/files/{uuid}
+→ { ok: true, file: { status: "deleted", ... } }
+```
+
+---
+
+## Ejemplo de cliente (navegador)
+
+```ts
+// 1) Crear carga
+const createRes = await fetch("/api/storage/uploads", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size })
+});
+const create = await createRes.json();
+
+// 2) PUT de bytes al almacenamiento
+await fetch(create.data.uploadUrl, { method: "PUT", headers: create.data.headers, body: file });
+
+// 3) Completar
+await fetch("/api/storage/uploads/complete", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ fileUuid: create.data.fileUuid })
+});
+```
+
+Consulta el componente funcional en `src/components/storage/uploader.tsx`.
+
+---
+
+## Errores: qué significan y cómo corregir
+
+- 401 Unauthorized al crear cargas
+  - No has iniciado sesión. Inicia sesión. Revisa la configuración de Better Auth.
+- 400 Archivo demasiado grande
+  - El `size` excede `STORAGE_MAX_UPLOAD_MB`. Reduce el tamaño o sube el límite.
+- 403 SignatureDoesNotMatch al hacer PUT
+  - Claves erróneas, desfase de reloj o CORS ausente. Verifica env y CORS del bucket.
+- 404 al completar
+  - Falta el objeto (PUT cancelado). Sube de nuevo y completa.
+- Incongruencia de tamaño al completar
+  - El tamaño en HEAD difiere de `size`. El cliente pudo truncar. Reintenta la carga.
+- Fallo al eliminar en almacenamiento
+  - Hicimos borrado lógico en BD; programa un job para reintentar la eliminación física.
+
+Mapeo en servidor
+
+- Unauthorized → 401 desde `respNoAuth()`
+- Validación → 400 `respErr()` con mensaje
+- No encontrado → 404 (archivo no propio u objeto ausente)
+- Otros errores → 500 `respErr()`
+
+---
+
+## Esenciales de seguridad
+
+- Comprobación de propiedad en cada ruta por `user_uuid`
+- Objetos privados; las descargas requieren URLs GET firmadas
+- Usa claves IAM de mínimo privilegio (acota a bucket/prefijo)
+- Activa cifrado del lado del servidor en el almacenamiento
+- Trata el contenido como sensible; considera antivirus antes de compartir
+
+---
+
+## Rendimiento y archivos grandes
+
+- Un único PUT funciona bien hasta decenas de MB.
+- Para archivos muy grandes/redes lentas, añade cargas multiparte (el adaptador está diseñado para extender con `createMultipartUpload`/`uploadPart`/`completeMultipartUpload`).
+- La caducidad del enlace firmado por defecto es 15 minutos; ajusta a tus usuarios.
+
+---
+
+## Cambiar entre S3 ↔ R2 (sin cambios de código)
+
+1) Copia los objetos (una vez) con `rclone`, `aws s3 cp` o herramientas del proveedor
+2) Cambia solo variables:
+
+```bash
+STORAGE_PROVIDER=r2
+STORAGE_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com
+STORAGE_REGION=auto
+S3_FORCE_PATH_STYLE=true
+# actualiza claves y bucket
+```
+
+3) Verifica CORS y una carga de prueba en staging
+
+El código ya apunta a la API de S3; el adaptador usa tu endpoint.
+
+---
+
+## Desarrollo local con MinIO
+
+```bash
+docker run -p 9000:9000 -p 9001:9001 \
+  -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
+  quay.io/minio/minio server /data --console-address ":9001"
+
+# .env.local
+STORAGE_PROVIDER=minio
+STORAGE_ENDPOINT=http://localhost:9000
+STORAGE_BUCKET=dev-bucket
+STORAGE_REGION=us-east-1
+STORAGE_ACCESS_KEY=minioadmin
+STORAGE_SECRET_KEY=minioadmin
+S3_FORCE_PATH_STYLE=true
+```
+
+---
+
+## Dónde cambiar o extender código
+
+- Interfaz del adaptador: `src/services/storage/adapter.ts`
+- Adaptador S3: `src/services/storage/s3.ts`
+- Selector de adaptador: `src/services/storage/index.ts`
+- Rutas de API: `src/app/api/storage/...`
+- BD: `src/db/schema.ts`, `src/models/file.ts`
+- UI: `src/components/storage/uploader.tsx`
+
+---
+
+## Referencias
+
+- AWS S3 CORS: https://docs.aws.amazon.com/AmazonS3/latest/userguide/ManageCorsUsing.html
+- Cloudflare R2: https://developers.cloudflare.com/r2/
+- AWS SDK JS v3: https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/
+

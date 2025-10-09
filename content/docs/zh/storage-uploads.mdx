@@ -1,0 +1,350 @@
+---
+title: 私有文件上传（S3 / R2）
+icon: "CloudUpload"
+description: 一步一步、面向新手地为应用添加“用户私有上传”，对接 S3 兼容存储。涵盖概念、配置、环境变量、API、UI、错误排查，以及 S3 与 R2 的切换。
+keywords:
+  - S3
+  - Cloudflare R2
+  - 预签名 URL
+  - 上传
+  - Next.js
+  - SaaS 存储
+tags: [storage, uploads, S3, R2]
+author: "Pansa Legrand"
+publishedAt: "2025-10-07T00:00:00.000Z"
+updatedAt: "2025-10-07T00:00:00.000Z"
+canonical: "https://sushi-saas-template.io/zh/blogs/storage-uploads"
+---
+
+## 目标 
+
+让“已登录用户”安全地上传文件。文件保存在云端对象存储的某个 Bucket（AWS S3、Cloudflare R2 或 MinIO）。默认仅上传者本人可访问；下载通过“短期有效”的签名链接完成，避免被公开传播。
+
+---
+
+## 什么是 S3、Bucket、Object？
+
+- S3：亚马逊的对象存储，可理解为“云端的无限硬盘”。
+- Bucket：顶层“容器/文件夹”，你的账号可以拥有多个，例如 `my-product-uploads`。
+- Object：存储在 Bucket 中的单个文件，通过 Key（路径）寻址，如 `uploads/user123/2025/10/07/photo.png`。
+
+其他提供商也遵循同一思路。Cloudflare R2 与 MinIO 兼容 “S3 API”，因此只需更换 endpoint 与配置即可复用相同代码。
+
+---
+
+## 什么是“预签名 URL”，为什么需要？
+
+预签名 URL 是由你的服务器签发的“临时上传许可链接”，浏览器可用它“直传”到对象存储：
+
+- 服务器声明：“在接下来的 15 分钟内，你可以把文件 PUT 到 Bucket X 的 Key Y。”
+- 浏览器据此直接把字节上传到存储；服务器不再充当中转，避免大文件占用服务器 CPU/内存。
+- 上传完成后，客户端再通知服务器“完成上传”，服务器校验对象真实存在并落库。
+
+类比：服务台（你的服务器）给了你一张临时“后台通行证”，短时间内可直接把包裹交到仓库门口（对象存储）。
+
+---
+
+## 流程总览
+
+1) 创建上传：客户端 → 服务器 → 返回签名 `uploadUrl` 与 `fileUuid`
+2) 传字节：客户端使用 PUT 把文件上传到 `uploadUrl`
+3) 完成：客户端通知服务器；服务器校验对象并将其标记为 active
+4) 后续下载：需要时，客户端向服务器申请签名 GET 链接
+
+我们在 Postgres 维护 `files` 表，用于所有权、元数据与生命周期管理。
+
+---
+
+## 快速上手（可直接粘贴）
+
+1) 环境变量
+
+```bash
+# .env.local
+STORAGE_PROVIDER=s3               # s3 | r2 | minio
+STORAGE_BUCKET=your-bucket
+STORAGE_REGION=us-east-1         # R2 用 auto
+STORAGE_ACCESS_KEY=...
+STORAGE_SECRET_KEY=...
+STORAGE_ENDPOINT=                # AWS 留空；R2/MinIO 写 URL
+S3_FORCE_PATH_STYLE=true         # R2/MinIO 建议开启
+STORAGE_MAX_UPLOAD_MB=25
+NEXT_PUBLIC_UPLOAD_MAX_MB=25     # 仅 UI 提示
+```
+
+2) 数据库
+
+```bash
+pnpm drizzle-kit generate --config src/db/config.ts
+pnpm drizzle-kit migrate --config src/db/config.ts
+```
+
+3) 启动并测试
+
+```bash
+pnpm dev
+# 访问 /zh/account/files（或你的本地化路径）进行上传
+```
+
+---
+
+## 提供商配置（CORS + 权限）
+
+为什么需要 CORS？浏览器会拦截跨域请求，除非对象存储明确允许来自你的站点发起 PUT/GET/HEAD。
+
+### AWS S3 — CORS
+
+Bucket → Permissions → CORS configuration：
+
+```json
+[
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["PUT", "GET", "HEAD"],
+    "AllowedOrigins": ["http://localhost:3000"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3000
+  }
+]
+```
+
+最小权限 IAM 策略（单 Bucket/前缀）：
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject", "s3:HeadObject"],
+      "Resource": "arn:aws:s3:::your-bucket/uploads/*"
+    },
+    { "Effect": "Allow", "Action": ["s3:ListBucket"], "Resource": "arn:aws:s3:::your-bucket" }
+  ]
+}
+```
+
+### Cloudflare R2 — CORS
+
+R2 → CORS：
+
+```json
+[
+  {
+    "AllowedOrigins": ["http://localhost:3000"],
+    "AllowedMethods": ["PUT", "GET", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3000
+  }
+]
+```
+
+环境：`STORAGE_PROVIDER=r2`、`STORAGE_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com`、`STORAGE_REGION=auto`、`S3_FORCE_PATH_STYLE=true`。
+
+### MinIO — 本地开发
+
+```bash
+docker run -p 9000:9000 -p 9001:9001 \
+  -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
+  quay.io/minio/minio server /data --console-address ":9001"
+```
+
+将 env 指向本地 endpoint 并开启 path‑style；用 `mc` 或控制台添加 CORS（同 S3）。
+
+---
+
+## 数据库与 Key 结构
+
+- 表：`files`（见 `src/db/schema.ts`）
+- Key：`uploads/{userUuid}/YYYY/MM/DD/{random}-{sanitizedName}.{ext}`
+- 索引：`files_user_idx`，以及 `(bucket, key)` 唯一约束
+- 生命周期：`status` 从 `uploading` → `active` → `deleted`（软删除）
+
+---
+
+## API 契约（服务端）
+
+创建上传
+
+```
+POST /api/storage/uploads
+{
+  "filename": "photo.png",
+  "contentType": "image/png",
+  "size": 123456,
+  "checksumSha256": "...",         // 可选，base64
+  "visibility": "private",          // 默认
+  "metadata": { "label": "avatar" } // 可选
+}
+
+→ 200 OK
+{
+  "fileUuid": "...",
+  "bucket": "...",
+  "key": "uploads/.../photo.png",
+  "uploadUrl": "https://...",
+  "method": "PUT",
+  "headers": { "Content-Type": "image/png" },
+  "expiresIn": 900
+}
+```
+
+上传字节
+
+```
+PUT {uploadUrl}
+Body: 原始文件字节
+Headers: 使用响应 headers（如 Content-Type）
+```
+
+完成上传
+
+```
+POST /api/storage/uploads/complete
+{ "fileUuid": "..." }
+
+→ 200 OK
+{ "ok": true, "file": { ... } }
+```
+
+列出文件
+
+```
+GET /api/storage/files?page=1&limit=50
+→ { items: [ { uuid, original_filename, size, ... } ] }
+```
+
+获取（及可选下载链接）
+
+```
+GET /api/storage/files/{uuid}?download=1
+→ { file: { ... }, downloadUrl: "https://..." }
+```
+
+删除
+
+```
+DELETE /api/storage/files/{uuid}
+→ { ok: true, file: { status: "deleted", ... } }
+```
+
+---
+
+## 客户端示例（浏览器）
+
+```ts
+// 1) 创建上传
+const createRes = await fetch("/api/storage/uploads", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size })
+});
+const create = await createRes.json();
+
+// 2) 直传字节到存储
+await fetch(create.data.uploadUrl, { method: "PUT", headers: create.data.headers, body: file });
+
+// 3) 完成
+await fetch("/api/storage/uploads/complete", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ fileUuid: create.data.fileUuid })
+});
+```
+
+工作中的组件见 `src/components/storage/uploader.tsx`。
+
+---
+
+## 常见错误与排查
+
+- 创建上传时报 401 Unauthorized：未登录。先登录，检查 Better Auth 配置。
+- 400 File too large：`size` 超过 `STORAGE_MAX_UPLOAD_MB`。减小文件或提高上限。
+- PUT 报 403 SignatureDoesNotMatch：密钥错误、时间偏差或缺少 CORS。核对 env 与 Bucket CORS。
+- 完成时报 404：对象不存在（PUT 被取消）。重新上传并再次完成。
+- 完成时报大小不一致：HEAD 获取的大小与 `size` 不一致，客户端可能中断。重试上传。
+- 删除失败：我们已在 DB 做了软删除；请安排后台任务重试实际移除。
+
+服务端状态码约定：
+
+- 未授权 → 401 `respNoAuth()`
+- 校验失败 → 400 `respErr()`
+- 未找到 → 404（不属于当前用户或对象缺失）
+- 其他错误 → 500 `respErr()`
+
+---
+
+## 安全要点
+
+- 每条路由都按 `user_uuid` 做“所有权校验”
+- 对象默认私有；下载必须走“签名 GET URL”
+- 使用最小权限的 IAM（限制在指定 Bucket/前缀）
+- 开启服务端加密
+- 把内容当作敏感数据；在分享前可考虑病毒扫描
+
+---
+
+## 性能与大文件
+
+- 单次 PUT 对几十 MB 内的文件体验良好。
+- 特别大的文件/慢网可加“分片上传”（适配器已预留 `createMultipartUpload`/`uploadPart`/`completeMultipartUpload`）。
+- 签名 URL 默认 15 分钟有效，可根据用户场景调整。
+
+---
+
+## S3 与 R2 的互换（无需改代码）
+
+1) 一次性迁移对象：用 `rclone`、`aws s3 cp` 或供应商工具
+2) 仅修改 env：
+
+```bash
+STORAGE_PROVIDER=r2
+STORAGE_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com
+STORAGE_REGION=auto
+S3_FORCE_PATH_STYLE=true
+# 更新密钥与 Bucket
+```
+
+3) 在预发验证 CORS 与一次上传
+
+代码对 S3 API 编写；适配器根据 endpoint 工作。
+
+---
+
+## 本地用 MinIO 开发
+
+```bash
+docker run -p 9000:9000 -p 9001:9001 \
+  -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
+  quay.io/minio/minio server /data --console-address ":9001"
+
+# .env.local
+STORAGE_PROVIDER=minio
+STORAGE_ENDPOINT=http://localhost:9000
+STORAGE_BUCKET=dev-bucket
+STORAGE_REGION=us-east-1
+STORAGE_ACCESS_KEY=minioadmin
+STORAGE_SECRET_KEY=minioadmin
+S3_FORCE_PATH_STYLE=true
+```
+
+---
+
+## 代码改动点/扩展点
+
+- 适配器接口：`src/services/storage/adapter.ts`
+- S3 适配器：`src/services/storage/s3.ts`
+- 适配器选择器：`src/services/storage/index.ts`
+- API 路由：`src/app/api/storage/...`
+- 数据库：`src/db/schema.ts`、`src/models/file.ts`
+- UI：`src/components/storage/uploader.tsx`
+
+---
+
+## 参考
+
+- AWS S3 CORS: https://docs.aws.amazon.com/AmazonS3/latest/userguide/ManageCorsUsing.html
+- Cloudflare R2: https://developers.cloudflare.com/r2/
+- AWS SDK JS v3: https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/
+

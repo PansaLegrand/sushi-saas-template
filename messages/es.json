@@ -111,4 +111,19 @@
     "submitSuccess": "¡Gracias por tus comentarios!",
     "submitError": "No se pudo enviar el comentario"
   }
+  ,
+  "storage": {
+    "uploadLabel": "Subir archivos",
+    "hintPrivate": "Privado por defecto. Tamaño máximo {mb} MB cada uno.",
+    "errorCreate": "Error al crear la carga",
+    "errorComplete": "Error al completar la carga",
+    "errorUpload": "Error de carga",
+    "status": {
+      "pending": "pendiente",
+      "uploading": "subiendo",
+      "verifying": "verificando",
+      "done": "completado",
+      "error": "error"
+    }
+  }
 }

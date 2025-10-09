@@ -111,4 +111,19 @@
     "submitSuccess": "Merci pour votre avis !",
     "submitError": "Échec de l’envoi de l’avis"
   }
+  ,
+  "storage": {
+    "uploadLabel": "Importer des fichiers",
+    "hintPrivate": "Privé par défaut. Taille max {mb} Mo chacun.",
+    "errorCreate": "Échec de création de l’upload",
+    "errorComplete": "Échec de validation de l’upload",
+    "errorUpload": "Échec de l’upload",
+    "status": {
+      "pending": "en attente",
+      "uploading": "en cours",
+      "verifying": "vérification",
+      "done": "terminé",
+      "error": "erreur"
+    }
+  }
 }

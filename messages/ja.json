@@ -111,4 +111,19 @@
     "submitSuccess": "フィードバックありがとうございます！",
     "submitError": "フィードバックの送信に失敗しました"
   }
+  ,
+  "storage": {
+    "uploadLabel": "ファイルをアップロード",
+    "hintPrivate": "既定で非公開。各ファイルの最大サイズは {mb} MB です。",
+    "errorCreate": "アップロードの作成に失敗しました",
+    "errorComplete": "アップロードの完了に失敗しました",
+    "errorUpload": "アップロードに失敗しました",
+    "status": {
+      "pending": "保留中",
+      "uploading": "アップロード中",
+      "verifying": "検証中",
+      "done": "完了",
+      "error": "エラー"
+    }
+  }
 }
