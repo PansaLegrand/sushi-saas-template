@@ -11,15 +11,46 @@ export default async function BlogsIndexPage(props: { params: Promise<Params> })
   const lang = (locale && supportedLocales.includes(locale as any) ? locale : "en") as string;
   const t = await getTranslations("blogs");
 
-  // Get all pages for the current language and sort by publish/update time (desc)
-  const pages = source
-    .getPages(lang)
-    .filter((p: any) => !(p?.data as any)?.noindex)
+  // Build the order based on the sidebar tree (from _meta.json),
+  // falling back to date order for any pages not listed.
+  const allPages: any[] = source.getPages(lang);
+
+  // Map for quick lookup by URL
+  const byUrl = new Map<string, any>(allPages.map((p: any) => [p.url, p]));
+
+  // Traverse pageTree to collect URLs in display order
+  const tree: any = source.pageTree[lang];
+  const orderedUrls: string[] = [];
+  const visit = (node: any) => {
+    if (!node) return;
+    const children: any[] = Array.isArray(node.children) ? node.children : [];
+    for (const child of children) {
+      if (child?.type === "page") {
+        const page = source.getNodePage(child, lang);
+        if (page?.url) orderedUrls.push(page.url);
+      } else if (child?.type === "folder") {
+        visit(child);
+      } // separators are ignored
+    }
+  };
+  visit(tree);
+
+  // First, take pages in the exact tree order
+  const inTree = orderedUrls
+    .map((u) => byUrl.get(u))
+    .filter(Boolean) as any[];
+
+  // Then append any remaining pages (not listed in _meta) by date desc
+  const seen = new Set(inTree.map((p) => p.url));
+  const rest = allPages
+    .filter((p: any) => !seen.has(p.url))
     .sort((a: any, b: any) => {
       const ad = Date.parse((a.data as any).publishedAt ?? (a.data as any).updatedAt ?? "");
       const bd = Date.parse((b.data as any).publishedAt ?? (b.data as any).updatedAt ?? "");
       return (isNaN(bd) ? 0 : bd) - (isNaN(ad) ? 0 : ad);
     });
+
+  const pages = [...inTree, ...rest].filter((p: any) => !(p?.data as any)?.noindex);
 
   return (
     <DocsPage full>

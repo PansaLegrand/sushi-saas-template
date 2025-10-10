@@ -1,0 +1,15 @@
+{
+  "title": "上手实践",
+  "defaultOpen": true,
+  "pages": [
+    "quick-start",
+    "authentication-and-admin",
+    "stripe-setup",
+    "storage-uploads",
+    "email-service",
+    "database-setup",
+    "account-ledger",
+    "reservations-feature"
+  ]
+}
+

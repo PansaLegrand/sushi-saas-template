@@ -1,29 +1,11 @@
 {
-  "title": "文档",
+  "title": "博客",
   "root": true,
   "defaultOpen": true,
   "pages": [
     "about",
-    "saas-101",
-    "frontend-vs-backend-vs-fullstack-saas",
-    "anatomy-of-modern-saas",
-    "what-is-nextjs",
-    "why-use-a-saas-template",
-    "why-sushi-templates-beats-minimal-starters-for-real-saas-projects",
-    "comparison-of-full-stack-saas-boilerplates-vs-sushi-templates",
-    "budget",
-    "quick-start",
-    "database-setup",
-    "databases-for-saas-postgres-drizzle",
-    "authentication-and-admin",
-    "legal-and-compliance-at-launch",
-    "affiliates-and-referrals-for-beginners",
-    "stripe-setup",
-    "account-ledger",
-    "email-service",
-    "storage-uploads",
-    "affiliate-and-reward",
-    "reservations-feature",
-    "google-for-saas"
+    "(pre-requisite-knowledge)",
+    "(hands-on)",
+    "(running-a-saas)"
   ]
 }

@@ -1,29 +1,11 @@
 {
-  "title": "Documentación",
+  "title": "Blog",
   "root": true,
   "defaultOpen": true,
   "pages": [
     "about",
-    "saas-101",
-    "frontend-vs-backend-vs-fullstack-saas",
-    "anatomy-of-modern-saas",
-    "comparison-of-full-stack-saas-boilerplates-vs-sushi-templates",
-    "why-sushi-templates-beats-minimal-starters-for-real-saas-projects",
-    "why-use-a-saas-template",
-    "what-is-nextjs",
-    "budget",
-    "quick-start",
-    "database-setup",
-    "databases-for-saas-postgres-drizzle",
-    "storage-uploads",
-    "authentication-and-admin",
-    "stripe-setup",
-    "account-ledger",
-    "email-service",
-    "affiliate-and-reward",
-    "reservations-feature",
-    "google-for-saas",
-    "affiliates-and-referrals-for-beginners",
-    "legal-and-compliance-at-launch"
+    "(pre-requisite-knowledge)",
+    "(hands-on)",
+    "(running-a-saas)"
   ]
 }
