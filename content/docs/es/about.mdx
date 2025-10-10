@@ -19,15 +19,15 @@ updatedAt: "2025-10-02T00:00:00.000Z"
 
 ## ¿Qué es Sushi SaaS?
 
-Sushi SaaS es un starter de Next.js orientado a producción para crear y lanzar productos SaaS reales. Incluye lo que necesitas desde el día uno—autenticación, cobros, admin, contenido e internacionalización—todo conectado a una base de datos tipada con migraciones explícitas.
+Sushi SaaS es un starter de Next.js pragmático y orientado a producción para crear y lanzar productos SaaS reales. Trae lo que necesitas desde el día uno—autenticación, cobros, admin, contenido e internacionalización—conectado a una base de datos tipada y migraciones explícitas.
 
 Pila principal:
 
 - Next.js App Router con rutas localizadas (next‑intl)
 - Better Auth + Postgres a través de Drizzle ORM
 - Stripe Checkout + finalización por webhooks (libreta de créditos lista)
-- Docs/blog en MDX con Fumadocs (SEO + JSON‑LD)
-- Páginas de admin con RBAC en el servidor
+- Docs/blogs en MDX con Fumadocs (con metadatos SEO + JSON‑LD)
+- Páginas de admin con RBAC reforzado en el servidor
 - DX sensata: pnpm, ESLint/Tailwind, endpoint de salud, variables de entorno claras
 
 Repositorio GitHub: https://github.com/PansaLegrand/saas-sushi-template
@@ -42,39 +42,47 @@ pnpm install && pnpm dev
 
 ## Por qué puedes confiar
 
-- Tipado de extremo a extremo: Los esquemas Drizzle son la fuente de verdad; las migraciones con drizzle‑kit mantienen la base sincronizada.
-- Flujos reales: Autenticación, cobros (Stripe) y permisos de admin están conectados y probados en la UI.
-- i18n predecible: Rutas con prefijo de locale mediante next‑intl; los mensajes conviven con la app y la documentación.
-- Claridad operativa: `/api/health`, plantillas de entorno y guías de repositorio para build, lint y migraciones.
-- Documentación clara: Cada capacidad principal (auth, cobros, base de datos, admin, emails) tiene una guía MDX con comandos y rutas de archivos.
-- Probado en producción: Refleja patrones usados para lanzar productos reales (ver README “Showcase”).
+- Tipado de extremo a extremo: los esquemas Drizzle son la fuente de verdad; las migraciones con drizzle‑kit mantienen la base sincronizada.
+- Flujos reales, no maquetas: auth, cobros (Stripe) y permisos de admin están conectados y se ejercitan en la UI.
+- i18n predecible: rutas con prefijo de locale mediante next‑intl; los mensajes viven junto a la app y las docs.
+- Claridad operativa: `/api/health`, plantillas de entorno y pautas de build, lint y migraciones en el repositorio.
+- Documentación clara: cada capacidad principal (auth, cobros, base de datos, admin, emails) tiene una guía MDX con comandos y rutas de archivos.
+- Probado en el mundo real: refleja patrones usados para lanzar productos reales (ver README “Showcase”).
 
 ---
 
 ## Qué lo hace único
 
-- Licencia MIT: Úsalo comercialmente, modifícalo libremente y avanza rápido. Consulta `LICENSE` en el repo.
-- Starter completo: Auth, cobros, libreta de créditos, afiliados, demo de reservas, docs MDX, admin e i18n listos desde el inicio.
-- Contenido + SEO integrados: Frontmatter → metadata de Next.js + OpenGraph + JSON‑LD en cada página MDX.
-- Consultoría del autor: ¿Necesitas adaptarlo a tu caso? El autor ofrece implementación y asesoría. Email: pansalegrand@gmail.com
+- Licencia MIT: úsalo comercialmente, modifícalo libremente y avanza rápido. Consulta `LICENSE` en el repo.
+- Starter con funciones completas: auth, cobros, libreta de créditos, afiliados, demo de reservas, docs MDX, admin e i18n listos desde el inicio.
+- Contenido + SEO integrados: frontmatter → metadata de Next.js + OpenGraph + JSON‑LD para cada página MDX.
+- Consultoría del autor disponible: ¿necesitas adaptarlo a tu caso? El autor ofrece implementación y asesoría para que lances más rápido con confianza. Email: pansalegrand@gmail.com (Inglés, Francés, Chino — nivel de trabajo)
 
 ---
 
 ## Qué recibes desde el día uno
 
 - Autenticación y RBAC: Better Auth, adaptador tipado de BD, admin seguro con roles de solo lectura/lectura‑escritura.
-- Cobros sólidos: Stripe Checkout + webhooks firmados para finalizar pedidos y otorgar créditos.
-- Créditos y pedidos: Libreta simple para productos por uso y pruebas gratuitas.
-- Internacionalización: Rutas por locale, paquetes de mensajes y docs localizadas.
-- Documentación MDX: Guías con Fumadocs, navegación y tabla de contenido.
+- Cobros que se sostienen: Stripe Checkout + webhooks firmados para finalizar y otorgar créditos.
+- Créditos y pedidos: libreta simple para productos por uso y períodos de prueba.
+- Internacionalización: rutas por locale, paquetes de mensajes y docs localizadas.
+- Documentación MDX: guías con Fumadocs, navegación y tabla de contenidos.
 - Experiencia de desarrollo: pnpm, Turbopack/Webpack, ESLint/Tailwind y convenciones claras.
+
+---
+
+## Por qué creé este proyecto de código abierto
+
+Empecé Sushi SaaS para conectar con otros builders y para mantenerme enviando software. El open source lo hace posible: invita a conversaciones reales, enciende side projects y a veces abre la puerta para unirme a una startup.
+
+- Conexión y ritmo: quiero conocer colaboradores, explorar side projects y—si hay química—formar parte de una startup. Publicar código real y funcionando es el mejor rompehielos que conozco.
+- Mejor software gracias a la apertura: los boilerplates se vuelven excelentes cuando la gente los usa, los critica y los mejora. Esta es mi manera de construir en público—sin incentivo monetario—solo por la alegría de programar y ver a otros construir encima.
 
 ---
 
 ## Enlaces
 
 - GitHub: https://github.com/PansaLegrand/saas-sushi-template
-- README: /README.es.md
-- Guía de inicio: `/:locale/blogs/quick-start`
+- Documentación de inicio: [Guía rápida](/es/blogs/quick-start)
 
-Si quieres adaptar este template a tu producto o validar tu MVP rápido, escríbenos a pansalegrand@gmail.com.
+Si quieres adaptar este template a tu producto o validar tu MVP rápidamente, escríbeme a pansalegrand@gmail.com. Hablo inglés, francés y chino (nivel de trabajo).

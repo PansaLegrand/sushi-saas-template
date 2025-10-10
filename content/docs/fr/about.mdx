@@ -19,15 +19,15 @@ updatedAt: "2025-10-02T00:00:00.000Z"
 
 ## Qu’est‑ce que Sushi SaaS ?
 
-Sushi SaaS est un starter Next.js pragmatique, orienté production, pour construire et lancer de vrais produits SaaS. Il fournit dès le départ l’authentification, la facturation, l’admin, le contenu et l’i18n, reliés à une base typée avec des migrations explicites.
+Sushi SaaS est un starter Next.js pragmatique et orienté production pour construire et lancer de vrais produits SaaS. Il livre dès le départ l’authentification, la facturation, l’admin, le contenu et l’internationalisation, reliés à une base typée avec des migrations explicites.
 
 Pile principale :
 
 - Next.js App Router avec routes localisées (next‑intl)
 - Better Auth + Postgres via Drizzle ORM
 - Stripe Checkout + finalisation par webhooks (journal de crédits prêt)
-- Docs/blog MDX avec Fumadocs (métadonnées SEO + JSON‑LD)
-- Pages d’admin avec RBAC côté serveur
+- Docs/blogs MDX avec Fumadocs (métadonnées SEO + JSON‑LD)
+- Pages d’admin avec RBAC appliqué côté serveur
 - DX saine : pnpm, ESLint/Tailwind, endpoint de santé, variables d’environnement claires
 
 Dépôt GitHub : https://github.com/PansaLegrand/saas-sushi-template
@@ -42,10 +42,10 @@ pnpm install && pnpm dev
 
 ## Pourquoi vous pouvez lui faire confiance
 
-- Typage de bout en bout : les schémas Drizzle sont la source de vérité ; les migrations drizzle‑kit gardent la base en phase.
-- Vrais parcours, pas des mocks : auth, facturation (Stripe) et permissions admin sont connectées et visibles dans l’UI.
-- i18n prévisible : routes préfixées par locale via next‑intl ; messages au même endroit que l’app et les docs.
-- Clarté opérationnelle : `/api/health`, modèles d’environnement et consignes de build/lint/migrations.
+- Typé de la donnée à l’UI : les schémas Drizzle sont la source de vérité ; les migrations drizzle‑kit gardent la base en phase.
+- De vrais parcours, pas des stubs : auth, facturation (Stripe) et permissions admin sont connectées et exercées dans l’UI.
+- i18n prévisible : routes préfixées par locale via next‑intl ; messages à côté de l’app et des docs.
+- Clarté opérationnelle : `/api/health`, modèles d’environnement et consignes de build, lint et migrations.
 - Documentation claire : chaque capacité (auth, billing, base, admin, e‑mails) a un guide MDX avec commandes et chemins utiles.
 - Éprouvé sur le terrain : reflète des patterns utilisés pour livrer de vrais produits (voir README « Showcase »).
 
@@ -53,28 +53,36 @@ pnpm install && pnpm dev
 
 ## Ce qui le rend unique
 
-- Licence MIT : usage commercial, modification libre, vitesse maximale. Voir `LICENSE` dans le dépôt.
+- Licence MIT : usage commercial, modification libre, avancez vite. Voir `LICENSE` dans le dépôt.
 - Starter complet : auth, billing, journal de crédits, affiliés, démo de réservations, docs MDX, admin et i18n prêts à l’emploi.
 - Contenu + SEO intégrés : frontmatter → metadata Next.js + OpenGraph + JSON‑LD pour chaque page MDX.
-- Conseil par l’auteur : besoin d’adapter à votre cas ? L’auteur propose implémentation et advisory. Email : pansalegrand@gmail.com
+- Conseil par l’auteur disponible : besoin d’adapter à votre cas ? L’auteur propose implémentation et advisory pour vous faire livrer plus vite en confiance. Email : pansalegrand@gmail.com (anglais, français, chinois — niveau opérationnel)
 
 ---
 
 ## Ce que vous obtenez dès le premier jour
 
 - Authentification & RBAC : Better Auth, adaptateur BD typé, admin sécurisé (lecture seule / lecture‑écriture).
-- Facturation solide : Stripe Checkout + webhooks signés pour finaliser et créditer.
-- Crédits & commandes : un petit journal pour produits à l’usage et essais.
+- Facturation qui tient la route : Stripe Checkout + webhooks signés pour finaliser et créditer.
+- Crédits & commandes : un journal simple pour les produits à l’usage et les essais gratuits.
 - Internationalisation : routes par locale, bundles de messages et docs localisées.
 - Documentation MDX : Fumadocs avec navigation et table des matières.
 - DX développeur : pnpm, Turbopack/Webpack, ESLint/Tailwind et conventions claires.
 
 ---
 
+## Pourquoi j’ai créé ce projet open source
+
+J’ai lancé Sushi SaaS pour rencontrer d’autres builders et me pousser à livrer régulièrement. L’open source rend cela possible : il invite de vraies conversations, déclenche des side projects et ouvre parfois la porte pour rejoindre une startup.
+
+- Connexion et élan : je veux rencontrer des collaborateurs, explorer des side projects et—si l’alchimie opère—rejoindre une startup. Publier du code réel et fonctionnel est le meilleur déclencheur de conversation que je connaisse.
+- Un meilleur logiciel grâce à l’ouverture : les boilerplates deviennent excellents quand les gens les utilisent, les critiquent et les améliorent. C’est ma façon de « build in public »—sans incitation financière—simplement par plaisir de coder et de voir d’autres construire dessus.
+
+---
+
 ## Liens
 
 - GitHub : https://github.com/PansaLegrand/saas-sushi-template
-- README : /README.fr.md
-- Démarrage : `/:locale/blogs/quick-start`
+- Démarrage : [Quick Start](/fr/blogs/quick-start)
 
-Pour adapter ce template à votre produit ou valider un MVP rapidement, écrivez‑nous : pansalegrand@gmail.com.
+Si vous souhaitez adapter ce template à votre produit ou valider votre MVP rapidement, écrivez‑moi à pansalegrand@gmail.com. Je parle anglais, français et chinois (niveau opérationnel).

@@ -19,15 +19,15 @@ updatedAt: "2025-10-02T00:00:00.000Z"
 
 ## Sushi SaaS 是什么？
 
-Sushi SaaS 是一个务实的 Next.js 模板，帮助你更快地构建与上线真正的 SaaS。它把你在第 1 天就需要的能力放在一起——认证、计费、管理、内容与国际化——并通过类型安全的数据库与明确的迁移串联起来。
+Sushi SaaS 是一个务实的、面向生产的 Next.js 起步模板，帮助你更快地构建与上线真正的 SaaS。它把你在第 1 天就需要的能力放在一起——认证、计费、管理、内容与国际化——并通过类型安全的数据库与明确的迁移串联起来。
 
 核心栈：
 
 - Next.js App Router + 基于 next‑intl 的本地化路由
 - Better Auth + 通过 Drizzle ORM 连接 Postgres
-- Stripe Checkout + Webhook 最终入账（内置积分台账）
-- 基于 Fumadocs 的 MDX 文档（含 SEO 元数据 + JSON‑LD）
-- 服务器端 RBAC 的管理页面
+- Stripe Checkout + Webhook 最终入账（积分台账就绪）
+- 基于 Fumadocs 的 MDX 文档/博客（含 SEO 元数据 + JSON‑LD）
+- 服务器端强制 RBAC 的管理页面
 - 实用 DX：pnpm、ESLint/Tailwind、健康检查、清晰的环境变量
 
 GitHub 仓库： https://github.com/PansaLegrand/saas-sushi-template
@@ -43,9 +43,9 @@ pnpm install && pnpm dev
 ## 为何值得信赖
 
 - 端到端类型安全：Drizzle 模式为单一事实来源；drizzle‑kit 迁移保持数据库一致。
-- 真实业务流：认证、计费（Stripe）和管理权限打通，并在 UI 中可见。
-- 可预期的 i18n：基于 next‑intl 的显式前缀路由；消息与应用/文档同处。
-- 运维清晰：`/api/health`、环境模板，以及构建/Lint/迁移的明确流程。
+- 真实业务流，而非样例：认证、计费（Stripe）和管理权限已打通并在 UI 中被实际使用。
+- 可预期的 i18n：基于 next‑intl 的显式前缀路由；消息与应用和文档并置。
+- 运维清晰：`/api/health`、环境模板，以及构建、Lint、迁移的明确规范。
 - 文档完善：核心能力（认证、计费、数据库、管理、邮件）均有 MDX 指南与实际命令、文件路径。
 - 实战沉淀：来源于真实产品的经验模式（见 README 的 Showcase）。
 
@@ -56,14 +56,14 @@ pnpm install && pnpm dev
 - MIT 许可：可商用可改造，助你快速推进。详见仓库中的 `LICENSE`。
 - 功能完整：认证、计费、积分台账、推广/返利、预约演示、MDX 文档、管理与 i18n 开箱即用。
 - 内容 + SEO 一体化：Frontmatter 自动映射到 Next.js Metadata、OpenGraph 与 JSON‑LD。
-- 作者可提供咨询：需要按需落地？作者可提供实现与顾问服务。Email：pansalegrand@gmail.com
+- 作者可提供咨询：需要按需落地？作者提供实现与顾问服务，助你更快、更放心地上线。Email：pansalegrand@gmail.com（英语、法语、中文——工作熟练）
 
 ---
 
 ## 第一天你就拥有
 
 - 认证与 RBAC：Better Auth、类型化数据库适配、安全的管理角色（只读/读写）。
-- 可依赖的计费：Stripe Checkout + 签名 Webhook 最终入账并发放积分。
+- 可靠的计费：Stripe Checkout + 签名 Webhook 最终入账并发放积分。
 - 积分与订单：适合按量计费与试用的简单台账模型。
 - 国际化：显式本地化路由、消息包与本地化文档。
 - MDX 文档：Fumadocs 导航与目录。
@@ -71,10 +71,18 @@ pnpm install && pnpm dev
 
 ---
 
+## 我为什么做这个开源项目
+
+我做 Sushi SaaS 是为了结识更多构建者，也为了督促自己持续交付。开源让这一切成为可能：它带来真实的交流，点燃副项目，有时也会打开加入初创公司的机会之门。
+
+- 连接与动能：我希望结识合作者、探索副项目，如果契合，也愿意加入一家初创公司。发布真实可用的代码，是我知道的最好的开场白。
+- 通过开放让软件更好：样板只有在被使用、被批评、被改进时才会变好。这是我“公开构建”的方式——没有金钱动机——只是热爱编程，也乐于看到他人在此之上继续构建。
+
+---
+
 ## 链接
 
 - GitHub： https://github.com/PansaLegrand/saas-sushi-template
-- README： /README.zh.md
-- 入门文档： `/:locale/blogs/quick-start`
+- 入门文档： [快速开始](/zh/blogs/quick-start)
 
-如果你需要将此模板快速定制到你的产品或加速 MVP 验证，请联系：pansalegrand@gmail.com。
+如果你需要将此模板定制到你的产品或加速 MVP 验证，请联系：pansalegrand@gmail.com。我会说英语、法语和中文（工作熟练）。
