@@ -26,13 +26,13 @@ export default async function LandingPage() {
           </span>
           <div className="flex items-center gap-4 text-sm font-medium">
             <Link
-              href="/blogs/quick-start"
+              href="/blogs/about"
               className="text-muted-foreground transition hover:text-foreground"
             >
               {t("hero.ctaSecondary")}
             </Link>
             <Link
-              href="/api/health"
+              href="/blogs/quick-start"
               className="rounded-full bg-foreground px-4 py-2 text-background transition hover:opacity-90"
             >
               {t("hero.ctaPrimary")}
@@ -54,13 +54,13 @@ export default async function LandingPage() {
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Link
-              href="/api/health"
+              href="/blogs/quick-start"
               className="rounded-md bg-foreground px-6 py-3 text-base font-medium text-background shadow-sm transition hover:shadow-md"
             >
               {t("hero.ctaPrimary")}
             </Link>
             <Link
-              href="/blogs/quick-start"
+              href="/blogs/about"
               className="rounded-md border border-border px-6 py-3 text-base font-medium text-foreground transition hover:bg-foreground/5"
             >
               {t("hero.ctaSecondary")}
