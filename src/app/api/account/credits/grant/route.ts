@@ -44,6 +44,6 @@ export async function POST(req: Request) {
     return respData(summary);
   } catch (error) {
     console.error("grant credits failed", error);
-    return respErr("grant credits failed");
+    return respErr("grant credits failed", { status: 500 });
   }
 }

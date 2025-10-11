@@ -1,0 +1,149 @@
+---
+title: "Logs y Observabilidad"
+icon: "Activity"
+description: "Logging estructurado para Node, Edge y Workers con IDs de solicitud, redacción de secretos y ejemplos por ruta. Funciona en Vercel, Cloudflare y servidores Node."
+keywords:
+  - logs
+  - observabilidad
+  - Pino
+  - Next.js
+  - Vercel
+  - Cloudflare Workers
+  - runtime Edge
+  - logs JSON
+  - id de solicitud
+tags: [logs, observabilidad, Node, Edge]
+author: "Pansa Legrand"
+publishedAt: "2025-10-11T00:00:00.000Z"
+updatedAt: "2025-10-11T00:00:00.000Z"
+canonical: "https://www.sushi-templates.com/es/blogs/logging"
+---
+
+Conceptos básicos
+- Logs estructurados: emite objetos JSON, no cadenas sueltas; facilita buscar y correlacionar.
+- IDs de correlación: añade `request_id` a todos los logs de una solicitud.
+- Niveles: `debug` en dev, `info` normal, `warn` anomalías, `error` fallos.
+- Redacción: nunca registres secretos, tokens o cookies.
+
+Qué incluye
+- API de logging común para Node y Edge/Workers (misma forma).
+  - Node (funciones de servidor Next, serverless, Node): Pino rápido con JSON.
+  - Edge/Workers (Vercel Edge, Cloudflare Workers, middleware): implementación ligera con `console.log` JSON.
+- Propagación de `request_id` vía middleware (sin tocar cookies).
+- Ejemplo conectado en la ruta de presign de almacenamiento.
+
+Archivos
+- Node: `src/lib/logger/server.ts`
+- Edge: `src/lib/logger/edge.ts`
+- Tipos: `src/lib/logger/types.ts`
+- Middleware: `src/middleware.ts`
+- Ejemplo: `src/app/api/storage/uploads/route.ts`
+
+Archivos clave
+- Node: `src/lib/logger/server.ts`
+- Edge: `src/lib/logger/edge.ts`
+- Tipos: `src/lib/logger/types.ts`
+- Middleware: `src/middleware.ts`
+- Ejemplo: `src/app/api/storage/uploads/route.ts`
+
+Dónde ver los logs
+- Local: consola del terminal (salida JSON de una línea). Para legibilidad usa `pino-pretty`:
+  - `pnpm dev 2>&1 | pnpx pino-pretty`
+  - guardar en archivo: `pnpm dev 2>&1 | pnpx pino-pretty | tee logs/dev.log`
+- Vercel: Deployments → Functions → Logs, o `vercel logs`.
+- Cloudflare Workers: `wrangler tail` o panel de Logs.
+
+Uso (Node)
+```ts
+import { logger, requestIdFromHeaders } from '@/lib/logger/server'
+export async function POST(req: Request){
+  const rid = requestIdFromHeaders(req.headers)
+  const log = logger.child({ request_id: rid, route: '/api/ejemplo' })
+  log.info({ event: 'ejemplo.start' })
+  // ...
+  log.info({ event: 'ejemplo.ok' })
+  return new Response('ok')
+}
+```
+
+Uso (Edge)
+```ts
+import { logger } from '@/lib/logger/edge'
+export const runtime = 'edge'
+export function GET(){
+  logger.info({ event: 'edge.heartbeat' })
+  return new Response('ok')
+}
+```
+
+Config
+- `LOG_LEVEL` y reglas de redacción en los archivos del logger.
+- No hay archivo de logs por defecto: escribimos a stdout/stderr. En local, usa `tee` si quieres guardar: `pnpm dev 2>&1 | tee logs/dev.json`.
+
+Uso (Node)
+```ts
+import { logger, requestIdFromHeaders } from '@/lib/logger/server'
+export async function POST(req: Request){
+  const rid = requestIdFromHeaders(req.headers)
+  const log = logger.child({ request_id: rid, route: '/api/ejemplo' })
+  const start = Date.now()
+  try {
+    log.info({ event: 'ejemplo.start' })
+    // ...
+    log.info({ event: 'ejemplo.ok', duration_ms: Date.now() - start })
+    return new Response('ok')
+  } catch (e:any) {
+    log.error({ event: 'ejemplo.error', message: e?.message })
+    return new Response('error', { status: 500 })
+  }
+}
+```
+
+Uso (Edge)
+```ts
+import { logger } from '@/lib/logger/edge'
+export const runtime = 'edge'
+export function GET(){
+  logger.info({ event: 'edge.heartbeat' })
+  return new Response('ok')
+}
+```
+
+Helper: withApiLogging (Node)
+```ts
+import { withApiLogging } from '@/lib/logger/server'
+export const POST = withApiLogging(async (req) => {
+  // lógica
+  return new Response('ok')
+}, { route: '/api/foo', event: 'foo.process' })
+```
+
+Ejemplo ya conectado
+- `src/app/api/storage/uploads/route.ts` emite `storage.presign.create` con `{ request_id, user_id, file_id, key, size, content_type, bucket }` y errores `storage.presign.create.error`.
+
+Buenas prácticas
+- Usa `request_id` en loggers hijo por petición y añade `duration_ms` al finalizar.
+- Mensajes cortos; prioriza campos.
+- Evita registrar cuerpos completos; mejor hashes/campos puntuales.
+
+Redacción a medida
+- Node: edita `redactPaths` en `src/lib/logger/server.ts` (Pino reemplaza por `[REDACTED]`).
+- Edge: edita `redactKeys` en `src/lib/logger/edge.ts`.
+
+Sustituir console.*
+- En `src/app/api/**` y `src/services/**`, importa `logger` (Node) y usa `logger.info|warn|error`.
+- En cliente, limita `console` y usa un capturador de errores (p. ej., Sentry).
+
+Integraciones opcionales
+- Sentry (`@sentry/nextjs`) para excepciones y trazas.
+- Sinks gestionados (Axiom, Better Stack, Datadog, New Relic):
+  - Node: transport/Pino o captura stdout.
+  - Edge: ingesta HTTP o logs de plataforma.
+
+Solución de problemas
+- Redirecciones inesperadas a login: asegúrate de que el middleware no sobrescribe cabeceras de solicitud/cookies.
+- Falta de logs en Edge: verifica `runtime = 'edge'` y usa `wrangler tail`/Vercel logs.
+
+Buenas prácticas
+- Usa `request_id` y `duration_ms`; evita cuerpos completos.
+- Sustituye `console.*` por el logger en código del servidor.

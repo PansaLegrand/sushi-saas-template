@@ -27,6 +27,6 @@ export async function POST(req: Request) {
     return respData(summary);
   } catch (error) {
     console.error("get user credits failed", error);
-    return respErr("get user credits failed");
+    return respErr("get user credits failed", { status: 500 });
   }
 }

@@ -1,0 +1,133 @@
+---
+title: "Logs & Observabilité"
+icon: "Activity"
+description: "Journalisation structurée pour Node, Edge et Workers avec IDs de requête, masquage des secrets et exemples par route. Fonctionne sur Vercel, Cloudflare et serveurs Node."
+keywords:
+  - logs
+  - observabilité
+  - Pino
+  - Next.js
+  - Vercel
+  - Cloudflare Workers
+  - runtime Edge
+  - journaux JSON
+  - id de requête
+tags: [logs, observabilité, Node, Edge]
+author: "Pansa Legrand"
+publishedAt: "2025-10-11T00:00:00.000Z"
+updatedAt: "2025-10-11T00:00:00.000Z"
+canonical: "https://www.sushi-templates.com/fr/blogs/logging"
+---
+
+Notions clés
+- Logs structurés (JSON), corrélés via `request_id`.
+- Niveaux: `debug`, `info`, `warn`, `error`.
+- Masquage des secrets (cookies, tokens, etc.).
+
+Ce qui est inclus
+- API commune côté Node et Edge/Workers (même forme).
+  - Node (fonctions serveur Next, serverless, Node): Pino (JSON rapide).
+  - Edge/Workers (Vercel Edge, Cloudflare Workers, middleware): implémentation légère via `console.log` JSON.
+- Propagation `request_id` via middleware (sans toucher aux cookies).
+- Exemple branché sur la route de présignature de stockage.
+
+Fichiers
+- Node: `src/lib/logger/server.ts`
+- Edge: `src/lib/logger/edge.ts`
+- Types: `src/lib/logger/types.ts`
+- Middleware: `src/middleware.ts`
+- Exemple: `src/app/api/storage/uploads/route.ts`
+
+Fichiers
+- Node: `src/lib/logger/server.ts`
+- Edge: `src/lib/logger/edge.ts`
+- Types: `src/lib/logger/types.ts`
+- Middleware: `src/middleware.ts`
+- Exemple: `src/app/api/storage/uploads/route.ts`
+
+Voir les logs
+- Local: terminal (JSON sur une ligne). Pour un affichage lisible, utilisez `pino-pretty`:
+  - `pnpm dev 2>&1 | pnpx pino-pretty`
+  - sauvegarde fichier: `pnpm dev 2>&1 | pnpx pino-pretty | tee logs/dev.log`
+- Vercel: Deployments → Functions → Logs, ou `vercel logs`.
+- Cloudflare Workers: `wrangler tail`.
+
+Utilisation (Node)
+```ts
+import { logger, requestIdFromHeaders } from '@/lib/logger/server'
+export async function POST(req: Request){
+  const rid = requestIdFromHeaders(req.headers)
+  const log = logger.child({ request_id: rid, route: '/api/exemple' })
+  log.info({ event: 'exemple.start' })
+  // ...
+  log.info({ event: 'exemple.ok' })
+  return new Response('ok')
+}
+```
+
+Utilisation (Edge)
+```ts
+import { logger } from '@/lib/logger/edge'
+export const runtime = 'edge'
+export function GET(){
+  logger.info({ event: 'edge.heartbeat' })
+  return new Response('ok')
+}
+```
+
+Conseils
+- Définir `LOG_LEVEL` et ajuster la redaction selon vos besoins.
+- Pas de fichier de logs par défaut: écriture vers stdout/stderr. En local, utilisez `tee` si besoin: `pnpm dev 2>&1 | tee logs/dev.json`.
+- Remplacer `console.*` par le logger côté serveur.
+
+Utilisation (Node)
+```ts
+import { logger, requestIdFromHeaders } from '@/lib/logger/server'
+export async function POST(req: Request){
+  const rid = requestIdFromHeaders(req.headers)
+  const log = logger.child({ request_id: rid, route: '/api/exemple' })
+  const start = Date.now()
+  try {
+    log.info({ event: 'exemple.start' })
+    // ...
+    log.info({ event: 'exemple.ok', duration_ms: Date.now() - start })
+    return new Response('ok')
+  } catch (e:any) {
+    log.error({ event: 'exemple.error', message: e?.message })
+    return new Response('error', { status: 500 })
+  }
+}
+```
+
+Utilisation (Edge)
+```ts
+import { logger } from '@/lib/logger/edge'
+export const runtime = 'edge'
+export function GET(){
+  logger.info({ event: 'edge.heartbeat' })
+  return new Response('ok')
+}
+```
+
+Aide: withApiLogging (Node)
+```ts
+import { withApiLogging } from '@/lib/logger/server'
+export const POST = withApiLogging(async (req) => {
+  return new Response('ok')
+}, { route: '/api/foo', event: 'foo.process' })
+```
+
+Exemple déjà branché
+- `src/app/api/storage/uploads/route.ts` émet `storage.presign.create` et `storage.presign.create.error`.
+
+Personnaliser le masquage
+- Node: `redactPaths` dans `src/lib/logger/server.ts`.
+- Edge: `redactKeys` dans `src/lib/logger/edge.ts`.
+
+Intégrations optionnelles
+- Sentry (`@sentry/nextjs`) pour exceptions et traces.
+- Sinks gérés (Axiom, Better Stack, Datadog, New Relic) pour recherche/rétention.
+
+Dépannage
+- Redirections inattendues vers login: ne pas surcharger les en‑têtes de requête/cookies dans le middleware.
+- Pas de logs en Edge: vérifier `runtime='edge'` et utiliser `wrangler tail`/Vercel logs.

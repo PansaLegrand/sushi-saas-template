@@ -1,0 +1,174 @@
+---
+title: 通知 - Slack 警报
+icon: "Bell"
+description: 为上传与支付配置简单的 Slack 通知，将其接入 Stripe Webhook 与存储错误，并通过轻量服务器工具灵活自定义。
+keywords:
+  - Slack
+  - 通知
+  - webhooks
+  - Stripe
+  - 存储
+  - S3
+  - R2
+  - Next.js
+tags: [通知, Slack, webhooks]
+author: "Pansa Legrand"
+publishedAt: "2025-10-11T00:00:00.000Z"
+updatedAt: "2025-10-11T00:00:00.000Z"
+canonical: "https://www.sushi-templates.com/zh/blogs/notifications-slack"
+---
+
+# 通知：Slack 警报
+
+本指南介绍如何在服务端向 Slack 发送简单通知：当发生重要事件（如支付成功）或出现意外错误（如文件上传的服务端错误）时进行提醒。
+
+无需了解 Slack API。只需配置一个环境变量，并使用一个向 Slack Incoming Webhook 发送消息的小工具函数即可。
+
+## 你将构建什么
+
+- 用户完成支付（通过 Stripe Webhook）时向 Slack 发送消息。
+- 存储上传流程出现意外服务端错误时向 Slack 发送消息（S3/R2/MinIO）。
+- 将同一模式扩展到应用中的任意 API 处理器。
+
+## 工作原理（概览）
+
+- 服务端小工具向 Slack 的 Incoming Webhook 发送 JSON。
+  - 工具位置：`src/integrations/slack.ts`
+  - 最佳努力、非阻塞（短超时 + `queueMicrotask`）。
+- 我们在以下位置调用它：
+  - Stripe Webhook：结账成功和订阅续费
+    - `src/app/api/pay/webhook/stripe/route.ts`
+  - 上传处理：当发生意外服务端错误时
+    - `src/app/api/storage/uploads/route.ts`
+    - `src/app/api/storage/uploads/complete/route.ts`
+
+如果未设置 `SLACK_WEBHOOK_URL`，通知将自动禁用。
+
+## 前置条件
+
+- 你在 Slack 工作区中具有添加 “Incoming Webhook” 的权限。
+- 能够编辑项目的 `.env` 文件。
+
+## 步骤 1 — 创建 Slack Incoming Webhook
+
+参照官方文档进行配置：
+
+- 使用 Incoming Webhooks 发送消息（Slack 文档）：https://docs.slack.dev/messaging/sending-messages-using-incoming-webhooks/
+
+快速步骤：
+
+1) 打开 Slack 应用目录，搜索 “Incoming Webhooks”。
+2) 将其添加到你的工作区，并选择一个频道（如 `#alerts`）。
+3) 复制生成的 Webhook URL（形如 `https://hooks.slack.com/services/...`）。
+
+## 步骤 2 — 在 `.env` 配置 Webhook URL
+
+```bash
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/XXX/YYY/ZZZ
+```
+
+`.env.example` 中也提供了示例。
+
+留空则不发送通知。
+
+## 步骤 3 — 已经接好的位置
+
+我们提供了两个便捷函数：
+
+```ts
+// src/integrations/slack.ts
+export function notifySlackEvent(title: string, context?: Record<string, unknown>): void
+export function notifySlackError(title: string, error?: unknown, context?: Record<string, unknown>): void
+```
+
+它们会在后台发送消息（如果未配置 `SLACK_WEBHOOK_URL`，则不做任何事）。
+
+在以下位置已集成：
+
+- 支付（Stripe Webhook）— 成功、续费、失败
+  - `src/app/api/pay/webhook/stripe/route.ts`
+    - 结账成功 → `notifySlackEvent("Payment succeeded", { order_no, email, amount, currency, type })`
+    - 订阅续费成功 → `notifySlackEvent("Subscription renewal succeeded", { ... })`
+    - 支付失败 → `notifySlackError("Payment failed", undefined, { ... })`
+
+- 存储（S3/R2/MinIO）— 意外的服务端错误
+  - 生成上传签名失败 → `src/app/api/storage/uploads/route.ts`
+  - 完成上传失败 → `src/app/api/storage/uploads/complete/route.ts`
+
+这些集成点可覆盖真实的金钱事件与上传链路的关键错误，同时避免常见 4xx 校验错误（如 “文件过大”）带来的噪音。
+
+## 步骤 4 — 试一试
+
+- 支付：在 Stripe 测试模式下完成一次结账（参见 “Hands‑on: Stripe Setup”）。Webhook 触发后，你应能在 Slack 频道看到通知。
+- 上传：临时将 `.env` 中的 `STORAGE_MAX_UPLOAD_MB` 调小，然后上传较大的文件。只有 5xx 错误会发送 Slack 警报。
+
+若未收到通知，请检查 `SLACK_WEBHOOK_URL` 是否设置，以及服务器的网络连通性。
+
+## 自定义通知
+
+你可以在任意服务端 API 中发送通知：
+
+```ts
+import { notifySlackEvent, notifySlackError } from "@/integrations/slack";
+
+export async function POST(req: Request) {
+  try {
+    // ... your logic
+    notifySlackEvent("Widget created", { user: "alice@example.com", id: 123 });
+    return Response.json({ ok: true });
+  } catch (e) {
+    notifySlackError("Widget create failed", e, { route: "/api/widgets" });
+    return new Response("error", { status: 500 });
+  }
+}
+```
+
+建议：
+
+- 何时通知
+  - 业务里程碑用 `notifySlackEvent`（新注册、支付成功、关键管理员操作等）。
+  - 仅对意外的 5xx 使用 `notifySlackError`；避免对 4xx 校验错误报警。
+
+- 包含内容
+  - 简明消息 + 小的上下文对象（订单号、用户邮箱等）。工具函数会以代码块格式化。
+
+- 按环境启用/禁用
+  - 开发环境可留空 `SLACK_WEBHOOK_URL`，从而不发送通知。
+
+### 进阶：限制噪音（节流）
+
+```ts
+const lastSent = new Map<string, number>();
+function throttledNotify(key: string, fn: () => void, ms = 60_000) {
+  const now = Date.now();
+  const prev = lastSent.get(key) || 0;
+  if (now - prev > ms) {
+    lastSent.set(key, now);
+    fn();
+  }
+}
+// 示例
+throttledNotify("storage:presign:error", () => notifySlackError("Storage presign error", err));
+```
+
+### 进阶：多个频道或提供商
+
+- 若需不同频道，创建多个 Webhook 并添加小包装（如 `SLACK_WEBHOOK_URL_ALERTS`, `SLACK_WEBHOOK_URL_PAYMENTS`）。
+- 也可扩展到 Discord、邮件或 PagerDuty，复用相同的集成点。
+
+## 生产注意事项
+
+- 非阻塞、尽力而为
+  - 使用 `queueMicrotask` 并设置短超时，不阻塞响应与 Webhook ACK。
+- 敏感信息
+  - 避免包含秘钥或凭证，只放 ID、邮箱等最小化信息。
+- 可观测性
+  - 发送失败会以 warning 记录到服务端日志；可配合日志与看板使用。
+
+## 代码位置
+
+- 工具：`src/integrations/slack.ts`
+- 支付：`src/app/api/pay/webhook/stripe/route.ts`
+- 存储：`src/app/api/storage/uploads/route.ts`，`src/app/api/storage/uploads/complete/route.ts`
+
+到此为止，你就拥有了简单可扩展的 Slack 警报能力。

@@ -52,6 +52,6 @@ export async function POST(req: Request) {
     }
 
     console.error("consume credits failed", error);
-    return respErr("consume credits failed");
+    return respErr("consume credits failed", { status: 500 });
   }
 }

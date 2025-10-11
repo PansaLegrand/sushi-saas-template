@@ -47,7 +47,13 @@ export function respNoAuth(message = "no auth"): Response {
 }
 
 export function respForbidden(message = "forbidden"): Response {
-  return respJson(ApiResponseCode.Unauthorized, message, undefined, {
+  return respJson(ApiResponseCode.Forbidden, message, undefined, {
     status: 403,
+  });
+}
+
+export function respNotFound(message = "not found"): Response {
+  return respJson(ApiResponseCode.NotFound, message, undefined, {
+    status: 404,
   });
 }

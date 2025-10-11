@@ -27,7 +27,6 @@ export async function GET(req: Request) {
     });
   } catch (e) {
     console.error("admin list orders failed", e);
-    return respErr("admin list orders failed");
+    return respErr("admin list orders failed", { status: 500 });
   }
 }
-

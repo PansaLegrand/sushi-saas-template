@@ -54,8 +54,12 @@ export function Uploader() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ filename: file.name, contentType: file.type || "application/octet-stream", size: file.size }),
     });
-    if (!res.ok) throw new Error(t("errorCreate"));
-    return (await res.json()).data as {
+    const json = await res.json().catch(() => null as any);
+    if (!res.ok || !json || json.code !== 0) {
+      const msg = (json && json.message) || t("errorCreate");
+      throw new Error(msg);
+    }
+    return json.data as {
       fileUuid: string;
       uploadUrl: string;
       method: "PUT";
@@ -69,8 +73,12 @@ export function Uploader() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fileUuid }),
     });
-    if (!res.ok) throw new Error(t("errorComplete"));
-    return (await res.json()).data as any;
+    const json = await res.json().catch(() => null as any);
+    if (!res.ok || !json || json.code !== 0) {
+      const msg = (json && json.message) || t("errorComplete");
+      throw new Error(msg);
+    }
+    return json.data as any;
   }
 
   const queueFiles = useCallback((files: FileList | null) => {

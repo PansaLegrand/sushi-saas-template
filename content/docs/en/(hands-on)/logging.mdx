@@ -1,0 +1,135 @@
+---
+title: "Logging & Observability"
+icon: "Activity"
+description: "Structured logging for Node, Edge and Workers with request IDs, redaction and per-route examples. Works on Vercel, Cloudflare and Node servers."
+keywords:
+  - logging
+  - observability
+  - Pino
+  - Next.js
+  - Vercel
+  - Cloudflare Workers
+  - Edge runtime
+  - JSON logs
+  - request id
+tags: [logging, observability, Node, Edge]
+author: "Pansa Legrand"
+publishedAt: "2025-10-11T00:00:00.000Z"
+updatedAt: "2025-10-11T00:00:00.000Z"
+canonical: "https://www.sushi-templates.com/en/blogs/logging"
+---
+
+Basic Concepts
+- Structured logs: Emit JSON objects, not free-form strings. Easier to search, filter and correlate.
+- Correlation IDs: Attach a stable `request_id` to every log for a request. Lets you trace a user action across middleware, API handlers, and services.
+- Levels: Use `debug` for development, `info` for normal flow, `warn` for anomalies, and `error` for failures.
+- Redaction: Never log secrets, tokens or cookies. Redact known-sensitive keys by default and extend as needed.
+
+What’s Included
+- Cross‑runtime logger API with the same shape in Node and Edge/Workers:
+  - Node (Next.js server functions, serverless, Node server): Pino for fast JSON logs with dev pretty‑print.
+  - Edge/Workers (Vercel Edge, Cloudflare Workers, middleware): lightweight JSON console implementation.
+- Request ID propagation via middleware, without touching auth cookies.
+- Example wiring on the storage presign route.
+
+Files
+- Node logger: `src/lib/logger/server.ts`
+- Edge logger: `src/lib/logger/edge.ts`
+- Logger types: `src/lib/logger/types.ts`
+- Middleware (sets response `x-request-id` only): `src/middleware.ts`
+- Example usage (presign upload): `src/app/api/storage/uploads/route.ts`
+
+Configuration
+- Env var: `LOG_LEVEL` = `debug` | `info` | `warn` | `error` (defaults: `debug` in dev, `info` in prod)
+- Pretty output (dev): pipe through `pino-pretty` instead of in‑process transports:
+  - `pnpm dev 2>&1 | pnpx pino-pretty`
+  - or save pretty logs to a file: `pnpm dev 2>&1 | pnpx pino-pretty | tee logs/dev.log`
+- Redaction (Node): see `redactPaths` in `src/lib/logger/server.ts` — extends to headers and common secret‑like keys.
+- Redaction (Edge): shallow key‑name match; extend `redactKeys` in `src/lib/logger/edge.ts` if needed.
+
+See Your Logs
+- Local dev: logs print to your terminal (Node = one‑line JSON; Edge = one‑line JSON). Use `pino-pretty` piping above for readability.
+- Vercel (Node + Edge):
+  - Dashboard: Project → Deployments → Functions → Logs.
+  - CLI: `vercel logs <deployment-url> --since=1h`.
+- Cloudflare Workers (Edge):
+  - CLI: `wrangler tail` while the worker is running.
+  - Dashboard: Workers & Pages → your Worker → Logs.
+
+No Log File by Default
+- We do not write to files in code; logs go to stdout/stderr so platforms can capture them.
+- To capture locally: `pnpm dev 2>&1 | tee logs/dev.json` (or pipe through `pino-pretty` as shown above).
+- Avoid file sinks in serverless (Vercel/CF) because disks are ephemeral.
+
+Usage: Node/Serverless routes
+```ts
+import { logger, requestIdFromHeaders } from '@/lib/logger/server';
+
+export async function POST(req: Request) {
+  const request_id = requestIdFromHeaders(req.headers);
+  const log = logger.child({ request_id, route: '/api/example' });
+  const start = Date.now();
+  try {
+    log.info({ event: 'example.start' });
+    // ... handler logic
+    log.info({ event: 'example.ok', duration_ms: Date.now() - start });
+    return new Response('ok');
+  } catch (e: any) {
+    log.error({ event: 'example.error', message: e?.message });
+    return new Response('error', { status: 500 });
+  }
+}
+```
+
+Usage: Edge routes / middleware
+```ts
+import { logger } from '@/lib/logger/edge';
+
+export const runtime = 'edge';
+
+export async function GET() {
+  logger.info({ event: 'edge.heartbeat' });
+  return new Response('ok');
+}
+```
+
+Helper: withApiLogging
+- For Node routes, you can wrap a handler to get standard start/ok/error logs with duration automatically.
+
+```ts
+import { withApiLogging } from '@/lib/logger/server';
+
+export const POST = withApiLogging(async (req: Request) => {
+  // your logic
+  return new Response('ok');
+}, { route: '/api/foo', event: 'foo.process' });
+```
+
+Example Already Wired
+- `src/app/api/storage/uploads/route.ts` logs `storage.presign.create` with `{ request_id, user_id, file_id, key, size, content_type, bucket }` and emits errors as `storage.presign.create.error`.
+
+Best Practices
+- Add `request_id`, `user_id` (when available) on a per‑request child logger.
+- Keep messages short; favor fields over long strings.
+- Log at completion with `duration_ms` instead of spamming progress logs.
+- Avoid logging the full request body; log a hash or selected fields.
+
+Customizing Redaction
+- Node (Pino): edit `redactPaths` in `src/lib/logger/server.ts`. Pino will replace matched paths with `[REDACTED]`.
+- Edge: edit `redactKeys` in `src/lib/logger/edge.ts` to include more key name patterns.
+
+Replacing console.*
+- For server code under `src/app/api/**` and `src/services/**`, replace `console.log/warn/error` with the logger:
+  - `import { logger } from '@/lib/logger/server'`
+  - Use `logger.info({ event: '...' })` or a request child logger.
+- For client components, keep `console` minimal; prefer an error reporter (e.g., Sentry) instead of verbose logs.
+
+Optional Integrations
+- Sentry (`@sentry/nextjs`) for exceptions and traces on both client and server.
+- Managed log sinks (Axiom, Better Stack, Datadog, New Relic) when you need search/retention/alerts:
+  - Node: add a Pino transport to forward JSON logs.
+  - Edge: send one‑shot HTTP ingestion calls or rely on platform collectors.
+
+Troubleshooting
+- Seeing unexpected redirects to login? Ensure middleware does not override request headers or cookies. Our middleware only sets a response `x-request-id` header and leaves request headers intact.
+- Missing logs on Edge? Confirm the route or middleware runs in the `edge` runtime and check `wrangler tail` (CF) or Vercel function logs.

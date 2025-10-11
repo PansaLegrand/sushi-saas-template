@@ -15,6 +15,6 @@ export async function GET(_req: Request, { params }: any) {
     return respData(summary);
   } catch (e) {
     console.error("admin get user credits failed", e);
-    return respErr("admin get user credits failed");
+    return respErr("admin get user credits failed", { status: 500 });
   }
 }

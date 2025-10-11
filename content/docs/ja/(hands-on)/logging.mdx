@@ -1,0 +1,134 @@
+---
+title: "ロギングとオブザーバビリティ"
+icon: "Activity"
+description: "Node・Edge・Workers で共通の構造化ログ。リクエストID、秘匿情報のマスキング、ルート別の例。Vercel/Cloudflare/Node サーバに対応。"
+keywords:
+  - ロギング
+  - 可観測性
+  - Pino
+  - Next.js
+  - Vercel
+  - Cloudflare Workers
+  - Edge ランタイム
+  - JSON ログ
+  - リクエストID
+tags: [logging, observability, Node, Edge]
+author: "Pansa Legrand"
+publishedAt: "2025-10-11T00:00:00.000Z"
+updatedAt: "2025-10-11T00:00:00.000Z"
+canonical: "https://www.sushi-templates.com/ja/blogs/logging"
+---
+
+基本
+- 構造化(JSON)ログ、`request_id` による相関。
+- レベル: `debug`/`info`/`warn`/`error`。
+- 秘匿情報(クッキー・トークン)はマスク。
+
+含まれるもの
+- Node/Edge 共通のロガー API（同じ使い方）。
+  - Node: Pino による高速 JSON 出力。
+  - Edge/Workers: `console.log` による軽量 JSON。
+- Middleware で `request_id` を応答ヘッダに付与（リクエストは変更しない）。
+- ストレージ presign ルートに実装例あり。
+
+ファイル
+- Node: `src/lib/logger/server.ts`
+- Edge: `src/lib/logger/edge.ts`
+- 型: `src/lib/logger/types.ts`
+- Middleware: `src/middleware.ts`
+- 例: `src/app/api/storage/uploads/route.ts`
+
+ファイル
+- Node: `src/lib/logger/server.ts`
+- Edge: `src/lib/logger/edge.ts`
+- 型: `src/lib/logger/types.ts`
+- Middleware: `src/middleware.ts`
+- 例: `src/app/api/storage/uploads/route.ts`
+
+ログの確認
+- ローカル: ターミナル（一行JSON）。見やすくするには `pino-pretty` を利用:
+  - `pnpm dev 2>&1 | pnpx pino-pretty`
+  - ファイル保存: `pnpm dev 2>&1 | pnpx pino-pretty | tee logs/dev.log`
+- Vercel: Deployments → Functions → Logs / `vercel logs`。
+- Cloudflare Workers: `wrangler tail`。
+
+使い方(Node)
+```ts
+import { logger, requestIdFromHeaders } from '@/lib/logger/server'
+export async function POST(req: Request){
+  const rid = requestIdFromHeaders(req.headers)
+  const log = logger.child({ request_id: rid, route: '/api/example' })
+  log.info({ event: 'example.start' })
+  // ...
+  log.info({ event: 'example.ok' })
+  return new Response('ok')
+}
+```
+
+使い方(Edge)
+```ts
+import { logger } from '@/lib/logger/edge'
+export const runtime = 'edge'
+export function GET(){
+  logger.info({ event: 'edge.heartbeat' })
+  return new Response('ok')
+}
+```
+
+Tips
+- `LOG_LEVEL` とマスキングルールを必要に応じて調整。
+- 既定でログファイルは作成しません（stdout/stderrへ出力）。ローカルで保存したい場合は `tee` を使用: `pnpm dev 2>&1 | tee logs/dev.json`。
+- サーバコードの `console.*` は logger に置き換え。
+
+使い方(Node)
+```ts
+import { logger, requestIdFromHeaders } from '@/lib/logger/server'
+export async function POST(req: Request){
+  const rid = requestIdFromHeaders(req.headers)
+  const log = logger.child({ request_id: rid, route: '/api/example' })
+  const start = Date.now()
+  try {
+    log.info({ event: 'example.start' })
+    // ...
+    log.info({ event: 'example.ok', duration_ms: Date.now() - start })
+    return new Response('ok')
+  } catch (e:any) {
+    log.error({ event: 'example.error', message: e?.message })
+    return new Response('error', { status: 500 })
+  }
+}
+```
+
+使い方(Edge)
+```ts
+import { logger } from '@/lib/logger/edge'
+export const runtime = 'edge'
+export function GET(){
+  logger.info({ event: 'edge.heartbeat' })
+  return new Response('ok')
+}
+```
+
+ヘルパー: withApiLogging (Node)
+```ts
+import { withApiLogging } from '@/lib/logger/server'
+export const POST = withApiLogging(async (req) => new Response('ok'), {
+  route: '/api/foo', event: 'foo.process'
+})
+```
+
+ベストプラクティス
+- `request_id` を子ロガーに付与、完了時に `duration_ms` を記録。
+- メッセージは短く、フィールド主体で。
+- 本文全体のログは避け、ハッシュや必要最小限のフィールドに。
+
+脱敏のカスタマイズ
+- Node: `src/lib/logger/server.ts` の `redactPaths`。
+- Edge: `src/lib/logger/edge.ts` の `redactKeys`。
+
+オプション連携
+- Sentry（`@sentry/nextjs`）や Axiom / Better Stack / Datadog など。
+
+トラブルシュート
+- 予期しないログインリダイレクト: middleware がリクエストヘッダ/クッキーを上書きしていないか確認。
+- Edge でログが見えない: `runtime='edge'` とログ閲覧方法を確認。

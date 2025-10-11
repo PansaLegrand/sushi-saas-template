@@ -29,6 +29,6 @@ export async function POST(req: Request) {
     return respData(profile);
   } catch (error) {
     console.error("get user info failed", error);
-    return respErr("get user info failed");
+    return respErr("get user info failed", { status: 500 });
   }
 }

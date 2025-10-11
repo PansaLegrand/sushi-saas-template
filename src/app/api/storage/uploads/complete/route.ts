@@ -3,6 +3,7 @@ import { getUserUuid } from "@/services/user";
 import { findFileByUuid, updateFileByUuid } from "@/models/file";
 import { getStorageAdapter } from "@/services/storage";
 import type { CompleteUploadRequest } from "@/types/storage";
+import { notifySlackError } from "@/integrations/slack";
 
 export async function POST(req: Request) {
   try {
@@ -60,7 +61,7 @@ export async function POST(req: Request) {
     return respData({ ok: true, file: updated ?? file });
   } catch (error) {
     console.error("complete upload failed", error);
-    return respErr("complete upload failed");
+    notifySlackError("Storage: complete upload failed", error);
+    return respErr("complete upload failed", { status: 500 });
   }
 }
-

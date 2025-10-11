@@ -1,0 +1,181 @@
+---
+title: Notifications - Slack Alerts
+icon: "Bell"
+description: Set up simple Slack notifications for uploads and payments, wire them into Stripe webhooks and storage errors, and customize alerts with a tiny server helper.
+keywords:
+  - Slack
+  - notifications
+  - webhooks
+  - Stripe
+  - storage
+  - S3
+  - R2
+  - Next.js
+tags: [notifications, Slack, webhooks]
+author: "Pansa Legrand"
+publishedAt: "2025-10-11T00:00:00.000Z"
+updatedAt: "2025-10-11T00:00:00.000Z"
+canonical: "https://www.sushi-templates.com/en/blogs/notifications-slack"
+---
+
+# Notifications: Slack Alerts
+
+This guide shows how to send simple Slack notifications from the server when important events happen (like successful payments) or when something goes wrong (like an unexpected error during file uploads).
+
+You don’t need any prior experience with Slack APIs. We’ll enable a single environment variable and use a tiny helper that posts messages to a Slack Incoming Webhook.
+
+## What You’ll Build
+
+- Send a Slack message when a user finishes a payment (via Stripe webhooks).
+- Send a Slack message when the storage upload flow throws an unexpected error (S3/R2/MinIO).
+- Extend the same pattern to any API handler in your app.
+
+## How It Works (at a glance)
+
+- A small server-side helper posts JSON to a Slack Incoming Webhook.
+  - Helper lives in `src/integrations/slack.ts`.
+  - It’s best‑effort and non‑blocking (timeouts and queueMicrotask).
+- We call this helper in a few places:
+  - Stripe webhook handler after a successful checkout and on subscription renewals
+    - `src/app/api/pay/webhook/stripe/route.ts`
+  - Storage upload handlers when an unexpected server error occurs
+    - `src/app/api/storage/uploads/route.ts`
+    - `src/app/api/storage/uploads/complete/route.ts`
+
+If the Slack webhook URL isn’t set, notifications are automatically disabled.
+
+## Prerequisites
+
+- You have a Slack workspace where you can add an “Incoming Webhook”.
+- You can edit your local `.env` file.
+
+## Step 1 — Create a Slack Incoming Webhook
+
+Follow Slack’s official guide:
+
+- Sending messages using Incoming Webhooks (Slack Docs): https://docs.slack.dev/messaging/sending-messages-using-incoming-webhooks/
+
+Quick steps:
+
+1) Open Slack App Directory → search for “Incoming Webhooks”.
+2) Add the app to your workspace and choose a channel (e.g. `#alerts`).
+3) Copy the generated Webhook URL (it looks like `https://hooks.slack.com/services/...`).
+
+## Step 2 — Configure the Webhook URL in `.env`
+
+In your project’s `.env` file, set:
+
+```bash
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/XXX/YYY/ZZZ
+```
+
+There’s a commented entry in `.env.example` you can copy.
+
+No other configuration is required—leaving this empty will simply disable notifications.
+
+## Step 3 — What’s already wired
+
+We’ve added a small helper with two convenience functions:
+
+```ts
+// src/integrations/slack.ts
+export function notifySlackEvent(title: string, context?: Record<string, unknown>): void
+export function notifySlackError(title: string, error?: unknown, context?: Record<string, unknown>): void
+```
+
+These functions post a message (with optional context) to Slack on a background microtask. If `SLACK_WEBHOOK_URL` is not set, they do nothing.
+
+We call them in a few places:
+
+- Payments (Stripe webhook) — success, renewals, failures:
+  - `src/app/api/pay/webhook/stripe/route.ts`
+    - On checkout success → `notifySlackEvent("Payment succeeded", { order_no, email, amount, currency, type })`
+    - On subscription renewal success → `notifySlackEvent("Subscription renewal succeeded", { ... })`
+    - On payment failure → `notifySlackError("Payment failed", undefined, { ... })`
+
+- Storage (S3/R2/MinIO) — unexpected server errors:
+  - Presigned upload creation errors → `src/app/api/storage/uploads/route.ts`
+  - Upload completion errors → `src/app/api/storage/uploads/complete/route.ts`
+
+These hook points are good defaults: you’ll hear about real money events, and you’ll catch server-side issues in the upload flow without being spammed by normal 4xx validation errors (e.g., “file too large”).
+
+## Step 4 — Try it out
+
+Pick one of these flows to test:
+
+- Payments: Use Stripe test mode and run through a checkout (see “Hands-on: Stripe Setup”). When the webhook fires, you should see a Slack message in your channel.
+- Storage errors: Temporarily lower max upload size in `.env` (e.g., `STORAGE_MAX_UPLOAD_MB=1`) and try uploading a larger file. Only unexpected server errors send Slack alerts, but you’ll now see envelope error messages in the UI and can provoke server-side errors by, for example, interrupting credentials.
+
+If nothing posts, check that `SLACK_WEBHOOK_URL` is set and your server can reach Slack.
+
+## Customize Notifications
+
+You can add notifications anywhere on the server:
+
+```ts
+import { notifySlackEvent, notifySlackError } from "@/integrations/slack";
+
+export async function POST(req: Request) {
+  try {
+    // ... your logic
+    notifySlackEvent("Widget created", { user: "alice@example.com", id: 123 });
+    return Response.json({ ok: true });
+  } catch (e) {
+    notifySlackError("Widget create failed", e, { route: "/api/widgets" });
+    return new Response("error", { status: 500 });
+  }
+}
+```
+
+Tips:
+
+- When to notify
+  - Use `notifySlackEvent` for business milestones (e.g., new signup, payment success, critical admin actions).
+  - Use `notifySlackError` only for unexpected 5xx errors; avoid sending alerts for normal 4xx validation.
+
+- What to include
+  - Keep messages short and add a small context object (order number, user email, etc.). The helper will serialize it inside a code block for readability.
+
+- Disable/enable by environment
+  - No-code toggle: leave `SLACK_WEBHOOK_URL` empty in dev if you don’t want messages, set it in staging/production.
+
+### Advanced: Throttling noisy alerts
+
+If a failure loops rapidly (e.g., webhook misconfiguration), you can add a simple in-memory throttle:
+
+```ts
+// Example: naive throttle wrapper (per route + message, 60s)
+const lastSent = new Map<string, number>();
+function throttledNotify(key: string, fn: () => void, ms = 60_000) {
+  const now = Date.now();
+  const prev = lastSent.get(key) || 0;
+  if (now - prev > ms) {
+    lastSent.set(key, now);
+    fn();
+  }
+}
+// Usage
+throttledNotify("storage:presign:error", () => notifySlackError("Storage presign error", err));
+```
+
+### Advanced: Multiple channels or providers
+
+- To post to different Slack channels, create multiple Incoming Webhooks (one per channel) and add tiny wrappers (e.g., `SLACK_WEBHOOK_URL_ALERTS`, `SLACK_WEBHOOK_URL_PAYMENTS`).
+- To support Discord, email, or PagerDuty, create similar helpers (e.g., `integrations/discord.ts`) and call them in the same hook points.
+
+## Production Notes
+
+- Non-blocking and best-effort
+  - Notifications are queued with `queueMicrotask` and have a short timeout to avoid delaying your API responses or webhooks.
+- Sensitive data
+  - Be mindful not to include secrets or raw credentials in notification context. Prefer IDs and emails over entire payloads.
+- Observability
+  - Failures to post are logged to the server console as warnings. Combine with logs and dashboards for full visibility.
+
+## Where to Look in the Code
+
+- Helper: `src/integrations/slack.ts`
+- Payments: `src/app/api/pay/webhook/stripe/route.ts`
+- Storage: `src/app/api/storage/uploads/route.ts`, `src/app/api/storage/uploads/complete/route.ts`
+
+That’s it—you now have simple Slack alerts you can grow with your app.

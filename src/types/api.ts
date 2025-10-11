@@ -2,6 +2,8 @@ export enum ApiResponseCode {
   Ok = 0,
   Error = -1,
   Unauthorized = -2,
+  Forbidden = -3,
+  NotFound = -4,
 }
 
 export interface ApiResponse<T = unknown> {

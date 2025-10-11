@@ -15,7 +15,6 @@ export async function GET(req: Request) {
     return respData({ items: rows });
   } catch (error) {
     console.error("list files failed", error);
-    return respErr("list files failed");
+    return respErr("list files failed", { status: 500 });
   }
 }
-

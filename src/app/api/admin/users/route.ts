@@ -27,7 +27,6 @@ export async function GET(req: Request) {
     });
   } catch (e) {
     console.error("admin list users failed", e);
-    return respErr("admin list users failed");
+    return respErr("admin list users failed", { status: 500 });
   }
 }
-

@@ -27,8 +27,11 @@ export default function FilesList() {
     setLoading(true);
     try {
       const res = await fetch("/api/storage/files");
-      if (!res.ok) throw new Error("Failed to load files");
-      const json = await res.json();
+      const json = await res.json().catch(() => null as any);
+      if (!res.ok || !json || json.code !== 0) {
+        const msg = (json && json.message) || "Failed to load files";
+        throw new Error(msg);
+      }
       setItems(json.data?.items || []);
     } catch (e: any) {
       toast.error(e?.message || "Failed to load files");
@@ -50,8 +53,11 @@ export default function FilesList() {
     setBusyId(uuid);
     try {
       const res = await fetch(`/api/storage/files/${uuid}?download=1`);
-      if (!res.ok) throw new Error("Failed to get download URL");
-      const json = await res.json();
+      const json = await res.json().catch(() => null as any);
+      if (!res.ok || !json || json.code !== 0) {
+        const msg = (json && json.message) || "Failed to get download URL";
+        throw new Error(msg);
+      }
       const url: string | undefined = json.data?.downloadUrl;
       if (!url) throw new Error("No download URL");
       window.open(url, "_blank");
@@ -68,7 +74,11 @@ export default function FilesList() {
     setBusyId(uuid);
     try {
       const res = await fetch(`/api/storage/files/${uuid}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Delete failed");
+      const json = await res.json().catch(() => null as any);
+      if (!res.ok || !json || json.code !== 0) {
+        const msg = (json && json.message) || "Delete failed";
+        throw new Error(msg);
+      }
       setItems((prev) => prev.filter((it) => it.uuid !== uuid));
       toast.success("Deleted");
     } catch (e: any) {
@@ -120,4 +130,3 @@ export default function FilesList() {
     </div>
   );
 }
-

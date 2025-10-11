@@ -12,6 +12,7 @@ import { insertOrder, OrderStatus, findOrderBySubscriptionPeriod } from "@/model
 import { increaseCredits, CreditsTransType } from "@/services/credit";
 import { updateAffiliateForOrder } from "@/services/affiliate";
 import { findUserByEmail } from "@/models/user";
+import { notifySlackEvent, notifySlackError } from "@/integrations/slack";
 
 // Stripe sends webhook events via POST requests with a signed payload.
 // Configure Stripe CLI or dashboard to forward events to this endpoint:
@@ -104,6 +105,14 @@ export async function POST(req: Request) {
           queueMicrotask(() => {
             sendPaymentSuccessEmail(to, { orderNo, amount, currency }).catch((e) => {
               console.error("payment email failed", e);
+            });
+            // Slack notification (best-effort)
+            notifySlackEvent("Payment succeeded", {
+              order_no: orderNo,
+              email: to,
+              amount,
+              currency,
+              type: session.mode,
             });
           });
         }
@@ -224,6 +233,16 @@ export async function POST(req: Request) {
 
           // Affiliate reward for renewal orders (optional; follows current model)
           await updateAffiliateForOrder(order as any);
+          // Notify Slack for renewal success (best-effort)
+          notifySlackEvent("Subscription renewal succeeded", {
+            order_no,
+            user_uuid: userUuid,
+            email: userEmail,
+            amount: amount / 100,
+            currency,
+            product_id,
+            interval,
+          });
         } catch (e) {
           console.error("invoice.payment_succeeded handling failed", e);
           // do not fail webhook; continue
@@ -244,6 +263,12 @@ export async function POST(req: Request) {
               currency: invoice.currency || undefined,
               manageUrl,
             }).catch((e) => console.error("dunning email failed", e));
+            notifySlackError("Payment failed", undefined, {
+              invoice_id: invoice.id,
+              email: invoice.customer_email,
+              amount_due: amountDue,
+              currency: invoice.currency || undefined,
+            });
           });
         }
         break;

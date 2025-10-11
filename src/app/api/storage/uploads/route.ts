@@ -4,11 +4,15 @@ import { getSnowId } from "@/lib/hash";
 import { insertFile } from "@/models/file";
 import { getStorageAdapter } from "@/services/storage";
 import type { CreateUploadRequest, CreateUploadResponse } from "@/types/storage";
+import { logger as baseLogger, requestIdFromHeaders } from "@/lib/logger/server";
+import { notifySlackError } from "@/integrations/slack";
 
 const DEFAULT_MAX_UPLOAD_MB = Number(process.env.STORAGE_MAX_UPLOAD_MB || 25);
 
 export async function POST(req: Request) {
   try {
+    const requestId = requestIdFromHeaders(req.headers);
+    const log = baseLogger.child({ request_id: requestId, route: "/api/storage/uploads" });
     const userUuid = await getUserUuid(req);
     if (!userUuid) return respNoAuth();
 
@@ -73,8 +77,8 @@ export async function POST(req: Request) {
     const metadata = (payload as any).metadata;
 
     if (!filename || !contentType || !size || Number(size) <= 0) {
-      // Keep message consistent but add hint via console for developers
-      console.warn("/api/storage/uploads payload invalid", { parsedFrom, filename, contentType, size });
+      // Keep message consistent but add hint for developers
+      baseLogger.warn({ event: "storage.presign.create.invalid", parsedFrom, filename, contentType, size });
       return respErr("missing filename/contentType/size");
     }
 
@@ -120,10 +124,20 @@ export async function POST(req: Request) {
       ...signed,
       fileUuid,
     };
-
+    log.info({
+      event: "storage.presign.create",
+      user_id: userUuid,
+      file_id: fileUuid,
+      key,
+      bucket,
+      size: Number(size),
+      content_type: contentType,
+      status: "ok",
+    });
     return respData(res);
   } catch (error) {
-    console.error("create upload failed", error);
-    return respErr("create upload failed");
+    baseLogger.error({ event: "storage.presign.create.error", error_name: (error as any)?.name, error_message: (error as any)?.message });
+    notifySlackError("Storage: create upload failed", error, { route: "/api/storage/uploads", request_id: requestIdFromHeaders(req.headers) });
+    return respErr("create upload failed", { status: 500 });
   }
 }

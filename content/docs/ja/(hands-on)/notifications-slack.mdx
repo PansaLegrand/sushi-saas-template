@@ -1,0 +1,174 @@
+---
+title: 通知 - Slack アラート
+icon: "Bell"
+description: アップロードや支払いの Slack 通知をシンプルに設定し、Stripe Webhook とストレージエラーに組み込み、小さなサーバーヘルパーで柔軟にカスタマイズします。
+keywords:
+  - Slack
+  - 通知
+  - webhooks
+  - Stripe
+  - ストレージ
+  - S3
+  - R2
+  - Next.js
+tags: [通知, Slack, webhooks]
+author: "Pansa Legrand"
+publishedAt: "2025-10-11T00:00:00.000Z"
+updatedAt: "2025-10-11T00:00:00.000Z"
+canonical: "https://www.sushi-templates.com/ja/blogs/notifications-slack"
+---
+
+# 通知: Slack アラート
+
+このガイドでは、重要なイベント（支払い完了など）や予期しないエラー（ファイルアップロードのサーバーエラーなど）が発生したときに、サーバー側から Slack に簡単な通知を送る方法を説明します。
+
+Slack API の事前知識は不要です。環境変数を 1 つ設定し、Slack の Incoming Webhook にメッセージを送る小さなヘルパーを使います。
+
+## このガイドで作るもの
+
+- ユーザーの支払い完了時（Stripe Webhook 経由）に Slack へ通知。
+- ストレージのアップロード処理で予期しないサーバーエラーが起きた時に Slack へ通知（S3/R2/MinIO）。
+- 同じパターンを任意の API ハンドラーに拡張。
+
+## 仕組み（概要）
+
+- サーバー側の小さなヘルパーが、Slack の Incoming Webhook に JSON を POST します。
+  - ヘルパーの場所: `src/integrations/slack.ts`
+  - ベストエフォートで非同期（短いタイムアウト + `queueMicrotask`）。
+- 呼び出しポイント:
+  - Stripe Webhook（チェックアウト成功、サブスク更新）
+    - `src/app/api/pay/webhook/stripe/route.ts`
+  - アップロードのサーバーエラー時
+    - `src/app/api/storage/uploads/route.ts`
+    - `src/app/api/storage/uploads/complete/route.ts`
+
+`SLACK_WEBHOOK_URL` が未設定なら、通知は自動的に無効になります。
+
+## 前提条件
+
+- Slack ワークスペース（Incoming Webhook を追加できる権限）。
+- `.env` を編集できること。
+
+## ステップ 1 — Slack の Incoming Webhook を作成
+
+公式ドキュメントに従って設定します:
+
+- Incoming Webhooks でメッセージを送信（Slack Docs）: https://docs.slack.dev/messaging/sending-messages-using-incoming-webhooks/
+
+手順（簡易）:
+
+1) Slack App Directory で「Incoming Webhooks」を検索。
+2) ワークスペースに追加し、投稿先チャンネルを選択（例: `#alerts`）。
+3) 生成された Webhook URL をコピー（`https://hooks.slack.com/services/...`）。
+
+## ステップ 2 — `.env` に Webhook URL を設定
+
+```bash
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/XXX/YYY/ZZZ
+```
+
+`.env.example` にサンプル項目があります。
+
+未設定のままでも問題ありません（通知は無効）。
+
+## ステップ 3 — すでに配線済みの箇所
+
+小さなヘルパーが 2 つの関数を提供します:
+
+```ts
+// src/integrations/slack.ts
+export function notifySlackEvent(title: string, context?: Record<string, unknown>): void
+export function notifySlackError(title: string, error?: unknown, context?: Record<string, unknown>): void
+```
+
+どちらもバックグラウンドで送信します（`SLACK_WEBHOOK_URL` 未設定なら何もしません）。
+
+以下で使用しています:
+
+- 決済（Stripe Webhook）— 成功/更新/失敗
+  - `src/app/api/pay/webhook/stripe/route.ts`
+    - チェックアウト成功 → `notifySlackEvent("Payment succeeded", { order_no, email, amount, currency, type })`
+    - サブスク更新成功 → `notifySlackEvent("Subscription renewal succeeded", { ... })`
+    - 決済失敗 → `notifySlackError("Payment failed", undefined, { ... })`
+
+- ストレージ（S3/R2/MinIO）— 予期しないサーバーエラー
+  - Presign 作成エラー → `src/app/api/storage/uploads/route.ts`
+  - アップロード完了エラー → `src/app/api/storage/uploads/complete/route.ts`
+
+これらのポイントで、金銭に関わるイベントとアップロードの重大な失敗を把握できます（想定内の 4xx バリデーションは通知しません）。
+
+## ステップ 4 — 動作確認
+
+- 決済: Stripe のテストモードでチェックアウト（「Hands‑on: Stripe Setup」を参照）。Webhook 受信時に Slack へ通知されます。
+- アップロード: `.env` の `STORAGE_MAX_UPLOAD_MB` を一時的に小さくして大きいファイルをアップ。5xx のみが通知対象です。
+
+通知が来ない場合は、`SLACK_WEBHOOK_URL` とネットワーク疎通を確認してください。
+
+## 通知をカスタマイズ
+
+任意の API ハンドラーから呼べます:
+
+```ts
+import { notifySlackEvent, notifySlackError } from "@/integrations/slack";
+
+export async function POST(req: Request) {
+  try {
+    // ... your logic
+    notifySlackEvent("Widget created", { user: "alice@example.com", id: 123 });
+    return Response.json({ ok: true });
+  } catch (e) {
+    notifySlackError("Widget create failed", e, { route: "/api/widgets" });
+    return new Response("error", { status: 500 });
+  }
+}
+```
+
+ヒント:
+
+- いつ通知するか
+  - ビジネスイベント: `notifySlackEvent`（新規登録、支払い成功、重要な管理操作 等）。
+  - 予期しない 5xx: `notifySlackError`。バリデーション 4xx は通知しない。
+
+- 何を含めるか
+  - 簡潔なメッセージ + 小さなコンテキスト（注文番号、メール等）。コードブロックで整形されます。
+
+- 環境ごとに制御
+  - 開発では `SLACK_WEBHOOK_URL` を空にして通知を無効化可能。
+
+### 上級: ノイズのスロットリング
+
+```ts
+const lastSent = new Map<string, number>();
+function throttledNotify(key: string, fn: () => void, ms = 60_000) {
+  const now = Date.now();
+  const prev = lastSent.get(key) || 0;
+  if (now - prev > ms) {
+    lastSent.set(key, now);
+    fn();
+  }
+}
+// 例
+throttledNotify("storage:presign:error", () => notifySlackError("Storage presign error", err));
+```
+
+### 上級: 複数チャンネル/プロバイダー
+
+- 複数チャンネルに送る場合は Webhook を複数用意し、ラッパーを作る（例: `SLACK_WEBHOOK_URL_ALERTS`, `SLACK_WEBHOOK_URL_PAYMENTS`）。
+- Discord/メール/PagerDuty なども同様のヘルパーを実装して同じフックポイントで呼び出し。
+
+## 本番運用メモ
+
+- 非ブロッキング/ベストエフォート
+  - `queueMicrotask` と短いタイムアウトでレスポンス/Webhook を遅らせません。
+- 機密データ
+  - シークレットや資格情報は含めない。ID/メール等に留める。
+- 可観測性
+  - 送信失敗はサーバーログ（warning）に記録されます。
+
+## コードの場所
+
+- ヘルパー: `src/integrations/slack.ts`
+- 決済: `src/app/api/pay/webhook/stripe/route.ts`
+- ストレージ: `src/app/api/storage/uploads/route.ts`, `src/app/api/storage/uploads/complete/route.ts`
+
+以上で、成長可能なシンプルな Slack アラートが使えるようになります。

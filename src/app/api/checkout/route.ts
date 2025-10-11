@@ -11,9 +11,13 @@ import { newStripeClient } from "@/integrations/stripe";
 import { Order } from "@/types/order";
 import { getOrCreateCustomerIdForUser } from "@/services/stripe-customer";
 import { buildIntroDiscounts } from "@/services/stripe-promotions";
+import { logger as baseLogger, requestIdFromHeaders } from "@/lib/logger/server";
 
 export async function POST(req: Request) {
   try {
+    const request_id = requestIdFromHeaders(req.headers);
+    const log = baseLogger.child({ request_id, route: "/api/checkout" });
+    const start = Date.now();
     let { product_id, currency, locale } = await req.json();
 
     let cancel_url = `${
@@ -143,12 +147,23 @@ export async function POST(req: Request) {
         intro_price_cents: intro_price_cents && intro_price_cents > 0 ? intro_price_cents : undefined,
         intro_months: intro_months && intro_months > 0 ? intro_months : undefined,
       },
+      request_id,
     });
 
+    log.info({
+      event: "checkout.session.created",
+      order_no,
+      user_id: user_uuid,
+      product_id,
+      interval,
+      currency,
+      is_subscription: interval === "month" || interval === "year",
+      duration_ms: Date.now() - start,
+    });
     return respData(result);
   } catch (e: any) {
-    console.log("checkout failed: ", e);
-    return respErr("checkout failed: " + e.message);
+    baseLogger.error({ event: "checkout.error", message: e?.message, name: e?.name });
+    return respErr("checkout failed: " + e.message, { status: 500 });
   }
 }
 
@@ -158,6 +173,7 @@ async function stripeCheckout({
   cancel_url,
   priceId,
   promo,
+  request_id,
 }: {
   order: Order;
   locale: string;
@@ -168,7 +184,9 @@ async function stripeCheckout({
     intro_price_cents?: number;
     intro_months?: number;
   };
+  request_id?: string;
 }) {
+  const log = baseLogger.child({ request_id, route: "/api/checkout" });
   const intervals = ["month", "year"];
   const is_subscription = intervals.includes(order.interval);
 
@@ -293,7 +311,7 @@ async function stripeCheckout({
       }
     } catch (e) {
       // Non-fatal; continue without discount if it fails
-      console.warn("failed to apply intro discount", e);
+      log.warn({ event: "checkout.discount.apply_failed", message: (e as any)?.message });
     }
   }
 
@@ -304,6 +322,7 @@ async function stripeCheckout({
   // update order detail
   await updateOrderSession(order.order_no, session.id, JSON.stringify(options));
 
+  log.info({ event: "checkout.session.ready", order_no: order.order_no, session_id: session.id });
   return {
     order_no: order.order_no,
     session_id: session.id,

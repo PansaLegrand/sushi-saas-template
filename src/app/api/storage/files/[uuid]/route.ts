@@ -47,7 +47,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ uuid: string }>
     return respData({ file, downloadUrl });
   } catch (error) {
     console.error("get file failed", error);
-    return respErr("get file failed");
+    return respErr("get file failed", { status: 500 });
   }
 }
 
@@ -74,6 +74,6 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ uuid: string
     return respData({ ok: true, file: deleted ?? file });
   } catch (error) {
     console.error("delete file failed", error);
-    return respErr("delete file failed");
+    return respErr("delete file failed", { status: 500 });
   }
 }

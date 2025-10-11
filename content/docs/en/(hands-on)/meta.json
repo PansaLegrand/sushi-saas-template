@@ -5,11 +5,12 @@
     "quick-start",
     "authentication-and-admin",
     "stripe-setup",
+    "notifications-slack",
     "storage-uploads",
+    "logging",
     "email-service",
     "database-setup",
     "account-ledger",
     "reservations-feature"
   ]
 }
-

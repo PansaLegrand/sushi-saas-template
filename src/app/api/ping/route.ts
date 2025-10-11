@@ -46,6 +46,6 @@ export async function POST(req: Request) {
     }
 
     console.error("ping failed", error);
-    return respErr("ping failed");
+    return respErr("ping failed", { status: 500 });
   }
 }
