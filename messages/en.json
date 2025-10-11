@@ -13,7 +13,9 @@
       "subtitle": "Open‑source Next.js 15 boilerplate with i18n, Better Auth, Stripe billing and more — production‑ready from day one.",
       "ctaPrimary": "Get Started",
       "ctaSecondary": "View Docs",
-      "ctaGitHub": "View on GitHub"
+      "ctaGitHub": "View on GitHub",
+      "ctaDiscord": "Join Discord",
+      "ctaX": "Follow on X"
     },
     "features": {
       "title": "What’s inside",

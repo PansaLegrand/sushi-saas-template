@@ -24,6 +24,11 @@ A production‑ready Next.js starter with auth, billing, internationalization, c
   &nbsp;&nbsp;
   <a href="https://sushi-templates.com/en/blogs/quick-start" target="_blank" rel="noreferrer noopener" style="display:inline-block;padding:10px 14px;border-radius:8px;border:1px solid #ddd;text-decoration:none;">Learn More</a>
   <br/>
+  <br/>
+  <a href="https://discord.gg/aACy5qNf" target="_blank" rel="noreferrer noopener" style="display:inline-block;padding:8px 12px;border-radius:8px;border:1px solid #ddd;text-decoration:none;">Join Discord</a>
+  &nbsp;&nbsp;
+  <a href="https://x.com/WenzhuPan" target="_blank" rel="noreferrer noopener" style="display:inline-block;padding:8px 12px;border-radius:8px;border:1px solid #ddd;text-decoration:none;">Follow on X</a>
+  <br/>
 </p>
 
 </div>
@@ -61,6 +66,13 @@ A production‑ready Next.js starter with auth, billing, internationalization, c
 
 - DojoClip — https://dojoclip.com — Browser‑based video editing with multilingual subtitles.
 - Sushi Templates — https://sushi-templates.com — Live example deployed on Vercel.
+
+
+
+## Community
+
+- Discord: https://discord.gg/aACy5qNf
+- X (Twitter): https://x.com/WenzhuPan
 
 
 

@@ -11,7 +11,9 @@
       "subtitle": "Next.js 15 のオープンソース・ボイラープレート。i18n、Better Auth、Stripe などを同梱し、初日から本番対応。",
       "ctaPrimary": "はじめる",
       "ctaSecondary": "ドキュメントを見る",
-      "ctaGitHub": "GitHub を見る"
+      "ctaGitHub": "GitHub を見る",
+      "ctaDiscord": "Discord に参加",
+      "ctaX": "X でフォロー"
     },
     "features": {
       "title": "主な内容",

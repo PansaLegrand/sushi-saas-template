@@ -73,6 +73,22 @@ export default async function LandingPage() {
             >
               {t("hero.ctaGitHub")}
             </a>
+            <a
+              href="https://discord.gg/aACy5qNf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-md border border-border px-6 py-3 text-base font-medium text-foreground transition hover:bg-foreground/5"
+            >
+              {t("hero.ctaDiscord")}
+            </a>
+            <a
+              href="https://x.com/WenzhuPan"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-md border border-border px-6 py-3 text-base font-medium text-foreground transition hover:bg-foreground/5"
+            >
+              {t("hero.ctaX")}
+            </a>
           </div>
         </div>
       </section>
@@ -151,7 +167,25 @@ export default async function LandingPage() {
       </section>
 
       <footer className="border-t border-border/60 py-6 text-center text-sm text-muted-foreground">
-        {t("footer")}
+        <div className="container flex flex-wrap items-center justify-center gap-4">
+          <span>{t("footer")}</span>
+          <a
+            href="https://discord.gg/aACy5qNf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline transition hover:text-foreground"
+          >
+            Discord
+          </a>
+          <a
+            href="https://x.com/WenzhuPan"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline transition hover:text-foreground"
+          >
+            X
+          </a>
+        </div>
       </footer>
     </main>
   );

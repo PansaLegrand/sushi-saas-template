@@ -13,7 +13,9 @@
       "subtitle": "基于 Next.js 15 的开源模板，内置 i18n、Better Auth、Stripe 等，从第一天起即面向生产。",
       "ctaPrimary": "立即开始",
       "ctaSecondary": "查看文档",
-      "ctaGitHub": "在 GitHub 查看"
+      "ctaGitHub": "在 GitHub 查看",
+      "ctaDiscord": "加入 Discord",
+      "ctaX": "在 X 关注"
     },
     "features": {
       "title": "核心能力",
