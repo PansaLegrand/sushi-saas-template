@@ -55,6 +55,38 @@
     "back": "Retour à l’accueil"
   }
   ,
+  "tasks": {
+    "textToVideo": {
+      "title": "Texte en Vidéo",
+      "intro": "Utilisez des crédits pour générer une courte vidéo à partir d’un prompt. Cette démo utilise un fournisseur simulé ; remplacez le moteur dans <code>src/services/ai/video.ts</code>.",
+      "promptLabel": "Prompt",
+      "promptPlaceholder": "Astronaute surfant sur des vagues néon",
+      "secondsLabel": "Secondes",
+      "aspectLabel": "Format d’image",
+      "aspectLandscape": "paysage",
+      "aspectPortrait": "portrait",
+      "aspectSquare": "carré",
+      "generate": "Générer la vidéo",
+      "generating": "Génération…",
+      "refresh": "Rafraîchir",
+      "refreshing": "Actualisation…",
+      "spent": "{n} crédit(s) dépensé(s)",
+      "taskId": "ID de tâche",
+      "resultTitle": "Résultat",
+      "urlLabel": "URL",
+      "errorTitle": "Échec de la tâche",
+      "errorDetails": "Assurez-vous d’être connecté et d’avoir assez de crédits.",
+      "errorGeneric": "Échec de création de la tâche",
+      "insufficientCredits": "Crédits insuffisants.",
+      "errorNotSignedIn": "Connexion requise",
+      "notSignedInTitle": "Connexion requise",
+      "notSignedInDesc": "Veuillez vous inscrire ou vous connecter pour créer une tâche.",
+      "linkSignup": "S’inscrire",
+      "linkLogin": "Se connecter",
+      "or": "ou"
+    }
+  }
+  ,
   "blogs": {
     "title": "Blog",
     "intro": "Guides et actualités pour expédier plus vite."

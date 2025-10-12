@@ -290,3 +290,33 @@ export const files = pgTable(
     uniqueIndex("files_bucket_key_unique_idx").on(table.bucket, table.key),
   ]
 );
+
+// Tasks (usage + AI actions)
+export const tasks = pgTable(
+  "tasks",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    uuid: varchar({ length: 255 }).notNull().unique(),
+    user_uuid: varchar({ length: 255 }).notNull(),
+    type: varchar({ length: 64 }).notNull().default("text_to_video"),
+    status: varchar({ length: 32 }).notNull().default("queued"), // queued|running|succeeded|failed
+    credits_used: integer().notNull().default(0),
+    credits_trans_no: varchar({ length: 255 }),
+
+    user_input: text(),
+    output_url: varchar({ length: 1024 }),
+    output_json: text(),
+    error_message: text(),
+
+    started_at: timestamp({ withTimezone: true }),
+    completed_at: timestamp({ withTimezone: true }),
+
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("tasks_user_idx").on(table.user_uuid),
+    index("tasks_status_idx").on(table.status),
+    index("tasks_trans_idx").on(table.credits_trans_no),
+  ]
+);

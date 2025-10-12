@@ -52,6 +52,38 @@
     "footer": "Crafted in Next.js 15 with Tailwind CSS and Better Auth."
   }
   ,
+  "tasks": {
+    "textToVideo": {
+      "title": "Text to Video",
+      "intro": "Spend credits to generate a short video from a text prompt. This demo uses a mock provider; swap your engine in <code>src/services/ai/video.ts</code>.",
+      "promptLabel": "Prompt",
+      "promptPlaceholder": "Astronaut surfing across neon waves",
+      "secondsLabel": "Seconds",
+      "aspectLabel": "Aspect ratio",
+      "aspectLandscape": "landscape",
+      "aspectPortrait": "portrait",
+      "aspectSquare": "square",
+      "generate": "Generate video",
+      "generating": "Generating…",
+      "refresh": "Refresh status",
+      "refreshing": "Refreshing…",
+      "spent": "Spent {n} credit(s)",
+      "taskId": "Task ID",
+      "resultTitle": "Result",
+      "urlLabel": "URL",
+      "errorTitle": "Task failed",
+      "errorDetails": "Ensure you are signed in and have enough credits.",
+      "errorGeneric": "Failed to create task",
+      "insufficientCredits": "You don’t have enough credits.",
+      "errorNotSignedIn": "Sign in required",
+      "notSignedInTitle": "Sign in required",
+      "notSignedInDesc": "Please sign up or log in to create a task.",
+      "linkSignup": "Sign up",
+      "linkLogin": "Log in",
+      "or": "or"
+    }
+  }
+  ,
   "docs": {
     "title": "Documentation",
     "intro": "This is a minimal docs page used to test i18n.",

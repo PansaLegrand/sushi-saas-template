@@ -1,0 +1,138 @@
+---
+title: クレジット課金タスク — テキストから動画
+icon: "Video"
+description: 汎用的な `tasks` テーブル、クレジット台帳、差し替え可能なテキスト→動画ジェネレーターで、使用量ベースの課金を追加します。スキーマ、API、設定用定数、最小 UI を解説。
+keywords:
+  - SaaS
+  - クレジット
+  - Next.js
+  - Drizzle ORM
+  - タスク
+  - テキストから動画
+  - Stripe
+tags: [credits, tasks, ai, video]
+author: "Sushi Templates"
+publishedAt: "2025-10-11T00:00:00.000Z"
+updatedAt: "2025-10-11T00:00:00.000Z"
+canonical: "https://www.sushi-templates.com/ja/blogs/text-to-video-tasks"
+---
+
+## 概要
+
+使用量ベースの課金は AI プロダクトと相性が良いです。固定プランではなく、アクション（動画生成、画像アップスケール、音声書き起こし等）ごとに消費する「クレジット」を販売します。本稿は、クレジット消費の記録、入力/出力の保存（サポート・分析向け）、既存レジャーとの連携を行う汎用 `tasks` を紹介します。
+
+---
+
+## 含まれるもの
+
+- 柔軟な `tasks` テーブル：`type`、`status`、`credits_used`、`user_input`、`output_url/json`、`error_message`、`credits_trans_no`。
+- 差し替え可能なジェネレーター（`generateTextToVideo`）。
+- クレジット減算→ジェネレーター呼び出し→タスク保存のオーケストレーション。
+- タスク作成と取得のための認証付き API。
+- 最小 UI（プロンプト送信・結果プレビュー）。
+
+---
+
+## スキーマ（Drizzle ORM）
+
+- ファイル：`src/db/schema.ts:295`
+- テーブル：`tasks`
+
+主要カラム：`uuid` / `user_uuid`（識別）、`status` / タイムスタンプ（ライフサイクル）、`credits_used`（消費）、`user_input`/`output_*`（柔軟）、`credits_trans_no`（トレーサビリティ）。
+
+マイグレーション：
+
+```bash
+pnpm drizzle-kit generate --config src/db/config.ts
+pnpm drizzle-kit migrate --config src/db/config.ts
+```
+
+---
+
+## サービス
+
+- オーケストレーション：`src/services/tasks.ts#createTextToVideoTask`
+  - `task_text_to_video` でクレジットを減算。
+  - `generateTextToVideo` を呼び出して結果を保存。
+  - `user_input`、`output_url`、`credits_trans_no` を含めて `tasks` に挿入。
+
+- モックプロバイダー：`src/services/ai/video.ts#generateTextToVideo`
+  - 開発時はサンプル URL を返します。
+  - まずはモックで配線し、後から実プロバイダーに差し替え可能。
+
+コストモデル（コード定数）：
+
+- `src/data/tasks.ts` を編集：
+
+```ts
+export const TEXT2VIDEO_COST = {
+  CREDITS_PER_SECOND: 1,
+  MULTIPLIER: { landscape: 1, portrait: 1, square: 1 },
+  MIN_CREDITS: 1,
+} as const;
+```
+
+- モック出力 URL（任意）：`.env.local` に `TEXT2VIDEO_MOCK_URL`。
+
+---
+
+## API（モック優先）
+
+- `POST /api/tasks/text-to-video`
+  - Body：`{ "prompt":"宇宙飛行士がサーフィン", "seconds":8, "aspectRatio":"landscape" }`
+  - 応答：`{ task: { uuid, status, creditsUsed, userInput, outputUrl, ... } }`
+  - 残高不足：`insufficient credits`
+
+- `GET /api/tasks/{uuid}`：サインイン済みユーザーのタスクのみ返却（その他は 403）。
+
+- `GET /api/tasks/latest`：直近のタスク（クレジットテストページで使用）。
+
+共通レスポンス：`{ code, message, data }`
+
+---
+
+## 最小 UI
+
+- ページ：`src/app/[locale]/tasks/text-to-video/page.tsx`
+- 機能：
+  - プロンプト、秒数、アスペクト比の送信
+  - 統一エラーバナー
+  - `outputUrl` を `<video>` で表示
+  - 「状態を更新」ボタン（GET `/api/tasks/{uuid}`）
+
+`/ja/tasks/text-to-video` を開いてください。未サインインの場合は登録/ログインを案内します。
+
+---
+
+## 自作タスクへの応用（モックパターン）
+
+1）コストと入力を定義（コスト関数、入力は `user_input` に JSON で保存）。
+
+2）`src/services/ai/<your-task>.ts` に最小限の戻り値を返すスタブを作成。
+
+3）`create<YourTask>Task` でオーケストレーション（減算→呼び出し→保存）。
+
+4）API：`POST /api/tasks/<your-task>` と `GET /api/tasks/[uuid]`。
+
+5）UI：`src/app/[locale]/tasks/<your-task>/page.tsx`。
+
+---
+
+## 発展（任意）
+
+- 非同期化（キュー＋ワーカー）。
+- 成功時のみ減算 or 失敗時は払い戻し；`credits_trans_no` で追跡。
+- プライベート保存＋署名付き URL 配信。
+- レート制限と冪等性。
+- 失敗/残高不足の Slack 通知。
+
+---
+
+## 検証チェック
+
+- `pnpm lint`
+- `pnpm build && pnpm start`
+- マイグレーション適用済
+- サインイン済みで `POST /api/tasks/text-to-video` → `outputUrl` を返す
+- `GET /api/tasks/{uuid}` が同じタスクを返す
+

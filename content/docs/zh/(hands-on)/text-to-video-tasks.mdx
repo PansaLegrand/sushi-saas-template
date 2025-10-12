@@ -1,0 +1,138 @@
+---
+title: 基于积分的任务 — 文本生成视频
+icon: "Video"
+description: 使用通用的 `tasks` 表、积分台账与可插拔的文本转视频生成器，快速实现按量计费。本文涵盖表结构、API、配置常量与最小 UI。
+keywords:
+  - SaaS
+  - 积分
+  - Next.js
+  - Drizzle ORM
+  - 任务
+  - 文本转视频
+  - Stripe
+tags: [credits, tasks, ai, video]
+author: "Sushi Templates"
+publishedAt: "2025-10-11T00:00:00.000Z"
+updatedAt: "2025-10-11T00:00:00.000Z"
+canonical: "https://www.sushi-templates.com/zh/blogs/text-to-video-tasks"
+---
+
+## 为什么需要它
+
+按量计费非常适合 AI 产品。与统一订阅不同，你可以出售会驱动操作的“积分”（例如生成视频、超分图像、转写音频等）。本文介绍通用的 `tasks` 系统：记录积分消耗位置、保存输入/输出以便支持与分析，并与现有台账无缝组合。
+
+---
+
+## 你将获得
+
+- 灵活的 `tasks` 表：`type`、`status`、`credits_used`、`user_input`、`output_url/json`、`error_message`、`credits_trans_no`。
+- 可替换的生成器（`generateTextToVideo`）。
+- 统一的编排服务：扣减积分 → 调用提供方 → 记录任务。
+- 认证 API：创建任务与按 ID 获取任务。
+- 最小 UI：提交提示词并预览视频。
+
+---
+
+## 表结构（Drizzle ORM）
+
+- 文件：`src/db/schema.ts:295`
+- 表名：`tasks`
+
+关键列：`uuid`/`user_uuid`（标识）、`status`/时间戳（生命周期）、`credits_used`（消耗）、`user_input`/`output_*`（灵活）、`credits_trans_no`（可追溯）。
+
+迁移：
+
+```bash
+pnpm drizzle-kit generate --config src/db/config.ts
+pnpm drizzle-kit migrate --config src/db/config.ts
+```
+
+---
+
+## 服务
+
+- 编排：`src/services/tasks.ts#createTextToVideoTask`
+  - 用 `task_text_to_video` 扣减积分。
+  - 调用 `generateTextToVideo` 并保存结果。
+  - 插入 `tasks`，包含 `user_input`、`output_url` 与 `credits_trans_no`。
+
+- 模拟提供方：`src/services/ai/video.ts#generateTextToVideo`
+  - 开发环境返回示例 URL。
+  - 建议先用 mock 完成接线，后续再替换为真实提供方。
+
+成本模型（代码常量）：
+
+- 在 `src/data/tasks.ts` 中调整：
+
+```ts
+export const TEXT2VIDEO_COST = {
+  CREDITS_PER_SECOND: 1,
+  MULTIPLIER: { landscape: 1, portrait: 1, square: 1 },
+  MIN_CREDITS: 1,
+} as const;
+```
+
+- 模拟输出 URL（可选）：在 `.env.local` 设置 `TEXT2VIDEO_MOCK_URL`。
+
+---
+
+## API（Mock 优先）
+
+- `POST /api/tasks/text-to-video`
+  - Body：`{ "prompt":"宇航员在霓虹海浪上冲浪", "seconds":8, "aspectRatio":"landscape" }`
+  - 返回：`{ task: { uuid, status, creditsUsed, userInput, outputUrl, ... } }`
+  - 余额不足：`insufficient credits`
+
+- `GET /api/tasks/{uuid}`：仅返回属于当前用户的任务，否则 403。
+
+- `GET /api/tasks/latest`：返回最近一次任务（在积分测试页使用）。
+
+通用响应：`{ code, message, data }`
+
+---
+
+## 最小 UI
+
+- 页面：`src/app/[locale]/tasks/text-to-video/page.tsx`
+- 功能：
+  - 提交提示词、时长与画面比例
+  - 统一错误横幅
+  - 通过 `<video>` 预览 `outputUrl`
+  - “刷新状态”按钮（GET `/api/tasks/{uuid}`）
+
+访问 `/zh/tasks/text-to-video`。未登录时会提示前往注册/登录。
+
+---
+
+## 适配自定义任务（Mock 模式）
+
+1）定义成本与输入（成本函数，自定义输入以 JSON 写入 `user_input`）。
+
+2）在 `src/services/ai/<your-task>.ts` 创建返回最小结果的 stub。
+
+3）在 `create<YourTask>Task` 中编排：计算 → `decreaseCredits` → 调用 → 入库。
+
+4）开放 API：`POST /api/tasks/<your-task>`；复用 `GET /api/tasks/[uuid]`。
+
+5）UI 页面：`src/app/[locale]/tasks/<your-task>/page.tsx`。
+
+---
+
+## 可选增强
+
+- 异步化（队列 + Worker）。
+- 成功后扣减或失败时退款；用 `credits_trans_no` 追踪。
+- 私有存储 + 签名 URL。
+- 频率限制与幂等。
+- Slack 告警（失败/余额不足）。
+
+---
+
+## 验证清单
+
+- `pnpm lint`
+- `pnpm build && pnpm start`
+- 迁移已应用
+- 已登录用户可 POST `/api/tasks/text-to-video` 并获得 `outputUrl`
+- `GET /api/tasks/{uuid}` 返回相同任务
+
