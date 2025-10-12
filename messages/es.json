@@ -55,6 +55,38 @@
     "back": "Volver al inicio"
   }
   ,
+  "tasks": {
+    "textToVideo": {
+      "title": "Texto a Video",
+      "intro": "Usa créditos para generar un video corto desde un prompt. Esta demo usa un proveedor simulado; cambia tu motor en <code>src/services/ai/video.ts</code>.",
+      "promptLabel": "Prompt",
+      "promptPlaceholder": "Astronauta surfeando sobre olas neón",
+      "secondsLabel": "Segundos",
+      "aspectLabel": "Relación de aspecto",
+      "aspectLandscape": "horizontal",
+      "aspectPortrait": "vertical",
+      "aspectSquare": "cuadrado",
+      "generate": "Generar video",
+      "generating": "Generando…",
+      "refresh": "Actualizar estado",
+      "refreshing": "Actualizando…",
+      "spent": "Usado {n} crédito(s)",
+      "taskId": "ID de tarea",
+      "resultTitle": "Resultado",
+      "urlLabel": "URL",
+      "errorTitle": "La tarea falló",
+      "errorDetails": "Asegúrate de iniciar sesión y tener créditos suficientes.",
+      "errorGeneric": "Error al crear la tarea",
+      "insufficientCredits": "No tienes suficientes créditos.",
+      "errorNotSignedIn": "Se requiere iniciar sesión",
+      "notSignedInTitle": "Se requiere iniciar sesión",
+      "notSignedInDesc": "Regístrate o inicia sesión para crear una tarea.",
+      "linkSignup": "Registrarse",
+      "linkLogin": "Iniciar sesión",
+      "or": "o"
+    }
+  }
+  ,
   "blogs": {
     "title": "Blog",
     "intro": "Guías y novedades para ayudarte a lanzar más rápido."

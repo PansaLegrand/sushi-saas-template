@@ -11,6 +11,7 @@
     "email-service",
     "database-setup",
     "account-ledger",
+    "text-to-video-tasks",
     "reservations-feature"
   ]
 }

@@ -52,6 +52,38 @@
     "footer": "基于 Next.js 15、Tailwind CSS 与 Better Auth 构建。"
   }
   ,
+  "tasks": {
+    "textToVideo": {
+      "title": "文本生成视频",
+      "intro": "使用积分根据文本提示生成短视频。本演示使用模拟提供方；你可以在 <code>src/services/ai/video.ts</code> 中替换为你的引擎。",
+      "promptLabel": "提示词",
+      "promptPlaceholder": "宇航员在霓虹海浪上冲浪",
+      "secondsLabel": "时长（秒）",
+      "aspectLabel": "画面比例",
+      "aspectLandscape": "横屏",
+      "aspectPortrait": "竖屏",
+      "aspectSquare": "方形",
+      "generate": "生成视频",
+      "generating": "正在生成…",
+      "refresh": "刷新状态",
+      "refreshing": "正在刷新…",
+      "spent": "消耗 {n} 积分",
+      "taskId": "任务 ID",
+      "resultTitle": "结果",
+      "urlLabel": "URL",
+      "errorTitle": "任务失败",
+      "errorDetails": "请确保已登录并拥有足够积分。",
+      "errorGeneric": "创建任务失败",
+      "insufficientCredits": "你的积分不足。",
+      "errorNotSignedIn": "需要登录",
+      "notSignedInTitle": "需要登录",
+      "notSignedInDesc": "请注册或登录后再创建任务。",
+      "linkSignup": "注册",
+      "linkLogin": "登录",
+      "or": "或"
+    }
+  }
+  ,
   "docs": {
     "title": "文档",
     "intro": "这是一个用于测试多语言的简易文档页面。",

@@ -22,6 +22,8 @@ export enum CreditsTransType {
   SystemAdd = "system_add",
   Ping = "ping",
   MockUsage = "mock_usage",
+  TaskTextToVideo = "task_text_to_video",
+  TaskAdjust = "task_adjust",
 }
 
 export enum CreditsAmount {
@@ -177,7 +179,7 @@ export async function decreaseCredits({
   user_uuid,
   trans_type,
   credits,
-}: DecreaseCreditsParams): Promise<void> {
+}: DecreaseCreditsParams): Promise<string> {
   if (credits <= 0) {
     throw new Error("credits must be greater than zero");
   }
@@ -214,7 +216,11 @@ export async function decreaseCredits({
       order_no: sourceOrderNo,
     };
 
-    await insertCredit(newCredit);
+    const created = await insertCredit(newCredit);
+    if (!created) {
+      throw new Error("failed to insert credit");
+    }
+    return created.trans_no;
   } catch (error) {
     console.error("decrease credits failed", error);
     throw error;

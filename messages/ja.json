@@ -55,6 +55,38 @@
     "back": "ホームに戻る"
   }
   ,
+  "tasks": {
+    "textToVideo": {
+      "title": "テキストから動画",
+      "intro": "クレジットを使ってテキストのプロンプトから短い動画を生成します。このデモはモックのプロバイダーを使用します。実装を <code>src/services/ai/video.ts</code> で差し替えできます。",
+      "promptLabel": "プロンプト",
+      "promptPlaceholder": "ネオンの波に乗る宇宙飛行士",
+      "secondsLabel": "秒数",
+      "aspectLabel": "アスペクト比",
+      "aspectLandscape": "横向き",
+      "aspectPortrait": "縦向き",
+      "aspectSquare": "正方形",
+      "generate": "動画を生成",
+      "generating": "生成中…",
+      "refresh": "更新",
+      "refreshing": "更新中…",
+      "spent": "{n} クレジットを使用",
+      "taskId": "タスクID",
+      "resultTitle": "結果",
+      "urlLabel": "URL",
+      "errorTitle": "タスクに失敗しました",
+      "errorDetails": "サインインし、十分なクレジットがあることを確認してください。",
+      "errorGeneric": "タスクの作成に失敗しました",
+      "insufficientCredits": "クレジットが不足しています。",
+      "errorNotSignedIn": "サインインが必要です",
+      "notSignedInTitle": "サインインが必要",
+      "notSignedInDesc": "タスクを作成するには、サインアップまたはログインしてください。",
+      "linkSignup": "サインアップ",
+      "linkLogin": "ログイン",
+      "or": "または"
+    }
+  }
+  ,
   "blogs": {
     "title": "ブログ",
     "intro": "最新のガイドとアップデートで開発を加速。"

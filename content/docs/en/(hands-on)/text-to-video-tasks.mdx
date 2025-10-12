@@ -1,0 +1,167 @@
+---
+title: Credits-Based Tasks — Text to Video
+icon: "Video"
+description: Add usage-based monetization with a generic tasks table, a credit ledger, and a pluggable text-to-video generator. Learn the schema, APIs, config constants, and a minimal UI to ship paid AI features fast.
+keywords:
+  - SaaS template
+  - usage-based pricing
+  - credits
+  - Next.js
+  - Drizzle ORM
+  - tasks
+  - text to video
+  - Replicate
+  - Stripe
+tags: [credits, tasks, ai, video]
+author: "Sushi Templates"
+publishedAt: "2025-10-11T00:00:00.000Z"
+updatedAt: "2025-10-11T00:00:00.000Z"
+canonical: "https://www.sushi-templates.com/en/blogs/text-to-video-tasks"
+---
+
+## Why This Feature
+
+Usage-based monetization is a natural fit for AI products. Instead of forcing a one-size subscription, you can sell units (credits) that power actions: generate a video, upscale an image, transcribe audio, etc. This guide introduces a generic `tasks` system that records where credits are spent, captures inputs/outputs for support and analytics, and cleanly composes with our existing ledger.
+
+---
+
+## What You Get
+
+- A `tasks` table with flexible fields: `type`, `status`, `credits_used`, `user_input`, `output_url`, `output_json`, `error_message`.
+- A pluggable generator (`generateTextToVideo`) you can swap for Replicate/OpenAI with minimal changes.
+- A small orchestration service that deducts credits, calls the provider, and records the task.
+- Authenticated API routes to create and fetch tasks.
+- A minimal UI page to submit prompts and preview the resulting video.
+
+---
+
+## Schema (Drizzle ORM)
+
+- File: `src/db/schema.ts:295`
+- Table: `tasks`
+
+Fields:
+
+- Identity: `uuid` (Snowflake by default), `user_uuid`
+- Lifecycle: `status` = `queued|running|succeeded|failed`, timestamps
+- Usage: `credits_used`
+- Flexibility: `user_input` (JSON string), `output_url`, `output_json`, `error_message`
+
+Migrate after pulling changes:
+
+```bash
+pnpm drizzle-kit generate --config src/db/config.ts
+pnpm drizzle-kit migrate --config src/db/config.ts
+```
+
+---
+
+## Services
+
+- Orchestration: `src/services/tasks.ts#createTextToVideoTask`
+  - Deducts credits via `decreaseCredits` using `trans_type = task_text_to_video`.
+  - Calls `generateTextToVideo` and stores the result.
+  - Saves a `tasks` row with `user_input` and `output_url`.
+
+- Provider stub: `src/services/ai/video.ts#generateTextToVideo`
+  - Returns a mock URL for local development.
+  - Keep it simple: this starter ships with a mock-only implementation so you can wire UI + credits without vendor setup.
+
+Cost model (code‑driven):
+
+- Configure pricing in `src/data/tasks.ts`:
+
+```ts
+export const TEXT2VIDEO_COST = {
+  CREDITS_PER_SECOND: 1,
+  MULTIPLIER: { landscape: 1, portrait: 1, square: 1 },
+  MIN_CREDITS: 1,
+} as const;
+```
+
+- Dev mock output URL (optional): set `TEXT2VIDEO_MOCK_URL` in `.env.local`.
+
+---
+
+## API Endpoints (Mock‑first)
+
+- `POST /api/tasks/text-to-video`
+  - Body: `{ "prompt": "Astronaut surfing", "seconds": 8, "aspectRatio": "landscape" }`
+  - Returns: `{ task: { uuid, status, creditsUsed, userInput, outputUrl, ... } }`
+  - Errors: `insufficient credits` when balance is too low.
+
+- `GET /api/tasks/{uuid}`
+  - Returns the task if it belongs to the signed-in user, otherwise 403.
+
+- `GET /api/tasks/latest`
+  - Returns the most recent task for the signed-in user (used by the Credits Test page).
+
+Shared response envelope: `{ code, message, data }`.
+
+---
+
+## Minimal UI
+
+- Page: `src/app/[locale]/tasks/text-to-video/page.tsx`
+- Features:
+  - Submit prompt, seconds, aspect ratio.
+  - Shows error banners on failure.
+  - Renders the returned video via `<video>` using `outputUrl`.
+  - “Refresh status” button calls `GET /api/tasks/{uuid}` to re-fetch task state.
+
+Open at `/en/tasks/text-to-video`. If you are not signed in, the page will prompt you to go to the sign‑up page.
+
+---
+
+## Adapt To Your Own Task (Mock Pattern)
+
+You can create your own task types by following the same mock‑first pattern:
+
+1) Define cost and input shape
+
+- Decide the cost function (e.g., fixed 5 credits, or per MB/second).
+- Store raw inputs in `user_input` (stringified JSON) so schema stays stable.
+
+2) Add a provider stub
+
+- Create a function under `src/services/ai/<your-task>.ts` that returns a minimal result (e.g., an `output_url`).
+- Start with a mock URL. You can swap to a real API later without changing routes or DB.
+
+3) Orchestrate the task
+
+- Add `create<YourTask>Task` in `src/services/tasks.ts` (or a new file) that:
+  - Calculates credits → calls `decreaseCredits` with a task‑specific `trans_type`.
+  - Calls your provider stub.
+  - Persists a `tasks` row with `type`, `credits_used`, `user_input`, and outputs.
+
+4) Expose an API
+
+- Add `POST /api/tasks/<your-task>` similar to `text-to-video/route.ts`.
+- Add `GET /api/tasks/[uuid]` (already implemented) to fetch by id.
+ - Optionally add `GET /api/tasks/latest` for quick dashboards/tests.
+
+5) Build a tiny form
+
+- Create `src/app/[locale]/tasks/<your-task>/page.tsx` that calls your new API and renders the output.
+
+That’s it. Keep everything mock‑only until you’re ready to add a real vendor. When you do, replace the stub internals and keep the same interface.
+
+---
+
+## Optional Next Steps
+
+- Make generation asynchronous (`queued` → `running` → `succeeded|failed`) via a queue/worker.
+- Deduct on success or auto-refund on failure; store the ledger `trans_no` on the task for traceability (field: `credits_trans_no`).
+- Store outputs privately using `src/services/storage/*` and publish short-lived signed URLs.
+- Add rate limits and idempotency keys to prevent double charges.
+- Add Slack alerts on failures and low balances.
+
+---
+
+## Validation Checklist
+
+- `pnpm lint`
+- `pnpm build && pnpm start`
+- Migrations applied
+- Authenticated user can POST `/api/tasks/text-to-video` and receive a task with `outputUrl`
+- `GET /api/tasks/{uuid}` returns the same task

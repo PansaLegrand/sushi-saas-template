@@ -1,0 +1,140 @@
+---
+title: Tareas con Créditos — Texto a Video
+icon: "Video"
+description: Añade monetización por uso con una tabla genérica de tareas, un libro mayor de créditos y un generador de texto a video enchufable. Aprende el esquema, APIs, constantes de configuración y una UI mínima para lanzar funciones de IA.
+keywords:
+  - SaaS
+  - créditos
+  - Next.js
+  - Drizzle ORM
+  - tareas
+  - texto a video
+  - Stripe
+tags: [credits, tasks, ai, video]
+author: "Sushi Templates"
+publishedAt: "2025-10-11T00:00:00.000Z"
+updatedAt: "2025-10-11T00:00:00.000Z"
+canonical: "https://www.sushi-templates.com/es/blogs/text-to-video-tasks"
+---
+
+## ¿Por qué esta función?
+
+La monetización por uso encaja muy bien con productos de IA. En lugar de un plan único, vendes unidades (créditos) que activan acciones: generar un video, escalar una imagen, transcribir audio, etc. Este artículo presenta un sistema genérico de `tasks` que registra dónde se gastan los créditos, captura entradas/salidas para soporte y analítica, y se integra con el ledger existente.
+
+---
+
+## Qué incluye
+
+- Tabla `tasks` flexible: `type`, `status`, `credits_used`, `user_input`, `output_url`, `output_json`, `error_message`.
+- Generador enchufable (`generateTextToVideo`) que puedes sustituir por tu proveedor cuando quieras.
+- Un servicio de orquestación que descuenta créditos, llama al proveedor y registra la tarea.
+- Rutas API autenticadas para crear y consultar tareas.
+- Una página de UI mínima para enviar el prompt y previsualizar el video.
+
+---
+
+## Esquema (Drizzle ORM)
+
+- Archivo: `src/db/schema.ts:295`
+- Tabla: `tasks`
+
+Campos clave: identidad (`uuid`, `user_uuid`), ciclo de vida (`status`, timestamps), uso (`credits_used`), flexibilidad (`user_input`, `output_*`), trazabilidad (`credits_trans_no`).
+
+Migrar tras actualizar:
+
+```bash
+pnpm drizzle-kit generate --config src/db/config.ts
+pnpm drizzle-kit migrate --config src/db/config.ts
+```
+
+---
+
+## Servicios
+
+- Orquestación: `src/services/tasks.ts#createTextToVideoTask`
+  - Descuenta créditos (`trans_type = task_text_to_video`).
+  - Llama a `generateTextToVideo` y guarda el resultado.
+  - Inserta en `tasks` con `user_input`, `output_url` y `credits_trans_no`.
+
+- Proveedor simulado: `src/services/ai/video.ts#generateTextToVideo`
+  - Devuelve una URL de ejemplo en desarrollo.
+  - Mantén todo en modo mock hasta que conectes tu proveedor real.
+
+Modelo de coste (config en código):
+
+- Ajusta `src/data/tasks.ts`:
+
+```ts
+export const TEXT2VIDEO_COST = {
+  CREDITS_PER_SECOND: 1,
+  MULTIPLIER: { landscape: 1, portrait: 1, square: 1 },
+  MIN_CREDITS: 1,
+} as const;
+```
+
+- URL mock (opcional): define `TEXT2VIDEO_MOCK_URL` en `.env.local`.
+
+---
+
+## Endpoints API (mock‑first)
+
+- `POST /api/tasks/text-to-video`
+  - Body: `{ "prompt": "Astronauta surfeando", "seconds": 8, "aspectRatio": "landscape" }`
+  - Respuesta: `{ task: { uuid, status, creditsUsed, userInput, outputUrl, ... } }`
+  - Error: `insufficient credits` si no hay saldo suficiente.
+
+- `GET /api/tasks/{uuid}`
+  - Devuelve la tarea si pertenece al usuario autenticado; si no, 403.
+
+- `GET /api/tasks/latest`
+  - Devuelve la tarea más reciente del usuario (usado por la página de pruebas de créditos).
+
+Respuesta común: `{ code, message, data }`.
+
+---
+
+## UI mínima
+
+- Página: `src/app/[locale]/tasks/text-to-video/page.tsx`
+- Funciones:
+  - Enviar prompt, segundos y relación de aspecto.
+  - Banners de error unificados.
+  - Vista previa con `<video>` usando `outputUrl`.
+  - Botón “Actualizar estado” que llama a `GET /api/tasks/{uuid}`.
+
+Abre `/es/tasks/text-to-video`. Si no has iniciado sesión, se mostrará un aviso para registrarse o iniciar sesión.
+
+---
+
+## Adapta tu propia tarea (patrón mock)
+
+1) Define coste y entradas: fija la función de coste y guarda entradas crudas en `user_input` (JSON).
+
+2) Crea un stub del proveedor en `src/services/ai/<tu-tarea>.ts` que devuelva un resultado mínimo (p. ej., `output_url`).
+
+3) Orquesta en `create<YourTask>Task`: calcula créditos → `decreaseCredits` → llama al proveedor → inserta en `tasks`.
+
+4) Expón APIs: `POST /api/tasks/<tu-tarea>` y reutiliza `GET /api/tasks/[uuid]`.
+
+5) Página simple en `src/app/[locale]/tasks/<tu-tarea>/page.tsx`.
+
+---
+
+## Siguientes pasos opcionales
+
+- Hacer el proceso asíncrono (cola y worker).
+- Descontar al éxito o reembolsar al fallar; vincular con `credits_trans_no`.
+- Almacenar resultados de forma privada (S3/R2) y servir URLs firmadas.
+- Límites de tasa e idempotencia.
+- Alertas en Slack para fallos o saldo bajo.
+
+---
+
+## Checklist de validación
+
+- `pnpm lint`
+- `pnpm build && pnpm start`
+- Migraciones aplicadas
+- Usuario autenticado puede hacer POST `/api/tasks/text-to-video` y obtener un `outputUrl`
+- `GET /api/tasks/{uuid}` devuelve la misma tarea
+

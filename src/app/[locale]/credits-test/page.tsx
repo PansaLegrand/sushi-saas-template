@@ -6,7 +6,16 @@ import type { CreditSummary } from "@/types/credit";
 import type { ApiResponse } from "@/types/api";
 
 const LEDGER_LIMIT = 5;
-const DEFAULT_CONSUME_AMOUNT = 1;
+const DEFAULT_CONSUME_AMOUNT = 5;
+
+interface LatestTaskRecord {
+  uuid: string;
+  type: string;
+  status: string;
+  creditsUsed: number;
+  createdAt: string;
+  outputUrl?: string | null;
+}
 
 interface ConsumeResponse {
   balance: number;
@@ -17,8 +26,7 @@ export default function CreditTesterPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isConsuming, setIsConsuming] = useState<boolean>(false);
-  const [isGranting, setIsGranting] = useState<boolean>(false);
-  const [grantAmount, setGrantAmount] = useState<string>("5");
+  const [latestTask, setLatestTask] = useState<LatestTaskRecord | null>(null);
 
   // Helper that unwraps API responses and throws when the call fails.
   const unwrap = useCallback(async <T,>(res: Response): Promise<T> => {
@@ -62,6 +70,20 @@ export default function CreditTesterPage() {
     }
   }, [unwrap]);
 
+  const fetchLatestTask = useCallback(async () => {
+    try {
+      const response = await fetch("/api/tasks/latest", { method: "GET" });
+      const payload = (await response.json()) as ApiResponse<{ task: LatestTaskRecord | null }>;
+      if (!response.ok || payload.code !== 0) {
+        throw new Error(payload?.message ?? "Unable to load latest task");
+      }
+      setLatestTask(payload.data?.task ?? null);
+    } catch (error) {
+      // Don’t block the page on task errors; just clear the latest task section
+      setLatestTask(null);
+    }
+  }, []);
+
   // Tries to consume credits by calling the mock API endpoint.
   const consumeCredits = useCallback(async () => {
     setIsConsuming(true);
@@ -78,6 +100,7 @@ export default function CreditTesterPage() {
 
       await unwrap<ConsumeResponse>(response);
       await fetchSummary();
+      await fetchLatestTask();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unable to consume credits";
@@ -85,45 +108,12 @@ export default function CreditTesterPage() {
     } finally {
       setIsConsuming(false);
     }
-  }, [fetchSummary, unwrap]);
-
-  const grantCredits = useCallback(async () => {
-    const amount = Number(grantAmount);
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setErrorMessage("Enter a positive credit amount");
-      return;
-    }
-
-    setIsGranting(true);
-    setErrorMessage(null);
-
-    try {
-      const response = await fetch("/api/account/credits/grant", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          credits: amount,
-          ledgerLimit: LEDGER_LIMIT,
-        }),
-      });
-
-      const data = await unwrap<CreditSummary>(response);
-      setSummary(data);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unable to add credits";
-      setErrorMessage(message);
-    } finally {
-      setIsGranting(false);
-    }
-  }, [grantAmount, unwrap]);
+  }, [fetchSummary, fetchLatestTask, unwrap]);
 
   useEffect(() => {
     void fetchSummary();
-  }, [fetchSummary]);
+    void fetchLatestTask();
+  }, [fetchLatestTask, fetchSummary]);
 
   const balance = summary?.balance ?? 0;
 
@@ -159,28 +149,6 @@ export default function CreditTesterPage() {
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-            <div className="flex flex-col text-sm">
-              <label htmlFor="grant-amount" className="font-medium">
-                Add credits
-              </label>
-              <input
-                id="grant-amount"
-                type="number"
-                min={1}
-                step={1}
-                value={grantAmount}
-                onChange={(event) => setGrantAmount(event.currentTarget.value)}
-                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => void grantCredits()}
-              disabled={isLoading || isGranting}
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isGranting ? "Adding…" : "Add credits"}
-            </button>
             <button
               type="button"
               onClick={() => void consumeCredits()}
@@ -275,6 +243,51 @@ export default function CreditTesterPage() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+
+        <div className="mt-8">
+          <h3 className="text-base font-medium">Latest task</h3>
+          <p className="text-sm text-muted-foreground">
+            Shows the most recent task you created.
+          </p>
+          <div className="mt-4 overflow-hidden rounded-lg border border-border/60">
+            {!latestTask ? (
+              <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                No task yet.
+              </div>
+            ) : (
+              <table className="min-w-full divide-y divide-border/60 text-sm">
+                <thead className="bg-muted/40">
+                  <tr>
+                    <th className="px-4 py-2 text-left font-medium">Type</th>
+                    <th className="px-4 py-2 text-left font-medium">Status</th>
+                    <th className="px-4 py-2 text-left font-medium">Credits</th>
+                    <th className="px-4 py-2 text-left font-medium">Created</th>
+                    <th className="px-4 py-2 text-left font-medium">Output</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="px-4 py-2 font-medium">{latestTask.type}</td>
+                    <td className="px-4 py-2">{latestTask.status}</td>
+                    <td className="px-4 py-2">{latestTask.creditsUsed}</td>
+                    <td className="px-4 py-2 text-muted-foreground">
+                      {new Date(latestTask.createdAt).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-2 text-muted-foreground break-all">
+                      {latestTask.outputUrl ? (
+                        <a href={latestTask.outputUrl} target="_blank" rel="noreferrer" className="underline">
+                          {latestTask.outputUrl}
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </section>
