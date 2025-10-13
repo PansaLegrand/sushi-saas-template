@@ -1,0 +1,114 @@
+---
+title: "¿Qué es un middleware? Guía para principiantes"
+icon: "Workflow"
+description: "Entiende qué es el middleware, por qué ayuda en SaaS y cómo nuestro middleware de Next.js maneja i18n e IDs de solicitud — además de cómo personalizarlo."
+keywords:
+  - middleware
+  - Next.js middleware
+  - edge runtime
+  - i18n
+  - request id
+  - SaaS
+tags: [middleware, nextjs, edge, i18n]
+author: "Pansa Legrand"
+publishedAt: "2025-10-13T00:00:00.000Z"
+updatedAt: "2025-10-13T00:00:00.000Z"
+canonical: "https://www.sushi-templates.com/es/blogs/what-is-middleware"
+---
+
+## Middleware 101 (Vista principiante)
+
+El middleware corre “en medio” de la solicitud y tu handler final. Es un punto de control para leer en‑cabezados, decidir redirecciones y ajustar la respuesta antes de que se ejecute la ruta/página.
+
+Usos comunes:
+- Autenticación básica (redirigir si no hay sesión)
+- i18n (forzar `/:locale/...` o detección de idioma)
+- Logging/tracing (agregar `x-request-id`)
+- Flags/experimentos
+- Seguridad y rate limiting
+
+En Next.js, `middleware.ts` corre muy temprano en el Edge, antes de los handlers.
+
+---
+
+## Por qué ayuda
+
+Centraliza preocupaciones transversales y evita duplicar lógica.
+
+- Un solo lugar para reglas globales
+- Observabilidad consistente (`request_id` en todos lados)
+- Decisiones tempranas (menos carga de servidor)
+- Handlers más limpios (enfoque en negocio)
+
+Típico en SaaS: app localizada, correlación de logs, áreas admin, experimentación y normalización de headers.
+
+---
+
+## Nuestro middleware (qué hace)
+
+Combinamos `next-intl` para i18n con un ID de solicitud ligero.
+
+Claves:
+- Enrutamiento de locales con `src/i18n/routing.ts`
+- `x-request-id`: reutiliza existente o genera UUID
+- `matcher` conservador: excluye `api`, `_next`, assets y `admin`
+
+```ts
+// src/middleware.ts (extracto)
+import createMiddleware from 'next-intl/middleware';
+import { NextRequest } from 'next/server';
+import { routing } from '@/i18n/routing';
+
+const intlMiddleware = createMiddleware(routing);
+
+export default function middleware(request: NextRequest) {
+  const existing = request.headers.get('x-request-id');
+  const requestId = existing || crypto.randomUUID();
+  const res = intlMiddleware(request);
+  res.headers.set('x-request-id', requestId);
+  return res;
+}
+```
+
+---
+
+## Personalizar (con seguridad)
+
+Agregar headers:
+```ts
+export default function middleware(request: NextRequest) {
+  const res = intlMiddleware(request);
+  res.headers.set('x-feature-flag', 'on');
+  return res;
+}
+```
+
+Redirigir:
+```ts
+import { NextResponse } from 'next/server';
+export default function middleware(request: NextRequest) {
+  if (request.nextUrl.pathname === '/old') {
+    return NextResponse.redirect(new URL('/new', request.url));
+  }
+  return intlMiddleware(request);
+}
+```
+
+Ajusta el `matcher` y usa `x-request-id` en tus logs. Evita mutar cookies de auth en middleware.
+
+---
+
+## Cuándo NO usar middleware
+
+- Lógica específica de una ruta
+- Trabajo asíncrono pesado (BD)
+- Lectura/transformación de body
+
+---
+
+## TL;DR
+
+- Ideal para i18n, headers, redirecciones y guardias ligeras
+- Por defecto: i18n + `x-request-id`
+- Personaliza con headers, redirecciones y `matcher` — no toques cookies
+

@@ -30,6 +30,42 @@ El webhook es la fuente de verdad; el callback solo navega al usuario tras el pa
 
 ---
 
+### Recursos de inicio rápido
+
+- Stripe: Primeros pasos — https://docs.stripe.com/get-started
+
+---
+
+## Pasarelas de pago 101
+
+### ¿Qué es una pasarela de pago?
+
+Una pasarela de pago es una herramienta digital que los negocios online usan para procesar y autorizar pagos electrónicos (tarjetas, wallets, transferencias). Es el equivalente online del lector físico de tarjetas. Actúa como intermediaria que valida, aprueba o rechaza transacciones de forma segura por internet.
+
+Casi 7,4 billones de USD en ventas de ecommerce se proyectan para 2025. Integrar una pasarela es clave para ofrecer una experiencia de pago fluida, mejorar la conversión y reforzar la seguridad y la confianza del cliente.
+
+### Cómo funcionan las pasarelas de pago
+
+1. Compra del cliente: introduce los datos de pago en tu checkout.
+2. Cifrado y envío: el sitio cifra y envía los datos a la pasarela.
+3. Reenvío de la transacción: la pasarela reenvía la info al procesador.
+4. Comunicación con el emisor: el procesador envía los detalles al banco emisor.
+5. Aprobación o rechazo: el banco decide según fondos y reglas de seguridad.
+6. Respuesta de vuelta: la decisión vuelve al procesador y a la pasarela.
+7. Finalización: si se aprueba, el cliente ve confirmación; si no, se informa el rechazo.
+8. Liquidación: las operaciones aprobadas se liquidan en tu banco adquirente y luego en tu cuenta.
+
+Aun con varios pasos, todo ocurre de forma automática en segundos.
+
+### Cómo integrar una pasarela de pago
+
+1. Elige un proveedor: comisiones, métodos admitidos, seguridad y compatibilidad.
+2. Cuenta de comercio: algunos (p. ej., Stripe) la integran; otros requieren una aparte.
+3. Obtén las claves API: autentican tu web/app con la pasarela.
+4. Integra la pasarela: plugins (Shopify/WooCommerce) o código. Las APIs de Stripe son muy developer‑friendly.
+5. Prueba en sandbox: valida flujos con entornos y tarjetas de prueba.
+6. Pasa a producción: usa claves live y monitoriza.
+
 ## Endpoints
 
 - `/api/checkout` (POST): valida el plan en `src/data/pricing.ts`, crea la sesión y guarda un `order` con estado `created`.
@@ -83,6 +119,27 @@ Nota: `payment_intent.succeeded` no se maneja por defecto. Usa el evento `checko
 3) Completa el pago con `4242 4242 4242 4242`.
 4) Stripe redirige al callback; el webhook confirma y otorga créditos.
 5) Verifica en `/[locale]/credits-test` o `POST /api/account/credits`.
+
+---
+
+## Guía de integración de Stripe (resumen)
+
+Integrar Stripe en tu sitio web es directo si sigues estos pasos:
+
+1. Crea una cuenta en Stripe: registra tu negocio y método de cobro.
+2. Obtén las claves API: en Dashboard → Developers (publicable y secreta).
+3. Instala las librerías: SDK oficial de Stripe para tu lenguaje (JS/TS, Ruby, Python, etc.).
+4. Frontend: usa Stripe.js y componentes (Elements/Payment Element) o plugins para capturar datos de tarjeta de forma segura.
+5. Backend: inicializa Stripe con tu clave secreta y expón endpoints para PaymentIntents o Checkout Sessions.
+6. Recopila datos de pago: evita manejar tarjetas en tu servidor usando los componentes de Stripe.
+7. Envía al servidor: transmite la intención de pago por HTTPS de forma segura.
+8. Procesa en servidor: crea PaymentIntents o Checkout Sessions con el SDK.
+9. Gestiona la respuesta: actualiza tu base de datos e informa al cliente.
+10. Errores y bordes: fondos insuficientes, tarjetas vencidas, 3DS, reintentos.
+11. Prueba a fondo: modo de pruebas, webhooks y tarjetas de test.
+12. Lanza a producción: cambia a claves live, habilita métodos y monitoriza.
+
+Consejo: empieza por la guía oficial — https://docs.stripe.com/get-started
 
 ---
 
@@ -192,3 +249,9 @@ stripe trigger invoice_payment_failed
 ```
 
 Nota: El email incluye enlace a `/:locale/account/billing` para abrir el portal.
+
+---
+
+## Otras opciones de pago
+
+Stripe es solo una opción. Si necesitas alternativas como pagos con criptomonedas o PayPal, contáctame y te ayudo a elegir e integrar el proveedor adecuado para tu stack y mercado.

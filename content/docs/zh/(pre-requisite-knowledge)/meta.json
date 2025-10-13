@@ -3,9 +3,9 @@
   "pages": [
     "saas-101",
     "what-is-nextjs",
+    "what-is-middleware",
     "frontend-vs-backend-vs-fullstack-saas",
     "databases-for-saas-postgres-drizzle",
     "budget"
   ]
 }
-

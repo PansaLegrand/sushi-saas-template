@@ -11,7 +11,6 @@ out
 .env
 /.source
 /.next
-/scripts
 tsconfig.tsbuildinfo
 TODO.md
 /tmp

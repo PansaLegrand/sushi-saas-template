@@ -30,6 +30,42 @@ Le webhook est la source de vérité ; le callback ne fait que rediriger.
 
 ---
 
+### Ressources de démarrage rapide
+
+- Stripe : Bien démarrer — https://docs.stripe.com/get-started
+
+---
+
+## Passerelles de paiement 101
+
+### Qu’est‑ce qu’une passerelle de paiement ?
+
+Une passerelle de paiement est un service numérique qui permet aux entreprises en ligne de traiter et d’autoriser les paiements électroniques (cartes, portefeuilles numériques, virements). C’est l’équivalent en ligne d’un terminal de paiement. Elle sert d’intermédiaire et vérifie, approuve ou refuse les transactions de manière sécurisée.
+
+Près de 7,4 billions de dollars de ventes e‑commerce sont attendus en 2025. Intégrer une passerelle est essentiel pour offrir une expérience de paiement fluide, améliorer la conversion et renforcer la sécurité et la confiance.
+
+### Comment fonctionnent les passerelles
+
+1. Achat du client : saisie des informations de paiement sur votre checkout.
+2. Chiffrement et envoi : le site chiffre et transmet les données à la passerelle.
+3. Routage : la passerelle transfère les données chiffrées au processeur de paiement.
+4. Communication avec l’émetteur : le processeur envoie les détails à la banque émettrice.
+5. Approbation ou refus : décision en fonction des fonds et des contrôles de sécurité.
+6. Réponse retour : la décision revient au processeur puis à la passerelle.
+7. Finalisation : en cas d’approbation, confirmation côté client ; sinon, notification d’échec.
+8. Règlement : les transactions approuvées sont réglées vers votre banque acquéreuse puis votre compte.
+
+Malgré ces étapes, le processus est automatisé et ne prend que quelques secondes.
+
+### Intégrer une passerelle de paiement
+
+1. Choisir un fournisseur : frais, moyens acceptés, sécurité, compatibilité plateforme.
+2. Compte marchand : certains (ex. Stripe) l’incluent ; d’autres le nécessitent séparément.
+3. Obtenir les clés API : authentifier votre site/app auprès de la passerelle.
+4. Intégration : plugin (Shopify/WooCommerce) ou code. Les API Stripe sont très adaptées aux développeurs.
+5. Tester en sandbox : valider les parcours avec des cartes de test.
+6. Passer en production : utiliser les clés live et monitorer.
+
 ## Endpoints
 
 - `/api/checkout` (POST) : valide le plan (`src/data/pricing.ts`), crée la session, enregistre une `order` `created`.
@@ -76,6 +112,27 @@ stripe trigger checkout_session_completed
 3) Carte de test : `4242 4242 4242 4242`.
 4) Redirection vers le callback ; le webhook confirme et crédite.
 5) Vérifiez `/[locale]/credits-test` ou `POST /api/account/credits`.
+
+---
+
+## Guide d’intégration Stripe (aperçu)
+
+Intégrer Stripe sur votre site est rapide si vous suivez ces étapes :
+
+1. Créer un compte Stripe : renseigner votre activité et le compte de versement.
+2. Récupérer les clés API : Dashboard → Developers (publishable & secret).
+3. Installer les librairies : SDK Stripe officiel pour votre langage (JS/TS, Ruby, Python, etc.).
+4. Frontend : utiliser Stripe.js et les composants (Elements/Payment Element) ou un plugin pour collecter les cartes en toute sécurité.
+5. Backend : initialiser Stripe avec la clé secrète et exposer des endpoints pour PaymentIntents ou Checkout Sessions.
+6. Collecter les données de paiement : éviter de manipuler les cartes côté serveur grâce aux composants Stripe.
+7. Envoyer au serveur : transmettre l’intention de paiement en HTTPS.
+8. Traiter côté serveur : créer PaymentIntents ou Checkout Sessions via le SDK.
+9. Gérer la réponse : mettre à jour la base et informer le client.
+10. Erreurs & cas limites : fonds insuffisants, carte expirée, 3DS, retries.
+11. Tester à fond : mode test, webhooks et cartes de test.
+12. Passer en live : basculer les clés, activer les méthodes et monitorer.
+
+Astuce : démarrez avec le guide officiel — https://docs.stripe.com/get-started
 
 ---
 
@@ -187,3 +244,9 @@ stripe listen --forward-to localhost:3000/api/pay/webhook/stripe
 ```
 
 Si vous utilisez un domaine/tunnel distant, redirigez vers cette URL au lieu de localhost.
+
+---
+
+## Autres options de paiement
+
+Stripe n’est qu’une option. Si vous avez besoin d’alternatives comme les paiements en crypto ou PayPal, contactez‑moi : je peux vous aider à choisir et intégrer le bon fournisseur pour votre stack et votre marché.

@@ -17,295 +17,226 @@ keywords:
 tags: [google, seo, analítica, crecimiento]
 author: "Pansa Legrand"
 publishedAt: "2025-09-30T00:00:00.000Z"
-updatedAt: "2025-09-30T00:00:00.000Z"
+updatedAt: "2025-10-13T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/es/blogs/google-for-saas"
 ---
 
 ## Por qué Google importa para un SaaS
 
-Google es donde la gente hace preguntas y descubre soluciones. Para un SaaS, ganar en Google logra dos cosas:
+Google es donde las personas hacen preguntas y descubren soluciones. Para un SaaS, ganar visibilidad en Google aporta dos grandes beneficios:
 
-- Atrae tráfico cualificado y acumulativo desde la búsqueda con el tiempo.
-- Revela qué quieren los usuarios y cómo encuentran tu producto, para mejorar páginas, contenido y onboarding.
+- Tráfico cualificado y constante que se acumula con el tiempo.
+- Información sobre lo que quiere la gente y cómo te encuentra, para mejorar contenido, páginas y onboarding.
 
-No necesitas trucos. Necesitas elegibilidad, descubribilidad, buena experiencia de página y contenido útil. Las propias herramientas de Google te dicen qué corregir y cómo se comportan los usuarios una vez que llegan.
+En 2025, Google concentra ~90% de las búsquedas web mundiales (móvil + escritorio). La inclusión en resultados orgánicos es gratuita: tu tarea es hacer el sitio elegible y útil según Search Essentials. En la práctica: contenido centrado en las personas, páginas rastreables y móviles, y buena experiencia sin tácticas manipulativas.
 
----
+- Cuota de buscadores: https://gs.statcounter.com/search-engine-market-share
+- Search Essentials (políticas y bases técnicas): https://developers.google.com/search/docs/essentials
 
-## Para qué usamos Google (el toolkit)
-
-### Search Console vs. Google Analytics (GA4)
-
-- Search Console (search.google.com/search-console)
-  - Cómo apareces en Google: consultas, impresiones, clics, posición media.
-  - Señala problemas de rastreo/indexación, Core Web Vitals, sitemaps, acciones manuales, elegibilidad para datos enriquecidos.
-  - Los datos vienen de la Búsqueda de Google (no requiere tag). No muestra tráfico no proveniente de Búsqueda ni el comportamiento en el sitio.
-
-- Google Analytics 4 (analytics.google.com)
-  - Qué hacen los usuarios en tu sitio/app: usuarios, sesiones, eventos, conversiones, canales.
-  - Modelo basado en eventos; requiere una etiqueta (Google tag o mediante Tag Manager).
-
-Son complementarias: Search Console explica cómo llegan los visitantes desde Google; GA4 explica qué hacen después. Puedes visualizar ambas en Looker Studio.
-
-### Otras superficies de Google que nos importan
-
-- Google Business Profile (GBP): visibilidad local en Maps/búsquedas “cerca de mí” si sirves una zona.
-- Merchant Center + datos estructurados de producto: elegibilidad para resultados enriquecidos/Shopping (flujos e‑commerce).
-- Trends + Keyword Planner: entender demanda, estacionalidad y temas de consulta.
-- PageSpeed Insights + Core Web Vitals en Search Console: señales de rendimiento de usuarios reales.
+No hacen falta “trucos”; hace falta elegibilidad, descubribilidad, experiencia de página y contenido útil. Las herramientas de Google te dirán qué corregir y cómo se comportan los usuarios tras aterrizar.
 
 ---
 
-## Playbook práctico para posicionar y crecer (2025)
+## El kit de Google para el crecimiento de un SaaS
+
+### Google Search Console (GSC)
+
+Tu sala de control SEO: muestra consultas, impresiones, clics y posición; avisa de problemas de rastreo/indexación; reporta Core Web Vitals; y valida datos estructurados. Los datos vienen de Google Search (no requiere etiqueta). Úsala para enviar sitemaps, inspeccionar URLs y solicitar re‑rastreo cuando proceda.
+
+- GSC: https://search.google.com/search-console
+
+### Google Analytics 4 (GA4)
+
+Analítica de comportamiento on‑site: usuarios, sesiones, eventos y conversiones de todas las fuentes. Requiere etiqueta o Google Tag Manager y usa un modelo basado en eventos. Complementa a GSC explicando qué hacen los visitantes tras llegar.
+
+- GA4: https://analytics.google.com
+
+### Google Business Profile (GBP)
+
+Si la visibilidad local importa (oficina, formación, enfoque regional), GBP te ayuda a aparecer en Búsqueda/Maps. El ranking se basa en relevancia, distancia y prominencia. Mantén info precisa (categorías, horarios), añade fotos y gestiona reseñas.
+
+- Mejora del ranking local: https://support.google.com/business/answer/7091
+
+### Merchant Center + datos estructurados de producto
+
+Si vendes productos (hardware, merchandising, etc.), Merchant Center habilita listados gratuitos en superficies de Google. Incluso sin Merchant Center, el schema Product puede activar rich results. En 2024 Google amplió el soporte de variantes de producto.
+
+- Listados gratuitos: https://support.google.com/merchants/answer/13889434
+- Variantes de producto: https://www.schemaapp.com/schema-markup/google-expands-structured-data-support-for-product-variants/
+
+### Trends y Keyword Planner
+
+Trends para temas emergentes y estacionalidad. Keyword Planner para ideas y volúmenes aproximados (el acceso completo suele requerir configurar Google Ads con facturación; no es obligatorio anunciarse).
+
+- Keyword Planner: https://support.google.com/google-ads/answer/7337243
+
+### PageSpeed Insights (PSI) y Core Web Vitals (CWV)
+
+CWV mide velocidad/UX real: LCP (carga), INP (interactividad; sustituyó a FID en 2024) y CLS (estabilidad). Objetivos: LCP ≤ 2.5s, INP ≤ 200ms, CLS &lt; 0.1. Usa PSI para diagnósticos y GSC para seguimiento.
+
+- CWV explicado: https://www.tuurbo.ai/speed-performance/what-are-core-web-vitals/
+
+### Looker Studio
+
+Construye dashboards combinando GSC + GA4 (y más) para conectar clics SEO con registros/conversiones y seguir el progreso.
+
+- Looker Studio: https://lookerstudio.google.com
+
+---
+
+## Playbook 2025 para posicionar y crecer
 
 1) Cumple lo básico (elegibilidad y políticas)
-- Sigue Search Essentials y las políticas anti‑spam (nada de enlaces manipulados ni contenido masivo poco útil/solo para rankear).
-- Crea contenido útil, fiable y centrado en las personas; los sistemas de Google recompensan la utilidad independientemente de quién/cómo se escriba.
+- Sigue Search Essentials; evita tácticas de spam (esquemas de enlaces, contenido masivo de baja calidad). En marzo de 2024, Google lanzó actualizaciones contra abuso de dominios expirados, abuso de contenido a escala y abuso de reputación del sitio.
+- Crea contenido útil, fiable y centrado en las personas. La utilidad y la experiencia vencen a largo plazo.
 
-2) Asegura que Google puede encontrar e indexar
-- En Search Console: corrige problemas del informe de Indexación de páginas, envía un sitemap limpio y confirma que robots.txt o noindex no bloquean páginas clave.
-- Usa Inspección de URL para revisar páginas concretas y (cuando proceda) solicitar un nuevo rastreo.
+2) Asegura descubrimiento e indexación
+- Indexación: usa el informe de GSC para corregir problemas y garantizar que las páginas clave estén indexadas.
+- Sitemap XML: envíalo y mantenlo actualizado.
+- Inspección de URL: revisa páginas y solicita indexación para URLs nuevas/actualizadas importantes.
+- Evita bloqueos accidentales: robots.txt controla rastreo, no indexación; usa noindex o autenticación para lo sensible.
 
-3) Clava la experiencia de página (Core Web Vitals)
-- Objetivos: LCP ≤ 2.5s, INP ≤ 200ms, CLS ≤ 0.1 en el percentil 75.
-- Usa PageSpeed Insights y monitoriza Core Web Vitals en Search Console. Nota: INP sustituyó a FID en marzo de 2024.
+3) Optimiza la experiencia (Core Web Vitals)
+- Metas: LCP ≤ 2.5s, INP ≤ 200ms, CLS &lt; 0.1 (p75 de usuarios reales).
+- Usa PSI para diagnosticar (imágenes pesadas, long tasks, scripts bloqueantes). Arregla problemas sistémicos que afecten plantillas.
+- Nota: INP sustituyó a FID en 2024; cuida la interactividad más allá del primer input.
 
-4) Añade datos estructurados correctamente
-- Sigue las directrices generales y prueba con Rich Results Test.
-- Implementa los tipos que importan (Product, Event, Article, Local Business, etc.).
-- Cambios recientes: HowTo y la mayoría de FAQ están depreciados/limitados; variantes de producto tienen soporte.
+4) Implementa datos estructurados (schema)
+- Sigue las directrices y valida con Rich Results Test.
+- Tipos relevantes: Article (blog/docs), Event (webinars), Product o SoftwareApplication (planes/features), Organization (info global).
+- Cambios: HowTo está deprecado; FAQ es limitado a sitios autorizados — no bases tu estrategia en ello.
+- Variantes de producto (si aplican) soportadas con ProductGroup.
 
-5) Refuerza la arquitectura de información
-- URLs descriptivas; enlaces rastreables con anclajes significativos; canónicos correctos; hreflang para sitios multilenguaje.
+5) Refuerza estructura e interlinking
+- URLs claras, enlaces rastreables con anclajes descriptivos, canónicos precisos, hreflang para multilenguaje.
+- Evita páginas huérfanas; corrige enlaces rotos; usa una jerarquía lógica acorde a la navegación.
 
-6) Visibilidad local (si aplica)
-- Crea y optimiza tu Google Business Profile (horarios, categorías, fotos, servicios).
-- Factores de ranking local: relevancia, distancia, prominencia; reseñas recientes y positivas ayudan.
+6) SEO local (si aplica)
+- Crea/reclama GBP, elige categorías precisas, añade horarios (incl. festivos), fotos y una descripción concisa.
+- Fomenta y responde reseñas; mantén la info al día. Chat/historial de llamadas integrados se retiraron en 2024; en algunas regiones puedes enlazar WhatsApp/SMS.
 
-7) Superficies e‑commerce (si vendes online)
-- Implementa datos estructurados de Product y Merchant listings; monitoriza el informe de Merchant listings en Search Console.
-- Abre una cuenta de Merchant Center para aparecer en Google (Search/Shopping/Maps/YouTube). Añade la política de devoluciones opcionalmente.
+7) Consideraciones e‑commerce (si vendes productos)
+- Implementa Product con precio, disponibilidad y envío/devoluciones; valida con Rich Results Test.
+- Configura Merchant Center y activa listados gratuitos; monitoriza “Merchant listings” en GSC.
+- Con tiendas físicas, explora listados locales gratuitos/inventario local.
 
-8) Investiga demanda y temas
-- Usa Google Trends para interés/estacionalidad; usa Keyword Planner para validar temas de consulta (acceso completo con cuenta de Google Ads con facturación).
+8) Investiga demanda y temas de forma continua
+- Trends para vocabulario/estacionalidad; Keyword Planner (o terceros) para volúmenes y términos relacionados.
+- Crea contenidos para intención alta (pricing/comparativas) y educativos que conecten con tu propuesta de valor.
 
 9) Mide e itera
-- En Search Console: usa los informes de Rendimiento (Search/News/Discover) para consultas, CTR y posición; revisa Crawl Stats y el Search Status Dashboard.
-- En GA4: define eventos de conversión (leads, compras), analiza adquisición vs. engagement. Si operas en el EEE, implementa Consent Mode v2.
-- Construye un informe sencillo en Looker Studio mezclando Search Console + GA4.
+- En GSC: Performance (consultas/CTR/posición), Indexación/Cobertura y Crawl Stats; vigila Search Status Dashboard ante actualizaciones/incidentes.
+- En GA4: define/traquea conversiones (registro, demo, compra). Revisa engagement y paths. Implementa Consent Mode v2 si operas en el EEE.
+- En Looker Studio: combina GSC + GA4 para vincular clics SEO con registros y detectar mejoras (p. ej., muchos clics pero pocas conversiones).
+
+- Actualizaciones de calidad/spam: https://blog.google/products/search/google-search-update-march-2024/
+- Search Status Dashboard: https://status.search.google.com/summary
 
 ---
 
-## Comparativa rápida (chuleta)
+## Chuleta (referencia rápida)
 
-- ¿Qué consultas traen tráfico? ¿CTR/posición?
+- ¿Qué consultas traen tráfico? ¿CTR y posiciones?
   - Search Console → Rendimiento (Search/News/Discover)
-- ¿Esta página está indexada? ¿Por qué sí/no?
-  - Search Console → Inspección de URL / Indexación de páginas
-- ¿Qué tan rápida/usable es la página?
-  - PageSpeed Insights + Search Console → Core Web Vitals
-- ¿Mis productos son elegibles para resultados enriquecidos/Shopping?
-  - Search Console → Merchant listings + Rich Results Test
-- ¿Qué hacen tras aterrizar?
-  - GA4 (eventos/conversiones)
+- ¿Está indexada la página X? ¿Por qué no?
+  - Search Console → Inspección de URL + informe de Indexación
+- ¿Qué tan rápida/usable es una página?
+  - PageSpeed Insights (diagnóstico) + GSC → Core Web Vitals
+- ¿Mis páginas de producto son elegibles para rich results/Shopping?
+  - GSC → Merchant listings/Products; Rich Results Test; estado del feed en Merchant Center
+- ¿Qué hacen los visitantes tras aterrizar?
+  - GA4 (adquisición, eventos, conversiones; segmento Google organic)
 
 ---
 
 ## Errores comunes a evitar
 
-- Comprar/participar en enlaces manipulados o producir contenido poco útil a escala (viola políticas de spam). Actualizaciones recientes atacan el “abuso de dominios expirados”, “abuso de contenido a escala” y “abuso de reputación del sitio”.
-- Confiar en tipos de resultados enriquecidos depreciados (p. ej., HowTo; la mayoría de FAQ).
-- Ignorar INP (sustituyó a FID en marzo de 2024).
+- “Hacks” de corto plazo (esquemas de enlaces, PBNs, contenido finito/automático). Las actualizaciones anti‑spam los penalizan.
+- Basarse en rich results deprecados/limitados (HowTo/FAQ). No construyas tu estrategia alrededor de ellos.
+- Ignorar INP (ahora CWV de interactividad). Un buen FID puede ocultar mal INP.
+- Mala experiencia móvil o desajustes móvil/escritorio (indexación mobile‑first).
+- Omitir privacidad/consentimiento (EEE). Implementa Consent Mode v2 para conservar medición acorde a consentimiento.
+- Tratar el SEO como “one‑shot”. Itera con insights de GSC/GA4 cada trimestre.
+
+Referencias de cambios y políticas:
+
+- Update de calidad/spam (mar 2024): https://blog.google/products/search/google-search-update-march-2024/
+- Cambios en HowTo/FAQ: https://developers.google.com/search/blog/2023/08/howto-faq-changes
+- Retirada total de How‑To (resumen): https://www.searchenginejournal.com/google-completely-removes-how-to-rich-results/496479/
+- Consent Mode v2: https://developers.google.com/tag-platform/security/guides/consent
 
 ---
 
 ## Concepto clave: ¿Qué es una “tag” aquí?
 
-En analítica/marketing web, una “tag” es un pequeño fragmento de JavaScript que añades al sitio para enviar datos a un servicio (Analytics, Ads, etc.).
+En analítica/marketing web, una “tag” es un pequeño fragmento de JavaScript que envía datos a un servicio (Analytics, Ads, etc.).
 
-- GA4 → requiere etiqueta. Ejemplo: `<script>` con un Measurement ID (G‑XXXXXXX) para páginas, eventos y conversiones.
-- Google Tag Manager (GTM) → contenedor para añadir/gestionar muchas etiquetas (Analytics, Ads, remarketing) sin tocar el código cada vez.
-- Search Console → no requiere etiqueta. Verificas la propiedad una vez (DNS TXT, archivo HTML o `<meta>` en `<head>`) y Google recolecta los datos de búsqueda/indexación por su lado.
-
----
-
-## Cómo configurar Google Business Profile (SEO local)
-
-Si sirves una ubicación o quieres visibilidad en mapas:
-
-1. Ve a https://www.google.com/business/ e inicia sesión.
-2. Añade los datos del negocio: nombre, categoría, dirección o áreas de servicio, contacto, horarios, fotos.
-3. Verifica (postal, teléfono, email o video).
-4. Optimiza: mantén la información actualizada, añade fotos, solicita reseñas, respóndelas y publica novedades/ofertas.
+- GA4 → requiere etiqueta. Ejemplo: `<script>` con Measurement ID (G‑XXXXXXX) para páginas, eventos, conversiones.
+- Google Tag Manager (GTM) → contenedor para añadir/gestionar muchas etiquetas sin tocar código.
+- Search Console → no requiere etiqueta. Verificas la propiedad una vez (DNS TXT, archivo HTML o `<meta>` en `<head>`); Google recoge los datos de búsqueda por su lado.
 
 ---
 
 ## Orden paso a paso (sitio nuevo)
 
 1) Search Console
-- Verifica la propiedad (preferible DNS TXT), envía el sitemap y revisa Indexación de páginas.
-- Corrige bloqueos (noindex, robots.txt, canonicals) y solicita recrawls cuando aplique.
+- Verifica propiedad (recomendado DNS TXT), envía sitemap y revisa Indexación.
+- Corrige bloqueos (noindex, robots.txt, canonicals) y solicita re‑rastreo cuando corresponda.
+- Inspecciona URLs prioritarias y pide indexación tras cambios mayores.
 
 2) GA4 (+ opcional GTM)
-- Añade la etiqueta de GA4 (o instala vía GTM). Define eventos de conversión (registro, compra, etc.).
-- Si operas en el EEE, implementa Consent Mode v2.
+- Instala la etiqueta de GA4 (o vía GTM). Define 1–3 conversiones clave (registro, compra, demo).
+- Si operas en el EEE, implementa Consent Mode v2 (a menudo con tu CMP + GTM).
 
 3) Google Business Profile (si es local)
-- Crea/reclama el perfil, verifica y completa campos clave (horarios, servicios). Empieza a construir reseñas.
+- Crea/reclama, verifica y completa (categorías, horarios, descripción, fotos). Inicia plan de reseñas.
 
-4) Opcional: Merchant Center (si listás productos)
-- Implementa datos estructurados de Product/Merchant, conecta Merchant Center y monitoriza la elegibilidad en Search Console.
+4) Merchant Center (si listas productos)
+- Implementa Product/Merchant; configura Merchant Center; activa listados gratuitos; monitoriza GSC → Merchant listings.
 
 5) Reporting
-- Monta un dashboard básico en Looker Studio combinando Search Console + GA4 para monitorear consultas, CTR, conversiones y rendimiento por página.
+- Construye un dashboard en Looker Studio combinando GSC + GA4 para seguir consultas, CTR y conversiones.
 
 ---
 
 ## Qué hacer a continuación
 
-- Decide qué superficies aplican a tu SaaS (¿solo Search? ¿Local? ¿Productos?).
-- También puedo darte un checklist copiable para nuestro stack (Next.js + MDX + Better Auth) para implementar Search Console, GA4 y Consent Mode, y una plantilla base de Looker Studio. Dime y lo añado.
-
----
-
-## Anexo: ¿Cuándo usar las herramientas de Google? (pymes locales)
-
-Úsalas cuando necesites:
-
-1) Ser descubierto — lograr indexación, mostrar información exacta en Search/Maps, ser elegible para resultados enriquecidos. (Search Console, Business Profile, datos estructurados)
-
-2) Medir qué funciona — fuentes de tráfico, eventos, conversiones, consultas y experiencia de página. (GA4, Search Console, PageSpeed Insights)
-
-3) Mejorar la experiencia — corregir lentitud/INP alto (Core Web Vitals), mantener horarios/fotos/reseñas al día. (web.dev, Business Profile)
-
-4) Crecer — ejecutar anuncios, mostrar productos gratis en superficies de Google, o activar Local Services Ads en oficios elegibles. (Google Ads, Merchant Center, LSA)
-
----
-
-## Anexo: Caja de herramientas esencial (de un vistazo)
-
-- Google Search Console (GSC) — tu sala de control SEO
-  - Qué hace: consultas/CTR/posición, indexación, Core Web Vitals, elegibilidad de rich results; enviar sitemaps; solicitar indexación; informes de Merchant/Product.
-  - Primeros 10 minutos: verifica propiedad (archivo HTML, DNS TXT o meta; GA4/GTM también valen), envía el sitemap, inspecciona/indexa URLs prioritarias. Si vendes productos, abre “Merchant listings” y “Product snippets”.
-
-- Google Business Profile (GBP) — ficha local en Search y Maps
-  - Qué hace: publica NAP, horarios, categorías, fotos, servicios/productos, enlaces de reservas; recoge reseñas; muestra métricas locales.
-  - Notas: chat e historial de llamadas se retiraron el 31/07/2024; en algunas regiones puedes añadir enlaces de WhatsApp/SMS como reemplazo. Debes tener contacto en persona (sin apartados postales/oficinas virtuales). Los negocios de área de servicio deben ocultar la dirección y fijar áreas.
-
-- Google Analytics 4 (GA4) — medición basada en eventos
-  - Qué hace: tráfico, eventos y conversiones web/app; integra con Ads/BigQuery.
-  - Primeros 10 minutos: crea la propiedad, instala la etiqueta (o vía GTM), define conversiones clave. Si atiendes al EEE, implementa Consent Mode v2 (a menudo vía CMP + GTM).
-
-- Google Tag Manager (GTM) — gestiona etiquetas sin despliegues de código
-  - Qué hace: un contenedor para desplegar/actualizar etiquetas de Analytics/Ads/consentimiento sin tocar código.
-
-- PageSpeed Insights (PSI) y Core Web Vitals — salud de rendimiento/UX
-  - Qué hace: datos de campo (CrUX) + laboratorio (Lighthouse) para mejorar LCP/INP/CLS. Objetivos: LCP ≤ 2.5s, INP ≤ 200ms, CLS ≤ 0.1. INP sustituyó a FID en 2024.
-
-- Merchant Center — superficies de producto gratuitas
-  - Qué hace: muestra productos gratis en Search, Shopping, Maps, Images, YouTube, Lens y Gemini; anuncios opcionales. Funciona con feeds o datos estructurados. Para devs/SEOs: añade Product/Offer (envío/devoluciones, precio/disponibilidad); monitoriza Merchant listings en GSC.
-
-- Google Ads — crecimiento de pago (opcional)
-  - Qué hace: Search/Performance Max/YouTube/Maps; para oficios, Local Services Ads (pago por lead, con verificación). Vincula GBP para extensiones de ubicación.
-
-- Looker Studio — dashboards de reporting
-  - Qué hace: paneles gratis; conecta GA4 + GSC para visualizar juntos.
-
-- Investigación — Trends y Keyword Planner
-  - Qué hace: detectar temas en alza y comparar términos (Trends); ideas/volúmenes de keywords (Planner; acceso completo suele requerir cuenta de Ads configurada).
-
----
-
-## Anexo: Imprescindibles vs. recomendables por escenario
-
-- Cualquier lanzamiento de web
-  - Imprescindible: Search Console (verificar, sitemap, Inspección de URL), GA4 (conversiones básicas), correcciones de PSI/Core Web Vitals.
-  - Recomendable: dashboards en Looker Studio; combinar GSC ↔ GA4.
-
-- Negocio local (tienda o área de servicio)
-  - Imprescindible: Business Profile (NAP, horarios, categorías, fotos, reseñas); factores locales (relevancia, distancia, prominencia).
-  - Recomendable: enlaces de reserva/pedido, menú/productos en el perfil; Local Services Ads si aplica.
-
-- Tienda online / catálogo
-  - Imprescindible: Merchant Center (listados gratis) + Product/Offer; monitoriza Merchant listings en GSC.
-  - Recomendable: inventario local (si hay tiendas físicas), Google Ads (Search/PMax).
-
-- Tráfico EEE
-  - Imprescindible: Consent Mode v2 (vía CMP/GTM).
-  - Recomendable: remarketing avanzado con consentimiento.
-
----
-
-## Anexo: Esenciales para negocio local (paso a paso)
-
-1) Reclama y verifica tu Business Profile. Añade categorías primaria/secundaria, horarios (incl. festivos), servicios, fotos y una breve descripción “Desde la empresa”. Sin apartados postales/oficinas virtuales.
-
-2) Si te desplazas a clientes, define áreas de servicio y oculta la dirección en el perfil.
-
-3) Consigue y responde reseñas. La calidad y frescura influyen en la prominencia; responder demuestra atención.
-
-4) Añade acciones útiles: enlaces de reserva/pedido, menú/productos. Nota: chat/llamadas integrados se retiraron en 2024; considera un enlace de WhatsApp/SMS donde esté disponible.
-
-5) (Opcional) Vincula GBP ↔ Google Ads para mostrar dirección e indicaciones en anuncios.
-
-6) Revisa “Rendimiento” en GBP (búsquedas, vistas, llamadas, indicaciones, clics al sitio).
-
----
-
-## Anexo: Complementos e‑commerce (también útiles en local)
-
-- Visibilidad gratuita: sincroniza productos con Merchant Center para listados gratis en Search/Shopping/Maps/Images/YouTube/Lens/Gemini.
-- Datos estructurados: implementa Product/Offer con precio, disponibilidad, envío y devoluciones; valida con Rich Results Test; monitoriza problemas en GSC Merchant listings.
-- Inventario local / listados locales gratis: muestra stock cercano y fomenta visitas en tienda.
-
----
-
-## Anexo: Experiencia de página e higiene técnica
-
-- Core Web Vitals: LCP ≤ 2.5s, INP ≤ 200ms, CLS ≤ 0.1. Usa PSI para datos de campo (CrUX) y laboratorio (Lighthouse).
-- Sitemap: genera y envía un XML estándar; cuida el enlazado interno.
-- Robots e indexación: robots.txt controla el rastreo, no la indexación; usa noindex o autenticación para mantener páginas fuera de Search.
-- Soluciona páginas concretas con Inspección de URL (probar en vivo, solicitar indexación).
-- Ante volatilidad, revisa Search Status Dashboard (core updates/incidentes).
-
----
-
-## Anexo: Investigación y planificación (flujo ligero)
-
-- Empieza con Trends para vocabulario, estacionalidad y geografía; compara hasta 5 grupos de términos.
-- Usa Keyword Planner para dimensionar demanda y encontrar temas relacionados (algunas funciones requieren completar la cuenta de Ads).
-- Para calidad de contenido, sigue “helpful, reliable, people‑first content” y Search Essentials.
-
----
-
-## Checklist de una página (sitio nuevo)
-
-Día 1–2
-- Verifica Search Console (archivo HTML, DNS TXT o meta). Envía sitemap.xml. Inspecciona URLs clave.
-- Instala GA4 (gtag o vía GTM). Configura 1–3 conversiones (lead, compra, clic de llamada).
-- Ejecuta PageSpeed Insights en home y plantillas principales; anota problemas de LCP/INP/CLS.
-
-Semana 1
-- Business Profile: reclamar/verificar; categorías, horarios (incl. festivos), áreas de servicio (si aplica), descripción, fotos; añade enlaces de reserva/pedido si aportan. Inicia plan de reseñas.
-- Si vendes online: añade Product/Offer; valida en Rich Results Test; abre Merchant listings en GSC.
-
-Mes 1
-- Crea un dashboard en Looker Studio mezclando GA4 (engagement/conversiones) + GSC (consultas/posiciones).
-- Si atiendes al EEE, despliega Consent Mode v2 con tu CMP vía GTM.
-- Considera Local Services Ads (oficios) o una prueba pequeña de Search Ads; vincula Ads ↔ GBP.
+- Decide qué superficies importan (¿solo Search? ¿Local? ¿Productos?).
+- Si eres 100% online global, prioriza SEO + medición con GA4; GBP puede ser opcional.
+- Si hay foco regional/presencial, optimiza GBP y básicos de SEO local.
+- Si vendes add‑ons/hardware/merch, usa Merchant Center + schema para visibilidad.
+- Para todos: sigue las novedades de Google; con fundamentos sólidos, adaptar es más fácil.
 
 ---
 
 ## Glosario
 
-- Tag — pequeño fragmento de código que carga el sitio (Analytics, Ads, etc.). GTM ayuda a gestionarlos sin despliegues de código.
-- Datos estructurados / schema — información legible por máquinas (JSON‑LD recomendado) que habilita rich results (p. ej., precio/valoraciones). Prueba con Rich Results Test.
-- Core Web Vitals (CWV) — LCP, INP, CLS. Aspira a los umbrales “buenos”.
-- Sitemap — lista de URLs importantes; envíala en GSC.
-- Robots.txt — archivo que gestiona rastreo; no bloquea la indexación (usa noindex o auth para ello).
+- Google Search Console (GSC) — Analítica de búsqueda y salud de indexación; sin etiqueta on‑site.
+- Google Analytics 4 (GA4) — Analítica basada en eventos; requiere etiqueta o GTM; mide engagement/conversiones.
+- Google Business Profile (GBP) — Tu ficha en Búsqueda/Maps; optimiza para visibilidad y confianza local.
+- Google Merchant Center (GMC) — Feeds de producto para listados gratuitos y Shopping; monitoriza elegibilidad y políticas.
+- Datos estructurados / schema — JSON‑LD que habilita rich results; debe reflejar el contenido on‑page.
+- Core Web Vitals (CWV) — LCP, INP, CLS como umbrales de buena UX.
+- Sitemap XML — Lista de URLs para descubrimiento; envíala en GSC.
+- robots.txt — Controla rastreo (no indexación). Usa noindex/auth para páginas privadas.
+- Google Tag Manager (GTM) — Un contenedor para gestionar múltiples etiquetas sin despliegues.
+- Consent Mode — Señales para ajustar etiquetas de Google al consentimiento; crítico en el EEE.
+- Looker Studio — Dashboards gratis para mezclar GSC/GA4 y visualizar KPIs.
 
 ---
 
-## Reflexión final
+## Referencias
 
-Google sigue siendo la puerta de entrada principal a la web, especialmente para descubrimiento local. Si ganas visibilidad (contenido útil, sitio sano), mides bien (GA4/GSC), mejoras la experiencia (CWV) y enriqueces resultados (datos estructurados, Business Profile, Merchant Center), cubres el 80/20 del crecimiento sostenible; los anuncios y reporting avanzado pueden venir después.
+- Cuota de buscadores — Statcounter: https://gs.statcounter.com/search-engine-market-share
+- Google Search Essentials (Webmaster Guidelines): https://developers.google.com/search/docs/essentials
+- Consejos para mejorar ranking local: https://support.google.com/business/answer/7091
+- Listados gratuitos de productos — Ayuda de Merchant Center: https://support.google.com/merchants/answer/13889434
+- Soporte de variantes de producto: https://www.schemaapp.com/schema-markup/google-expands-structured-data-support-for-product-variants/
+- Usar Keyword Planner — Ayuda de Google Ads: https://support.google.com/google-ads/answer/7337243
+- ¿Qué son los Core Web Vitals? (INP → FID): https://www.tuurbo.ai/speed-performance/what-are-core-web-vitals/
+- Actualizaciones contra spam/resultados de baja calidad (mar 2024): https://blog.google/products/search/google-search-update-march-2024/
+- Cambios en rich results de HowTo/FAQ (2023): https://developers.google.com/search/blog/2023/08/howto-faq-changes
+- Google elimina por completo How‑To (resumen): https://www.searchenginejournal.com/google-completely-removes-how-to-rich-results/496479/
+- Cambios en mensajería/llamadas de GBP (contexto): https://wiremo.co/blog/google-business-profile-messaging/
+- Google Search Status Dashboard: https://status.search.google.com/summary
+- Configurar Consent Mode en sitios web: https://developers.google.com/tag-platform/security/guides/consent

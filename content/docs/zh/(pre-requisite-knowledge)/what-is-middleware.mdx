@@ -1,0 +1,114 @@
+---
+title: "什么是中间件？入门指南"
+icon: "Workflow"
+description: "从零理解中间件、为什么对 SaaS 有用，以及我们在 Next.js 中的中间件如何处理 i18n 和请求 ID，并介绍如何自定义。"
+keywords:
+  - 中间件
+  - Next.js middleware
+  - Edge runtime
+  - i18n
+  - request id
+  - SaaS
+tags: [middleware, nextjs, edge, i18n]
+author: "Pansa Legrand"
+publishedAt: "2025-10-13T00:00:00.000Z"
+updatedAt: "2025-10-13T00:00:00.000Z"
+canonical: "https://www.sushi-templates.com/zh/blogs/what-is-middleware"
+---
+
+## 基础概念（面向初学者）
+
+中间件运行在“请求 → 最终处理器”之间。它像一个检查点：读取请求头、决定重定向、设置响应头，然后再进入页面或 API 处理逻辑。
+
+常见用途：
+- 认证拦截（未登录重定向）
+- 多语言 i18n（保持 `/:locale/...` 或自动检测）
+- 日志与追踪（添加 `x-request-id`）
+- 特性开关/实验
+- 安全和限流
+
+在 Next.js 中，`middleware.ts` 在 Edge 侧非常早地执行。
+
+---
+
+## 为什么有用
+
+把“跨领域”的逻辑集中管理，避免在各路由重复：
+
+- 统一的全局规则入口
+- 一致的可观测性（统一的 `request_id`）
+- 早决策、少开销（更少后端工作）
+- 处理器更专注于业务逻辑
+
+SaaS 典型需求：多语言、日志关联、后台区、实验、请求头规范化等。
+
+---
+
+## 我们的中间件在做什么
+
+组合 `next-intl` 的 i18n 路由与轻量的请求 ID 传播。
+
+要点：
+- 语言路由：`src/i18n/routing.ts`
+- `x-request-id`：复用已有或生成 UUID
+- 保守的匹配器：排除 `api`、`_next`、静态资源、`admin`
+
+```ts
+// src/middleware.ts（节选）
+import createMiddleware from 'next-intl/middleware';
+import { NextRequest } from 'next/server';
+import { routing } from '@/i18n/routing';
+
+const intlMiddleware = createMiddleware(routing);
+
+export default function middleware(request: NextRequest) {
+  const existing = request.headers.get('x-request-id');
+  const requestId = existing || crypto.randomUUID();
+  const res = intlMiddleware(request);
+  res.headers.set('x-request-id', requestId);
+  return res;
+}
+```
+
+---
+
+## 如何安全地自定义
+
+添加响应头：
+```ts
+export default function middleware(request: NextRequest) {
+  const res = intlMiddleware(request);
+  res.headers.set('x-feature-flag', 'on');
+  return res;
+}
+```
+
+重定向：
+```ts
+import { NextResponse } from 'next/server';
+export default function middleware(request: NextRequest) {
+  if (request.nextUrl.pathname === '/old') {
+    return NextResponse.redirect(new URL('/new', request.url));
+  }
+  return intlMiddleware(request);
+}
+```
+
+调整 `matcher`，并在线上日志中使用 `x-request-id`。避免在中间件里修改认证 Cookie。
+
+---
+
+## 什么时候不要用中间件
+
+- 仅针对某单一路由的逻辑
+- 重型异步任务（如数据库访问）
+- 读取/转换请求体
+
+---
+
+## TL;DR
+
+- 适合 i18n、响应头、重定向、轻量级守卫
+- 默认实现：i18n + `x-request-id`
+- 通过响应头、重定向和 `matcher` 来扩展；不要改动认证 Cookie
+

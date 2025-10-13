@@ -1,183 +1,543 @@
 <?xml version='1.0' encoding='utf-8' standalone='yes'?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://sushi-templates.com/en/</loc>
-    <lastmod>2025-09-29T17:28:10.065Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/</loc>
+    <lastmod>2025-10-13T06:01:33.128Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/en/blogs/account-ledger</loc>
-    <lastmod>2025-09-29T07:51:24.087Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/about</loc>
+    <lastmod>2025-10-13T03:54:52.073Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/en/blogs/affiliate-and-reward</loc>
-    <lastmod>2025-09-29T07:55:25.978Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/account-ledger</loc>
+    <lastmod>2025-10-13T04:33:56.719Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/en/blogs/authentication-and-admin</loc>
-    <lastmod>2025-09-29T12:27:13.049Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/affiliate-and-reward</loc>
+    <lastmod>2025-10-10T17:16:59.189Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/en/blogs/database-setup</loc>
-    <lastmod>2025-09-29T07:55:38.574Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/affiliates-and-referrals-for-beginners</loc>
+    <lastmod>2025-10-13T04:52:41.732Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/en/blogs/email-service</loc>
-    <lastmod>2025-09-29T07:55:44.705Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/anatomy-of-modern-saas</loc>
+    <lastmod>2025-10-10T17:16:59.213Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/en/blogs/quick-start</loc>
-    <lastmod>2025-09-29T07:55:49.796Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/authentication-and-admin</loc>
+    <lastmod>2025-10-13T04:22:01.174Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/en/blogs/reservations-feature</loc>
-    <lastmod>2025-09-29T12:27:13.050Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/budget</loc>
+    <lastmod>2025-10-10T17:16:59.218Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/en/blogs/stripe-setup</loc>
-    <lastmod>2025-09-29T07:55:54.935Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/comparison-of-full-stack-saas-boilerplates-vs-sushi-templates</loc>
+    <lastmod>2025-10-10T17:16:59.212Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/es/</loc>
-    <lastmod>2025-09-29T17:28:10.067Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/database-setup</loc>
+    <lastmod>2025-10-13T04:12:07.675Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/es/blogs/account-ledger</loc>
-    <lastmod>2025-09-29T07:51:30.998Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/databases-for-saas-postgres-drizzle</loc>
+    <lastmod>2025-10-13T04:52:47.563Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/es/blogs/affiliate-and-reward</loc>
-    <lastmod>2025-09-29T07:56:06.939Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/email-service</loc>
+    <lastmod>2025-10-10T17:16:59.184Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/es/blogs/authentication-and-admin</loc>
-    <lastmod>2025-09-29T12:27:13.050Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/frontend-vs-backend-vs-fullstack-saas</loc>
+    <lastmod>2025-10-10T17:16:59.218Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/es/blogs/database-setup</loc>
-    <lastmod>2025-09-29T07:56:17.886Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/google-for-saas</loc>
+    <lastmod>2025-10-13T05:26:13.341Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/es/blogs/email-service</loc>
-    <lastmod>2025-09-29T07:56:23.146Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/legal-and-compliance-at-launch</loc>
+    <lastmod>2025-10-13T04:46:59.884Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/es/blogs/quick-start</loc>
-    <lastmod>2025-09-29T07:56:28.612Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/logging</loc>
+    <lastmod>2025-10-11T06:44:57.534Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/es/blogs/reservations-feature</loc>
-    <lastmod>2025-09-29T12:27:13.051Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/notifications-slack</loc>
+    <lastmod>2025-10-11T06:49:33.613Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/es/blogs/stripe-setup</loc>
-    <lastmod>2025-09-29T07:56:33.770Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/quick-start</loc>
+    <lastmod>2025-10-13T04:05:30.673Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/fr/</loc>
-    <lastmod>2025-09-29T17:28:10.067Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/reservations-feature</loc>
+    <lastmod>2025-10-10T17:16:59.184Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/fr/blogs/account-ledger</loc>
-    <lastmod>2025-09-29T07:51:36.987Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/saas-101</loc>
+    <lastmod>2025-10-10T17:16:59.218Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/fr/blogs/affiliate-and-reward</loc>
-    <lastmod>2025-09-29T07:56:45.139Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/storage-uploads</loc>
+    <lastmod>2025-10-10T17:16:59.184Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/fr/blogs/authentication-and-admin</loc>
-    <lastmod>2025-09-29T12:27:13.051Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/stripe-setup</loc>
+    <lastmod>2025-10-13T04:27:55.641Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/fr/blogs/database-setup</loc>
-    <lastmod>2025-09-29T07:56:57.424Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/text-to-video-tasks</loc>
+    <lastmod>2025-10-12T11:53:36.856Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/fr/blogs/email-service</loc>
-    <lastmod>2025-09-29T07:57:05.181Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/what-is-middleware</loc>
+    <lastmod>2025-10-13T04:06:43.874Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/fr/blogs/quick-start</loc>
-    <lastmod>2025-09-29T07:57:12.170Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/what-is-nextjs</loc>
+    <lastmod>2025-10-10T17:16:59.218Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/fr/blogs/reservations-feature</loc>
-    <lastmod>2025-09-29T12:27:13.051Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/why-sushi-templates-beats-minimal-starters-for-real-saas-projects</loc>
+    <lastmod>2025-10-10T17:16:59.213Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/fr/blogs/stripe-setup</loc>
-    <lastmod>2025-09-29T07:57:18.548Z</lastmod>
+    <loc>https://www.sushi-templates.com/en/blogs/why-use-a-saas-template</loc>
+    <lastmod>2025-10-13T04:49:26.479Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/ja/</loc>
-    <lastmod>2025-09-29T17:28:10.068Z</lastmod>
+    <loc>https://www.sushi-templates.com/es/</loc>
+    <lastmod>2025-10-13T06:01:33.130Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/ja/blogs/account-ledger</loc>
-    <lastmod>2025-09-29T07:52:08.049Z</lastmod>
+    <loc>https://www.sushi-templates.com/es/blogs/about</loc>
+    <lastmod>2025-10-13T04:27:34.155Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/ja/blogs/affiliate-and-reward</loc>
-    <lastmod>2025-09-29T07:57:30.770Z</lastmod>
+    <loc>https://www.sushi-templates.com/es/blogs/account-ledger</loc>
+    <lastmod>2025-10-13T04:39:36.655Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/ja/blogs/authentication-and-admin</loc>
-    <lastmod>2025-09-29T12:27:13.051Z</lastmod>
+    <loc>https://www.sushi-templates.com/es/blogs/affiliate-and-reward</loc>
+    <lastmod>2025-10-10T17:16:58.934Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/ja/blogs/database-setup</loc>
-    <lastmod>2025-09-29T07:57:44.452Z</lastmod>
+    <loc>https://www.sushi-templates.com/es/blogs/affiliates-and-referrals-for-beginners</loc>
+    <lastmod>2025-10-13T04:54:05.034Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/ja/blogs/email-service</loc>
-    <lastmod>2025-09-29T07:58:01.752Z</lastmod>
+    <loc>https://www.sushi-templates.com/es/blogs/anatomy-of-modern-saas</loc>
+    <lastmod>2025-10-10T17:16:58.936Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/ja/blogs/quick-start</loc>
-    <lastmod>2025-09-29T07:58:09.137Z</lastmod>
+    <loc>https://www.sushi-templates.com/es/blogs/authentication-and-admin</loc>
+    <lastmod>2025-10-13T04:27:00.764Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/ja/blogs/reservations-feature</loc>
-    <lastmod>2025-09-29T12:27:13.052Z</lastmod>
+    <loc>https://www.sushi-templates.com/es/blogs/budget</loc>
+    <lastmod>2025-10-10T17:16:58.939Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/ja/blogs/stripe-setup</loc>
-    <lastmod>2025-09-29T07:58:18.122Z</lastmod>
+    <loc>https://www.sushi-templates.com/es/blogs/comparison-of-full-stack-saas-boilerplates-vs-sushi-templates</loc>
+    <lastmod>2025-10-10T17:16:58.936Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/zh/</loc>
-    <lastmod>2025-09-29T17:28:10.068Z</lastmod>
+    <loc>https://www.sushi-templates.com/es/blogs/database-setup</loc>
+    <lastmod>2025-10-13T04:25:25.115Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/zh/blogs/account-ledger</loc>
-    <lastmod>2025-09-29T07:52:15.796Z</lastmod>
+    <loc>https://www.sushi-templates.com/es/blogs/databases-for-saas-postgres-drizzle</loc>
+    <lastmod>2025-10-13T04:54:10.453Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/zh/blogs/affiliate-and-reward</loc>
-    <lastmod>2025-09-29T07:58:29.064Z</lastmod>
+    <loc>https://www.sushi-templates.com/es/blogs/email-service</loc>
+    <lastmod>2025-10-10T17:16:58.938Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/zh/blogs/authentication-and-admin</loc>
-    <lastmod>2025-09-29T12:27:13.052Z</lastmod>
+    <loc>https://www.sushi-templates.com/es/blogs/frontend-vs-backend-vs-fullstack-saas</loc>
+    <lastmod>2025-10-10T17:16:58.938Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/zh/blogs/database-setup</loc>
-    <lastmod>2025-09-29T07:58:45.559Z</lastmod>
+    <loc>https://www.sushi-templates.com/es/blogs/google-for-saas</loc>
+    <lastmod>2025-10-13T05:56:20.182Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/zh/blogs/email-service</loc>
-    <lastmod>2025-09-29T07:58:52.170Z</lastmod>
+    <loc>https://www.sushi-templates.com/es/blogs/legal-and-compliance-at-launch</loc>
+    <lastmod>2025-10-13T04:53:37.619Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/zh/blogs/quick-start</loc>
-    <lastmod>2025-09-29T07:58:58.829Z</lastmod>
+    <loc>https://www.sushi-templates.com/es/blogs/logging</loc>
+    <lastmod>2025-10-11T06:45:02.202Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/zh/blogs/reservations-feature</loc>
-    <lastmod>2025-09-29T12:27:13.052Z</lastmod>
+    <loc>https://www.sushi-templates.com/es/blogs/notifications-slack</loc>
+    <lastmod>2025-10-11T06:50:15.862Z</lastmod>
   </url>
   <url>
-    <loc>https://sushi-templates.com/zh/blogs/stripe-setup</loc>
-    <lastmod>2025-09-29T07:59:06.694Z</lastmod>
+    <loc>https://www.sushi-templates.com/es/blogs/quick-start</loc>
+    <lastmod>2025-10-13T04:24:29.864Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/es/blogs/reservations-feature</loc>
+    <lastmod>2025-10-10T17:16:58.938Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/es/blogs/saas-101</loc>
+    <lastmod>2025-10-10T17:16:58.938Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/es/blogs/storage-uploads</loc>
+    <lastmod>2025-10-10T17:16:58.937Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/es/blogs/stripe-setup</loc>
+    <lastmod>2025-10-13T04:34:21.995Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/es/blogs/text-to-video-tasks</loc>
+    <lastmod>2025-10-12T11:53:36.856Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/es/blogs/what-is-middleware</loc>
+    <lastmod>2025-10-13T04:17:07.945Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/es/blogs/what-is-nextjs</loc>
+    <lastmod>2025-10-10T17:16:58.938Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/es/blogs/why-sushi-templates-beats-minimal-starters-for-real-saas-projects</loc>
+    <lastmod>2025-10-10T17:16:58.936Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/es/blogs/why-use-a-saas-template</loc>
+    <lastmod>2025-10-13T04:53:53.715Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/</loc>
+    <lastmod>2025-10-13T06:01:33.131Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/about</loc>
+    <lastmod>2025-10-13T04:27:30.168Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/account-ledger</loc>
+    <lastmod>2025-10-13T04:39:10.013Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/affiliate-and-reward</loc>
+    <lastmod>2025-10-10T17:16:59.100Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/affiliates-and-referrals-for-beginners</loc>
+    <lastmod>2025-10-10T17:16:59.100Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/anatomy-of-modern-saas</loc>
+    <lastmod>2025-10-10T17:16:59.100Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/authentication-and-admin</loc>
+    <lastmod>2025-10-13T04:26:51.928Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/budget</loc>
+    <lastmod>2025-10-10T17:16:59.143Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/comparison-of-full-stack-saas-boilerplates-vs-sushi-templates</loc>
+    <lastmod>2025-10-10T17:16:59.100Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/database-setup</loc>
+    <lastmod>2025-10-13T04:24:51.690Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/databases-for-saas-postgres-drizzle</loc>
+    <lastmod>2025-10-13T04:53:23.611Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/email-service</loc>
+    <lastmod>2025-10-10T17:16:59.144Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/frontend-vs-backend-vs-fullstack-saas</loc>
+    <lastmod>2025-10-10T17:16:59.139Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/google-for-saas</loc>
+    <lastmod>2025-10-13T05:59:00.733Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/legal-and-compliance-at-launch</loc>
+    <lastmod>2025-10-13T04:53:04.859Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/logging</loc>
+    <lastmod>2025-10-11T06:45:08.856Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/notifications-slack</loc>
+    <lastmod>2025-10-11T06:51:07.082Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/quick-start</loc>
+    <lastmod>2025-10-13T04:24:25.776Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/reservations-feature</loc>
+    <lastmod>2025-10-10T17:16:59.144Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/saas-101</loc>
+    <lastmod>2025-10-10T17:16:59.144Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/storage-uploads</loc>
+    <lastmod>2025-10-10T17:16:59.144Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/stripe-setup</loc>
+    <lastmod>2025-10-13T04:34:54.621Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/text-to-video-tasks</loc>
+    <lastmod>2025-10-12T11:53:36.856Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/what-is-middleware</loc>
+    <lastmod>2025-10-13T04:16:56.370Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/what-is-nextjs</loc>
+    <lastmod>2025-10-10T17:16:59.144Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/why-sushi-templates-beats-minimal-starters-for-real-saas-projects</loc>
+    <lastmod>2025-10-10T17:16:59.100Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/why-use-a-saas-template</loc>
+    <lastmod>2025-10-13T04:53:18.077Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/</loc>
+    <lastmod>2025-10-13T06:01:33.132Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/about</loc>
+    <lastmod>2025-10-13T04:27:40.916Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/account-ledger</loc>
+    <lastmod>2025-10-13T04:40:05.764Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/affiliate-and-reward</loc>
+    <lastmod>2025-10-10T17:16:58.997Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/affiliates-and-referrals-for-beginners</loc>
+    <lastmod>2025-10-10T17:16:58.965Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/anatomy-of-modern-saas</loc>
+    <lastmod>2025-10-10T17:16:58.988Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/authentication-and-admin</loc>
+    <lastmod>2025-10-13T04:27:25.366Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/budget</loc>
+    <lastmod>2025-10-10T17:16:59.030Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/comparison-of-full-stack-saas-boilerplates-vs-sushi-templates</loc>
+    <lastmod>2025-10-10T17:16:58.939Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/database-setup</loc>
+    <lastmod>2025-10-13T04:26:40.380Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/databases-for-saas-postgres-drizzle</loc>
+    <lastmod>2025-10-13T04:55:45.683Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/email-service</loc>
+    <lastmod>2025-10-10T17:16:59.002Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/frontend-vs-backend-vs-fullstack-saas</loc>
+    <lastmod>2025-10-10T17:16:59.020Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/google-for-saas</loc>
+    <lastmod>2025-10-13T05:47:00.040Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/legal-and-compliance-at-launch</loc>
+    <lastmod>2025-10-13T04:55:11.438Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/logging</loc>
+    <lastmod>2025-10-11T06:45:14.777Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/notifications-slack</loc>
+    <lastmod>2025-10-11T06:51:06.047Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/quick-start</loc>
+    <lastmod>2025-10-13T04:24:37.402Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/reservations-feature</loc>
+    <lastmod>2025-10-10T17:16:59.010Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/saas-101</loc>
+    <lastmod>2025-10-10T17:16:59.033Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/storage-uploads</loc>
+    <lastmod>2025-10-10T17:16:59.031Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/stripe-setup</loc>
+    <lastmod>2025-10-13T04:35:40.527Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/text-to-video-tasks</loc>
+    <lastmod>2025-10-12T11:53:36.857Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/what-is-middleware</loc>
+    <lastmod>2025-10-13T04:17:23.878Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/what-is-nextjs</loc>
+    <lastmod>2025-10-10T17:16:59.031Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/why-sushi-templates-beats-minimal-starters-for-real-saas-projects</loc>
+    <lastmod>2025-10-10T17:16:58.955Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/why-use-a-saas-template</loc>
+    <lastmod>2025-10-13T04:55:37.459Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/</loc>
+    <lastmod>2025-10-13T06:01:33.132Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/about</loc>
+    <lastmod>2025-10-13T04:27:37.288Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/account-ledger</loc>
+    <lastmod>2025-10-13T04:40:27.663Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/affiliate-and-reward</loc>
+    <lastmod>2025-10-10T17:16:59.071Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/affiliates-and-referrals-for-beginners</loc>
+    <lastmod>2025-10-13T04:54:48.416Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/anatomy-of-modern-saas</loc>
+    <lastmod>2025-10-10T17:16:59.033Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/authentication-and-admin</loc>
+    <lastmod>2025-10-13T04:27:14.178Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/budget</loc>
+    <lastmod>2025-10-10T17:16:59.085Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/comparison-of-full-stack-saas-boilerplates-vs-sushi-templates</loc>
+    <lastmod>2025-10-10T17:16:59.034Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/database-setup</loc>
+    <lastmod>2025-10-13T04:26:20.490Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/databases-for-saas-postgres-drizzle</loc>
+    <lastmod>2025-10-13T04:54:54.947Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/email-service</loc>
+    <lastmod>2025-10-10T17:16:59.085Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/frontend-vs-backend-vs-fullstack-saas</loc>
+    <lastmod>2025-10-10T17:16:59.085Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/google-for-saas</loc>
+    <lastmod>2025-10-13T05:47:00.033Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/legal-and-compliance-at-launch</loc>
+    <lastmod>2025-10-13T04:54:22.953Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/logging</loc>
+    <lastmod>2025-10-11T06:45:19.925Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/notifications-slack</loc>
+    <lastmod>2025-10-11T06:51:03.544Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/quick-start</loc>
+    <lastmod>2025-10-13T04:24:33.605Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/reservations-feature</loc>
+    <lastmod>2025-10-10T17:16:59.085Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/saas-101</loc>
+    <lastmod>2025-10-10T17:16:59.085Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/storage-uploads</loc>
+    <lastmod>2025-10-10T17:16:59.085Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/stripe-setup</loc>
+    <lastmod>2025-10-13T04:36:03.253Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/text-to-video-tasks</loc>
+    <lastmod>2025-10-12T11:53:36.857Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/what-is-middleware</loc>
+    <lastmod>2025-10-13T04:17:37.635Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/what-is-nextjs</loc>
+    <lastmod>2025-10-10T17:16:59.100Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/why-sushi-templates-beats-minimal-starters-for-real-saas-projects</loc>
+    <lastmod>2025-10-10T17:16:59.070Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/why-use-a-saas-template</loc>
+    <lastmod>2025-10-13T04:54:38.590Z</lastmod>
   </url>
 </urlset>

@@ -18,7 +18,7 @@ keywords:
 tags: [crédits, commandes, grand-livre, Stripe]
 author: "Pansa Legrand"
 publishedAt: "2025-09-29T00:00:00.000Z"
-updatedAt: "2025-09-29T00:00:00.000Z"
+updatedAt: "2025-10-13T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/fr/blogs/account-ledger"
 ---
 
@@ -28,47 +28,68 @@ Ce template fournit l'authentification, le suivi des commandes compatible Stripe
 
 ---
 
-## Tables clés
+## Les acteurs (tables clés)
 
-- `users` : stocke le profil (UUID public, locale, invitations) créé par Better Auth à l'inscription.
-- `orders` : garde chaque achat ; `amount`, `status` et les colonnes `sub_*` reflètent les webhooks Stripe.
-- `credits` : registre append-only ; valeurs positives = recharges/bonus, négatives = consommation.
-- `accounts` & `sessions` : tables Better Auth pour lier les fournisseurs et gérer la session.
+- `users` — Source de vérité du profil. `uuid` (clé partagée), email, locale, rôle, etc. Renseigné par Better Auth.
+- `accounts` & `sessions` — Internes Better Auth pour l’authentification. Utile pour l’audit; hors calcul de solde.
+- `orders` — Chaque tentative/résultat de paiement. `order_no`, `status`, `amount`, colonnes d’abonnement (`sub_*`), `credits`, `expired_at`.
+- `credits` — Grand livre append‑only. Positif = ajout; négatif = consommation. Colonnes: `trans_no`, `user_uuid`, `trans_type`, `credits`, `order_no`, `expired_at`.
+- `tasks` — Tâches d’usage (ex.: texte→vidéo). `credits_used`, `credits_trans_no` relient la tâche à la ligne de consommation.
+- Caméos: `apikeys`, `affiliates` sont aussi rattachés à `user_uuid`.
 
-Chaque table possède des horodatages afin d'auditer l'historique et d'alimenter vos tableaux de bord.
+Liens (sans clés étrangères, mais stables):
+- `users.uuid` → `orders.user_uuid` | `credits.user_uuid` | `tasks.user_uuid` | `apikeys.user_uuid` | `affiliates.user_uuid`
+- `orders.order_no` → `credits.order_no`
+- `credits.trans_no` → `tasks.credits_trans_no`
+
+Chaque table est horodatée pour reconstituer l’historique et alimenter l’analytics.
 
 ---
 
-## Cycle de vie des crédits
+## L’analogie : Portefeuille + Reçus
 
-1. **Inscription** : crée une ligne `users` et une session Better Auth.
-2. **Paiement validé** : insère une ligne `orders` avec les crédits accordés (`credits`).
-3. **Écriture du crédit** : ajoute une ligne positive dans `credits` liée par `order_no`.
-4. **Utilisation produit** : chaque dépense ajoute une ligne négative (ex. −5 crédits par appel API).
-5. **Expiration** : une ligne positive dont `expired_at` est passé n'alimente plus le solde, mais reste visible.
+- Imaginez `credits` comme un portefeuille transparent. Chaque dépôt ou dépense est un reçu glissé dedans.
+- Dépôts (lignes positives) ajoutent du cash. Dépenses (négatives) en retirent. Les cartes‑cadeaux expirées ? Les reçus restent, mais ne comptent plus pour payer.
+- Le solde = somme des positifs non expirés − somme des négatifs.
 
-Le solde = somme des lignes positives non expirées − toutes les lignes négatives.
+C’est pour cela que le grand livre est append‑only: on n’édite pas l’ancien, on ajoute de nouveaux reçus pour garder une histoire explicable.
+
+---
+
+## Une action → plusieurs lignes (exemples)
+
+Paiement validé (Stripe)
+1) `orders` : `order_no` passe à `paid` avec les détails du paiement.
+2) `credits` : insertion d’une ligne positive `{ trans_type: "order_pay", credits: <order.credits>, order_no }`.
+3) `affiliates` : récompense optionnelle liée à cette commande.
+
+Consommation par une tâche (Texte→Vidéo)
+1) `credits` : ligne négative `{ trans_type: "task_text_to_video", credits: -N }` (on récupère `trans_no`).
+2) `tasks` : ligne `{ credits_used: N, credits_trans_no: <ce trans_no> }` pour tracer qui a payé quoi.
+
+Mini ping (1 crédit)
+1) `credits` : ligne négative `{ trans_type: "ping", credits: -1 }`.
+
+Expiration
+- Toute ligne positive dont `expired_at` est passé n’entre plus dans le solde, mais reste au journal pour l’audit.
 
 ---
 
 ## Services & API utiles
 
-- `src/services/user.ts#getUserUuid` récupère le UUID du compte à partir d'une requête authentifiée.
-- `src/services/credit.ts#getUserCreditSummary` calcule le solde, les totaux accordés/consommés, les crédits expirés et les expirations imminentes.
-- `src/services/credit.ts#getUserCredits` expose un état simplifié (`left_credits`, `is_pro`, `is_recharged`) pratique pour activer/désactiver rapidement une fonctionnalité.
-- `/api/account/credits` (POST) renvoie ce résumé. Corps optionnel :
+- `src/services/credit.ts#getUserCreditSummary` — retourne `balance`, `granted`, `consumed`, `expired`, `expiringSoon[]`, `ledger[]` (tronqué).
+- `src/services/credit.ts#getUserCredits` — état léger pour le gating : `{ left_credits, is_pro, is_recharged }`.
+- `src/services/credit.ts#decreaseCredits` — ajoute une ligne négative; lève une erreur si solde insuffisant.
+- `src/services/credit.ts#increaseCredits` — ajoute une ligne positive; utilisé par Stripe et les attributions.
+- `src/services/stripe.ts#handleCheckoutSession` — transforme une session payée en mise à jour d’`orders` + ligne de crédit.
+- `src/services/tasks.ts#createTextToVideoTask` — décrémente les crédits, puis insère une ligne `tasks` qui référence cette dépense.
 
-  ```json
-  {
-    "includeLedger": true,
-    "ledgerLimit": 20,
-    "includeExpiring": true
-  }
-  ```
+Endpoints HTTP
+- `POST /api/account/credits` — résumé; accepte `{ includeLedger, ledgerLimit, includeExpiring }`.
+- `POST /api/account/profile` — profil + résumé; `{ includeCreditLedger: false }` pour alléger.
+- `POST /api/ping` — démo de consommation (1 crédit par défaut).
 
-- `/api/account/profile` (POST) renvoie le profil + le résumé crédits. Envoyez `{ "includeCreditLedger": false }` pour alléger la réponse.
-
-Les deux routes utilisent `respJson`, donc la réponse suit `{ code, message, data }`.
+Toutes répondent via `respJson`: `{ code, message, data }`.
 
 ---
 
@@ -125,9 +146,18 @@ Ajoutez des colonnes (ex. `meta` JSON) dans `orders`/`credits` pour stocker des 
 
 ---
 
+## Pièges & Conseils
+
+- Le solde se calcule par sommes; on ne “consomme” pas une ligne positive précise. Les entrées négatives référencent une source probable via `order_no` pour la traçabilité, sans muter l’historique.
+- `getUserValidCredits` ordonne par `expired_at` pour étiqueter une source proche lors de la consommation.
+- Besoin d’un strict FIFO ou d’une consommation par lot ? Étendez le modèle, mais conservez le journal append‑only pour l’audit.
+- Gardez `users.uuid` stable : c’est la colle entre orders, credits, tasks, keys, affiliates.
+
+---
+
 ## Prochaines étapes
 
 - Construire un tableau de bord en réutilisant les totaux fournis par `getUserCreditSummary`.
 - Utiliser `/api/ping` comme point de départ pour d'autres fonctionnalités qui consomment des crédits.
 - Écrire des tests unitaires pour vérifier le calcul du solde, l'expiration et les alertes.
-- Traduire ce guide vers d'autres langues selon vos besoins.
+- Besoin d’autres langues ? Je peux synchroniser cette page.

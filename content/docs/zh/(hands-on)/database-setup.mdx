@@ -17,7 +17,33 @@ updatedAt: "2025-09-29T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/zh/blogs/database-setup"
 ---
 
-在新的认证页面可用之前，需要先准备好数据库。本指南会介绍我们使用的 ORM（Drizzle）、常见的数据库场景、需要改动的代码位置以及对应的命令和验证步骤。
+数据库是现代 SaaS 的中心。几乎所有能力——认证、计费、积分、存储、用量追踪，甚至演示模块——都会落到数据库。我们有时自嘲是“CRUD 工程师”：增删改查是日常工作。随着 schema 变大，把数据库当作地基，能让应用保持可预期。
+
+本文将数据库放在首位：先讲表如何映射到功能，再讲如何用 Drizzle 做类型安全的 CRUD，最后讲连接、迁移与验证。
+
+## 为什么数据库要先行
+
+- 事实来源：auth、计费、文件、任务都持久化在此，并在服务/API 层做关联查询。
+- 模型 → 类型 → UI：`src/db/schema.ts` 中的 Drizzle 模型产出的类型会在模型与路由中共享。
+- CRUD 即产品界面：大多数页面本质上是列表/详情的读写。表设计得好，UI 就容易交付。
+
+### 关键域（表 → 功能）
+
+- 认证：`users`、`sessions`、`accounts`、`verifications`（Better Auth）。
+- 计费与积分：`orders`、`credits` 记录购买与积分流水。
+- 存储：`files` 保存 S3/R2 对象元数据与生命周期（uploading → active → deleted）。
+- 用量与任务（AI）：`tasks` 记录 queued/running/completed，并以 `credits_trans_no` 关联到积分账本。
+- 内容：`posts`。
+- 增长与反馈：`affiliates`、`feedbacks`。
+- 演示：`reservation_services`、`reservations` 展示排期/订金支付模式。
+
+### 代码中的 CRUD 优先模式
+
+- 模型位于 `src/models/*`，提供类型化的 helper：
+  - `src/models/file.ts`：`insertFile`、`findFileByUuid`、`updateFileByUuid`、`listFilesByUser`、`softDeleteFile`。
+  - `src/models/task.ts`：`insertTask`、`findTaskByUuid`、`getTasksByUserUuid`、`updateTaskStatus`。
+- 服务与 API 路由调用这些 helper；尽量集中数据库访问，避免散落查询。
+- 新功能路径：在 `src/db/schema.ts` 建表/加列 → `pnpm drizzle-kit generate` → `pnpm drizzle-kit migrate` → 添加 `src/models/<domain>.ts` → 在 `src/services/*` 与路由中使用。
 
 ## 1. 什么是 Drizzle ORM？
 
@@ -56,11 +82,11 @@ BETTER_AUTH_URL="http://localhost:3000"
 
 ## 4. 理解相关文件
 
-- `src/db/schema.ts` – 定义 **Better Auth** 的核心表 (`users`, `sessions`, `accounts`, `verifications`) 以及业务表 (`orders`, `credits` 等)。
+- `src/db/schema.ts` – 定义 **Better Auth** 的核心表（`users`、`sessions`、`accounts`、`verifications`）以及业务表：`orders`、`credits`、`files`、`tasks`、`posts`、`affiliates`、`feedbacks`、`reservation_services`、`reservations`。
 - `src/db/config.ts` – drizzle-kit 的配置（schema 路径和 Postgres 连接）。
 - `src/lib/auth.ts` – Better Auth 字段与 Drizzle 列的映射。如果重命名了 `users` 的列，这里也要调整。
 
-添加列或表时，先改 `schema.ts`，再同步更新 `auth.ts` 中的映射。
+添加列或表时，先改 `schema.ts`，再同步更新 `auth.ts` 中的映射。建议在 `schema.ts` 中为高频查询添加索引（`uniqueIndex`/`index`），以便数据增大后仍能保持读取性能。
 
 ## 5. 代码变更后生成迁移
 
@@ -113,7 +139,7 @@ SELECT * FROM sessions LIMIT 1;
 SELECT email_verified FROM users LIMIT 1;
 ```
 
-你应该能看到 Better Auth 的表以及新增的列。
+你应该能看到 Better Auth 的表以及核心业务表。做一个最小 CRUD 烟测：通过一个模型 helper 插入并读取一行（例如，调用 `POST /api/storage/uploads` 创建一条 `files` 记录，然后 `SELECT * FROM files LIMIT 1;`）。
 
 ## 8. 体验认证流程
 

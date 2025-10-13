@@ -30,6 +30,42 @@ canonical: "https://www.sushi-templates.com/zh/blogs/stripe-setup"
 
 ---
 
+### 快速开始资源
+
+- Stripe：入门 — https://docs.stripe.com/get-started
+
+---
+
+## 支付网关 101
+
+### 什么是支付网关？
+
+支付网关是用于处理和授权电子支付（银行卡、数字钱包、银行转账等）的在线中介服务，相当于线下读卡器的“在线版本”。它负责在互联网上安全地校验、批准或拒绝交易。
+
+到 2025 年，全球电商销售额预计接近 7.4 万亿美元。要抓住增长红利，商家需要提供顺畅、安全的结账体验，以提升转化并建立客户信任。
+
+### 工作原理（概览）
+
+1. 客户下单：在结账页输入支付信息。
+2. 加密与传输：站点加密信息并发送至支付网关。
+3. 转发交易：网关将加密信息转给支付处理方。
+4. 与发卡行通讯：处理方将交易明细发给发卡行/银行进行授权。
+5. 结果返回：银行基于资金与风控审核，批准或拒绝。
+6. 回传链路：结果经由处理方返回到支付网关。
+7. 完成交易：若批准，用户收到成功确认；若拒绝，提示失败原因。
+8. 资金结算：通过收单行进行清算后，资金入账到商户银行账户（具体时间取决于合作方设置）。
+
+整个过程自动化完成，通常只需数秒。
+
+### 如何将支付网关集成到网站
+
+1. 选择网关：考虑手续费、支持的支付方式、安全性与平台兼容性。
+2. 商户账户：部分网关（如 Stripe）已内置商户功能；也有需要单独申请的。
+3. 获取 API Key：用于让你的网站/应用与网关安全通信。
+4. 完成集成：可用插件（Shopify/WooCommerce）或自定义代码。Stripe 的 API 对开发者十分友好。
+5. 沙箱测试：在测试环境全面验证支付流程。
+6. 上线：切换到正式密钥并开始监控。
+
 ## 接口说明
 
 - `/api/checkout` (POST)：校验 `src/data/pricing.ts` 的计划，创建 Checkout 会话，保存订单 `created`。
@@ -79,6 +115,27 @@ stripe trigger checkout_session_completed
 3) 使用测试卡 `4242 4242 4242 4242` 完成支付。
 4) Webhook 会完成订单入账并增加积分。
 5) 在 `/[locale]/credits-test` 验证余额变化。
+
+---
+
+## Stripe 集成指南（高阶概览）
+
+遵循以下步骤即可快速把 Stripe 集成到你的网站：
+
+1. 创建 Stripe 账户：填写企业信息与结算银行账户。
+2. 获取 API 密钥：在 Dashboard → Developers 查看 publishable/secret key。
+3. 安装 SDK：使用 Stripe 官方库（JavaScript/TypeScript、Ruby、Python 等）。
+4. 前端集成：使用 Stripe.js 与内置 UI（Elements/Payment Element）或平台插件，安全采集卡片信息。
+5. 服务端端点：用 secret key 初始化 Stripe，提供创建 PaymentIntent 或 Checkout Session 的接口。
+6. 采集支付信息：尽量不在你的服务器保存原始卡数据，交给 Stripe 组件处理。
+7. 提交到服务端：通过 HTTPS 安全传输支付意图与必要参数。
+8. 服务端处理：使用 SDK 创建 PaymentIntent/Checkout Session。
+9. 处理结果：更新数据库并将成功/失败反馈给前端。
+10. 错误与边界：考虑余额不足、卡片过期、3DS 验证、重试等情况。
+11. 全面测试：使用测试模式、Webhook 与测试卡模拟各种场景。
+12. 上线：替换为正式密钥，开启所需支付方式并持续监控。
+
+提示：从官方“入门”文档开始 — https://docs.stripe.com/get-started
 
 ---
 
@@ -189,3 +246,9 @@ stripe trigger invoice_payment_failed
 ```
 
 说明：邮件中包含 `/:locale/account/billing` 链接，用户可从你的应用打开门户。
+
+---
+
+## 其他支付选项
+
+Stripe 只是一个选择。如果你需要加密货币支付或 PayPal 等替代方案，欢迎联系我——我可以根据你的技术栈与目标市场，协助评估并完成对接集成。

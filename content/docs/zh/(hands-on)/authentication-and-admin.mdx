@@ -22,6 +22,53 @@ canonical: "https://www.sushi-templates.com/zh/blogs/authentication-and-admin"
 
 本模板基于 Better Auth + Drizzle。RBAC 仅存储在数据库中，不支持通过环境变量临时提升权限。
 
+## 基础：认证 vs 授权
+
+- 认证（Authentication）：证明“你是谁”（注册/登录），最终得到一个会话（session）。
+- 授权（Authorization）：决定“你能做什么”。在本模板中由 `users` 表的 `role` 字段控制。
+
+我们使用的角色：
+
+- `user` — 默认角色。
+- `admin_ro` — 只读管理员（可查看管理数据，不能写）。
+- `admin_rw` — 读写管理员（含授予积分等管理操作）。
+
+### 一个简单的类比
+
+在机场安检出示身份证是“认证”（证明身份）；登机口出示登机牌是“授权”（验证你是否被允许登机）。
+
+### 快速对比
+
+| 维度 | 认证 | 授权 |
+| --- | --- | --- |
+| 目的 | 验证身份（是谁） | 验证权限（能做什么） |
+| 时机 | 在授权之前 | 成功认证之后 |
+| 常见输入 | 凭证（密码、邮件链接、社交登录） | 策略/角色（如 `user`、`admin_ro`、`admin_rw`） |
+| 产物 | 会话/身份 | 被允许的操作与受保护路由 |
+| 常见标准（一般情况） | OIDC、ID Token | OAuth 2.0、scopes |
+
+在本模板中：使用服务器端的 HttpOnly 会话 Cookie（不在前端持有 token），并用数据库中的 `role` 做授权判断。
+
+## 什么是 Better Auth？
+
+一个面向 TypeScript、轻量的 Next.js 认证库。
+
+- 存储：通过 `src/lib/auth.ts` 使用 Drizzle ORM + Postgres。
+- 数据模型：`users`、`sessions`、`accounts`、`verifications`（见 `src/db/schema.ts`）。
+- 会话：写入 HttpOnly Cookie 并在 `sessions` 表中持久化；服务端路由通过 `auth.api.getSession({ headers })` 读取会话。
+- 扩展字段：通过 `additionalFields` 将 `uuid` 与 `role` 暴露给会话，便于服务端检查。
+
+## 密钥与 URL（入门）
+
+- `BETTER_AUTH_SECRET`：仅服务器可见的、足够随机的密钥，用于签名/校验认证相关的 Cookie/令牌。只生成一次并妥善保管。
+  - 生成：`openssl rand -base64 32`
+  - 轮换提示：修改该值会让所有用户掉线（旧会话不再可验证）。
+- `BETTER_AUTH_URL`：认证库使用的服务端基址（通常即站点 URL）。
+- `NEXT_PUBLIC_AUTH_BASE_URL`：客户端使用的基址（大多数情况下等于站点 URL）。
+- Cookie 在生产环境下使用 `HttpOnly` 且 `secure`（见 `src/lib/auth.ts` 中 `advanced.defaultCookieAttributes`）。
+
+如果出现“只登录一次就失效”或“重启后会话丢失”的情况，请检查以上环境变量并重启开发服务器。
+
 ## 角色
 
 - `user`：默认角色。

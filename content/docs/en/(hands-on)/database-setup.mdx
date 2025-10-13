@@ -1,7 +1,7 @@
 ---
 title: Database Setup
 icon: "Database"
-description: Configure Postgres and Drizzle ORM for Better Auth and app tables.
+description: Configure Postgres and Drizzle ORM — the backbone for auth, billing, storage, tasks, and app tables.
 keywords:
   - Postgres
   - Drizzle ORM
@@ -17,10 +17,33 @@ updatedAt: "2025-09-29T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/en/blogs/database-setup"
 ---
 
-Setting up the database is the only “backend” work you need before the new
-authentication screens start working. This guide walks you through the tooling
-we ship (Drizzle ORM), the typical database scenarios, the files you have to
-edit, and the commands you must run afterwards.
+The database is the center of a modern SaaS. Every real feature — authentication, billing, credits, storage, usage tracking, even demo modules — flows through the database. In Chinese, we sometimes joke we are “CRUD engineers”: create, read, update, delete is the core daily work. As the schema grows, treating the database as the foundation keeps the rest of the app predictable.
+
+This guide puts the database first: it explains how the schema maps to features, how we do typed CRUD with Drizzle, and then how to connect, migrate, and validate.
+
+## Why the database comes first
+
+- System of record: Auth, billing, files, and tasks are persisted here and joined in services and APIs.
+- Schema → Types → UI: Drizzle models in `src/db/schema.ts` generate safe types that propagate across models and routes.
+- CRUD as a product surface: Most screens are read/write lists and detail views over tables. Designing tables well makes UI easy to ship.
+
+### Key domains in this template (tables → features)
+
+- Auth: `users`, `sessions`, `accounts`, `verifications` power Better Auth.
+- Billing & credits: `orders`, `credits` track purchases and credit ledger entries.
+- Storage: `files` stores S3/R2 object metadata and lifecycle (uploading → active → deleted).
+- Usage & AI tasks: `tasks` records queued/running/completed work with `credits_trans_no` back to the ledger.
+- Content: `posts` for blog/docs content snapshots.
+- Growth & feedback: `affiliates`, `feedbacks`.
+- Demo features: `reservation_services`, `reservations` showcase scheduling/checkout patterns.
+
+### CRUD-first patterns in code
+
+- Models live in `src/models/*` and expose typed helpers:
+  - `src/models/file.ts`: `insertFile`, `findFileByUuid`, `updateFileByUuid`, `listFilesByUser`, `softDeleteFile`.
+  - `src/models/task.ts`: `insertTask`, `findTaskByUuid`, `getTasksByUserUuid`, `updateTaskStatus`.
+- Services and API routes call these helpers; keep DB access centralized rather than scattered queries.
+- When adding a feature: model tables in `src/db/schema.ts` → `pnpm drizzle-kit generate` → `pnpm drizzle-kit migrate` → add `src/models/<domain>.ts` → call from `src/services/*` and routes.
 
 ## 1. What is Drizzle ORM?
 
@@ -67,14 +90,18 @@ values.
 ## 4. Understand the schema files
 
 - `src/db/schema.ts` – Drizzle models for **Better Auth** (`users`, `sessions`,
-  `accounts`, `verifications`) and the app tables (`orders`, `credits`, etc.).
+  `accounts`, `verifications`) and app tables (`orders`, `credits`, `files`,
+  `tasks`, `posts`, `affiliates`, `feedbacks`, `reservation_services`,
+  `reservations`).
 - `src/db/config.ts` – The drizzle-kit configuration pointing at the schema and
   Postgres URL.
 - `src/lib/auth.ts` – Maps Better Auth fields to the Drizzle tables. Update this
   file if you rename columns in the `users` table.
 
 When you need new columns or tables, update `schema.ts` and, if relevant, the
-field mapping inside `auth.ts`.
+field mapping inside `auth.ts`. Prefer adding indexes in `schema.ts` (see
+`uniqueIndex`/`index` patterns in existing tables) so reads stay fast as data
+grows.
 
 ## 5. Generate migrations after code changes
 
@@ -131,7 +158,10 @@ SELECT * FROM sessions LIMIT 1;
 SELECT email_verified FROM users LIMIT 1;
 ```
 
-You should see the Better Auth tables plus any columns you recently added.
+You should see the Better Auth tables plus the core app tables. As a quick
+CRUD smoke test, you can insert and fetch a row via a model helper (e.g.,
+create a minimal `files` row through `POST /api/storage/uploads`, then
+`SELECT * FROM files LIMIT 1;`).
 
 ## 8. Try the auth flow
 

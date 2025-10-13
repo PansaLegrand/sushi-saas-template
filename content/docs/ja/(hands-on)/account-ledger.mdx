@@ -18,7 +18,7 @@ keywords:
 tags: [クレジット, 注文, 台帳, Stripe]
 author: "Pansa Legrand"
 publishedAt: "2025-09-29T00:00:00.000Z"
-updatedAt: "2025-09-29T00:00:00.000Z"
+updatedAt: "2025-10-13T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/ja/blogs/account-ledger"
 ---
 
@@ -28,47 +28,68 @@ canonical: "https://www.sushi-templates.com/ja/blogs/account-ledger"
 
 ---
 
-## 主要テーブル
+## 登場人物（主要テーブル）
 
-- `users`: Better Auth が登録時に作成するプロフィール行。公開 UUID、招待コード、locale などを保持します。
-- `orders`: すべての購入記録。`amount`、`status`、`sub_*` カラムは Stripe の Webhook から届く情報を反映します。
-- `credits`: 追記専用の台帳。プラスの行は付与（購入・ボーナス）、マイナスの行は消費を表します。
-- `accounts` / `sessions`: Better Auth 内部テーブル。外部プロバイダとログイン状態を同期します。
+- `users` — プロファイルのソース・オブ・トゥルース。`uuid`（共通キー）、email、locale、role などを保持。Better Auth が作成します。
+- `accounts` / `sessions` — Better Auth の内部テーブル。監査には有用ですが、残高計算には直接関与しません。
+- `orders` — すべての決済の試行/結果。`order_no`、`status`、`amount`、サブスク用 `sub_*`、`credits`、`expired_at`。
+- `credits` — 追記専用の台帳。プラス=付与/加算、マイナス=消費。`trans_no`、`user_uuid`、`trans_type`、`credits`、`order_no`、`expired_at`。
+- `tasks` — 利用ジョブ（例: テキスト→動画）。`credits_used` と `credits_trans_no` で消費と結びつけます。
+- 脇役: `apikeys`、`affiliates` も `user_uuid` にぶら下がります。
 
-各テーブルにはタイムスタンプがあり、履歴の監査やダッシュボード作成に役立ちます。
+関係の早見表（FK は張っていませんが、安定リンクです）:
+- `users.uuid` → `orders.user_uuid` | `credits.user_uuid` | `tasks.user_uuid` | `apikeys.user_uuid` | `affiliates.user_uuid`
+- `orders.order_no` → `credits.order_no`
+- `credits.trans_no` → `tasks.credits_trans_no`
+
+すべてのテーブルがタイムスタンプを持ち、履歴再構成や分析に役立ちます。
 
 ---
 
-## クレジットの流れ
+## お財布＋レシートのたとえ
 
-1. **サインアップ**で `users` に行が追加され、Better Auth のセッションが発行されます。
-2. **決済成功**で `orders` に購入が登録され、`credits` カラムに付与量が入ります。
-3. **台帳更新**として `credits` にプラスの行が挿入され、`order_no` で注文と結びつきます。
-4. **機能利用**のたびにマイナスの行を追加し、消費量を記録します (例: API 呼び出しで 5 クレジット消費)。
-5. **有効期限**: `expired_at` を過ぎたプラス行は残高計算では無視されますが、履歴としては残ります。
+- `credits` は中身の見えるお財布。入金も出金も、必ずレシート（行）を 1 枚入れます。
+- 入金（プラス行）は残高を増やし、出金（マイナス行）は減らします。期限切れギフト券はレシートは残るけど支払いには使えません。
+- 残高 = 期限内のプラス合計 − マイナス合計。
 
-残高 = 期限内のプラス合計 − 全てのマイナス合計。
+履歴を説明可能に保つため、古いレシートは書き換えず、新しいレシートを追加する「追記専用」を採用しています。
+
+---
+
+## 1 アクション→複数行（ウォークスルー）
+
+決済が「支払い済み」になる（Stripe）
+1) `orders`: `order_no` の行が `paid` に更新され、課金メタデータが入ります。
+2) `credits`: `order_pay` のプラス行 `{ credits: <order.credits>, order_no }` を追加します。
+3) `affiliates`: 必要なら紹介報酬を更新します。
+
+タスクで消費（テキスト→動画）
+1) `credits`: マイナス行 `{ trans_type: "task_text_to_video", credits: -N }` を挿入し `trans_no` を得ます。
+2) `tasks`: `{ credits_used: N, credits_trans_no: <その trans_no> }` を追加し、誰がどこで使ったかを追跡します。
+
+お試し ping（1 クレジット）
+1) `credits`: マイナス行 `{ trans_type: "ping", credits: -1 }`。
+
+有効期限
+- `expired_at` が過去のプラス行は残高に数えませんが、監査用に履歴には残ります。
 
 ---
 
 ## 便利なサービスと API
 
-- `src/services/user.ts#getUserUuid` はリクエストヘッダから認証済みユーザー UUID を取得します。
-- `src/services/credit.ts#getUserCreditSummary` は残高、付与量、消費量、失効済み、まもなく失効する行、台帳サマリを返します。
-- `src/services/credit.ts#getUserCredits` は軽量なステータス (`left_credits`, `is_pro`, `is_recharged`) を返し、機能の制御に素早く使えます。
-- `/api/account/credits` (POST) でクレジットサマリを取得。ボディ例:
+- `src/services/credit.ts#getUserCreditSummary` — `balance`, `granted`, `consumed`, `expired`, `expiringSoon[]`, `ledger[]`（要約）を返します。
+- `src/services/credit.ts#getUserCredits` — 機能制御用の軽量スナップショット `{ left_credits, is_pro, is_recharged }`。
+- `src/services/credit.ts#decreaseCredits` — マイナス行を追加。残高不足なら例外。
+- `src/services/credit.ts#increaseCredits` — プラス行を追加。Stripe や付与で使用。
+- `src/services/stripe.ts#handleCheckoutSession` — 支払い完了を注文更新＋クレジット付与に変換。
+- `src/services/tasks.ts#createTextToVideoTask` — クレジットを引き落とし、その `trans_no` を参照する `tasks` 行を作成。
 
-  ```json
-  {
-    "includeLedger": true,
-    "ledgerLimit": 20,
-    "includeExpiring": true
-  }
-  ```
+HTTP エンドポイント
+- `POST /api/account/credits` — サマリ取得（`{ includeLedger, ledgerLimit, includeExpiring }`）。
+- `POST /api/account/profile` — プロフィール＋サマリ（`{ includeCreditLedger: false }` で軽量化）。
+- `POST /api/ping` — 消費デモ（デフォルト 1）。
 
-- `/api/account/profile` (POST) はユーザープロフィールとクレジットサマリをまとめて返します。履歴を省きたい場合は `{ "includeCreditLedger": false }` を送ります。
-
-両エンドポイントとも `respJson` を使うため、レスポンスは常に `{ code, message, data }` 形式です。
+いずれも `respJson` 形式 `{ code, message, data }` で返ります。
 
 ---
 
@@ -125,9 +146,18 @@ canonical: "https://www.sushi-templates.com/ja/blogs/account-ledger"
 
 ---
 
+## 落とし穴とヒント
+
+- 残高は単純な合計で計算します。特定のプラス行を“減らす”ことはしません。マイナス行は `order_no` などで出所を示しますが、過去の行は不変のままです。
+- `getUserValidCredits` は `expired_at` 順に並べ、消費時に近いソースへ「ひもづけ」しやすくしています。
+- 厳密な FIFO や付与単位の消費が必要ならモデル拡張を。監査のため台帳の追記専用性は維持しましょう。
+- `users.uuid` は各テーブルの「のり」です。安定させましょう。
+
+---
+
 ## 次のステップ
 
 - `getUserCreditSummary` の結果を使ってダッシュボードを作成する。
 - `/api/ping` エンドポイントをベースに、他の機能課金ロジックを組み立てる。
 - クレジット計算の単体テストを作成し、残高・失効・警告のロジックを検証する。
-- 必要に応じて他の言語版ドキュメントも追加し、多言語対応を強化する。
+- 他言語版も必要であれば同期します。

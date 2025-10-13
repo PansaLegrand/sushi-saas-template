@@ -1,7 +1,7 @@
 ---
 title: Configuración de la base de datos
 icon: "Database"
-description: Cómo preparar Postgres y Drizzle ORM para Better Auth y las tablas de la app.
+description: Configura Postgres y Drizzle ORM — la columna vertebral para auth, cobros, almacenamiento, tareas y tablas de la app.
 keywords:
   - Postgres
   - Drizzle ORM
@@ -17,10 +17,33 @@ updatedAt: "2025-09-29T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/es/blogs/database-setup"
 ---
 
-Antes de que funcionen las pantallas de autenticación necesitas una base de
-datos lista. Esta guía explica las herramientas incluidas (Drizzle ORM), los
-escenarios habituales, los archivos que debes editar y los comandos que tienes
-que ejecutar después.
+La base de datos es el centro de un SaaS moderno. Casi todo —autenticación, cobros, créditos, almacenamiento, seguimiento de uso e incluso módulos de demo— pasa por la BD. A veces decimos en broma que somos “ingenieros CRUD”: crear, leer, actualizar, borrar es el trabajo diario. A medida que el esquema crece, tratar la BD como la base mantiene la app predecible.
+
+Esta guía pone la BD primero: mapea el esquema a funcionalidades, explica el CRUD tipado con Drizzle y luego cómo conectar, migrar y validar.
+
+## Por qué la base va primero
+
+- Sistema de registro: auth, cobros, archivos y tareas se persisten aquí y se cruzan en servicios/APIs.
+- Esquema → Tipos → UI: los modelos de Drizzle en `src/db/schema.ts` generan tipos seguros que se comparten por modelos y rutas.
+- CRUD como superficie de producto: la mayoría de pantallas son listas/detalles de lectura/escritura. Un buen diseño de tablas acelera la UI.
+
+### Dominios clave (tablas → funcionalidades)
+
+- Auth: `users`, `sessions`, `accounts`, `verifications` para Better Auth.
+- Cobros y créditos: `orders`, `credits` registran compras y movimientos de crédito.
+- Almacenamiento: `files` guarda metadatos S3/R2 y ciclo de vida (uploading → active → deleted).
+- Uso y tareas (IA): `tasks` registra queued/running/completed con `credits_trans_no` enlazado al libro mayor.
+- Contenido: `posts` para snapshots de contenido.
+- Crecimiento y feedback: `affiliates`, `feedbacks`.
+- Demo: `reservation_services`, `reservations` muestran patrones de agenda/pagos.
+
+### Patrones centrados en CRUD en el código
+
+- Modelos en `src/models/*` con helpers tipados:
+  - `src/models/file.ts`: `insertFile`, `findFileByUuid`, `updateFileByUuid`, `listFilesByUser`, `softDeleteFile`.
+  - `src/models/task.ts`: `insertTask`, `findTaskByUuid`, `getTasksByUserUuid`, `updateTaskStatus`.
+- Servicios y rutas API llaman estos helpers; centraliza el acceso a la BD.
+- Para añadir una feature: tablas en `src/db/schema.ts` → `pnpm drizzle-kit generate` → `pnpm drizzle-kit migrate` → `src/models/<dominio>.ts` → uso en `src/services/*` y rutas.
 
 ## 1. ¿Qué es Drizzle ORM?
 
@@ -67,14 +90,15 @@ recargue.
 ## 4. Conoce los archivos del esquema
 
 - `src/db/schema.ts` – modelos Drizzle para **Better Auth** (`users`, `sessions`,
-  `accounts`, `verifications`) y tablas propias (`orders`, `credits`, etc.).
+  `accounts`, `verifications`) y tablas propias: `orders`, `credits`, `files`,
+  `tasks`, `posts`, `affiliates`, `feedbacks`, `reservation_services`,
+  `reservations`.
 - `src/db/config.ts` – configuración de drizzle-kit que apunta al esquema y a la
   URL de Postgres.
 - `src/lib/auth.ts` – mapea los campos de Better Auth hacia las columnas Drizzle.
   Actualiza este archivo si renombras columnas en `users`.
 
-Cuando necesites nuevas columnas o tablas, modifica `schema.ts` y, si aplica, el
-mapeo correspondiente en `auth.ts`.
+Cuando necesites nuevas columnas o tablas, modifica `schema.ts` y, si aplica, el mapeo correspondiente en `auth.ts`. Añade índices en `schema.ts` (`uniqueIndex`/`index`) para mantener lecturas rápidas cuando crezca el volumen.
 
 ## 5. Genera migraciones tras cambiar código
 
@@ -128,7 +152,7 @@ SELECT * FROM sessions LIMIT 1;
 SELECT email_verified FROM users LIMIT 1;
 ```
 
-Deberías ver las tablas de Better Auth y las columnas nuevas que añadiste.
+Deberías ver las tablas de Better Auth y las tablas núcleo de la app. Como smoke test de CRUD, inserta y lee una fila con un helper del modelo (p. ej., crea un `files` mínimo vía `POST /api/storage/uploads`, luego `SELECT * FROM files LIMIT 1;`).
 
 ## 8. Prueba el flujo de autenticación
 

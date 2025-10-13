@@ -3,13 +3,13 @@
   "defaultOpen": true,
   "pages": [
     "quick-start",
+    "database-setup",
     "authentication-and-admin",
     "stripe-setup",
     "notifications-slack",
     "storage-uploads",
     "logging",
     "email-service",
-    "database-setup",
     "account-ledger",
     "text-to-video-tasks",
     "reservations-feature"

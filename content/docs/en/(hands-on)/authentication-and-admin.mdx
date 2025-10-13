@@ -22,6 +22,53 @@ canonical: "https://www.sushi-templates.com/en/blogs/authentication-and-admin"
 
 This template uses Better Auth + Drizzle for authentication and sessions. A simple, DB‑backed RBAC layer adds two admin roles on top of regular users. Roles are stored in the database only (no env-based elevation).
 
+## Basics: Authentication vs. Authorization
+
+- Authentication: Proves who you are (sign‑in/sign‑up). The result is a session.
+- Authorization: Decides what you can do after sign‑in. In this template, a `role` on the `users` table controls access.
+
+Roles we use:
+
+- `user` – default for everyone.
+- `admin_ro` – read‑only admin (can view admin data, no writes).
+- `admin_rw` – read + write admin (includes granting credits and other admin actions).
+
+### A simple analogy
+
+At an airport, showing your ID to security is authentication (proving identity). Presenting your boarding pass at the gate is authorization (verifying you’re allowed on that flight).
+
+### Quick comparison
+
+| Topic | Authentication | Authorization |
+| --- | --- | --- |
+| Purpose | Verify identity (who you are) | Verify permissions (what you can do) |
+| When | Before authorization | After successful authentication |
+| Typical inputs | Credentials (password, email link, social sign‑in) | Policies/roles (e.g., `user`, `admin_ro`, `admin_rw`) |
+| Output | A session/identity | Allowed actions and protected routes |
+| Common standards (general) | OpenID Connect (OIDC), ID tokens | OAuth 2.0, access scopes |
+
+In this template: we use secure, HttpOnly session cookies on the server (not front‑end tokens) and a simple role field on `users` to drive authorization checks.
+
+## What is Better Auth?
+
+Better Auth is a lightweight, TypeScript‑first auth library for Next.js.
+
+- Storage: Uses Drizzle ORM + Postgres via the adapter configured in `src/lib/auth.ts`.
+- Data model: `users`, `sessions`, `accounts`, `verifications` in `src/db/schema.ts`.
+- Sessions: Sets an HttpOnly cookie and persists session rows in the `sessions` table; server routes read the session via `auth.api.getSession({ headers })`.
+- Extra fields: We expose `uuid` and `role` on the session through `additionalFields` for easy server checks.
+
+## Secrets and URLs (entry‑level)
+
+- `BETTER_AUTH_SECRET`: A long, random server‑only secret used to sign/verify auth tokens and secure cookies. Generate one time and keep it private.
+  - Generate: `openssl rand -base64 32`
+  - Rotation note: Changing it logs out all users because existing sessions can no longer be verified.
+- `BETTER_AUTH_URL`: Server base URL used by the auth library (usually your site URL).
+- `NEXT_PUBLIC_AUTH_BASE_URL`: Client‑side base (keep same as site URL in most cases).
+- Cookies are `HttpOnly` and `secure` in production (see `advanced.defaultCookieAttributes` in `src/lib/auth.ts`).
+
+If sign‑in seems to work only once or sessions vanish after restart, double‑check these envs and restart the dev server.
+
 ## Auth Pipeline Overview
 
 - Library: Better Auth (`src/lib/auth.ts`) with Drizzle adapter to Postgres (`src/db/schema.ts`).

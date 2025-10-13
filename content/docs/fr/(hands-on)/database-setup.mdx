@@ -1,7 +1,7 @@
 ---
 title: Mise en place de la base de données
 icon: "Database"
-description: Préparer Postgres et Drizzle ORM pour Better Auth et les tables de l’application.
+description: Préparer Postgres et Drizzle ORM — l’épine dorsale pour l’auth, la facturation, le stockage, les tâches et les tables métier.
 keywords:
   - Postgres
   - Drizzle ORM
@@ -17,9 +17,33 @@ updatedAt: "2025-09-29T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/fr/blogs/database-setup"
 ---
 
-Avant d’utiliser les nouvelles pages d’authentification, il faut une base de
-données prête. Ce guide détaille l’ORM livré (Drizzle), les scénarios possibles,
-les fichiers à modifier et les commandes à lancer ensuite.
+La base de données est le centre d’un SaaS moderne. Toutes les fonctionnalités réelles — authentification, facturation, crédits, stockage, suivi d’usage, modules de démonstration — passent par la base. On plaisante parfois en disant que nous sommes des « ingénieurs CRUD » : créer, lire, mettre à jour, supprimer, c’est le cœur du quotidien. Plus le schéma grandit, plus il faut traiter la base comme fondation pour garder une app prévisible.
+
+Ce guide met la base au premier plan : cartographier le schéma vers les fonctionnalités, expliquer le CRUD typé avec Drizzle, puis connecter, migrer et valider.
+
+## Pourquoi la base passe en premier
+
+- Système de référence : auth, facturation, fichiers et tâches sont persistés ici et joints côté services/APIs.
+- Schéma → Types → UI : les modèles Drizzle dans `src/db/schema.ts` fournissent des types sûrs partagés dans les modèles et routes.
+- Le CRUD comme surface produit : la plupart des écrans sont des listes/détails en lecture/écriture. Un bon modèle de tables accélère l’UI.
+
+### Domaines clés (tables → fonctionnalités)
+
+- Auth : `users`, `sessions`, `accounts`, `verifications` pour Better Auth.
+- Facturation & crédits : `orders`, `credits` suivent achats et écritures de crédit.
+- Stockage : `files` contient les métadonnées S3/R2 et le cycle de vie (uploading → active → deleted).
+- Usage & tâches (IA) : `tasks` enregistre queued/running/completed, avec `credits_trans_no` vers le grand livre.
+- Contenu : `posts` pour des instantanés de contenu.
+- Croissance & feedback : `affiliates`, `feedbacks`.
+- Démo : `reservation_services`, `reservations` illustrent planification/paiement d’acompte.
+
+### Patrons centrés CRUD dans le code
+
+- Les modèles vivent dans `src/models/*` et exposent des helpers typés :
+  - `src/models/file.ts` : `insertFile`, `findFileByUuid`, `updateFileByUuid`, `listFilesByUser`, `softDeleteFile`.
+  - `src/models/task.ts` : `insertTask`, `findTaskByUuid`, `getTasksByUserUuid`, `updateTaskStatus`.
+- Les services et routes API appellent ces helpers ; centralisez l’accès DB.
+- Pour ajouter une fonctionnalité : tables dans `src/db/schema.ts` → `pnpm drizzle-kit generate` → `pnpm drizzle-kit migrate` → `src/models/<domaine>.ts` → usages dans `src/services/*` et les routes.
 
 ## 1. Qu’est-ce que Drizzle ORM ?
 
@@ -64,14 +88,15 @@ Redémarrez `pnpm dev` après chaque modification pour recharger ces valeurs.
 ## 4. Comprendre les fichiers de schéma
 
 - `src/db/schema.ts` – modèles Drizzle pour **Better Auth** (`users`, `sessions`,
-  `accounts`, `verifications`) et les tables métier (`orders`, `credits`, etc.).
+  `accounts`, `verifications`) et les tables métier : `orders`, `credits`, `files`,
+  `tasks`, `posts`, `affiliates`, `feedbacks`, `reservation_services`,
+  `reservations`.
 - `src/db/config.ts` – configuration drizzle-kit (chemin du schéma + URL
   Postgres).
 - `src/lib/auth.ts` – correspondance des champs Better Auth avec les colonnes
   Drizzle. À adapter si vous renommez des colonnes dans `users`.
 
-Ajoutez vos colonnes/tables dans `schema.ts` puis ajustez `auth.ts` si
-nécessaire.
+Ajoutez vos colonnes/tables dans `schema.ts` puis ajustez `auth.ts` si nécessaire. Pensez à ajouter des index dans `schema.ts` (`uniqueIndex`/`index`) pour garder de bonnes perfs en lecture quand les données grossissent.
 
 ## 5. Générer une migration après chaque modification
 
@@ -125,7 +150,7 @@ SELECT * FROM sessions LIMIT 1;
 SELECT email_verified FROM users LIMIT 1;
 ```
 
-Vous devriez voir les tables Better Auth et les nouvelles colonnes.
+Vous devriez voir les tables Better Auth et les tables cœur de l’app. Pour une vérification CRUD rapide, insérez puis lisez une ligne via un helper modèle (par ex., créez une ligne minimale dans `files` via `POST /api/storage/uploads`, puis `SELECT * FROM files LIMIT 1;`).
 
 ## 8. Tester le flux d’authentification
 

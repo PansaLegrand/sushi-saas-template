@@ -1,0 +1,114 @@
+---
+title: "ミドルウェアとは？ 初心者向けガイド"
+icon: "Workflow"
+description: "ミドルウェアの基本、SaaS で役立つ理由、当プロジェクトの Next.js ミドルウェア（i18n と request ID）の動きと安全なカスタマイズ方法を解説。"
+keywords:
+  - ミドルウェア
+  - Next.js middleware
+  - Edge runtime
+  - i18n
+  - request id
+  - SaaS
+tags: [middleware, nextjs, edge, i18n]
+author: "Pansa Legrand"
+publishedAt: "2025-10-13T00:00:00.000Z"
+updatedAt: "2025-10-13T00:00:00.000Z"
+canonical: "https://www.sushi-templates.com/ja/blogs/what-is-middleware"
+---
+
+## ミドルウェア 101（初心者向け）
+
+ミドルウェアは、リクエストと最終的なハンドラーの「間」で動くコードです。各リクエストはこのチェックポイントを通過し、ヘッダーの確認、リダイレクト、レスポンスへのヘッダー追加などを行えます。
+
+よくある用途:
+- 認証ゲート（未ログインならリダイレクト）
+- i18n（`/:locale/...` の維持や検出）
+- ロギングとトレーシング（`x-request-id` 付与）
+- フィーチャーフラグ / 実験
+- セキュリティとレート制限
+
+Next.js の `middleware.ts` は Edge で非常に早い段階で実行されます。
+
+---
+
+## なぜ役立つか
+
+横断的な関心事を 1 箇所にまとめ、重複をなくします。
+
+- ルール適用が一元化
+- 一貫した可観測性（共通の `request_id`）
+- 早期判断でサーバー負荷を軽減
+- ハンドラーはビジネスロジックに集中
+
+SaaS では多言語、ログ相関、管理エリア、実験、ヘッダー正規化などで有効です。
+
+---
+
+## 当プロジェクトのミドルウェア
+
+`next-intl` による i18n ルーティングと、軽量なリクエスト ID 付与を行います。
+
+ポイント:
+- ロケールルーティング: `src/i18n/routing.ts`
+- `x-request-id`: 既存を再利用、なければ UUID 生成
+- 慎重な `matcher`: `api`、`_next`、アセット、`admin` を除外
+
+```ts
+// src/middleware.ts（抜粋）
+import createMiddleware from 'next-intl/middleware';
+import { NextRequest } from 'next/server';
+import { routing } from '@/i18n/routing';
+
+const intlMiddleware = createMiddleware(routing);
+
+export default function middleware(request: NextRequest) {
+  const existing = request.headers.get('x-request-id');
+  const requestId = existing || crypto.randomUUID();
+  const res = intlMiddleware(request);
+  res.headers.set('x-request-id', requestId);
+  return res;
+}
+```
+
+---
+
+## 安全にカスタマイズする
+
+ヘッダー追加:
+```ts
+export default function middleware(request: NextRequest) {
+  const res = intlMiddleware(request);
+  res.headers.set('x-feature-flag', 'on');
+  return res;
+}
+```
+
+リダイレクト:
+```ts
+import { NextResponse } from 'next/server';
+export default function middleware(request: NextRequest) {
+  if (request.nextUrl.pathname === '/old') {
+    return NextResponse.redirect(new URL('/new', request.url));
+  }
+  return intlMiddleware(request);
+}
+```
+
+`matcher` を調整し、サーバーログで `x-request-id` を活用してください。ミドルウェアで認証クッキーの書き換えは避けましょう。
+
+---
+
+## ミドルウェアを使わないほうがよい場合
+
+- ルート固有のロジック
+- 重い非同期処理（DB など）
+- リクエストボディの読み取り/変換
+
+---
+
+## まとめ (TL;DR)
+
+- i18n、ヘッダー、リダイレクト、軽いガードに最適
+- 既定は i18n + `x-request-id`
+- ヘッダー/リダイレクト/`matcher` で拡張、クッキー操作は避ける
+

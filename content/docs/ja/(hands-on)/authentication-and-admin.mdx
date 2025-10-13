@@ -22,6 +22,53 @@ canonical: "https://www.sushi-templates.com/ja/blogs/authentication-and-admin"
 
 このテンプレートは Better Auth + Drizzle を使用します。RBAC はデータベースに保存し、環境変数での昇格は行いません。
 
+## 基本: 認証と認可の違い
+
+- 認証 (Authentication): 誰かを確認する（サインアップ/サインイン）。結果としてセッションが得られます。
+- 認可 (Authorization): その後に何ができるかを決める。このテンプレートでは `users` テーブルの `role` が制御します。
+
+ロール:
+
+- `user` — すべてのユーザーの既定。
+- `admin_ro` — 読み取り専用（管理データの閲覧のみ）。
+- `admin_rw` — 読み取り + 書き込み（クレジット付与などの管理操作を含む）。
+
+### 空港のアナロジー
+
+保安検査で身分証を提示するのが「認証」（本人確認）。搭乗口で搭乗券を提示するのが「認可」（その便に乗れるかの確認）。
+
+### クイック比較
+
+| 項目 | 認証 | 認可 |
+| --- | --- | --- |
+| 目的 | 身元の確認（誰か） | 権限の確認（何ができるか） |
+| タイミング | 認可より前 | 認証が成功した後 |
+| 典型入力 | 資格情報（パスワード、メールリンク、ソーシャル） | ポリシー/ロール（`user`、`admin_ro`、`admin_rw`） |
+| 出力 | セッション/アイデンティティ | 許可された操作と保護されたルート |
+| 一般的な標準 | OIDC、ID トークン | OAuth 2.0、スコープ |
+
+本テンプレートでは、フロントのトークンではなくサーバーの HttpOnly セッションクッキーを使用し、DB 上の `role` で認可を行います。
+
+## Better Auth とは？
+
+Next.js 向けの軽量で TypeScript ファーストな認証ライブラリです。
+
+- ストレージ: Drizzle ORM + Postgres（`src/lib/auth.ts` を参照）。
+- データモデル: `users`、`sessions`、`accounts`、`verifications`（`src/db/schema.ts`）。
+- セッション: HttpOnly クッキー + `sessions` テーブルに保存。サーバールートは `auth.api.getSession({ headers })` で読み取ります。
+- 追加フィールド: `additionalFields` で `uuid` と `role` をセッションに含め、サーバー側のチェックを簡単にします。
+
+## シークレットと URL（入門）
+
+- `BETTER_AUTH_SECRET`: 認証用のクッキー/トークンに署名・検証するサーバー専用の長い乱数文字列。1 回生成して安全に保管します。
+  - 生成: `openssl rand -base64 32`
+  - ローテーション: 値を変更すると全ユーザーがサインアウトされます（既存セッションが無効に）。
+- `BETTER_AUTH_URL`: 認証ライブラリが使用するサーバーのベース URL（通常はサイト URL）。
+- `NEXT_PUBLIC_AUTH_BASE_URL`: クライアント側のベース（多くの場合サイト URL と同じ）。
+- クッキーは本番で `HttpOnly` かつ `secure`（`src/lib/auth.ts` の `advanced.defaultCookieAttributes` を参照）。
+
+サインインが 1 回しか動かない/再起動でセッションが消える場合は、上記の環境変数を確認して dev サーバーを再起動してください。
+
 ## ロール
 
 - `user`: 既定ロール。

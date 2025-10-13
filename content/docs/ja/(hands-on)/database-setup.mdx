@@ -1,7 +1,7 @@
 ---
 title: データベースのセットアップ
 icon: "Database"
-description: Better Auth とアプリ用テーブルのために Postgres と Drizzle ORM を準備する手順。
+description: Postgres と Drizzle ORM を設定 — 認証、課金、ストレージ、タスク、各種アプリテーブルを支える中核です。
 keywords:
   - Postgres
   - Drizzle ORM
@@ -17,7 +17,33 @@ updatedAt: "2025-09-29T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/ja/blogs/database-setup"
 ---
 
-新しい認証画面を動かす前に、データベースを整備する必要があります。このドキュメントでは採用している ORM (Drizzle)、考えられるデータベース構成、編集するファイル、そして実行すべきコマンドを順番に説明します。
+データベースは現代の SaaS の中心です。認証、課金、クレジット、ストレージ、利用状況の記録、さらにはデモ機能まで、すべてが DB を通ります。私たちはしばしば「CRUD エンジニア」と冗談を言いますが、作成・読み取り・更新・削除こそが日々の本質です。スキーマが大きくなるほど、DB を土台として扱うことで、アプリ全体の予測可能性が高まります。
+
+本ガイドは DB を最優先に扱います。スキーマが機能にどう対応するか、Drizzle で型安全な CRUD をどう行うかを説明し、その後に接続・マイグレーション・検証の手順を示します。
+
+## なぜ DB が最初か
+
+- 事実のソース: 認証・課金・ファイル・タスクは DB に永続化され、サービス/API 層で結合されます。
+- スキーマ → 型 → UI: `src/db/schema.ts` の Drizzle モデルから安全な型が生成され、モデルやルートで共有されます。
+- CRUD は UI そのもの: 多くの画面は読み書き可能な一覧や詳細です。テーブル設計が良ければ UI 実装は速くなります。
+
+### 本テンプレートの主要ドメイン（テーブル → 機能）
+
+- 認証: `users`、`sessions`、`accounts`、`verifications`（Better Auth）。
+- 課金とクレジット: `orders`、`credits` が購入と台帳を管理。
+- ストレージ: `files` が S3/R2 のメタデータとライフサイクル（uploading → active → deleted）を保持。
+- 利用状況とタスク（AI）: `tasks` が queued/running/completed を記録し、`credits_trans_no` で台帳にひも付け。
+- コンテンツ: `posts`。
+- グロースとフィードバック: `affiliates`、`feedbacks`。
+- デモ: `reservation_services`、`reservations` がスケジューリング/デポジットのパターンを提示。
+
+### コードにおける CRUD ファーストのパターン
+
+- モデルは `src/models/*` にあり、型付きヘルパーを提供:
+  - `src/models/file.ts`: `insertFile`、`findFileByUuid`、`updateFileByUuid`、`listFilesByUser`、`softDeleteFile`。
+  - `src/models/task.ts`: `insertTask`、`findTaskByUuid`、`getTasksByUserUuid`、`updateTaskStatus`。
+- サービスや API ルートはこれらのヘルパーを呼び出します。DB アクセスは集中管理しましょう。
+- 新機能の進め方: `src/db/schema.ts` でモデリング → `pnpm drizzle-kit generate` → `pnpm drizzle-kit migrate` → `src/models/<domain>.ts` を追加 → `src/services/*` とルートから利用。
 
 ## 1. Drizzle ORM とは?
 
@@ -56,11 +82,11 @@ BETTER_AUTH_URL="http://localhost:3000"
 
 ## 4. スキーマ関連のファイルを把握する
 
-- `src/db/schema.ts` – **Better Auth** のテーブル (`users`, `sessions`, `accounts`, `verifications`) とアプリ独自テーブル (`orders`, `credits` など)。
+- `src/db/schema.ts` – **Better Auth** のテーブル（`users`、`sessions`、`accounts`、`verifications`）とアプリ独自テーブル: `orders`、`credits`、`files`、`tasks`、`posts`、`affiliates`、`feedbacks`、`reservation_services`、`reservations`。
 - `src/db/config.ts` – drizzle-kit の設定 (スキーマパスと Postgres URL)。
 - `src/lib/auth.ts` – Better Auth のフィールドと Drizzle の列をマッピング。`users` の列名を変更した場合はここも更新します。
 
-新しい列やテーブルを追加するときは `schema.ts` を編集し、必要であれば `auth.ts` のマッピングも更新します。
+新しい列やテーブルを追加するときは `schema.ts` を編集し、必要であれば `auth.ts` のマッピングも更新します。読み取り性能のため、`schema.ts` で適切にインデックス（`uniqueIndex`/`index`）を定義することを推奨します。
 
 ## 5. コード変更後にマイグレーションを生成する
 
@@ -113,7 +139,7 @@ SELECT * FROM sessions LIMIT 1;
 SELECT email_verified FROM users LIMIT 1;
 ```
 
-Better Auth のテーブルと追加した列が見えるはずです。
+Better Auth のテーブルに加え、アプリの主要テーブルも見えるはずです。簡単な CRUD のスモークテストとして、モデルヘルパー経由で 1 行を insert して取得してみてください（例: `POST /api/storage/uploads` で最小の `files` を作成後、`SELECT * FROM files LIMIT 1;`）。
 
 ## 8. 認証フローを試す
 

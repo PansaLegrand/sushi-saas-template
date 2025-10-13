@@ -18,7 +18,7 @@ keywords:
 tags: [积分, 订单, 台账, Stripe]
 author: "Pansa Legrand"
 publishedAt: "2025-09-29T00:00:00.000Z"
-updatedAt: "2025-09-29T00:00:00.000Z"
+updatedAt: "2025-10-13T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/zh/blogs/account-ledger"
 ---
 
@@ -28,47 +28,68 @@ canonical: "https://www.sushi-templates.com/zh/blogs/account-ledger"
 
 ---
 
-## 核心数据表
+## 角色出场（核心表）
 
-- `users`：记录用户档案（公共 UUID、语言、邀请信息），注册时由 Better Auth 自动创建。
-- `orders`：保存每一次购买；`amount`、`status` 和 `sub_*` 字段与 Stripe Webhook 中的数据保持一致。
-- `credits`：仅追加的流水账；正数代表充值或奖励，负数代表消耗。
-- `accounts` / `sessions`：Better Auth 内部表，用于同步第三方登录和会话状态。
+- `users` — 档案事实表。`uuid`（跨表主键）、邮箱、语言、角色等。由 Better Auth 写入。
+- `accounts` / `sessions` — Better Auth 内部表（登录态）。用于审计，不参与余额计算。
+- `orders` — 每次结账的尝试/结果。`order_no`、`status`、`amount`、订阅字段 `sub_*`、`credits`、`expired_at`。
+- `credits` — 仅追加的台账。正数=授予/充值；负数=消费。列：`trans_no`、`user_uuid`、`trans_type`、`credits`、`order_no`、`expired_at`。
+- `tasks` — 使用任务（如 文本→视频）。`credits_used`、`credits_trans_no` 把任务与消费行关联起来。
+- 配角：`apikeys`、`affiliates` 同样挂在 `user_uuid` 上。
 
-所有表都包含时间戳，方便审计或制作统计图表。
+关系速查（无外键，但链接稳定）：
+- `users.uuid` → `orders.user_uuid` | `credits.user_uuid` | `tasks.user_uuid` | `apikeys.user_uuid` | `affiliates.user_uuid`
+- `orders.order_no` → `credits.order_no`
+- `credits.trans_no` → `tasks.credits_trans_no`
+
+各表均带时间戳，便于回放历史、做分析。
 
 ---
 
-## 积分的生命周期
+## 类比：钱包 + 小票
 
-1. **注册**：创建 `users` 行并生成 Better Auth 会话。
-2. **支付成功**：写入 `orders` 行，记录授予的 `credits` 数量。
-3. **记账**：向 `credits` 插入正数行，通过 `order_no` 关联订单。
-4. **功能消耗**：每次使用功能（例如 API 调用扣 5 分）都写入一条负数行。
-5. **过期**：`expired_at` 已过期的正数行不会再计入余额，但仍保留在流水中以便追踪。
+- 把 `credits` 想象成一个透明钱包。每次充值或消费，都会塞一张“小票”（一条记录）。
+- 充值（正数行）让钱变多；消费（负数行）让钱变少。过期的礼品卡？小票还在，但不能再用来付款。
+- 余额 = 未过期正数之和 − 负数之和。
 
-余额计算公式：未过期的正数合计 − 所有负数合计。
+这也是为什么采用“仅追加”的台账：不改历史，只不断加新小票，方便事后解释。
+
+---
+
+## 一次动作 → 多条记录（演练）
+
+结账成功（Stripe）
+1) `orders`：`order_no` 对应行变为 `paid`，保存支付元数据。
+2) `credits`：新增正数行 `{ trans_type: "order_pay", credits: <order.credits>, order_no }`。
+3) `affiliates`：如开启，写入关联奖励。
+
+执行任务消费（文本→视频）
+1) `credits`：新增负数行 `{ trans_type: "task_text_to_video", credits: -N }`，得到其 `trans_no`。
+2) `tasks`：新增行 `{ credits_used: N, credits_trans_no: <该 trans_no> }`，可追踪“谁在何处消费了多少”。
+
+迷你 ping（1 分）
+1) `credits`：负数行 `{ trans_type: "ping", credits: -1 }`。
+
+过期
+- `expired_at` 已过去的正数行不再计入余额，但仍保留在历史中用于审计。
 
 ---
 
 ## 常用服务与 API
 
-- `src/services/user.ts#getUserUuid`：从请求中解析登录用户的 UUID。
-- `src/services/credit.ts#getUserCreditSummary`：返回总余额、累计授予/消耗、已过期、即将过期列表以及精简后的流水。
-- `src/services/credit.ts#getUserCredits`：提供轻量级的余额状态（`left_credits`、`is_pro`、`is_recharged`），便于快速判断权限。
-- `/api/account/credits` (POST)：获取积分概览，可选请求体：
+- `src/services/credit.ts#getUserCreditSummary` — 返回 `balance`、`granted`、`consumed`、`expired`、`expiringSoon[]`、`ledger[]`（裁剪版）。
+- `src/services/credit.ts#getUserCredits` — 适合功能开关的轻量快照 `{ left_credits, is_pro, is_recharged }`。
+- `src/services/credit.ts#decreaseCredits` — 追加负数行；余额不足会抛错。
+- `src/services/credit.ts#increaseCredits` — 追加正数行；用于 Stripe 入账与系统赠送。
+- `src/services/stripe.ts#handleCheckoutSession` — 把“支付成功”转成订单状态 + 积分入账。
+- `src/services/tasks.ts#createTextToVideoTask` — 扣减积分，并创建引用该消费 `trans_no` 的 `tasks` 行。
 
-  ```json
-  {
-    "includeLedger": true,
-    "ledgerLimit": 20,
-    "includeExpiring": true
-  }
-  ```
+HTTP 接口
+- `POST /api/account/credits` — 积分概览；支持 `{ includeLedger, ledgerLimit, includeExpiring }`。
+- `POST /api/account/profile` — 资料 + 概览；用 `{ includeCreditLedger: false }` 降低负载。
+- `POST /api/ping` — 消费示例（默认扣 1 分）。
 
-- `/api/account/profile` (POST)：返回个人资料 + 积分概览。若想减少数据量，可传 `{ "includeCreditLedger": false }`。
-
-接口统一使用 `respJson`，响应格式固定为 `{ code, message, data }`。
+均使用 `respJson` 响应：`{ code, message, data }`。
 
 ---
 
@@ -125,9 +146,18 @@ canonical: "https://www.sushi-templates.com/zh/blogs/account-ledger"
 
 ---
 
+## 注意事项与小贴士
+
+- 余额=简单求和；不会“消耗某一条正数记录”。负数记录通常通过 `order_no` 指向来源，但历史记录不被修改。
+- `getUserValidCredits` 以 `expired_at` 排序，便于在消费时“贴近地”指认来源。
+- 若需要严格 FIFO 或逐笔消费，请扩展模型；同时保留仅追加的台账以便审计。
+- 保持 `users.uuid` 稳定：它是 orders、credits、tasks、keys、affiliates 之间的胶水。
+
+---
+
 ## 下一步建议
 
 - 利用 `getUserCreditSummary` 的统计值构建管理后台图表。
 - 以 `/api/ping` 为模板，扩展更多按次扣费的功能。
 - 为积分计算逻辑编写单元测试，验证余额、过期和提醒的正确性。
-- 如需更多语言支持，可参照本篇创建对应文档。
+- 需要其他语言版本？我可以同步更新。

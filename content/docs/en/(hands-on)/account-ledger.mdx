@@ -18,57 +18,78 @@ keywords:
 tags: [credits, orders, ledger, Stripe]
 author: "Pansa Legrand"
 publishedAt: "2025-09-29T00:00:00.000Z"
-updatedAt: "2025-09-29T00:00:00.000Z"
+updatedAt: "2025-10-13T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/en/blogs/account-ledger"
 ---
 
 ## Why This Matters
 
-This template ships with authentication, Stripe-friendly order tracking, and a credit balance system. Understanding how the tables relate will help you extend the product catalog or plug in your own billing provider.
+This template ships with authentication, Stripe‑friendly order tracking, and a credit balance system. Knowing how the tables connect helps you add products, integrate payments, or debug “where did my credits go?” without guesswork.
 
 ---
 
-## Core Tables
+## Meet The Cast (Core Tables)
 
-- `users`: stores profile fields (UUID, invite metadata, locale) that Better Auth populates when someone signs up.
-- `orders`: records every purchase attempt; `amount`, `status`, and optional subscription details mirror Stripe webhooks.
-- `credits`: append-only ledger; positive rows add balance (grants, purchases) and negative rows subtract (usage).
-- `accounts` & `sessions`: Better Auth internals; they keep providers and login state in sync with the `users` row.
+- `users` — Profile source of truth. Columns: `uuid` (our cross‑table key), email, locale, role, etc. Better Auth populates this.
+- `accounts` & `sessions` — Better Auth internals that back sign‑in. Useful for audits; not part of the ledger math.
+- `orders` — Every checkout attempt/result. Columns: `order_no`, `status`, `amount`, subscription fields (`sub_*`), `credits`, `expired_at`.
+- `credits` — Append‑only ledger. Positive rows = grants/additions; negative rows = consumption. Columns: `trans_no`, `user_uuid`, `trans_type`, `credits`, `order_no`, `expired_at`.
+- `tasks` — Usage jobs (e.g., text‑to‑video). Columns: `credits_used`, `credits_trans_no` link the task to the exact consumption ledger row.
+- Cameos: `apikeys`, `affiliates` also hang off `user_uuid` for API access and referrals.
 
-Each table uses timestamps so you can audit how the account evolved and drive analytics dashboards.
+ER-ish cheat sheet (no foreign keys, but stable links):
+- `users.uuid` → `orders.user_uuid` | `credits.user_uuid` | `tasks.user_uuid` | `apikeys.user_uuid` | `affiliates.user_uuid`
+- `orders.order_no` → `credits.order_no` (grants from purchases)
+- `credits.trans_no` → `tasks.credits_trans_no` (which consumption paid for a task)
+
+Each table timestamps its changes so you can reconstruct history and power analytics.
 
 ---
 
-## How Credits Flow
+## The Analogy: Wallet + Receipts
 
-1. **Sign up** creates a `users` row and a Better Auth session.
-2. **Successful checkout** inserts an `orders` row with the granted `credits` amount.
-3. **Ledger write** inserts a matching positive row in `credits` (linking back via `order_no`).
-4. **Product usage** records consumption as a negative row (for example, when an API call spends 5 credits).
-5. **Expiry**: any positive row with `expired_at` in the past is ignored for balance but still tracked.
+- Think of `credits` as a transparent wallet. Every deposit or spend is a receipt you drop into the wallet.
+- Deposits (positive rows) add to your cash. Spends (negative rows) take cash out. Expired gift cards? They’re still receipts, just no longer spendable.
+- Your balance is simply: sum(all non‑expired positives) − sum(all negatives).
 
-The running balance equals: non-expired positive entries minus every negative entry.
+This is why the ledger is append‑only: instead of mutating old gifts, we add new receipts so history is always explainable.
+
+---
+
+## One Action → Many Rows (Walkthroughs)
+
+Checkout paid (Stripe)
+1) `orders`: the row for `order_no` flips to `paid` with charge metadata.
+2) `credits`: we add a positive grant row `{ trans_type: "order_pay", credits: <order.credits>, order_no }`.
+3) `affiliates`: optional reward update ties back to this order.
+
+Spend credits on a task (Text → Video)
+1) `credits`: we add a negative row `{ trans_type: "task_text_to_video", credits: -N }` and return its `trans_no`.
+2) `tasks`: we insert the task `{ credits_used: N, credits_trans_no: <that trans_no> }` so you can trace “who spent what, where”.
+
+Tiny ping demo (1 credit)
+1) `credits`: negative row `{ trans_type: "ping", credits: -1 }`.
+
+Expiry
+- Any positive row with `expired_at` in the past doesn’t count toward balance, but stays in history for audits.
 
 ---
 
 ## Useful Services & APIs
 
-- `src/services/user.ts#getUserUuid` extracts the signed-in UUID from a request.
-- `src/services/credit.ts#getUserCreditSummary` returns a beginner-friendly summary: balance, granted, consumed, expired, upcoming expirations, plus a trimmed ledger.
-- `src/services/credit.ts#getUserCredits` exposes a lightweight balance snapshot (`left_credits`, `is_pro`, `is_recharged`) that you can use to gate features quickly.
-- `/api/account/credits` (POST) returns credit summaries. Optional body:
+- `src/services/credit.ts#getUserCreditSummary` — returns `balance`, `granted`, `consumed`, `expired`, `expiringSoon[]`, and a trimmed `ledger[]`.
+- `src/services/credit.ts#getUserCredits` — lightweight snapshot for gating: `{ left_credits, is_pro, is_recharged }`.
+- `src/services/credit.ts#decreaseCredits` — appends a negative ledger row; throws on insufficient credits.
+- `src/services/credit.ts#increaseCredits` — appends a positive ledger row; used by Stripe and grants.
+- `src/services/stripe.ts#handleCheckoutSession` — turns a paid session into an order status + grant row.
+- `src/services/tasks.ts#createTextToVideoTask` — decrements credits, then inserts a `tasks` row referencing that spend.
 
-  ```json
-  {
-    "includeLedger": true,
-    "ledgerLimit": 20,
-    "includeExpiring": true
-  }
-  ```
+HTTP endpoints
+- `POST /api/account/credits` — credit summary; accepts `{ includeLedger, ledgerLimit, includeExpiring }`.
+- `POST /api/account/profile` — profile + credit summary; send `{ includeCreditLedger: false }` to keep it light.
+- `POST /api/ping` — demo consumption; spends `CreditsAmount.PingCost`.
 
-- `/api/account/profile` (POST) returns the authenticated profile plus the credit summary. Send `{ "includeCreditLedger": false }` to omit heavy history.
-
-These endpoints already use the shared `respJson` helpers so every response looks like `{ code, message, data }`.
+All responses use our `respJson` helpers so the shape is `{ code, message, data }`.
 
 ---
 
@@ -76,7 +97,7 @@ These endpoints already use the shared `respJson` helpers so every response look
 
 1. **Run the app**: `pnpm dev` (requires a Postgres URL in `.env.local`).
 2. **Create a user**: visit `/en/signup`, register, and sign in.
-3. **Add credits manually** (during development) by inserting into the `credits` table:
+3. **Add credits manually** (dev only) by inserting into `credits`:
 
    ```sql
    insert into credits (trans_no, user_uuid, trans_type, credits, created_at)
@@ -125,9 +146,18 @@ Add columns (e.g. `meta` JSON) to credits/orders for feature flags or experiment
 
 ---
 
+## Gotchas & Tips
+
+- Balance math is simple sums; we don’t “consume” specific positive rows. Negative entries reference a likely source via `order_no` for traceability, but no mutation happens to old grants.
+- `getUserValidCredits` orders positive grants by `expired_at` so consumption “tags” a nearby source for audits.
+- Need strict FIFO or per‑grant drawdowns? Extend the model and keep the append‑only ledger for audits.
+- Keep `users.uuid` stable; it’s the glue across orders, credits, tasks, keys, and affiliates.
+
+---
+
 ## Next Steps
 
 - Add dashboard charts: `getUserCreditSummary` already exposes totals you can graph.
-- Use the `/api/ping` handler as a template for other credit-consuming features.
+- Use the `/api/ping` handler as a template for other credit‑consuming features.
 - Write unit tests for credit math; mock a list of ledger rows and assert on `balance`, `expired`, and `expiringSoon`.
-- Localize this guide (a Spanish version lives at `content/docs/es/account-ledger.mdx`).
+- Want this in other languages? I can sync the updates to FR/ES/JA/ZH.

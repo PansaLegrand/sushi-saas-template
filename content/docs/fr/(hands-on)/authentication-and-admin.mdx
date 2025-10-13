@@ -22,6 +22,53 @@ canonical: "https://www.sushi-templates.com/fr/blogs/authentication-and-admin"
 
 Ce template utilise Better Auth + Drizzle. Le RBAC est stocké en base de données, sans élévation via des variables d’environnement.
 
+## Notions de base : authentification vs autorisation
+
+- Authentification : prouve qui vous êtes (inscription/connexion). Le résultat est une session.
+- Autorisation : décide ce que vous pouvez faire après connexion. Ici, c’est le champ `role` de la table `users` qui pilote l’accès.
+
+Rôles :
+
+- `user` — par défaut pour tout le monde.
+- `admin_ro` — lecture seule (visualisation des données admin, pas d’écriture).
+- `admin_rw` — lecture + écriture (inclut l’octroi de crédits et autres actions admin).
+
+### Une analogie simple
+
+À l’aéroport, montrer votre pièce d’identité au contrôle est l’authentification (prouver votre identité). Présenter votre carte d’embarquement à la porte est l’autorisation (vérifier que vous êtes autorisé à monter dans cet avion).
+
+### Comparaison rapide
+
+| Sujet | Authentification | Autorisation |
+| --- | --- | --- |
+| Objectif | Vérifier l’identité (qui) | Vérifier les permissions (quoi) |
+| Moment | Avant l’autorisation | Après une authentification réussie |
+| Entrées typiques | Identifiants (mot de passe, lien email, social) | Politiques/rôles (`user`, `admin_ro`, `admin_rw`) |
+| Sortie | Session/identité | Actions autorisées et routes protégées |
+| Standards (généraux) | OIDC, ID Tokens | OAuth 2.0, scopes |
+
+Dans ce template : sessions via cookies HttpOnly côté serveur (pas de jeton front), et un simple rôle en base pour la logique d’autorisation.
+
+## Qu’est‑ce que Better Auth ?
+
+Librairie d’auth légère et orientée TypeScript pour Next.js.
+
+- Stockage : Drizzle ORM + Postgres (voir `src/lib/auth.ts`).
+- Modèle de données : `users`, `sessions`, `accounts`, `verifications` (voir `src/db/schema.ts`).
+- Sessions : cookie HttpOnly et ligne dans `sessions` ; côté serveur, lecture via `auth.api.getSession({ headers })`.
+- Champs additionnels : `uuid` et `role` sont exposés à la session via `additionalFields` pour faciliter les contrôles côté serveur.
+
+## Secrets et URLs (niveau débutant)
+
+- `BETTER_AUTH_SECRET` : secret long et aléatoire côté serveur pour signer/vérifier les cookies/jetons. À générer une fois et à garder privé.
+  - Génération : `openssl rand -base64 32`
+  - Rotation : changer la valeur déconnecte tous les utilisateurs (sessions invalidées).
+- `BETTER_AUTH_URL` : base URL côté serveur pour la lib d’auth (souvent l’URL du site).
+- `NEXT_PUBLIC_AUTH_BASE_URL` : base côté client (identique au site dans la plupart des cas).
+- Cookies en `HttpOnly` et `secure` en production (voir `advanced.defaultCookieAttributes` dans `src/lib/auth.ts`).
+
+Si une connexion ne tient pas ou disparaît au redémarrage, vérifiez ces variables et redémarrez le serveur de dev.
+
 ## Rôles
 
 - `user` : rôle par défaut.
