@@ -25,44 +25,45 @@ export default async function LandingPage() {
             {t("nav.label")}
           </span>
           <div className="flex items-center gap-4 text-sm font-medium">
-            <Link
-              href="/blogs/about"
-              className="text-muted-foreground transition hover:text-foreground"
-            >
+            <Link href="#showcases" className="text-muted-foreground transition hover:text-foreground">
               {t("hero.ctaSecondary")}
             </Link>
-            <Link
-              href="/blogs/quick-start"
-              className="rounded-full bg-foreground px-4 py-2 text-background transition hover:opacity-90"
-            >
+            <Link href="/reserve" className="rounded-full bg-foreground px-4 py-2 text-background transition hover:opacity-90">
               {t("hero.ctaPrimary")}
             </Link>
           </div>
         </nav>
       </header>
 
-      <section className="flex flex-1 items-center justify-center px-6 py-16 md:px-0">
-        <div className="container flex flex-col items-center gap-10 text-center">
-          <span className="rounded-full border border-dashed border-foreground/30 px-4 py-1 text-xs uppercase tracking-[0.3em] text-muted-foreground">
-            Better Auth · Next.js 15 · Tailwind CSS
+      <section className="relative flex flex-1 items-center justify-center overflow-hidden px-6 py-20 md:px-0">
+        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+          <div className="absolute left-1/2 top-[-20%] h-[40rem] w-[40rem] -translate-x-1/2 rounded-full bg-gradient-to-br from-primary/10 via-primary/5 to-transparent blur-3xl" />
+          <div className="absolute right-[-10%] bottom-[-20%] h-[30rem] w-[30rem] rounded-full bg-gradient-to-tr from-purple-500/10 to-transparent blur-3xl dark:from-purple-400/10" />
+        </div>
+        <div className="container flex flex-col items-center gap-8 text-center">
+          <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/60 px-4 py-1 text-xs font-medium text-muted-foreground backdrop-blur">
+            <span>⭐</span>
+            <span>{t("hero.badge")}</span>
+            <a
+              href="https://github.com/PansaLegrand/sushi-saas-template"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ml-2 underline decoration-dotted underline-offset-4 hover:text-foreground"
+            >
+              GitHub
+            </a>
           </span>
-          <h1 className="text-balance text-4xl font-semibold leading-tight md:text-5xl">
+          <h1 className="text-balance text-5xl font-semibold leading-tight tracking-tight md:text-6xl">
             {t("hero.title")}
           </h1>
           <p className="max-w-2xl text-pretty text-base text-muted-foreground md:text-lg">
             {t("hero.subtitle")}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
-            <Link
-              href="/blogs/quick-start"
-              className="rounded-md bg-foreground px-6 py-3 text-base font-medium text-background shadow-sm transition hover:shadow-md"
-            >
+            <Link href="/reserve" className="rounded-md bg-foreground px-6 py-3 text-base font-medium text-background shadow-sm transition hover:shadow-md">
               {t("hero.ctaPrimary")}
             </Link>
-            <Link
-              href="/blogs/about"
-              className="rounded-md border border-border px-6 py-3 text-base font-medium text-foreground transition hover:bg-foreground/5"
-            >
+            <Link href="#showcases" className="rounded-md border border-border px-6 py-3 text-base font-medium text-foreground transition hover:bg-foreground/5">
               {t("hero.ctaSecondary")}
             </Link>
             <a

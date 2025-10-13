@@ -9,10 +9,11 @@
       "label": "Sushi SaaS"
     },
     "hero": {
-      "title": "让你的 SaaS 上线更快",
-      "subtitle": "基于 Next.js 15 的开源模板，内置 i18n、Better Auth、Stripe 等，从第一天起即面向生产。",
-      "ctaPrimary": "立即开始",
-      "ctaSecondary": "查看文档",
+      "title": "让我帮你在一个早上将创业项目上线。",
+      "subtitle": "精心打磨的起步方案与模板，陪你一起把想法在中午前变成上线产品。",
+      "badge": "社区口碑认可 — GitHub 30+ Stars",
+      "ctaPrimary": "预订一个早晨",
+      "ctaSecondary": "查看案例",
       "ctaGitHub": "在 GitHub 查看",
       "ctaDiscord": "加入 Discord",
       "ctaX": "在 X 关注"
@@ -37,6 +38,11 @@
           "name": "DojoClip",
           "url": "https://dojoclip.com",
           "description": "专注于多语言字幕与视频翻译的浏览器端视频编辑器。"
+        },
+        {
+          "name": "Sushi Templates",
+          "url": "https://sushi-templates.com",
+          "description": "高质感的 Next.js 模板，帮助创业者更快上线。"
         }
       ]
     },

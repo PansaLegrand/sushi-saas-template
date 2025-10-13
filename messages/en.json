@@ -9,10 +9,11 @@
       "label": "Sushi SaaS"
     },
     "hero": {
-      "title": "Ship your SaaS faster",
-      "subtitle": "Open‑source Next.js 15 boilerplate with i18n, Better Auth, Stripe billing and more — production‑ready from day one.",
-      "ctaPrimary": "Get Started",
-      "ctaSecondary": "View Docs",
+      "title": "Let me help you ship your start up in one morning.",
+      "subtitle": "A polished, done‑with‑you starting point and templates so your idea becomes a live product before lunch.",
+      "badge": "Loved by the community — 30+ GitHub stars",
+      "ctaPrimary": "Book a Morning",
+      "ctaSecondary": "See Showcases",
       "ctaGitHub": "View on GitHub",
       "ctaDiscord": "Join Discord",
       "ctaX": "Follow on X"
@@ -37,6 +38,11 @@
           "name": "DojoClip",
           "url": "https://dojoclip.com",
           "description": "Browser-based video editor for multilingual subtitle and video translation."
+        },
+        {
+          "name": "Sushi Templates",
+          "url": "https://sushi-templates.com",
+          "description": "High‑class Next.js templates that help founders launch faster."
         }
       ]
     },

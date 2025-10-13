@@ -7,10 +7,11 @@
   "landing": {
     "nav": { "label": "Sushi SaaS" },
     "hero": {
-      "title": "SaaS をより速くリリース",
-      "subtitle": "Next.js 15 のオープンソース・ボイラープレート。i18n、Better Auth、Stripe などを同梱し、初日から本番対応。",
-      "ctaPrimary": "はじめる",
-      "ctaSecondary": "ドキュメントを見る",
+      "title": "朝のうちにあなたのスタートアップを出荷するお手伝いをします。",
+      "subtitle": "丁寧に整えた土台とテンプレートで、あなたのアイデアを昼前に動くプロダクトへ。",
+      "badge": "コミュニティに愛されています — GitHub 30+ Stars",
+      "ctaPrimary": "朝の枠を予約",
+      "ctaSecondary": "導入事例を見る",
       "ctaGitHub": "GitHub を見る",
       "ctaDiscord": "Discord に参加",
       "ctaX": "X でフォロー"
@@ -35,6 +36,11 @@
           "name": "DojoClip",
           "url": "https://dojoclip.com",
           "description": "多言語字幕・動画翻訳に特化したブラウザベースの動画編集ツール。"
+        },
+        {
+          "name": "Sushi Templates",
+          "url": "https://sushi-templates.com",
+          "description": "素早いローンチを助ける上質な Next.js テンプレート。"
         }
       ]
     },
