@@ -16,6 +16,12 @@
       "ctaDiscord": "Rejoindre Discord",
       "ctaX": "Suivre sur X"
     },
+    "reserveModal": {
+      "title": "Réservations bientôt ouvertes",
+      "desc": "Les réservations arrivent dans quelques jours. D’ici là, écrivez‑moi et je vous réserverai un créneau.",
+      "close": "Fermer",
+      "emailCta": "M’écrire"
+    },
     "features": {
       "title": "Ce qu’il contient",
       "items": [

@@ -16,6 +16,12 @@
       "ctaDiscord": "Unirse a Discord",
       "ctaX": "Seguir en X"
     },
+    "reserveModal": {
+      "title": "Reservas disponibles muy pronto",
+      "desc": "Las reservas se abrirán en unos días. Mientras tanto, escríbeme y te guardo un hueco.",
+      "close": "Cerrar",
+      "emailCta": "Escríbeme"
+    },
     "features": {
       "title": "Qué incluye",
       "items": [

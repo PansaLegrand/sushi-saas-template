@@ -16,6 +16,12 @@
       "ctaDiscord": "Discord に参加",
       "ctaX": "X でフォロー"
     },
+    "reserveModal": {
+      "title": "予約はまもなく開始",
+      "desc": "数日中に予約を開始します。それまでの間はメールでご連絡ください。私が直接日程を調整します。",
+      "close": "閉じる",
+      "emailCta": "メールする"
+    },
     "features": {
       "title": "主な内容",
       "items": [

@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
+import ReserveModalButton from "@/components/reserve-modal-button";
 
 export default async function LandingPage() {
   const t = await getTranslations("landing");
@@ -28,9 +29,14 @@ export default async function LandingPage() {
             <Link href="#showcases" className="text-muted-foreground transition hover:text-foreground">
               {t("hero.ctaSecondary")}
             </Link>
-            <Link href="/reserve" className="rounded-full bg-foreground px-4 py-2 text-background transition hover:opacity-90">
-              {t("hero.ctaPrimary")}
-            </Link>
+            <ReserveModalButton
+              label={t("hero.ctaPrimary")}
+              title={t("reserveModal.title")}
+              description={t("reserveModal.desc")}
+              closeLabel={t("reserveModal.close")}
+              emailCtaLabel={t("reserveModal.emailCta")}
+              buttonClassName="rounded-full bg-foreground px-4 py-2 text-background transition hover:opacity-90"
+            />
           </div>
         </nav>
       </header>
@@ -60,9 +66,13 @@ export default async function LandingPage() {
             {t("hero.subtitle")}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
-            <Link href="/reserve" className="rounded-md bg-foreground px-6 py-3 text-base font-medium text-background shadow-sm transition hover:shadow-md">
-              {t("hero.ctaPrimary")}
-            </Link>
+            <ReserveModalButton
+              label={t("hero.ctaPrimary")}
+              title={t("reserveModal.title")}
+              description={t("reserveModal.desc")}
+              closeLabel={t("reserveModal.close")}
+              emailCtaLabel={t("reserveModal.emailCta")}
+            />
             <Link href="#showcases" className="rounded-md border border-border px-6 py-3 text-base font-medium text-foreground transition hover:bg-foreground/5">
               {t("hero.ctaSecondary")}
             </Link>

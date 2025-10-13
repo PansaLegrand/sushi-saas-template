@@ -18,6 +18,12 @@
       "ctaDiscord": "Join Discord",
       "ctaX": "Follow on X"
     },
+    "reserveModal": {
+      "title": "Reservations opening soon",
+      "desc": "Reservations are opening in a few days. Until then, email me and I’ll personally get you scheduled.",
+      "close": "Close",
+      "emailCta": "Email me"
+    },
     "features": {
       "title": "What’s inside",
       "items": [

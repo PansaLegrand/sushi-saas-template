@@ -18,6 +18,12 @@
       "ctaDiscord": "加入 Discord",
       "ctaX": "在 X 关注"
     },
+    "reserveModal": {
+      "title": "预约功能即将上线",
+      "desc": "我们会在几天内开放预约。在此之前欢迎直接发邮件联系，我会亲自为你安排时间。",
+      "close": "关闭",
+      "emailCta": "发邮件"
+    },
     "features": {
       "title": "核心能力",
       "items": [
