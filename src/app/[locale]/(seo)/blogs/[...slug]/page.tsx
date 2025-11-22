@@ -1,6 +1,7 @@
 import { source } from "@/lib/source";
 import type { Metadata } from "next";
 import { locales as supportedLocales } from "@/i18n/locale";
+import { baseUrlFallback } from "@/lib/seo";
 import Script from "next/script";
 import {
   DocsPage,
@@ -21,13 +22,26 @@ export default async function DocsContentPage(props: {
   if (!page) notFound();
 
   const MDXContent = page.data.body;
-  const base = process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000";
+  const base = baseUrlFallback;
   const slugPath = (params.slug ?? []).join("/");
+  const baseOrigin = new URL(base);
+  const normalizeCanonical = (value?: string) => {
+    if (!value?.trim()) return null;
+    try {
+      const url = new URL(value.trim());
+      if (url.host !== baseOrigin.host) return null;
+      url.hash = "";
+      return url.toString().replace(/\/+$/, "");
+    } catch {
+      return null;
+    }
+  };
+
   // Basic BlogPosting JSON-LD to help search engines understand the content
   const fm: any = page.data;
-  const canonicalUrl = (fm.canonical as string | undefined)?.trim()
-    ? (fm.canonical as string)
-    : `${base}/${params.locale ?? "en"}/blogs/${slugPath}`;
+  const canonicalUrl =
+    normalizeCanonical(fm.canonical as string | undefined) ??
+    `${base}/${params.locale ?? "en"}/blogs/${slugPath}`;
   const authors = Array.isArray(fm.authors)
     ? fm.authors
     : fm.author
@@ -88,11 +102,24 @@ export async function generateMetadata(props: {
   if (!page) notFound();
 
   const fm: any = page.data;
-  const base = process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000";
+  const base = baseUrlFallback;
   const slugPath = (params.slug ?? []).join("/");
-  const canonical = (fm.canonical as string | undefined)?.trim()
-    ? (fm.canonical as string)
-    : `${base}/${params.locale ?? "en"}/blogs/${slugPath}`;
+  const baseOrigin = new URL(base);
+  const normalizeCanonical = (value?: string) => {
+    if (!value?.trim()) return null;
+    try {
+      const url = new URL(value.trim());
+      if (url.host !== baseOrigin.host) return null;
+      url.hash = "";
+      return url.toString().replace(/\/+$/, "");
+    } catch {
+      return null;
+    }
+  };
+
+  const canonical =
+    normalizeCanonical(fm.canonical as string | undefined) ??
+    `${base}/${params.locale ?? "en"}/blogs/${slugPath}`;
 
   const keywords: string[] | undefined = Array.isArray(fm.keywords)
     ? fm.keywords
@@ -152,4 +179,3 @@ export async function generateMetadata(props: {
     robots: noindex ? { index: false, follow: true } : undefined,
   } satisfies Metadata;
 }
-
