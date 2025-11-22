@@ -13,7 +13,7 @@ const normalizeKeywords = (keywords?: string | string[]): string[] | undefined =
     .filter(Boolean);
 };
 
-import { locales } from "@/i18n/locale";
+import { defaultLocale, localePrefix, locales } from "@/i18n/locale";
 import type { Metadata } from "next";
 
 const FALLBACK_BASE_URL = process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000";
@@ -45,15 +45,23 @@ export function buildMetadata({
 }: BuildMetadataOptions): Metadata {
   const baseUrl = normalizeBaseUrl(FALLBACK_BASE_URL);
   const trimmedPath = normalizePath(path);
-  const localizedPath = `${locale === "en" ? "" : `/${locale}`}${trimmedPath || "/"}`;
-  const canonicalUrl =
-    trimmedPath === "" && locale === "en" ? baseUrl : `${baseUrl}${localizedPath}`;
+  const isHome = trimmedPath === "";
+
+  const prefixForLocale = (loc: string) => {
+    // With localePrefix === "always", keep the locale segment even for the default locale.
+    if (localePrefix === "always" || loc !== defaultLocale) {
+      return `/${loc}`;
+    }
+    return "";
+  };
+
+  const localizedPath = `${prefixForLocale(locale)}${trimmedPath}`;
+  const canonicalUrl = `${baseUrl}${isHome && localizedPath === "" ? "" : localizedPath}`;
 
   const languages: Record<string, string> = {};
   for (const loc of locales) {
-    const localized = `${loc === "en" ? "" : `/${loc}`}${trimmedPath || "/"}`;
-    languages[loc] =
-      trimmedPath === "" && loc === "en" ? baseUrl : `${baseUrl}${localized}`;
+    const localized = `${prefixForLocale(loc)}${trimmedPath}`;
+    languages[loc] = `${baseUrl}${localized || ""}`;
   }
 
   return {
