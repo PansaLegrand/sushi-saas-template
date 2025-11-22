@@ -1,9 +1,35 @@
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { buildMetadata, defaultMetaFallbacks } from "@/lib/seo";
 import { ensureDemoService, listActiveServices, findReservationByNo, getServiceById } from "@/features/reservations/models";
 import { buildGoogleCalendarUrl } from "@/features/reservations/google";
 import { ReservationsConfig } from "@/features/reservations/config";
 import ReservationWidget from "@/features/reservations/components/reservation-widget";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  const tMeta = await getTranslations();
+  const tReservation = await getTranslations("reservation");
+  const keywords =
+    typeof (tMeta as any).raw === "function"
+      ? (tMeta as any).raw("metadata.keywords")
+      : (tMeta as any)("metadata.keywords");
+
+  return buildMetadata({
+    locale,
+    path: "/reserve",
+    title: `Reserve | ${tMeta("metadata.title") || defaultMetaFallbacks.title}`,
+    description:
+      tReservation("subtitle") ||
+      tMeta("metadata.description") ||
+      defaultMetaFallbacks.description,
+    keywords,
+  });
+}
 
 export const dynamic = "force-dynamic";
 

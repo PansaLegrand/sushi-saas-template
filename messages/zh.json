@@ -1,12 +1,13 @@
 {
   "metadata": {
-    "title": "Sushi SaaS",
+    "title": "Sushi SaaS - Next.js Starter Kit for Real SaaS",
     "description": "使用现代工具和简洁设计，快速搭建上线的 SaaS 模版。",
     "keywords": "saas 模版, next.js 起步, better auth"
   },
   "landing": {
     "nav": {
-      "label": "Sushi SaaS"
+      "label": "Sushi SaaS",
+      "blogs": "博客"
     },
     "hero": {
       "title": "让我帮你在一个早上将创业项目上线。",
@@ -59,6 +60,16 @@
         { "name": "Tailwind CSS", "description": "原子化实用类样式" },
         { "name": "Better Auth", "description": "认证与会话" },
         { "name": "Drizzle ORM", "description": "类型安全的 SQL 与迁移" }
+      ]
+    },
+    "about": {
+      "title": "什么是 Sushi Templates？",
+      "intro": "Sushi Templates 是一个可直接上线的 SaaS 起步套件，提供完整且安全的代码库，让创始人用数小时而非数月就能开始销售。",
+      "points": [
+        { "title": "一个早晨就能上线", "description": "预置认证、计费、积分、文档/博客和落地页，跳过样板代码更快交付。" },
+        { "title": "完整现代技术栈", "description": "Next.js 15 App Router、TypeScript、Tailwind、Better Auth、Drizzle、Stripe、存储和 i18n 已经全部打通。" },
+        { "title": "默认安全", "description": "会话安全、角色校验、受保护的 API、带签名 URL 的私有存储，以及用环境变量管理的机密，不硬编码密钥。" },
+        { "title": "成长就绪", "description": "按量积分、任务跟踪、SEO 友好的博客/文档和管理界面，帮助你安心迭代。" }
       ]
     },
     "footer": "基于 Next.js 15、Tailwind CSS 与 Better Auth 构建。"

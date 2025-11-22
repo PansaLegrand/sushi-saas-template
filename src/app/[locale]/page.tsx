@@ -1,10 +1,36 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
+import { buildMetadata, defaultMetaFallbacks } from "@/lib/seo";
 import ReserveModalButton from "@/components/reserve-modal-button";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  const t = await getTranslations();
+  const keywords =
+    typeof (t as any).raw === "function"
+      ? (t as any).raw("metadata.keywords")
+      : (t as any)("metadata.keywords");
+
+  return buildMetadata({
+    locale,
+    path: "/",
+    title: t("metadata.title") || defaultMetaFallbacks.title,
+    description: t("metadata.description") || defaultMetaFallbacks.description,
+    keywords,
+  });
+}
 
 export default async function LandingPage() {
   const t = await getTranslations("landing");
   const features = t.raw("features.items") as Array<{
+    title: string;
+    description: string;
+  }>;
+  const aboutPoints = t.raw("about.points") as Array<{
     title: string;
     description: string;
   }>;
@@ -26,6 +52,9 @@ export default async function LandingPage() {
             {t("nav.label")}
           </span>
           <div className="flex items-center gap-4 text-sm font-medium">
+            <Link href="/blogs" className="text-muted-foreground transition hover:text-foreground">
+              {t("nav.blogs")}
+            </Link>
             <Link href="#showcases" className="text-muted-foreground transition hover:text-foreground">
               {t("hero.ctaSecondary")}
             </Link>
@@ -100,6 +129,32 @@ export default async function LandingPage() {
             >
               {t("hero.ctaX")}
             </a>
+          </div>
+        </div>
+      </section>
+
+      <section id="about" className="border-y border-border/60 bg-background py-16">
+        <div className="container grid gap-8 md:grid-cols-2">
+          <div className="space-y-4">
+            <h2 className="text-3xl font-semibold tracking-tight">
+              {t("about.title")}
+            </h2>
+            <p className="text-base text-muted-foreground">
+              {t("about.intro")}
+            </p>
+          </div>
+          <div className="grid gap-4">
+            {aboutPoints.map((point) => (
+              <div
+                key={point.title}
+                className="rounded-xl border border-border/70 bg-muted/40 p-4"
+              >
+                <h3 className="text-base font-semibold">{point.title}</h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {point.description}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </section>

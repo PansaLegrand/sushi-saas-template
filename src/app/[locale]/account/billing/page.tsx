@@ -1,8 +1,32 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { auth } from "@/lib/auth";
+import { buildMetadata, defaultMetaFallbacks } from "@/lib/seo";
 import { Button } from "@/components/ui/button";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  const tMeta = await getTranslations();
+  const keywords =
+    typeof (tMeta as any).raw === "function"
+      ? (tMeta as any).raw("metadata.keywords")
+      : (tMeta as any)("metadata.keywords");
+
+  return buildMetadata({
+    locale,
+    path: "/account/billing",
+    title: `Billing | ${tMeta("metadata.title") || defaultMetaFallbacks.title}`,
+    description: tMeta("metadata.description") || defaultMetaFallbacks.description,
+    keywords,
+    noindex: true,
+  });
+}
 
 async function getSession() {
   const h = await headers();

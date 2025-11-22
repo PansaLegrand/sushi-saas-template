@@ -1,11 +1,11 @@
 {
   "metadata": {
-    "title": "Sushi SaaS",
+    "title": "Sushi SaaS - Next.js Starter Kit for Real SaaS",
     "description": "Démarrage SaaS prêt à l’emploi avec outils modernes et design épuré.",
     "keywords": "modèle saas, next.js, better auth"
   },
   "landing": {
-    "nav": { "label": "Sushi SaaS" },
+    "nav": { "label": "Sushi SaaS", "blogs": "Blog" },
     "hero": {
       "title": "Je vous aide à lancer votre start‑up en une matinée.",
       "subtitle": "Un point de départ soigné, accompagné, et des templates pour transformer votre idée en produit en ligne avant midi.",
@@ -57,6 +57,16 @@
         { "name": "Tailwind CSS", "description": "CSS utilitaire" },
         { "name": "Better Auth", "description": "Authentification et sessions" },
         { "name": "Drizzle ORM", "description": "SQL typé et migrations" }
+      ]
+    },
+    "about": {
+      "title": "Qu’est-ce que Sushi Templates ?",
+      "intro": "Sushi Templates est un starter SaaS prêt à lancer qui offre aux fondateurs une base de code complète et sécurisée pour commencer à vendre en quelques heures plutôt qu’en plusieurs mois.",
+      "points": [
+        { "title": "Lancez en une matinée", "description": "Auth, facturation, crédits, docs/blog et landing préconstruits pour éviter le boilerplate et livrer plus vite." },
+        { "title": "Stack moderne et complet", "description": "Next.js 15 App Router, TypeScript, Tailwind, Better Auth, Drizzle, Stripe, stockage et i18n déjà câblés." },
+        { "title": "Sécurisé par défaut", "description": "Sécurité des sessions, contrôles de rôle, APIs protégées, stockage privé avec URLs présignées et secrets pilotés par l’environnement." },
+        { "title": "Prêt à grandir", "description": "Crédits à l’usage, suivi des tâches, blog/docs optimisés SEO et écrans admin pour itérer en confiance." }
       ]
     },
     "footer": "Conçu avec Next.js 15, Tailwind CSS et Better Auth."

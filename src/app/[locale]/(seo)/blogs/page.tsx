@@ -2,9 +2,29 @@ import { source } from "@/lib/source";
 import { locales as supportedLocales } from "@/i18n/locale";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
+import { buildMetadata, defaultMetaFallbacks } from "@/lib/seo";
 import { DocsPage, DocsBody, DocsDescription, DocsTitle } from "fumadocs-ui/page";
 
 type Params = { locale?: string };
+
+export async function generateMetadata(props: { params: Promise<Params> }) {
+  const { locale } = await props.params;
+  const lang = (locale && supportedLocales.includes(locale as any) ? locale : "en") as string;
+  const tMeta = await getTranslations();
+  const tBlogs = await getTranslations("blogs");
+  const keywords =
+    typeof (tMeta as any).raw === "function"
+      ? (tMeta as any).raw("metadata.keywords")
+      : (tMeta as any)("metadata.keywords");
+
+  return buildMetadata({
+    locale: lang,
+    path: "/blogs",
+    title: `Blog | ${tMeta("metadata.title") || defaultMetaFallbacks.title}`,
+    description: tBlogs("intro") || tMeta("metadata.description") || defaultMetaFallbacks.description,
+    keywords,
+  });
+}
 
 export default async function BlogsIndexPage(props: { params: Promise<Params> }) {
   const { locale } = await props.params;
@@ -51,6 +71,7 @@ export default async function BlogsIndexPage(props: { params: Promise<Params> })
     });
 
   const pages = [...inTree, ...rest].filter((p: any) => !(p?.data as any)?.noindex);
+  const localizedPrefix = `/${lang}`;
 
   return (
     <DocsPage full>
@@ -66,6 +87,10 @@ export default async function BlogsIndexPage(props: { params: Promise<Params> })
               : typeof fm.tags === "string"
               ? fm.tags.split(",").map((s: string) => s.trim()).filter(Boolean)
               : [];
+            const rawUrl = page.url.startsWith(localizedPrefix)
+              ? page.url.slice(localizedPrefix.length) || "/"
+              : page.url;
+            const href = rawUrl.startsWith("/") ? rawUrl : `/${rawUrl}`;
             return (
               <article
                 key={page.url}
@@ -102,7 +127,7 @@ export default async function BlogsIndexPage(props: { params: Promise<Params> })
                     ))}
                   </div>
                 ) : null}
-                <Link href={page.url} className="absolute inset-0" aria-label={fm.title}>
+                <Link href={href} className="absolute inset-0" aria-label={fm.title}>
                   <span className="sr-only">{fm.title}</span>
                 </Link>
               </article>

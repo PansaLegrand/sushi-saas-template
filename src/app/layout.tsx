@@ -3,6 +3,7 @@ import "@/app/globals.css";
 import { getLocale, setRequestLocale } from "next-intl/server";
 import { locales } from "@/i18n/locale";
 import { cn } from "@/lib/utils";
+import { baseUrlFallback } from "@/lib/seo";
 
 export default async function RootLayout({
   children,
@@ -12,7 +13,7 @@ export default async function RootLayout({
   const locale = await getLocale();
   setRequestLocale(locale);
 
-  const webUrl = process.env.NEXT_PUBLIC_WEB_URL || "";
+  const webUrl = process.env.NEXT_PUBLIC_WEB_URL || baseUrlFallback;
   const googleAdsenseCode = process.env.NEXT_PUBLIC_GOOGLE_ADCODE || "";
 
   return (

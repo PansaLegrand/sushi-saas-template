@@ -1,12 +1,36 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { auth } from "@/lib/auth";
 import { AffiliateConfig } from "@/data/affiliate";
 import { findUserByEmail, findUserByUuid } from "@/models/user";
+import { buildMetadata, defaultMetaFallbacks } from "@/lib/seo";
 import { getAffiliateSummary, getAffiliatesByUserUuid } from "@/models/affiliate";
 import InviteLink from "@/components/affiliate/invite-link";
 import AffiliateSummaryCards from "@/components/affiliate/summary-cards";
 import AffiliateTable from "@/components/affiliate/affiliate-table";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  const tMeta = await getTranslations();
+  const keywords =
+    typeof (tMeta as any).raw === "function"
+      ? (tMeta as any).raw("metadata.keywords")
+      : (tMeta as any)("metadata.keywords");
+
+  return buildMetadata({
+    locale,
+    path: "/my-invites",
+    title: `My Invites | ${tMeta("metadata.title") || defaultMetaFallbacks.title}`,
+    description: tMeta("metadata.description") || defaultMetaFallbacks.description,
+    keywords,
+    noindex: true,
+  });
+}
 
 function toShareUrl(code: string): string {
   const base = process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000";
@@ -66,4 +90,3 @@ export default async function MyInvitesPage({ params }: { params: Promise<{ loca
     </main>
   );
 }
-
