@@ -79,9 +79,10 @@ function main() {
 
   const urls = [];
   for (const locale of locales) {
-    // Index per locale
+    // Index per locale (canonicalized without trailing slash)
+    const localeIndexLoc = `${BASE_URL}/${locale}`;
     urls.push({
-      loc: `${BASE_URL}/${locale}/`,
+      loc: localeIndexLoc,
       lastmod: getMtimeIso(path.join(ROOT, 'src', 'app', locale, 'page.tsx')),
     });
     // Docs/blogs for the locale
