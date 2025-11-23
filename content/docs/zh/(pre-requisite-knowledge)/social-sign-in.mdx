@@ -1,0 +1,563 @@
+---
+title: "社交登录：以 Google 为例的 OAuth/OpenID 全流程"
+icon: "LogIn"
+description: "用数据包视角看社交登录：浏览器重定向、后端回调、code→token 交换、ID Token 验证、用户映射、本地会话/JWT，并说明同样的模式如何套到 Apple、Facebook、GitHub 等。"
+keywords:
+  - 社交登录
+  - OAuth
+  - OpenID Connect
+  - Google 登录
+  - Apple 登录
+  - GitHub 登录
+  - Facebook 登录
+tags: [auth, oauth, google]
+author: "Pansa Legrand"
+publishedAt: "2025-11-22T00:00:00.000Z"
+updatedAt: "2025-11-22T00:00:00.000Z"
+canonical: "https://www.sushi-templates.com/zh/blogs/social-sign-in"
+---
+
+## 0. 图例
+
+- (B) = Browser 浏览器/前端  
+- (G) = Google（OAuth / OpenID 提供方）  
+- (Y) = Your backend 你的后端（Next.js API、FastAPI、Rails 等）
+
+本文说明是谁发起请求、发生了什么 HTTP、以及你要写的代码。
+
+---
+
+## 1. (B) 用户点击 “Continue with Google”
+
+谁发起？用户 → 浏览器。
+
+前端按钮示例：
+
+```tsx
+<button
+  onClick={() => {
+    window.location.href = "/auth/google"; // 你的重定向路由
+  }}
+>
+  Continue with Google
+</button>
+```
+
+浏览器发起：
+
+```
+GET /auth/google
+Host: yourapp.com
+```
+
+你的 `/auth/google`（后端）职责：
+
+- 拼好 Google OAuth URL（带 query 参数）。  
+- 返回 302 跳转到 Google。
+
+---
+
+## 2. (B→G) 浏览器跟随重定向到 Google
+
+后端响应：
+
+```
+HTTP/1.1 302 Found
+Location: https://accounts.google.com/o/oauth2/v2/auth
+  ?client_id=YOUR_CLIENT_ID
+  &redirect_uri=https://yourapp.com/auth/callback
+  &response_type=code
+  &scope=openid%20email%20profile
+  &state=RANDOM_CSRF_STRING
+```
+
+浏览器请求该 URL，进入 Google UI。
+
+---
+
+## 3. (G) Google 认证用户
+
+谁发起？用户 + Google 的页面。
+
+- 已登录 Google → 可能不需要输入密码。  
+- 未登录 → 显示登录。  
+- 风险登录 → 可能需要 2FA/SMS/安全检查。
+
+这一切发生在浏览器与 Google 之间，后端暂时不参与。
+
+---
+
+## 4. (G→B) Google 携带 `code=XYZ` 重定向回来
+
+Google 响应：
+
+```
+HTTP/1.1 302 Found
+Location: https://yourapp.com/auth/callback
+  ?code=XYZ123
+  &state=RANDOM_CSRF_STRING
+```
+
+浏览器跟随跳转回你的站点。
+
+---
+
+## 5. (B→Y) 浏览器请求 `/auth/callback?code=XYZ`
+
+浏览器发送：
+
+```
+GET /auth/callback?code=XYZ123&state=RANDOM_CSRF_STRING
+Host: yourapp.com
+```
+
+你的 `/auth/callback` 需要：
+
+1) 读取 `code`、`state`。  
+2) 校验 `state`（CSRF 防护）。  
+3) 用 `code` 调 Google 的 token 端点（服务器到服务器）。
+
+此时你仍不知道用户是谁，只拿到短期的授权码。
+
+---
+
+## 6. (Y→G) 后端用 code 换 token
+
+后端发起（不经过浏览器）：
+
+```
+POST https://oauth2.googleapis.com/token
+Content-Type: application/x-www-form-urlencoded
+
+code=XYZ123
+&client_id=YOUR_CLIENT_ID
+&client_secret=YOUR_CLIENT_SECRET
+&redirect_uri=https://yourapp.com/auth/callback
+&grant_type=authorization_code
+```
+
+Google 返回：
+
+```json
+{
+  "access_token": "ya29.a0AfH6SMA...",
+  "expires_in": 3600,
+  "refresh_token": "1//0gABCDEFG...",
+  "id_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "scope": "openid email profile",
+  "token_type": "Bearer"
+}
+```
+
+- `access_token`：调用 Google API（如 Drive/Calendar）。  
+- `id_token`：**登录用**，标识用户是谁。  
+- `refresh_token`：可选，长效刷新 access token。
+
+---
+
+## 7. (Y) 后端验证 `id_token`
+
+`id_token` 是 Google 签名的 JWT。解码/验证：
+
+```json
+{
+  "iss": "https://accounts.google.com",
+  "aud": "YOUR_CLIENT_ID",
+  "sub": "11324567890123456789",
+  "email": "user@gmail.com",
+  "email_verified": true,
+  "name": "User Name",
+  "picture": "https://lh3.googleusercontent.com/a/...",
+  "iat": 1732350000,
+  "exp": 1732353600
+}
+```
+
+检查：
+
+- 签名（用 Google JWKS）。  
+- `iss` 是 Google；`aud` 等于你的 `client_id`。  
+- `exp` 未过期。  
+- 可选：`email_verified` 为 true。
+
+验证后，你可信任：`sub=...`、`email=user@gmail.com`。这等价于“密码已验证”。
+
+---
+
+## 8. (Y) 后端查找/创建本地用户
+
+典型逻辑：
+
+1) 按 `google_sub` 查：
+
+```sql
+SELECT * FROM users WHERE google_sub = '11324567890123456789';
+```
+
+2) 如未找到，再按 email 查：
+
+```sql
+SELECT * FROM users WHERE email = 'user@gmail.com';
+```
+
+3) 还没有 → 自动创建：
+
+```sql
+INSERT INTO users (email, google_sub, name, avatar_url, created_at)
+VALUES ('user@gmail.com', '11324567890123456789', 'User Name', 'https://lh3.googleusercontent.com/a/...', now());
+```
+
+得到本地 `user_id`（如 42）。后续都用你自己的 `user_id`。
+
+---
+
+## 9. (Y) 后端创建“你的”会话或 JWT
+
+回到你熟悉的登录逻辑。
+
+### 选项 A：服务端会话
+
+1) 生成 `session_id = random_string()`  
+2) 存 DB/Redis，带过期时间：
+
+```
+session_id | user_id | expires_at
+abcd1234   |   42    | +1 day
+```
+
+3) 发 Cookie：
+
+```
+Set-Cookie: session_id=abcd1234; HttpOnly; Secure; SameSite=Lax; Path=/
+```
+
+### 选项 B：JWT 访问 + 刷新
+
+1) 构建 payload：
+
+```json
+{
+  "sub": "42",
+  "email": "user@gmail.com",
+  "provider": "google",
+  "iat": 1732350000,
+  "exp": 1732350900
+}
+```
+
+2) 签出 `access_token`；可选创建 `refresh_token` 并存 DB。  
+3) 以 Cookie 或 JSON 返回：
+
+```
+Set-Cookie: access_token=...; HttpOnly; Secure; SameSite=Lax
+Set-Cookie: refresh_token=...; HttpOnly; Secure; SameSite=Lax
+```
+
+之后请求都用**你的** token，Google 不再参与。
+
+---
+
+## 10. (Y→B) 把会话/JWT 发回浏览器
+
+发生在 `/auth/callback` 响应里，例如：
+
+```
+HTTP/1.1 302 Found
+Set-Cookie: session_id=abcd1234; HttpOnly; Secure; SameSite=Lax
+Location: /dashboard
+```
+
+或：
+
+```
+HTTP/1.1 200 OK
+Set-Cookie: access_token=...
+Content-Type: text/html
+```
+
+浏览器自动存 Cookie（除非被阻止）。
+
+---
+
+## 11. 用户登录到**你的**应用
+
+之后与普通登录一致：
+
+- 浏览器携带 `session_id` 或 `access_token`。  
+- 后端校验并识别 `current_user`。  
+- 访问受保护资源正常。
+
+Google 不再参与，除非用户登出再登录，或你用 `access_token` 调 Google API。
+
+---
+
+## 12. Drive 权限 + 登出/再登录（Q&A）
+
+### 12.1 可以访问用户的 Google Drive 吗？
+
+可以——前提是你请求了 Drive scope、用户同意、并用返回的 `access_token` 调用 Drive。
+
+#### Scope = 你要的权限
+
+- 只登录：`scope=openid email profile`  
+- 读 Drive：加 `https://www.googleapis.com/auth/drive.readonly`（或 `/drive` 全量）
+
+示例授权 URL：
+
+```
+https://accounts.google.com/o/oauth2/v2/auth
+  ?client_id=YOUR_CLIENT_ID
+  &redirect_uri=https://yourapp.com/auth/callback
+  &response_type=code
+  &scope=openid%20email%20profile%20https://www.googleapis.com/auth/drive.readonly
+  &access_type=offline
+  &prompt=consent
+```
+
+- `access_type=offline`：要 `refresh_token`。  
+- `prompt=consent`：至少展示一次同意页。
+
+#### 换取的 token
+
+```
+{
+  "access_token": "...",
+  "id_token": "...",
+  "refresh_token": "...",
+  "scope": "openid email profile https://www.googleapis.com/auth/drive.readonly",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}
+```
+
+- `id_token` → 登录你应用。  
+- `access_token` → 调 Google API/Drive。  
+- `refresh_token` → 长期刷新。
+
+#### 调用 Drive API
+
+```
+GET https://www.googleapis.com/drive/v3/files
+Authorization: Bearer ya29.a0AfH6SMA...
+```
+
+用户同意了 Drive，才会返回文件（权限受 scope 限制）。
+
+### 12.2 登出 & 再登录会怎样？
+
+登出分两层：  
+1) 你的应用的登出；2) 浏览器里的 Google 账号登出。大多数应用只做第 1 层。
+
+#### 登出你的应用
+
+浏览器 → 后端：
+
+```
+POST /auth/logout
+Cookie: session_id=abcd1234  (或 access_token/refresh_token)
+```
+
+后端：
+
+- 会话：`DELETE FROM sessions WHERE session_id = 'abcd1234'`  
+- 清 Cookie：
+
+```
+Set-Cookie: session_id=; Max-Age=0; Path=/; HttpOnly; Secure
+Set-Cookie: access_token=; Max-Age=0; Path=/; HttpOnly; Secure
+Set-Cookie: refresh_token=; Max-Age=0; Path=/; HttpOnly; Secure
+```
+
+前端清理内存状态并重定向。这**不会**让用户退出 Google，仅结束你应用的会话。
+
+#### 重新点 “Continue with Google”
+
+- 如果浏览器里仍登录 Google，通常不会再弹 UI，直接带 `code=...` 回来。  
+- 你的 `/auth/callback` 再次交换 code，验证 `id_token`，找到用户，创建新会话/JWT。  
+- 用户体验：登出 → 登录 → 几乎秒登，因为没退出 Google。
+
+#### 想强制 Google 出现界面？
+
+- 加 `prompt=select_account`（必出账号选择器）。  
+- 加 `prompt=consent`（强制同意页）。  
+- 想每次都让用户输密码基本不可控，Google 根据风险决定。  
+- 如果用户在 gmail.com 真正退出 Google，下次才会出现登录表单。
+
+#### 登出后 Drive 访问
+
+- 退出你应用只停止用你的会话/JWT，但 DB 里存的 Google `refresh_token` 可能仍有效。  
+- 若要彻底停用 Drive 访问，删除/撤销存储的 token，或调用 Google 的 revocation 接口。  
+- 用户也可在 Google 账号 → 安全 → 第三方访问 中撤销。
+
+### 12.3 心智模型
+
+- Google 负责密码/2FA/恢复/设备检查/CAPTCHA。  
+- 你负责 `google_sub → user_id` 映射、自己的会话/JWT、是否保存 Drive token。  
+- 退出你应用 ≠ 退出 Google；Google 仍登录时再登录通常一键完成。  
+- Drive 访问需要 scope + 同意；token 可被你或用户撤销。
+
+---
+
+## 13. “有人假装是 Google 骗后端可以吗？”
+
+短答：只要你做对验证，就不行；只有跳过检查才可能。
+
+### 13.1 攻击者会尝试什么
+
+- 直接访问 `/auth/callback?code=FAKE`。  
+- 伪造 `id_token`（例如 `{ "email": "victim@gmail.com", "sub": "victim-id" }`）。  
+- 伪装成 Google token 端点返回任意 JSON。
+
+正确校验会让它们全部失败。
+
+### 13.2 为什么难以伪造（前提：你做对了）
+
+- **后端直连 Google + HTTPS**：后端把 code 发到 `https://oauth2.googleapis.com/token`，带你的 `client_id/secret`。伪造的 code 会被 Google 拒绝；你硬编码真实 token URL，攻击者不能换成假域名或伪造 TLS。  
+- **验证 `id_token` 签名+声明**：用 Google JWKS 验签，再检查 `iss = https://accounts.google.com`、`aud = 你的 client_id`、`exp` 未过期（可选 `email_verified`）。没有 Google 私钥，伪造的 token 会验签失败。
+
+### 13.3 永远不要信浏览器
+
+- 不信查询参数（`code`、`state`）、请求体（`id_token`、`access_token`）、自定义头。  
+- 只信：后端直接向 Google 获取的响应，以及你亲自验过签/声明的 token。
+
+### 13.4 什么时候会被“假冒”
+
+- **Bug #1：接受前端传来的 `id_token` 却不在后端验签** → 攻击者 POST 一个自制 JWT 你就信了。  
+- **Bug #2：验签但不查 `aud/iss`** → 攻击者用别的应用/别的提供方的 token。  
+- **Bug #3：不用 `state`** → CSRF，攻击者把自己的 code 注入，让受害者浏览器登录到攻击者账号。
+
+### 13.5 防御清单
+
+- 后端只请求 `https://oauth2.googleapis.com/token`（HTTPS）。  
+- 后端验证 `id_token` 签名 + `iss` + `aud` + `exp`（必要时 `email_verified`）。  
+- 使用 `state` 抗 CSRF。  
+- 从不盲信前端传来的 token。
+
+按这个做，“假装 Google”行不通；跳过检查就会被绕过。
+
+---
+
+## 14. 用 Google 身份替代密码（以及首登即注册）
+
+### 14.1 替换关系：email+password → google_sub + 已验证 id_token
+
+本地登录：
+
+- 存 `email`、`password_hash`；用户输 email+password；校验 hash；匹配 → 真实用户。
+
+Google 登录：
+
+- 存 `google_sub`、`email`（以及 name/avatar）。  
+- Google 负责密码/2FA/设备检查，返回签名 `id_token`；你验签 + `iss` + `aud` + `exp`（可选 `email_verified`），然后：
+
+```sql
+SELECT * FROM users WHERE google_sub = 'GOOGLE_USER_ID_123';
+```
+
+找到即认定真实用户；`google_sub` 相当于密码的替代。
+
+### 14.2 首次“注册”怎么处理？
+
+没有独立的“Google 注册 API”。第一次 Google 登录即视为注册（若不存在用户）。
+
+流程：点击 Google 登录 → OAuth 流程 → 你验证 `id_token` → 查库：
+
+- 有该 `google_sub` → 登录，发会话/JWT。  
+- 没有 → 创建用户，再登录（即时开通）。
+
+示例插入：
+
+```sql
+INSERT INTO users (email, google_sub, name, avatar_url, created_at)
+VALUES ('user@gmail.com', 'GOOGLE_USER_ID_123', 'User Name', '...', now());
+```
+
+### 14.3 常见模式
+
+- **纯社交登录**：只支持 Google/Apple/GitHub 等，无密码。首次登录=注册，之后=登录，`password_hash` 可以为空。  
+- **混合模式（密码 + 社交）**：同时支持邮箱密码和 Google。首次 Google 登录时，如 email 已存在，可提示绑定（或信任已验证邮箱后自动绑定）。绑定后同一 `user_id` 可用密码或 Google 登录。
+
+### 14.4 心智模型
+
+- 把“密码校验”换成“Google 签名 id_token + `google_sub` 查库”。  
+- 第一次 Google 登录：没有就创建（即注册）；有就直接登录。  
+- 会话/JWT 发行逻辑不变，只是身份来源不同。
+
+---
+
+## 15. Google 之外的社交登录（Apple、Facebook、GitHub …）
+
+### 15.1 通用模式（OAuth / OIDC）
+
+1) 用户点“用 X 登录”。  
+2) 提供方验证身份（密码/2FA/设备）。  
+3) 提供方返回 code 或签名 token。  
+4) 你在后端验证，查/建用户。  
+5) 你发自己的会话/JWT。
+
+与 email+password 的唯一区别：谁负责“证明身份”。
+
+### 15.2 不同提供方只改少数字段
+
+| 提供方 | 协议 | Token 类型 | 唯一 ID 字段 |
+| --- | --- | --- | --- |
+| Google | OAuth2 + OIDC | `id_token` (JWT) | `sub` |
+| Facebook | OAuth2 | access token + profile | `id` |
+| Apple | OAuth2 + OIDC | `id_token` (JWT) | `sub` |
+| GitHub | OAuth2 | access token + profile | `id` |
+
+后端套路不变：验证 token → 提取唯一 ID → 查/建用户 → 发会话/JWT。
+
+### 15.3 “密码”被提供方身份替代
+
+| 提供方 | 身份键 | DB 字段示例 |
+| --- | --- | --- |
+| Google | `sub` | `google_sub` |
+| Facebook | `id` | `facebook_id` |
+| Apple | `sub` | `apple_sub` |
+| GitHub | `id` | `github_id` |
+| Twitter | `id_str` | `twitter_id` |
+
+该唯一键 + 提供方验证 = 密码替代。
+
+### 15.4 首次登录 = 注册
+
+- 第一次 OAuth 登录：若不存在则创建用户，否则直接登录。  
+- 后续 OAuth 登录：按提供方 ID 查找到即登录。
+
+### 15.5 密码找回
+
+- 用哪个提供方登录，就由该提供方负责找回；你的应用不处理 OAuth-only 用户的密码重置。
+
+### 15.6 账号绑定
+
+- 支持邮箱密码和社交登录时，可让用户绑定到同一 `user_id`（Slack/Notion/Discord 同理）。绑定后可多种方式登录，底层账号一份。
+
+### 15.7 为什么能通用
+
+- 业界共享 OAuth2.0 + OIDC 标准。  
+- 你始终：验证提供方 token → 信任其认证结果 → 构建自己的会话/JWT。
+
+---
+
+## 快速表格回顾
+
+| 步骤 | 方向 | 发起方 | 发生什么 |
+| --- | --- | --- | --- |
+| 1 | B → Y | 浏览器（用户点击） | 访问 `/auth/google` |
+| 2 | Y → B → G | 后端 + 浏览器 | 重定向到 Google OAuth，浏览器跟随 |
+| 3 | B ↔ G | 浏览器 + Google | Google 登录/同意页面 |
+| 4 | G → B | Google | 带 `code` 重定向回 `redirect_uri` |
+| 5 | B → Y | 浏览器 | 请求 `/auth/callback?code=XYZ` |
+| 6 | Y → G | 后端 | 向 token 端点 POST 交换 code |
+| 7 | G → Y | Google | 返回 `id_token` + `access_token` (+ `refresh_token`) |
+| 8 | Y | 后端 | 验证 `id_token`，查/建用户 |
+| 9 | Y | 后端 | 创建会话或 JWT |
+| 10 | Y → B | 后端 | Set-Cookie / 重定向 |
+| 11 | B ↔ Y | 浏览器 + 后端 | 之后的正常鉴权请求 |
+
+---
+
+## 相关阅读
+
+- 更广泛的 JWT vs 会话、刷新/记住我对比：[`Web Authentication Deep Dive`](/zh/blogs/web-authentication-deep-dive)。

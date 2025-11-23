@@ -1,0 +1,580 @@
+---
+title: "ソーシャルサインイン: Google（ほかのプロバイダーも）を使う OAuth/OIDC 完全ガイド"
+icon: "LogIn"
+description: "Google（ほかの OAuth/OIDC）サインインをパケットレベルで追う: リダイレクト、バックエンドコールバック、コード交換、トークン検証、ユーザー紐付け、自前のセッション/JWT 発行、そして Apple/Facebook/GitHub などへの一般化。"
+keywords:
+  - google sign in
+  - oauth
+  - openid connect
+  - id token
+  - jwt
+  - セッション
+  - auth callback
+tags: [認証, oauth, google]
+author: "Pansa Legrand"
+publishedAt: "2025-11-22T00:00:00.000Z"
+updatedAt: "2025-11-22T00:00:00.000Z"
+canonical: "https://www.sushi-templates.com/ja/blogs/social-sign-in"
+---
+
+## 0. 記号の意味
+
+- (B) = Browser（フロントエンド / ユーザーエージェント）  
+- (G) = Google（OAuth/OpenID プロバイダー）  
+- (Y) = Your backend（Next.js API ルート、FastAPI、Rails など）
+
+各ステップをだれが始めるか、どんな HTTP が飛ぶか、どこにコードを書くかを示します。
+
+---
+
+## 1. (B) ユーザーが「Google で続行」をクリック
+
+開始者: ユーザー → ブラウザ。
+
+フロントエンドの例:
+
+```tsx
+<button
+  onClick={() => {
+    window.location.href = "/auth/google"; // Google にリダイレクトする自分のルート
+  }}
+>
+  Continue with Google
+</button>
+```
+
+ブラウザ送信:
+
+```
+GET /auth/google
+Host: yourapp.com
+```
+
+`/auth/google`（バックエンド）でやること:
+
+- Google OAuth URL をクエリ付きで組み立てる。
+- 302 リダイレクトで Google へ返す。
+
+---
+
+## 2. (B→G) ブラウザが Google にリダイレクトを追従
+
+バックエンドのレスポンス:
+
+```
+HTTP/1.1 302 Found
+Location: https://accounts.google.com/o/oauth2/v2/auth
+  ?client_id=YOUR_CLIENT_ID
+  &redirect_uri=https://yourapp.com/auth/callback
+  &response_type=code
+  &scope=openid%20email%20profile
+  &state=RANDOM_CSRF_STRING
+```
+
+ブラウザがこの Google URL を開き、いまは Google の UI 上にいます。
+
+---
+
+## 3. (G) Google がユーザーを認証
+
+開始者: ユーザー + ブラウザ上の Google UI。
+
+- 既に Google にログイン済みならパスワード入力なしのことも。
+- 未ログインならログイン画面。
+- リスクが高いと 2FA/SMS/セキュリティチェックが出る。
+
+ここまでは Browser と Google のやりとりで、バックエンドは関与しません。
+
+---
+
+## 4. (G→B) Google が `code=XYZ` 付きでリダイレクトバック
+
+Google のレスポンス:
+
+```
+HTTP/1.1 302 Found
+Location: https://yourapp.com/auth/callback
+  ?code=XYZ123
+  &state=RANDOM_CSRF_STRING
+```
+
+ブラウザがあなたのアプリへ戻ります。
+
+---
+
+## 5. (B→Y) ブラウザが `/auth/callback?code=XYZ` に到達
+
+ブラウザ送信:
+
+```
+GET /auth/callback?code=XYZ123&state=RANDOM_CSRF_STRING
+Host: yourapp.com
+```
+
+`/auth/callback`（バックエンド）ですべきこと:
+
+1. クエリから `code` と `state` を読む。
+2. 保存済みの `state` と突き合わせる（CSRF 防止）。
+3. Google のトークンエンドポイントにコード交換を行う（サーバー間通信）。
+
+まだこの時点ではユーザーが誰か分かりません。短命の認可コードを持っているだけです。
+
+---
+
+## 6. (Y→G) バックエンドがコードをトークンに交換
+
+バックエンド POST（ブラウザは関与しない）:
+
+```
+POST https://oauth2.googleapis.com/token
+Content-Type: application/x-www-form-urlencoded
+
+code=XYZ123
+&client_id=YOUR_CLIENT_ID
+&client_secret=YOUR_CLIENT_SECRET
+&redirect_uri=https://yourapp.com/auth/callback
+&grant_type=authorization_code
+```
+
+Google のレスポンス:
+
+```json
+{
+  "access_token": "ya29.a0AfH6SMA...",
+  "expires_in": 3600,
+  "refresh_token": "1//0gABCDEFG...",
+  "id_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "scope": "openid email profile",
+  "token_type": "Bearer"
+}
+```
+
+- `access_token`: Google API（Calendar/Drive など）を叩くとき用。  
+- `id_token`: **ログイン判定** 用（誰なのか）。  
+- `refresh_token`: 任意。Google API を長期利用したいときの更新用。
+
+---
+
+## 7. (Y) バックエンドが `id_token` を検証
+
+`id_token` は Google 署名済み JWT。サーバー側で decode/verify します。
+
+```json
+{
+  "iss": "https://accounts.google.com",
+  "aud": "YOUR_CLIENT_ID",
+  "sub": "11324567890123456789",
+  "email": "user@gmail.com",
+  "email_verified": true,
+  "name": "User Name",
+  "picture": "https://lh3.googleusercontent.com/a/...",
+  "iat": 1732350000,
+  "exp": 1732353600
+}
+```
+
+チェックポイント:
+
+- Google の JWKS で JWT 署名を検証。
+- `iss` が Google、`aud` が自分の client_id。
+- `exp` が未来。
+- 必要なら `email_verified` が true か。
+
+有効なら「このリクエストは `sub=…`, `email=user@gmail.com` の Google アカウントから」と信頼でき、パスワード検証の代わりになります。
+
+---
+
+## 8. (Y) DB でユーザーを検索/作成
+
+典型的な紐付けロジック:
+
+1. まず `google_sub` で探す:
+
+```sql
+SELECT * FROM users WHERE google_sub = '11324567890123456789';
+```
+
+2. 見つからなければメールで探す:
+
+```sql
+SELECT * FROM users WHERE email = 'user@gmail.com';
+```
+
+3. それでもなければ自動プロビジョニング:
+
+```sql
+INSERT INTO users (email, google_sub, name, avatar_url, created_at)
+VALUES ('user@gmail.com', '11324567890123456789', 'User Name', 'https://lh3.googleusercontent.com/a/...', now());
+```
+
+結果としてローカルの `user_id`（例: 42）が得られます。ここから先は Google ではなく自分の `user_id` を使います。
+
+---
+
+## 9. (Y) **自分の** セッションまたは JWT を発行
+
+ここからは普段の認証システムに戻ります。
+
+### オプション A: サーバーサイドセッション
+
+1. `session_id = random_string()` を生成。
+2. 有効期限付きで DB/Redis に保存。
+
+```
+session_id | user_id | expires_at
+abcd1234   |   42    | +1 day
+```
+
+3. Cookie を送信:
+
+```
+Set-Cookie: session_id=abcd1234; HttpOnly; Secure; SameSite=Lax; Path=/
+```
+
+### オプション B: JWT アクセス + リフレッシュトークン
+
+1. ペイロード例:
+
+```json
+{
+  "sub": "42",
+  "email": "user@gmail.com",
+  "provider": "google",
+  "iat": 1732350000,
+  "exp": 1732350900
+}
+```
+
+2. `access_token` を署名。必要なら `refresh_token` も発行して DB に保存。
+3. Cookie または JSON で送信:
+
+```
+Set-Cookie: access_token=...; HttpOnly; Secure; SameSite=Lax
+Set-Cookie: refresh_token=...; HttpOnly; Secure; SameSite=Lax
+```
+
+これ以降はブラウザが **あなたの** トークンを使い、リクエストに Google は関わりません。
+
+---
+
+## 10. (Y→B) セッション/JWT をブラウザへ返す
+
+`/auth/callback` のレスポンスなどで実施:
+
+```
+HTTP/1.1 302 Found
+Set-Cookie: session_id=abcd1234; HttpOnly; Secure; SameSite=Lax
+Location: /dashboard
+```
+
+または
+
+```
+HTTP/1.1 200 OK
+Set-Cookie: access_token=...
+Content-Type: text/html
+```
+
+ブラウザは自動で Cookie を保存します（設定でブロックされていなければ）。
+
+---
+
+## 11. ユーザーは **あなたの** アプリにログイン済み
+
+ここからは通常の認証と同じ:
+
+- ブラウザが毎リクエストで `session_id` または `access_token` を送る。
+- バックエンドが検証し `current_user` を特定。
+- 保護されたページ/API がいつも通り動く。
+
+Google が再登場するのは、ユーザーがログアウト後に再ログインするか、あなたが Google API を `access_token` で呼ぶときだけです。
+
+---
+
+## 12. Drive アクセス + ログアウト/再ログイン（Q&A）
+
+### 12.1 Google Drive にアクセスできる？
+
+はい。Drive スコープを要求し、ユーザーが同意し、返ってきた `access_token` で Drive API を叩けば使えます。
+
+#### スコープ = 求める権限
+
+- 「ログインだけ」（アイデンティティのみ）: `scope=openid email profile`
+- 「Google Drive にアクセス」: これに `https://www.googleapis.com/auth/drive.readonly`（または `/drive` でフルアクセス）を追加
+
+バックエンドが組み立てる認可 URL 例:
+
+```
+https://accounts.google.com/o/oauth2/v2/auth
+  ?client_id=YOUR_CLIENT_ID
+  &redirect_uri=https://yourapp.com/auth/callback
+  &response_type=code
+  &scope=openid%20email%20profile%20https://www.googleapis.com/auth/drive.readonly
+  &access_type=offline
+  &prompt=consent
+```
+
+- `scope=...drive.readonly` → Drive 読み取りを依頼。
+- `access_type=offline` → 長期の API 利用のために `refresh_token` を要求。
+- `prompt=consent` → 少なくとも 1 回は同意画面を強制。
+
+#### コード交換後のトークン
+
+```
+{
+  "access_token": "ya29.a0AfH6SMA...",
+  "id_token": "eyJhbGciOiJSUzI1NiIs...",
+  "refresh_token": "1//0gABCDEFG...",
+  "scope": "openid email profile https://www.googleapis.com/auth/drive.readonly",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}
+```
+
+- `id_token` → アプリへのログイン。
+- `access_token` → Google API（Drive を含む）呼び出し用。
+- `refresh_token` → 同意なしで後から `access_token` を再取得。
+
+#### Drive API を呼ぶ
+
+```
+GET https://www.googleapis.com/drive/v3/files
+Authorization: Bearer ya29.a0AfH6SMA...
+```
+
+ユーザーが Drive スコープに同意していれば、権限内でファイル一覧が返ります。
+
+### 12.2 ログアウト後に再ログインするとどうなる？
+
+ログアウトは 2 種類あります: (1) あなたのアプリからのログアウト、(2) ブラウザでの Google アカウントログアウト。多くのアプリは (1) だけを行います。
+
+#### **あなたの** アプリをログアウト
+
+ブラウザ → バックエンド:
+
+```
+POST /auth/logout
+Cookie: session_id=abcd1234  (または access_token/refresh_token)
+```
+
+バックエンド:
+
+- セッション: `DELETE FROM sessions WHERE session_id = 'abcd1234'`
+- Cookie をクリア:
+
+```
+Set-Cookie: session_id=; Max-Age=0; Path=/; HttpOnly; Secure
+Set-Cookie: access_token=; Max-Age=0; Path=/; HttpOnly; Secure
+Set-Cookie: refresh_token=; Max-Age=0; Path=/; HttpOnly; Secure
+```
+
+フロントエンドはメモリ状態をクリアしてリダイレクト。これは **Google からのログアウトではありません**。あなたのアプリのセッションだけを殺します。
+
+#### もう一度「Google で続行」を押すと
+
+- そのブラウザで Google にまだログインしていれば、UI をスキップして即座に `code=...` 付きで戻ることが多い。
+- `/auth/callback` が走り、コード交換 → `id_token` 検証 → ユーザー検索 → セッション/JWT 作成。
+- ユーザー体験としては「ログアウト→ログイン→一瞬でログイン」に見えます。Google をログアウトしていないからです。
+
+#### Google に必ず何かを表示させたいとき
+
+- `prompt=select_account` でアカウント選択画面を強制。
+- `prompt=consent` で同意画面を再表示。
+- パスワード入力を強制するかは Google のリスク判断次第で、アプリ側から確実に強制するのは UX 的に難しい。
+- ユーザーが Google 自体をログアウトすれば、次の「Google でサインイン」でログインフォームが出ます。
+
+#### ログアウト後の Drive アクセス
+
+- **あなたの** アプリからログアウトしても、保存済みの Google `refresh_token` があれば有効なことがあります。
+- Drive へのアクセスを止めたいなら、保存した Google トークンを削除/失効させるか、Google の revocation エンドポイントを呼ぶ。
+- ユーザー自身も Google アカウント → セキュリティ → サードパーティアクセス から取り消せます。
+
+### 12.3 思考モデル
+
+- Google が担当: パスワード/2FA/リカバリー/デバイスチェック/CAPTCHA。
+- あなたが担当: `google_sub` → `user_id` マッピング、自前セッション/JWT、ログアウト挙動、Drive トークンを保持するか。
+- あなたのアプリからのログアウト ≠ Google からのログアウト。Google にログインしたままなら再ログインはワンクリック。
+- Drive アクセスにはスコープ＋同意が必要。トークンはあなたかユーザーが取り消せる。
+
+---
+
+## 13. 「だれかが Google のふりをしたら？」
+
+結論: 正しく実装すれば不可能です。検証をサボると破られます。
+
+### 13.1 攻撃者が狙うこと
+
+- 偽のコードで `/auth/callback?code=FAKE` に直接アクセス。
+- 偽物の `id_token` を送る `{ "email": "victim@gmail.com", "sub": "victim-id" }`。
+- Google のトークンエンドポイントになりすまして適当な JSON を返す。
+
+検証すればすべて失敗します。
+
+### 13.2 Google を偽装しにくい理由（正しく実装した場合）
+
+- **バックエンド → Google を HTTPS で直接**: あなたのバックエンドは `https://oauth2.googleapis.com/token` に `client_id`/`client_secret` 付きでコードを交換します。偽コードは Google に拒否されますし、トークン URL はハードコードするので攻撃者が別 URL に向けたり Google の TLS 証明書を偽造したりできません。  
+- **`id_token` の署名＋クレーム検証**: Google JWKS で JWT 署名を検証し、`iss = https://accounts.google.com`、`aud = あなたの client_id`、`exp` が有効（必要なら `email_verified`）を確認。Google の秘密鍵なしでは偽造トークンは検証に通りません。
+
+### 13.3 ブラウザを信頼しない
+
+- クエリ（`code`, `state`）、ボディ（`id_token`, `access_token`）、カスタムヘッダーを信じない。  
+- 信頼するのは: (1) バックエンドが Google から直接受け取るレスポンス、(2) 署名/クレームを検証したトークンだけ。
+
+### 13.4 偽装が通ってしまうとき
+
+- **バグ #1: フロントエンド送信の `id_token` を検証なしで受け入れる** → 攻撃者が `FAKE_JWT` を送っても通る。必ずサーバーで検証。  
+- **バグ #2: `aud`/`iss` チェックを省略** → 別アプリ向けトークンや別プロバイダーのトークンを再利用される。必ず発行者 + 対象者を確認。  
+- **バグ #3: `state` がない** → 攻撃者が自分のコードを挿入し、被害者ブラウザが攻撃者アカウントにログインする CSRF。必ず `state` を生成/保存/検証。
+
+### 13.5 TL;DR 防御策
+
+- バックエンドは `https://oauth2.googleapis.com/token` にだけ HTTPS で話す。  
+- `id_token` 署名 + `iss` + `aud` + `exp`（必要なら `email_verified`）を検証。  
+- CSRF 防止に `state` を使う。  
+- 検証せずにフロントエンドから渡されたトークンを信じない。
+
+これらを守れば「Google のふり」は通りません。スキップすると攻撃が成立します。
+
+---
+
+## 14. パスワードを Google ID に置き換える（初回サインアップも）
+
+### 14.1 置き換え: email+password → google_sub + 検証済み id_token
+
+ローカルログイン（従来）:
+
+- `email`, `password_hash` を保存。
+- ユーザーがメール+パスワードを送り、`password_hash` と照合。
+- 合致すれば本人。
+
+Google ログイン:
+
+- `google_sub`, `email`（+ name/avatar）を保存。
+- Google がパスワード/2FA/デバイスチェックを担当し、署名付き `id_token` を返す。
+- あなたは署名 + `iss` + `aud` + `exp`（必要なら `email_verified`）を検証。
+- そして:
+
+```sql
+SELECT * FROM users WHERE google_sub = 'GOOGLE_USER_ID_123';
+```
+
+見つかれば本人（Google が証明）。Google のアイデンティティがそのアカウントの「パスワード相当」になります。
+
+### 14.2 初回サインアップはどうなる？
+
+特別な「Google サインアップ」API はありません。最初の Google ログインが「サインアップ」を兼ねます。
+
+流れ:
+
+1) ユーザーが「Google でサインイン」をクリック。  
+2) OAuth ダンス → `id_token` を検証。  
+3) バックエンドが DB を `google_sub` で確認。
+
+ケース:
+
+- **A: ユーザーあり** → ログインし、セッション/JWT を発行。
+- **B: ユーザーなし** → ユーザー行を作成してからログイン（ジャストインタイムプロビジョニング）。
+
+挿入例:
+
+```sql
+INSERT INTO users (email, google_sub, name, avatar_url, created_at)
+VALUES ('user@gmail.com', 'GOOGLE_USER_ID_123', 'User Name', '...', now());
+```
+
+### 14.3 現場のパターン
+
+- **Google のみ**: パスワードなし。最初の Google ログイン = サインアップ、次回以降 = 通常ログイン。`password_hash` は null/未設定でもよい。  
+- **ハイブリッド（パスワード + Google）**:
+  - メール+パスワードと Google の両方をサポート。
+  - 最初の Google ログイン時、そのメールのローカルアカウントがあればリンクを促す（検証済みメールを信頼するなら自動リンクも可）。
+  - リンク後は 1 つの `user_id` がパスワードでも Google でもログイン可能（同じ行に `google_sub` を設定）。
+
+### 14.4 すっきりした思考モデル
+
+- 「メール+パスワードチェック」を「Google 署名付き `id_token` + `google_sub` lookup」に置き換えるだけ。
+- 最初の Google ログインでユーザーがなければ作り（= サインアップ）、あればログイン。
+- 本人確認が済めば、その後のセッション/JWT 発行は完全に同じ。
+
+---
+
+## 15. Google 以外のソーシャルサインイン（Apple, Facebook, GitHub など）
+
+### 15.1 普遍的なパターン（OAuth / OIDC）
+
+主要プロバイダーは同じ流れです。
+
+1) ユーザーが「X でサインイン」をクリック。  
+2) プロバイダーがパスワード/2FA/デバイスチェックを担当。  
+3) プロバイダーがコードまたは署名トークンを返す。  
+4) バックエンドが検証し、ユーザーを検索/作成。  
+5) バックエンドが自前のセッション/JWT を発行。
+
+つまり「パスワードチェック」をプロバイダー側に置き換えるだけです。
+
+### 15.2 プロバイダーごとに変わる点
+
+| プロバイダー | 認証プロトコル | トークン種別 | 一意 ID フィールド |
+| --- | --- | --- | --- |
+| Google | OAuth2 + OIDC | `id_token` (JWT) | `sub` |
+| Facebook | OAuth2 | access token + profile | `id` |
+| Apple | OAuth2 + OIDC | `id_token` (JWT) | `sub` |
+| GitHub | OAuth2 | access token + profile | `id` |
+
+バックエンドのロジックは同じ: トークンを検証し、一意 ID を抜き、ユーザーを作成/検索し、自分のセッション/JWT を発行。
+
+### 15.3 「パスワード」をプロバイダーの ID に置き換える
+
+| プロバイダー | ユーザー ID キー | DB に保存するもの |
+| --- | --- | --- |
+| Google | `sub` | `google_sub` |
+| Facebook | `id` | `facebook_id` |
+| Apple | `sub` | `apple_sub` |
+| GitHub | `id` | `github_id` |
+| Twitter | `id_str` | `twitter_id` |
+
+このキー（＋プロバイダーが認証した事実）がパスワードの代わりになります。
+
+### 15.4 初回サインアップ
+
+- 最初の OAuth ログイン = サインアップ（存在しなければ作成）。  
+- 2 回目以降 = 通常ログイン（プロバイダー ID で検索）。
+
+### 15.5 パスワードリカバリー
+
+- プロバイダー専用ユーザーはプロバイダー側でリカバリーします（Google/Apple/GitHub など）。  
+- OAuth 専用アカウントに対してあなたのアプリがパスワードリセットを扱う必要はありません。
+
+### 15.6 アカウントリンク
+
+- メール+パスワードと OAuth の両方をサポートするなら、同じ `user_id` にプロバイダー ID を紐付けられるようにする（Slack/Notion/Discord 方式）。  
+- リンク後はパスワードでもプロバイダーでも同じローカルアカウントにログインできます。
+
+### 15.7 なぜ普遍的に通用するか
+
+- OAuth 2.0 + OpenID Connect が共通標準。  
+- やることは常に「プロバイダーのトークンを検証し、プロバイダー認証を信頼し、その上に自分のセッション/JWT を作る」だけ。
+
+---
+
+## クイックサマリー（表）
+
+| ステップ | 方向 | 開始者 | 何が起きるか |
+| --- | --- | --- | --- |
+| 1 | B → Y | ブラウザ（クリック） | `/auth/google` を叩く |
+| 2 | Y → B → G | バックエンド + ブラウザ | Google OAuth URL へリダイレクト、ブラウザが追従 |
+| 3 | B ↔ G | ブラウザ + Google | Google のログイン/同意 UI |
+| 4 | G → B | Google | `redirect_uri` に `code` 付きでリダイレクト |
+| 5 | B → Y | ブラウザ | `/auth/callback?code=XYZ` を呼ぶ |
+| 6 | Y → G | バックエンド | コードを Google トークンエンドポイントに POST |
+| 7 | G → Y | Google | `id_token` + `access_token`（+ `refresh_token`）を返す |
+| 8 | Y | バックエンド | `id_token` 検証、ユーザー検索/作成 |
+| 9 | Y | バックエンド | 自前のセッションまたは JWT を作成 |
+| 10 | Y → B | バックエンド | Set-Cookie / リダイレクトを返す |
+| 11 | B ↔ Y | ブラウザ + バックエンド | 以降は自前システムでの通常リクエスト |
+
+---
+
+## 関連ドキュメント
+
+- 全体像と JWT vs セッションの比較は: [Web 認証徹底解説](/ja/blogs/web-authentication-deep-dive)。

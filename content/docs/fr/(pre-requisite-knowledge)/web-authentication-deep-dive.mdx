@@ -1,0 +1,421 @@
+---
+title: "Plongée dans l’authentification web : JWT, sessions et « Se souvenir de moi »"
+icon: "ShieldCheck"
+description: "Guide pratique de bout en bout sur le fonctionnement réel de l’auth web : inscription, connexion, jetons d’accès vs refresh, ID de session vs cookie « se souvenir de moi », refresh paresseux, déconnexion, et comment choisir entre JWT et sessions côté serveur."
+keywords:
+  - authentification web
+  - oauth
+  - connexion Google
+  - JWT
+  - jeton d’accès
+  - jeton de rafraîchissement
+  - sessions
+  - se souvenir de moi
+  - Auth Next.js
+tags: [auth, sécurité, jwt, sessions]
+author: "Pansa Legrand"
+publishedAt: "2025-11-22T00:00:00.000Z"
+updatedAt: "2025-11-22T00:00:00.000Z"
+canonical: "https://www.sushi-templates.com/fr/blogs/web-authentication-deep-dive"
+---
+
+## 0. Vue d’ensemble : que se passe-t-il vraiment ?
+
+Tout système d’auth web remplit trois missions :
+
+1. S’inscrire : créer un compte.
+2. Se connecter : vérifier l’identité (email + mot de passe, OAuth, etc.).
+3. Rester connecté : garder l’utilisateur authentifié à travers les requêtes et dans le temps.
+
+La partie intéressante est la n°3 : comment se souvenir de toi, et pendant combien de temps ?
+
+Deux familles, même schéma :
+
+- JWT (sans état)
+- Sessions côté serveur (avec état)
+
+Chaque approche utilise une paire de justificatifs :
+
+| Court terme | Long terme | Rôle |
+| --- | --- | --- |
+| Jeton d’accès (monde JWT) | Jeton de rafraîchissement | Obtenir un nouveau jeton d’accès |
+| ID de session (monde sessions) | Jeton « se souvenir de moi » | Obtenir une nouvelle session |
+
+Même idée, implémentation différente.
+
+---
+
+## 1. Phase 1 – Inscription (création de compte)
+
+Identique pour JWT et sessions.
+
+1. L’utilisateur envoie email, mot de passe, et éventuellement nom/locale.
+2. Le serveur valide le format de l’email, la robustesse du mot de passe et l’unicité de l’email.
+3. On hache le mot de passe (bcrypt/argon2/scrypt) ; on ne stocke jamais de mot de passe brut.
+
+Exemple de table :
+
+```
+users
+------------------------------------
+id | email   | password_hash | ...
+1  | a@b.com | $2b$10$...    | ...
+------------------------------------
+```
+
+4. (Optionnel) Envoyer un lien de vérification par email.
+
+Après l’inscription, l’utilisateur existe, mais il peut ou non être automatiquement connecté.
+
+---
+
+## 2. Phase 2 – Connexion (authentification)
+
+Même principe quel que soit le système :
+
+```http
+POST /login
+{ "email": "a@b.com", "password": "secret123", "remember": true }
+```
+
+Le serveur vérifie le mot de passe puis crée soit :
+
+- Une paire de JWT (access + refresh), soit
+- Un `session_id` (et éventuellement un jeton « se souvenir de moi »).
+
+La suite dépend du système choisi.
+
+### 2.2 Ajouter la connexion Google / OAuth (même schéma)
+
+La connexion OAuth (Google, GitHub, etc.) s’insère dans le même flux :
+
+- L’utilisateur clique sur « Continuer avec Google ».
+- Le navigateur est redirigé vers Google pour le consentement.
+- Google renvoie un code d’autorisation à ton backend.
+- Le backend échange ce code contre des tokens + le profil/email.
+- Le backend associe ou crée un utilisateur local, puis délivre tes propres justificatifs :
+  - Monde JWT : générer un access + refresh token.
+  - Monde sessions : générer un `session_id` (+ un jeton « se souvenir de moi » si tu veux du long terme).
+
+Conseils d’implémentation :
+
+- Traite la réponse du fournisseur comme une preuve d’identité ; conserve malgré tout un utilisateur local.
+- Stocke les IDs des fournisseurs (ex. `google_sub`) pour éviter les comptes en double.
+- Garde tes cookies HttpOnly/SameSite/Secure ; ne mets jamais les tokens du fournisseur dans localStorage.
+- Applique les mêmes règles de refresh / se souvenir de moi que pour le login par mot de passe ; OAuth ne remplace que la vérification du mot de passe.
+- Tu veux une explication au niveau des paquets ? Voir le guide dédié : [Connexion sociale (exemple Google)](/fr/blogs/social-sign-in).
+
+### 2.3 Email+mot de passe classique vs connexion Google (comparaison détaillée)
+
+#### 2.3.1 La connexion Google supprime-t-elle les mots de passe ?
+
+- Pour ton application : oui, l’utilisateur ne crée ni ne saisit de mot de passe chez toi.
+- Il continue d’utiliser le mot de passe Google, la 2FA, la confiance appareil et la récupération ; tu délègues tout cela à Google.
+
+#### 2.3.2 Qu’est-ce qui remplace le mot de passe dans ton app ?
+
+- Le login local utilise `email + password_hash`.
+- Le login Google utilise une attestation d’identité fiable : email vérifié + identifiant unique Google (`sub`).
+- Ton backend stocke/associe `google_sub` (par ex. `user.google_sub = "112233445566778899"`).
+- Le flux devient : `google_sub → user_id → émission de tes propres sessions/JWT`. Aucun mot de passe local requis.
+
+#### 2.3.3 Comment fonctionnent les resets de mot de passe avec Google ?
+
+- Tu ne les gères pas. Si l’utilisateur oublie, il se rétablit chez Google.
+- Pas de flux « Mot de passe oublié » pour les comptes Google‑only ; tu fais confiance à l’attestation Google.
+
+#### 2.3.4 Comment fonctionnent la récupération de compte et la vérification ?
+
+- Ton app cesse de vérifier l’identité via codes/SMS/reset.
+- Google gère la récupération, la 2FA, les contrôles d’appareil, l’analyse de risque, les CAPTCHAs, les alertes de connexion suspecte et les codes de secours.
+- Tu hérites gratuitement de l’arsenal de récupération et de vérification de Google.
+
+#### 2.3.5 Qu’en est-il de la vérification de nouveaux utilisateurs ?
+
+- Google fournit un email vérifié dans l’ID token :
+
+```json
+{
+  "email": "user@gmail.com",
+  "email_verified": true
+}
+```
+
+- Si `email_verified` est à true, tu peux ignorer ta propre vérification email/SMS. Tu « empruntes » la vérification à Google.
+
+#### 2.3.6 La connexion Google est-elle sûre ?
+
+- Tu hérites des protections de Google : MFA, clés de sécurité (FIDO2/U2F), reconnaissance d’appareil, contrôle d’accès basé sur le risque, CAPTCHA/anti-bot, détection de fuite de mots de passe, alertes de connexion suspecte et parcours de récupération.
+- Construire tout cela toi-même coûte cher ; c’est pourquoi beaucoup d’équipes préfèrent Google Sign-In.
+
+#### 2.3.7 Et si l’utilisateur perd l’accès à son compte Google ?
+
+- Il ne peut plus se connecter tant qu’il n’a pas récupéré son compte Google.
+- Offre de la redondance : permettre d’ajouter un email/mot de passe plus tard ou un autre fournisseur OAuth (GitHub/Apple) pour que le support puisse changer la méthode de login si besoin.
+
+#### 2.3.8 Résumé visuel
+
+```
+             Sans Google
+  +-----------------------------------------+
+  | Tu gères :                              |
+  |  - le hachage des mots de passe         |
+  |  - les tentatives de connexion          |
+  |  - la vérification email                |
+  |  - la vérification SMS                  |
+  |  - la 2FA                               |
+  |  - la réinitialisation de mot de passe  |
+  |  - la récupération de compte            |
+  |  - la détection de connexions suspectes |
+  +-----------------------------------------+
+
+
+              Avec Google Login
+  +-----------------------------------------+
+  | Google gère TOUTE la sécurité d’identité|
+  |                                         |
+  | Tu gères seulement :                    |
+  |   - la fiche utilisateur                |
+  |   - les sessions/jetons JWT             |
+  |                                         |
+  +-----------------------------------------+
+```
+
+#### 2.3.9 Où se place Google Login dans le flux d’auth ?
+
+```
+CONNEXION NORMALE
+email + mot de passe -> vérifier mot de passe -> créer session -> connecté
+
+CONNEXION GOOGLE
+google_sub         -> vérifier id_token     -> créer session -> connecté
+```
+
+Seule la première étape diffère ; tout le reste (sessions/JWT, refresh/se-souvenir-de-moi, déconnexion) est identique.
+
+#### 2.3.10 Les mots de passe vont-ils disparaître ?
+
+- Beaucoup d’apps modernes favorisent le passwordless / OAuth‑first : Google, Apple, Microsoft, GitHub, Slack, Notion, Discord, Figma, Linear, Superhuman, plus magic links et passkeys.
+- Tendance : « Se connecter avec Google/Apple/Microsoft/GitHub » ou « Se connecter par magic link/passkey » → les mots de passe deviennent un héritage.
+
+#### 2.3.11 Récap Q&R
+
+| Question | Réponse |
+| --- | --- |
+| Faut-il un mot de passe avec Google ? | Pas de mot de passe local ; tu fais confiance à l’identité Google. |
+| Comment fonctionne la récupération ? | Google gère totalement reset et récupération de compte. |
+| Comment fonctionne la vérification ? | Google fournit un email vérifié (`email_verified=true`). |
+| Faut-il toujours des sessions/JWT ? | Oui : après Google Login tu délivres tes propres tokens/sessions. |
+| Est-ce sécurisé ? | Oui : tu hérites du stack sécurité + récupération complet de Google. |
+
+---
+
+## 3. Système A – Authentification basée sur JWT (stateless)
+
+### Concepts clés
+
+- Jeton d’accès : JWT signé, courte durée (15–60 min), envoyé à chaque requête.
+- Jeton de rafraîchissement : longue durée (7–30 jours), utilisé uniquement pour obtenir un nouveau jeton d’accès.
+
+Jeton d’accès = billet du jour.  
+Refresh token = passeport pour obtenir un nouveau billet.
+
+### Connexion avec JWT
+
+1. Vérifier email + mot de passe.
+2. Créer un access token (expiration courte).
+3. Créer un refresh token (expiration longue).
+4. Envoyer en cookies HttpOnly :
+
+- `access_token=...; HttpOnly; Secure; SameSite=Lax`
+- `refresh_token=...; HttpOnly; Secure; SameSite=Lax`
+
+### Utiliser le jeton d’accès à chaque requête
+
+Requête via header ou cookie :
+
+```
+Authorization: Bearer <access_token>
+Cookie: access_token=...
+```
+
+Le serveur vérifie la signature et `exp`, puis attache l’utilisateur. Pas de lookup DB (stateless).
+
+### Quand le jeton d’accès expire – Refresh paresseux
+
+1. Requête avec jeton expiré → le serveur renvoie `401 token_expired`.
+2. L’intercepteur frontend appelle `POST /auth/refresh`.
+3. Le serveur vérifie le refresh token, émet un nouveau jeton d’accès (et parfois un nouveau refresh).
+4. Le frontend retente la requête initiale ; l’utilisateur ne voit rien.
+
+### Rotation des refresh tokens
+
+À chaque refresh :
+
+1. Valider l’ancien refresh token.
+2. Émettre un nouvel access + refresh token.
+3. Marquer l’ancien refresh comme utilisé/invalide en base.
+
+### Déconnexion avec JWT
+
+- Côté client : supprimer cookies/localStorage.
+- Côté serveur : révoquer les refresh tokens en base ou incrémenter un `token_version` sur l’utilisateur pour invalider les anciens JWT.
+
+### Avantages / inconvénients JWT
+
+Avantages : pas de lookup DB pour le jeton d’accès ; idéal pour SPA, mobile, microservices, serverless.  
+Inconvénients : la révocation est plus délicate ; facile de mal stocker les tokens ; la sécurité des refresh tokens est critique.
+
+---
+
+## 4. Système B – Sessions côté serveur (stateful)
+
+### Concepts clés
+
+- `session_id` : chaîne aléatoire en cookie ; mappe vers un utilisateur en DB/Redis ; courte durée.
+- `remember_token` : chaîne aléatoire optionnelle de longue durée ; stockée hachée en DB ; sert à frapper une nouvelle session. Équivalent d’un refresh token.
+
+Session ID = billet du jour.  
+Remember token = pass multi‑jours pour obtenir un nouveau billet.
+
+### Connexion avec sessions (sans « Se souvenir de moi »)
+
+1. Vérifier email + mot de passe.
+2. Générer `session_id` ; le stocker dans `sessions` avec une expiration.
+3. Poser le cookie : `session_id=...; HttpOnly; Secure; SameSite=Lax`.
+4. À l’expiration, l’utilisateur doit se reconnecter.
+
+### Connexion avec sessions (avec « Se souvenir de moi »)
+
+1. Vérifier email + mot de passe.
+2. Générer `session_id` (court) et `remember_token` (long).
+3. Stocker :
+
+```
+sessions
+session_id | user_id | expires_at
+---------------------------------
+abcd1234   | 42      | +1 day
+
+remember_tokens
+hashed_token | user_id | expires_at
+-----------------------------------
+HASH(xyz...) | 42      | +30 days
+```
+
+4. Poser les cookies :
+
+- `session_id=abcd1234; HttpOnly; Secure`
+- `remember_token=xyz...; HttpOnly; Secure; Max-Age=30 days`
+
+### Utiliser la session à chaque requête
+
+Le navigateur envoie automatiquement `session_id`. Le serveur le cherche en DB/Redis :
+
+- Si trouvé et non expiré → authentifié ; on peut prolonger l’expiration.
+- S’il manque/expiré → non authentifié (pour l’instant).
+
+### Expiration glissante
+
+À chaque requête valide, prolonger `expires_at` (ex. maintenant + 1 jour). Les utilisateurs actifs restent connectés ; les sessions inactives meurent.
+
+### Quand la session expire – utiliser « Se souvenir de moi »
+
+Si `session_id` manque/expire mais que `remember_token` est présent :
+
+1. Hacher et chercher `remember_token`.
+2. S’il est valide → auto-login, générer un nouveau `session_id`, éventuellement faire tourner le remember token.
+3. S’il est invalide/absent → forcer la connexion.
+
+### Déconnexion avec sessions
+
+1. Supprimer la ligne de session et vider le cookie `session_id`.
+2. Si tu utilises des remember tokens : supprimer la ligne, vider le cookie `remember_token`.
+
+### Avantages / inconvénients des sessions
+
+Avantages : révocation simple (suppression en base) ; modèle mental facile ; bien pour les sites classiques et les apps sensibles.  
+Inconvénients : nécessite un store de session ; chaque requête touche la DB/Redis ; moins idéal pour de gros environnements distribués/mobile.
+
+---
+
+## 5. Réalité UX moderne : « Se souvenir de moi » est invisible
+
+La plupart des produits gardent l’utilisateur connecté par défaut. Ils utilisent silencieusement un token longue durée (remember‑me ou refresh) sans afficher de case à cocher. Les actions sensibles peuvent toujours redemander un mot de passe ou une MFA.
+
+Tes choix produit :
+
+- Montrer une case « Se souvenir de moi », ou
+- Toujours se souvenir par défaut sauf si l’utilisateur se déconnecte.
+
+---
+
+## 6. Cartographier les deux systèmes côte à côte
+
+### Mapping des concepts
+
+| Monde JWT | Monde sessions | Notes |
+| --- | --- | --- |
+| Jeton d’accès | ID de session | Justificatif court |
+| Refresh token | Jeton « se souvenir de moi » | Justificatif long pour renouveler |
+| Vérifier la signature | Lookup en DB/Redis | Étape de validation |
+| `/auth/refresh` | Auto-login via remember token | Chemin de refresh |
+| `token_expired` | Session expirée | Mode d’échec |
+
+### Tableau comparatif
+
+| Fonction | Auth basée JWT | Sessions côté serveur |
+| --- | --- | --- |
+| Justificatif court | Jeton d’accès | ID de session |
+| Justificatif long | Refresh token | Jeton « se souvenir de moi » |
+| Envoyé à chaque requête | Jeton d’accès | ID de session |
+| Validation | Vérifier signature/claims | Lookup DB/Redis |
+| État serveur | Aucun pour l’access token | Store de session requis |
+| Refresh | `/auth/refresh` | Nouvelle session via remember token |
+| Déconnexion | Supprimer/révoquer les tokens | Supprimer lignes session/remember |
+| Idéal pour | SPA, mobile, APIs, microservices | Sites classiques, monolithes, haute sécurité |
+
+---
+
+## 7. Lequel choisir ?
+
+Choisis JWT si tu as des SPA/mobile/microservices, que tu ne veux pas de store de session, et que tu peux sécuriser la gestion des refresh tokens. Schéma : jeton d’accès en cookie HttpOnly ou header `Authorization` ; refresh token en cookie HttpOnly ; refresh paresseux sur 401.
+
+Choisis des sessions serveur si tu as un backend principal, des pages surtout server‑rendered, et que tu veux une révocation simple. Schéma : cookie `session_id` ; table de sessions (ou Redis) ; `remember_tokens` optionnels pour la persistance.
+
+---
+
+## 8. Modèle mental final
+
+```
+INSCRIPTION  (création user + mot de passe haché)
+              |
+              v
+           CONNEXION  (vérifier email + mot de passe)
+              |
+              v
+     Choisir un système d’auth
+     -------------------------
+     |                       |
+     v                       v
+
+AUTH BASÉE JWT               SESSIONS SERVEUR
+-----------------------     -----------------------
+Créer ACCESS TOKEN          Créer SESSION_ID
+Créer REFRESH TOKEN         Stocker SESSION en DB
+Envoyer les deux au client  Envoyer cookie SESSION_ID
+
+Chaque requête :            Chaque requête :
+  envoyer ACCESS TOKEN        envoyer SESSION_ID
+  vérifier signature          lookup en DB
+
+Quand expiré :              Quand expiré :
+  utiliser REFRESH TOKEN       si REMEMBER TOKEN valide :
+  sur /auth/refresh              émettre nouveau SESSION_ID
+                                 sinon → se reconnecter
+
+Déconnexion :               Déconnexion :
+  supprimer/révoquer tokens    supprimer lignes session/remember
+```
+
+Les deux résolvent le même besoin : « Laisse-moi me connecter une fois et rester connecté, mais en sécurité. »

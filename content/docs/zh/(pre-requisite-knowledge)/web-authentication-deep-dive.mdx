@@ -1,0 +1,327 @@
+---
+title: "Web 认证深度指南：JWT、会话、记住我与 OAuth"
+icon: "ShieldCheck"
+description: "一份面向真实应用的 Web 认证全景指南：注册、登录、存活、刷新、JWT vs 会话、记住我、OAuth/Google 登录并行的心智模型。"
+keywords:
+  - Web 认证
+  - JWT
+  - 会话
+  - 记住我
+  - 刷新 Token
+  - OAuth
+  - Google 登录
+tags: [auth, security, jwt, sessions]
+author: "Pansa Legrand"
+publishedAt: "2025-11-22T00:00:00.000Z"
+updatedAt: "2025-11-22T00:00:00.000Z"
+canonical: "https://www.sushi-templates.com/zh/blogs/web-authentication-deep-dive"
+---
+
+## 0. 全局图景：登录体系在做什么？
+
+所有 Web 认证都在做三件事：
+
+1) 注册（Sign Up）：创建账号。  
+2) 登录（Log In）：验证身份（邮箱+密码、OAuth…）。  
+3) 保持登录（Stay Logged In）：跨请求、跨时间维持身份。
+
+关键在于第 3 点：“如何记住你是谁、记多久？”
+
+两大阵营：
+
+- JWT（无状态）  
+- 服务器会话（有状态）
+
+共同模式：一个短期凭证（每次请求用）+ 一个长期凭证（偶尔用来续签）。
+
+| 短期 | 长期 | 用途 |
+| --- | --- | --- |
+| JWT：Access Token | Refresh Token | 换新的 access |
+| 会话：Session ID | Remember-Me Token | 换新的 session |
+
+---
+
+## 1. 阶段一：注册（Sign Up）
+
+JWT 与会话一致：
+
+1) 用户提交邮箱、密码、可选姓名/语言。  
+2) 后端校验格式、强度、唯一性。  
+3) 密码哈希存储（bcrypt/argon2/scrypt），永不存明文。  
+4) 可选发邮箱验证。
+
+注册后账号存在，但是否自动登录由你决定。
+
+---
+
+## 2. 阶段二：登录（Authenticating）
+
+同样的概念：
+
+```http
+POST /login
+{ "email": "a@b.com", "password": "secret123", "remember": true }
+```
+
+后端验证密码后创建：
+
+- JWT：access + refresh，或  
+- 会话：session_id（可带 remember token）。
+
+取决于你选的体系。
+
+### 2.2 引入 Google/OAuth 登录（同一模式）
+
+OAuth 登录替代了“你校验密码”这一步：
+
+- 用户点 “Continue with Google”。  
+- 浏览器跳到 Google，同意后带 `code` 回来。  
+- 后端用 code 向 Google 换 token。  
+- 后端验证 `id_token`，获取 `sub`/邮箱。  
+- 后端创建自己的凭证：  
+  - JWT：发 access+refresh。  
+  - 会话：发 session_id（可选 remember）。
+
+实现要点：
+
+- 仍然创建/链接本地用户行（存 `google_sub`）。  
+- 永远后端验签 `id_token`，检查 `iss/aud/exp`，避免伪造。  
+- Cookie 设为 HttpOnly/SameSite/Secure，不把 provider token 放本地存储。  
+- 刷新/记住我策略与密码登录一致，OAuth 只替换“验证密码”步骤。
+
+---
+
+## 3. 体系 A：JWT（无状态）
+
+### 核心概念
+
+- Access Token：短期（15–60 分），每次请求携带。  
+- Refresh Token：长期（7–30 天），只用于换新的 access。
+
+Access = “今日门票”；Refresh = “护照换门票”。
+
+### 登录（JWT）
+
+1) 验证邮箱+密码。  
+2) 生成短期 access。  
+3) 生成长期 refresh。  
+4) 通常用 HttpOnly Cookie 返回：
+
+- `access_token=...; HttpOnly; Secure; SameSite=Lax`  
+- `refresh_token=...; HttpOnly; Secure; SameSite=Lax`
+
+### 每次请求
+
+```
+Authorization: Bearer <access_token>
+Cookie: access_token=...
+```
+
+后端验签、检查 `exp`，通过则挂载用户，无需 DB 查，纯无状态。
+
+### 过期 → 懒刷新
+
+1) 过期的 access 发起请求 → 返回 `401 token_expired`。  
+2) 前端拦截，调用 `/auth/refresh`。  
+3) 后端验证 refresh，签发新 access（可同时轮换 refresh）。  
+4) 前端重试原请求，用户无感。
+
+### 刷新轮换
+
+每次刷新：验证旧 refresh → 签发新 access+refresh → 旧 refresh 标记失效。
+
+### 登出（JWT）
+
+- 客户端删 cookie/localStorage。  
+- 服务端可删除 DB 中的 refresh，或提升 `token_version` 让旧 JWT 失效。
+
+### 优缺点
+
+优：无 DB 查、适合 SPA/移动端/微服务/Serverless。  
+缺：撤销复杂、易误用（存储位置/XSS）、必须严管 refresh。
+
+---
+
+## 4. 体系 B：服务器会话（有状态）
+
+### 核心概念
+
+- Session ID：随机字符串，存 Cookie，DB/Redis 里映射用户，短期。  
+- Remember Token（可选）：随机字符串，哈希存 DB，长期，用于续期 session，相当于 refresh。
+
+Session = 今日门票；Remember = 多日通行证。
+
+### 登录（无记住我）
+
+1) 验证邮箱+密码。  
+2) 生成 `session_id`，存表：
+
+```
+session_id | user_id | expires_at
+abcd1234   |   42    | +1 day
+```
+
+3) Set-Cookie: `session_id=...; HttpOnly; Secure; SameSite=Lax`
+
+过期后需重新登录。
+
+### 登录（记住我）
+
+1) 验证密码。  
+2) 生成短期 `session_id` + 长期 `remember_token`。  
+3) 存表：
+
+```
+session_id | user_id | expires_at
+abcd1234   | 42      | +1 day
+
+remember_tokens
+hashed_token | user_id | expires_at
+HASH(xyz...) | 42      | +30 days
+```
+
+4) Cookie:
+
+- `session_id=...; HttpOnly; Secure`  
+- `remember_token=...; HttpOnly; Secure; Max-Age=30 days`
+
+### 每次请求
+
+浏览器自动带 `session_id`。后端查 DB/Redis：
+
+- 存在未过期 → 认证通过，可顺便续期。  
+- 不存在/过期 → 未认证。
+
+### 滑动过期
+
+有效请求时延长 `expires_at = now + 1 day`，活跃用户持续在线。
+
+### 过期 → 用 remember token
+
+`session_id` 失效但有 `remember_token` 时：  
+哈希后查表；有效则自动登录、生成新 session（可轮换 remember）；否则需重新登录。
+
+### 登出
+
+1) 删除 session 行，清 `session_id` Cookie。  
+2) 若有 remember：删表行，清 Cookie。
+
+### 优缺点
+
+优：撤销简单（删行）、心智简单，适合传统/高敏感站点。  
+缺：需会话存储，每次请求都查 DB/Redis，对分布式/移动端较重。
+
+---
+
+## 5. 现代 UX：默认“记住我”
+
+大部分产品默认长登录（如 Gmail）。  
+- 使用长期 token（remember/refresh）。  
+- 不一定展示复选框，但行为等同。  
+- 敏感操作可要求重新验证。
+
+---
+
+## 6. 两套体系并行对照
+
+### 概念映射
+
+| JWT | 会话 | 说明 |
+| --- | --- | --- |
+| Access Token | Session ID | 短期凭证 |
+| Refresh Token | Remember Token | 续期凭证 |
+| 验签 | DB/Redis 查询 | 校验方式 |
+| `/auth/refresh` | Remember 自动续期 | 刷新路径 |
+| token_expired | session 过期 | 失败模式 |
+
+### 对比表
+
+| 特性 | JWT | 会话 |
+| --- | --- | --- |
+| 短期 | Access | Session ID |
+| 长期 | Refresh | Remember |
+| 每请求发送 | Access | Session ID |
+| 校验 | 签名/声明 | DB/Redis 查 |
+| 服务端状态 | Access 无 | 需要存储 |
+| 刷新 | `/auth/refresh` | remember 续期 |
+| 登出 | 删/撤销 token | 删 session/remember |
+| 适用 | SPA/移动/微服务 | 传统站、高安全 |
+
+---
+
+## 7. 选哪种？
+
+选择 JWT，当你需要：SPA/移动/多服务/无会话存储，能做好 refresh 安全；模式：Access 放 HttpOnly Cookie 或 Authorization 头，Refresh 放 HttpOnly，401 懒刷新。
+
+选择会话，当：单后端、SSR、想要撤销简单；模式：`session_id` Cookie + 会话存储，可选 remember。
+
+---
+
+## 8. 心智图（串联）
+
+```
+注册：创建用户 + 哈希密码
+          |
+登录：验证密码
+          |
+      选择体系
+      ---------
+      |       |
+ JWT           会话
+生成 Access    生成 Session ID
+生成 Refresh   存 Session
+返回 Cookie    返回 Cookie
+
+每次请求：     每次请求：
+  Access           Session ID
+  验签             查 DB
+
+过期时：       过期时：
+  用 Refresh       若 Remember 有效：
+  换 Access          生成新 Session
+                   否则登录
+
+登出：         登出：
+  删/撤销 token    删 Session/Remember
+```
+
+两种方案本质都是：让用户少登录、同时保障安全。
+
+---
+
+## 9. 深入：Google Login 替代密码的等价关系
+
+本地密码校验：
+
+```
+(email + password 正确) = 真实用户
+```
+
+Google 登录：
+
+```
+(google_sub + Google 自己的认证) = 真实用户
+```
+
+后端改用 `google_sub` + 已验证的 `id_token` 查库。
+
+首登即注册：第一次 Google 登录不存在用户 → 创建用户行；否则直接登录。  
+会话/JWT 的签发与密码登录完全相同。
+
+更多包级别流程，详见《社交登录（Google 为例）》：`/zh/blogs/social-sign-in`。
+
+---
+
+## 10. 快速检查表（实现要点）
+
+- **JWT 路线**：签名/验证、短期 Access、Refresh 懒刷新、刷新轮换、token_version 撤销。  
+- **会话路线**：会话存储、滑动过期、记住我、删除/撤销。  
+- **OAuth 登录**：后端验签 `id_token`，检查 `iss/aud/exp/email_verified`，用 `state` 防 CSRF，永不信前端直接给的 token。  
+- **Cookie 安全**：HttpOnly/SameSite/Secure，敏感路径尽量用 Cookie 传递凭证。  
+- **登出**：清除本地会话/refresh；如需撤销外部 API 访问，删除/撤销存储的第三方 token。
+
+---
+
+## 相关阅读
+
+- 社交登录全流程（Google/Apple/GitHub 同理）：[`社交登录：以 Google 为例`](/zh/blogs/social-sign-in)。

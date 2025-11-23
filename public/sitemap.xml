@@ -2,7 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://www.sushi-templates.com/en</loc>
-    <lastmod>2025-11-22T16:23:39.477Z</lastmod>
+    <lastmod>2025-11-23T14:55:46.253Z</lastmod>
   </url>
   <url>
     <loc>https://www.sushi-templates.com/en/blogs/about</loc>
@@ -70,7 +70,7 @@
   </url>
   <url>
     <loc>https://www.sushi-templates.com/en/blogs/quick-start</loc>
-    <lastmod>2025-10-13T06:06:52.048Z</lastmod>
+    <lastmod>2025-11-22T16:30:42.421Z</lastmod>
   </url>
   <url>
     <loc>https://www.sushi-templates.com/en/blogs/reservations-feature</loc>
@@ -79,6 +79,10 @@
   <url>
     <loc>https://www.sushi-templates.com/en/blogs/saas-101</loc>
     <lastmod>2025-10-10T17:16:59.218Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/en/blogs/social-sign-in</loc>
+    <lastmod>2025-11-23T13:32:32.178Z</lastmod>
   </url>
   <url>
     <loc>https://www.sushi-templates.com/en/blogs/storage-uploads</loc>
@@ -91,6 +95,10 @@
   <url>
     <loc>https://www.sushi-templates.com/en/blogs/text-to-video-tasks</loc>
     <lastmod>2025-10-12T11:53:36.856Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/en/blogs/web-authentication-deep-dive</loc>
+    <lastmod>2025-11-23T13:33:32.458Z</lastmod>
   </url>
   <url>
     <loc>https://www.sushi-templates.com/en/blogs/what-is-middleware</loc>
@@ -110,7 +118,7 @@
   </url>
   <url>
     <loc>https://www.sushi-templates.com/es</loc>
-    <lastmod>2025-11-22T16:23:39.480Z</lastmod>
+    <lastmod>2025-11-23T14:55:46.256Z</lastmod>
   </url>
   <url>
     <loc>https://www.sushi-templates.com/es/blogs/about</loc>
@@ -189,6 +197,10 @@
     <lastmod>2025-10-10T17:16:58.938Z</lastmod>
   </url>
   <url>
+    <loc>https://www.sushi-templates.com/es/blogs/social-sign-in</loc>
+    <lastmod>2025-11-23T14:55:52.000Z</lastmod>
+  </url>
+  <url>
     <loc>https://www.sushi-templates.com/es/blogs/storage-uploads</loc>
     <lastmod>2025-10-10T17:16:58.937Z</lastmod>
   </url>
@@ -199,6 +211,10 @@
   <url>
     <loc>https://www.sushi-templates.com/es/blogs/text-to-video-tasks</loc>
     <lastmod>2025-10-12T11:53:36.856Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/es/blogs/web-authentication-deep-dive</loc>
+    <lastmod>2025-11-23T14:55:52.000Z</lastmod>
   </url>
   <url>
     <loc>https://www.sushi-templates.com/es/blogs/what-is-middleware</loc>
@@ -218,7 +234,7 @@
   </url>
   <url>
     <loc>https://www.sushi-templates.com/fr</loc>
-    <lastmod>2025-11-22T16:23:39.481Z</lastmod>
+    <lastmod>2025-11-23T14:55:46.257Z</lastmod>
   </url>
   <url>
     <loc>https://www.sushi-templates.com/fr/blogs/about</loc>
@@ -297,6 +313,10 @@
     <lastmod>2025-10-10T17:16:59.144Z</lastmod>
   </url>
   <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/social-sign-in</loc>
+    <lastmod>2025-11-23T14:49:15.679Z</lastmod>
+  </url>
+  <url>
     <loc>https://www.sushi-templates.com/fr/blogs/storage-uploads</loc>
     <lastmod>2025-10-10T17:16:59.144Z</lastmod>
   </url>
@@ -307,6 +327,10 @@
   <url>
     <loc>https://www.sushi-templates.com/fr/blogs/text-to-video-tasks</loc>
     <lastmod>2025-10-12T11:53:36.856Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/fr/blogs/web-authentication-deep-dive</loc>
+    <lastmod>2025-11-23T14:47:53.240Z</lastmod>
   </url>
   <url>
     <loc>https://www.sushi-templates.com/fr/blogs/what-is-middleware</loc>
@@ -326,7 +350,7 @@
   </url>
   <url>
     <loc>https://www.sushi-templates.com/ja</loc>
-    <lastmod>2025-11-22T16:23:39.483Z</lastmod>
+    <lastmod>2025-11-23T14:55:46.258Z</lastmod>
   </url>
   <url>
     <loc>https://www.sushi-templates.com/ja/blogs/about</loc>
@@ -405,6 +429,10 @@
     <lastmod>2025-10-10T17:16:59.033Z</lastmod>
   </url>
   <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/social-sign-in</loc>
+    <lastmod>2025-11-23T14:56:04.000Z</lastmod>
+  </url>
+  <url>
     <loc>https://www.sushi-templates.com/ja/blogs/storage-uploads</loc>
     <lastmod>2025-10-10T17:16:59.031Z</lastmod>
   </url>
@@ -415,6 +443,10 @@
   <url>
     <loc>https://www.sushi-templates.com/ja/blogs/text-to-video-tasks</loc>
     <lastmod>2025-10-12T11:53:36.857Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/ja/blogs/web-authentication-deep-dive</loc>
+    <lastmod>2025-11-23T14:56:04.000Z</lastmod>
   </url>
   <url>
     <loc>https://www.sushi-templates.com/ja/blogs/what-is-middleware</loc>
@@ -434,7 +466,7 @@
   </url>
   <url>
     <loc>https://www.sushi-templates.com/zh</loc>
-    <lastmod>2025-11-22T16:23:39.483Z</lastmod>
+    <lastmod>2025-11-23T14:55:46.259Z</lastmod>
   </url>
   <url>
     <loc>https://www.sushi-templates.com/zh/blogs/about</loc>
@@ -513,6 +545,10 @@
     <lastmod>2025-10-10T17:16:59.085Z</lastmod>
   </url>
   <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/social-sign-in</loc>
+    <lastmod>2025-11-23T14:47:20.137Z</lastmod>
+  </url>
+  <url>
     <loc>https://www.sushi-templates.com/zh/blogs/storage-uploads</loc>
     <lastmod>2025-10-10T17:16:59.085Z</lastmod>
   </url>
@@ -523,6 +559,10 @@
   <url>
     <loc>https://www.sushi-templates.com/zh/blogs/text-to-video-tasks</loc>
     <lastmod>2025-10-12T11:53:36.857Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.sushi-templates.com/zh/blogs/web-authentication-deep-dive</loc>
+    <lastmod>2025-11-23T14:48:25.259Z</lastmod>
   </url>
   <url>
     <loc>https://www.sushi-templates.com/zh/blogs/what-is-middleware</loc>

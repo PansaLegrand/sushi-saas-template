@@ -1,0 +1,580 @@
+---
+title: "Connexion sociale : Google (et consorts) – Parcours OAuth/OpenID complet"
+icon: "LogIn"
+description: "Un walkthrough au niveau des paquets pour la connexion Google (et autres OAuth/OIDC) : redirections, callbacks backend, échange code→token, vérification des tokens, liaison utilisateur, émission de ta propre session/JWT, et comment le même schéma s’applique à Apple, Facebook, GitHub, etc."
+keywords:
+  - connexion Google
+  - oauth
+  - openid connect
+  - id token
+  - jwt
+  - session
+  - callback auth
+tags: [auth, oauth, google]
+author: "Pansa Legrand"
+publishedAt: "2025-11-22T00:00:00.000Z"
+updatedAt: "2025-11-22T00:00:00.000Z"
+canonical: "https://www.sushi-templates.com/fr/blogs/social-sign-in"
+---
+
+## 0. Légende
+
+- (B) = Navigateur (front / user agent)  
+- (G) = Google (fournisseur OAuth/OpenID)  
+- (T) = Ton backend (route API Next.js, FastAPI, Rails, etc.)
+
+Ce guide montre qui initie chaque étape, quelle requête HTTP part, et quel code tu écris.
+
+---
+
+## 1. (B) L’utilisateur clique sur « Continuer avec Google »
+
+Qui initie ? Utilisateur → Navigateur.
+
+Exemple de bouton frontend :
+
+```tsx
+<button
+  onClick={() => {
+    window.location.href = "/auth/google"; // ta route qui redirige vers Google
+  }}
+>
+  Continuer avec Google
+</button>
+```
+
+Le navigateur envoie :
+
+```
+GET /auth/google
+Host: yourapp.com
+```
+
+Ton rôle sur `/auth/google` (backend) :
+
+- Construire l’URL OAuth Google avec les query params.
+- Répondre avec un 302 HTTP de redirection vers Google.
+
+---
+
+## 2. (B→G) Le navigateur suit la redirection vers Google
+
+Ton backend répond :
+
+```
+HTTP/1.1 302 Found
+Location: https://accounts.google.com/o/oauth2/v2/auth
+  ?client_id=YOUR_CLIENT_ID
+  &redirect_uri=https://yourapp.com/auth/callback
+  &response_type=code
+  &scope=openid%20email%20profile
+  &state=RANDOM_CSRF_STRING
+```
+
+Le navigateur appelle ensuite l’URL Google. L’UI de Google s’affiche.
+
+---
+
+## 3. (G) Google authentifie l’utilisateur
+
+Qui initie ? Utilisateur + UI Google dans le navigateur.
+
+- Si déjà connecté à Google → pas toujours de mot de passe.
+- Sinon → Google affiche l’écran de login.
+- Si risque détecté → Google demande 2FA/SMS/contrôles de sécurité.
+
+Tout cela se passe entre le Navigateur et Google ; ton backend n’intervient pas encore.
+
+---
+
+## 4. (G→B) Google redirige en retour avec `code=XYZ`
+
+Google répond :
+
+```
+HTTP/1.1 302 Found
+Location: https://yourapp.com/auth/callback
+  ?code=XYZ123
+  &state=RANDOM_CSRF_STRING
+```
+
+Le navigateur suit la redirection vers ton app.
+
+---
+
+## 5. (B→T) Le navigateur touche `/auth/callback?code=XYZ`
+
+Le navigateur envoie :
+
+```
+GET /auth/callback?code=XYZ123&state=RANDOM_CSRF_STRING
+Host: yourapp.com
+```
+
+Ton backend sur `/auth/callback` doit :
+
+1. Lire `code` et `state` dans la query.
+2. Vérifier que `state` correspond à ce que tu as stocké (protection CSRF).
+3. Échanger le code auprès de l’endpoint token de Google (server-to-server).
+
+À ce stade, tu ne sais toujours pas qui est l’utilisateur. Tu ne détiens qu’un code d’autorisation court.
+
+---
+
+## 6. (T→G) Le backend échange le code contre des tokens
+
+POST backend (sans navigateur) :
+
+```
+POST https://oauth2.googleapis.com/token
+Content-Type: application/x-www-form-urlencoded
+
+code=XYZ123
+&client_id=YOUR_CLIENT_ID
+&client_secret=YOUR_CLIENT_SECRET
+&redirect_uri=https://yourapp.com/auth/callback
+&grant_type=authorization_code
+```
+
+Google répond :
+
+```json
+{
+  "access_token": "ya29.a0AfH6SMA...",
+  "expires_in": 3600,
+  "refresh_token": "1//0gABCDEFG...",
+  "id_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "scope": "openid email profile",
+  "token_type": "Bearer"
+}
+```
+
+- `access_token` : pour appeler les APIs Google (Calendar, Drive, etc.).  
+- `id_token` : **pour le login** (qui est l’utilisateur).  
+- `refresh_token` : optionnel, pour un accès API longue durée.
+
+---
+
+## 7. (T) Le backend vérifie `id_token`
+
+`id_token` est un JWT signé par Google. Décoder/vérifier côté serveur :
+
+```json
+{
+  "iss": "https://accounts.google.com",
+  "aud": "YOUR_CLIENT_ID",
+  "sub": "11324567890123456789",
+  "email": "user@gmail.com",
+  "email_verified": true,
+  "name": "User Name",
+  "picture": "https://lh3.googleusercontent.com/a/...",
+  "iat": 1732350000,
+  "exp": 1732353600
+}
+```
+
+Contrôles :
+
+- Vérifier la signature JWT via le JWKS Google.
+- `iss` est Google ; `aud` correspond à ton `client_id`.
+- `exp` est dans le futur.
+- Optionnel : s’assurer que `email_verified` est à true.
+
+Si valide, tu fais confiance à : « Cette requête concerne le compte Google `sub=…`, `email=user@gmail.com`. » Cela remplace la vérification du mot de passe.
+
+---
+
+## 8. (T) Le backend trouve/crée l’utilisateur en DB
+
+Logique de liaison classique :
+
+1. Essayer par `google_sub` :
+
+```sql
+SELECT * FROM users WHERE google_sub = '11324567890123456789';
+```
+
+2. Si introuvable, essayer par email :
+
+```sql
+SELECT * FROM users WHERE email = 'user@gmail.com';
+```
+
+3. Si toujours introuvable, auto‑provisionner :
+
+```sql
+INSERT INTO users (email, google_sub, name, avatar_url, created_at)
+VALUES ('user@gmail.com', '11324567890123456789', 'User Name', 'https://lh3.googleusercontent.com/a/...', now());
+```
+
+Résultat : tu as un `user_id` local (ex. 42). Dès maintenant, travaille avec ton `user_id`, pas celui de Google.
+
+---
+
+## 9. (T) Le backend crée **ta** session ou tes JWT
+
+Retour à ton système d’auth habituel.
+
+### Option A : Sessions côté serveur
+
+1. Générer `session_id = random_string()`.
+2. Enregistrer en DB/Redis avec expiration.
+
+```
+session_id | user_id | expires_at
+abcd1234   |   42    | +1 day
+```
+
+3. Envoyer le cookie :
+
+```
+Set-Cookie: session_id=abcd1234; HttpOnly; Secure; SameSite=Lax; Path=/
+```
+
+### Option B : JWT access + refresh
+
+1. Construire le payload :
+
+```json
+{
+  "sub": "42",
+  "email": "user@gmail.com",
+  "provider": "google",
+  "iat": 1732350000,
+  "exp": 1732350900
+}
+```
+
+2. Signer `access_token` ; éventuellement générer `refresh_token` et le stocker en DB.
+3. Envoyer en cookies ou en JSON :
+
+```
+Set-Cookie: access_token=...; HttpOnly; Secure; SameSite=Lax
+Set-Cookie: refresh_token=...; HttpOnly; Secure; SameSite=Lax
+```
+
+À partir de là, le navigateur utilise **tes** tokens ; Google n’est plus sur le chemin de la requête.
+
+---
+
+## 10. (T→B) Envoyer la session/JWT au navigateur
+
+Cela se produit dans la réponse à `/auth/callback`, ex. :
+
+```
+HTTP/1.1 302 Found
+Set-Cookie: session_id=abcd1234; HttpOnly; Secure; SameSite=Lax
+Location: /dashboard
+```
+
+ou
+
+```
+HTTP/1.1 200 OK
+Set-Cookie: access_token=...
+Content-Type: text/html
+```
+
+Le navigateur stocke les cookies automatiquement (sauf blocage par réglages).
+
+---
+
+## 11. L’utilisateur est connecté à **ton** app
+
+Maintenant c’est identique à ton auth habituelle :
+
+- Le navigateur envoie `session_id` ou `access_token` à chaque requête.
+- Le backend valide et identifie `current_user`.
+- Les pages/API protégées fonctionnent comme d’habitude.
+
+Google est hors circuit jusqu’à la déconnexion/reconnexion, ou si tu appelles des APIs Google avec `access_token`.
+
+---
+
+## 12. Accès Drive + déconnexion/reconnexion (Q&R)
+
+### 12.1 Puis-je accéder au Google Drive de l’utilisateur ?
+
+Oui — si tu demandes les scopes Drive, que l’utilisateur consent, et que tu utilises le `access_token` renvoyé pour appeler Drive.
+
+#### Scopes = permissions demandées
+
+- « Juste se connecter » (identité seule) : `scope=openid email profile`
+- « Accéder à Google Drive » : ajoute `https://www.googleapis.com/auth/drive.readonly` (ou `/drive` pour plein accès)
+
+Exemple d’URL d’auth construite par ton backend :
+
+```
+https://accounts.google.com/o/oauth2/v2/auth
+  ?client_id=YOUR_CLIENT_ID
+  &redirect_uri=https://yourapp.com/auth/callback
+  &response_type=code
+  &scope=openid%20email%20profile%20https://www.googleapis.com/auth/drive.readonly
+  &access_type=offline
+  &prompt=consent
+```
+
+- `scope=...drive.readonly` → demande l’accès en lecture Drive.
+- `access_type=offline` → demande un `refresh_token` pour un accès API longue durée.
+- `prompt=consent` → force l’écran de consentement au moins une fois.
+
+#### Tokens après l’échange du code
+
+```
+{
+  "access_token": "ya29.a0AfH6SMA...",
+  "id_token": "eyJhbGciOiJSUzI1NiIs...",
+  "refresh_token": "1//0gABCDEFG...",
+  "scope": "openid email profile https://www.googleapis.com/auth/drive.readonly",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}
+```
+
+- `id_token` → connecter l’utilisateur à ton app.
+- `access_token` → appeler les APIs Google (Drive inclus).
+- `refresh_token` → renouveler `access_token` plus tard sans reconsentement.
+
+#### Appeler l’API Drive
+
+```
+GET https://www.googleapis.com/drive/v3/files
+Authorization: Bearer ya29.a0AfH6SMA...
+```
+
+Si l’utilisateur a approuvé le scope Drive, cela renvoie ses fichiers (dans le périmètre demandé).
+
+### 12.2 Que se passe-t-il en logout, puis login à nouveau ?
+
+Il y a deux déconnexions : (1) ton app ; (2) le compte Google dans le navigateur. La plupart des apps ne font que (1).
+
+#### Se déconnecter de **ton** app
+
+Navigateur → backend :
+
+```
+POST /auth/logout
+Cookie: session_id=abcd1234  (ou access_token/refresh_token)
+```
+
+Backend :
+
+- Sessions : `DELETE FROM sessions WHERE session_id = 'abcd1234'`
+- Vider les cookies :
+
+```
+Set-Cookie: session_id=; Max-Age=0; Path=/; HttpOnly; Secure
+Set-Cookie: access_token=; Max-Age=0; Path=/; HttpOnly; Secure
+Set-Cookie: refresh_token=; Max-Age=0; Path=/; HttpOnly; Secure
+```
+
+Le frontend peut vider l’état en mémoire et rediriger. Cela **ne** déconnecte pas l’utilisateur de Google ; ça ne fait que tuer ta session.
+
+#### L’utilisateur clique à nouveau sur « Continuer avec Google »
+
+- S’il est encore connecté à Google dans ce navigateur, Google saute souvent l’UI et redirige immédiatement avec `code=...`.
+- Ton `/auth/callback` s’exécute, échange le code, vérifie `id_token`, trouve l’utilisateur, crée une nouvelle session/JWT.
+- Pour l’utilisateur : logout → login → connexion « instantanée », car il ne s’est jamais déconnecté de Google.
+
+#### Forcer Google à montrer quelque chose
+
+- Ajoute `prompt=select_account` pour toujours afficher le sélecteur de compte.
+- Ajoute `prompt=consent` pour forcer l’écran de consentement à nouveau.
+- Forcer réellement un prompt de mot de passe dépend des contrôles de risque de Google ; les apps ne peuvent pas le garantir sans dégrader l’UX.
+- Si l’utilisateur se déconnecte de Google (ex. depuis gmail.com), la prochaine connexion Google montrera l’écran de login.
+
+#### Accès Drive après logout
+
+- Se déconnecter de **ton** app stoppe l’usage de ta session/JWT, mais un `refresh_token` Google stocké peut rester valide.
+- Pour couper complètement l’accès Drive, supprime ou révoque les tokens Google stockés, ou appelle l’endpoint de révocation de Google.
+- L’utilisateur peut aussi révoquer l’accès dans Google : Compte → Sécurité → Accès tiers.
+
+### 12.3 Modèle mental
+
+- Google gère mot de passe/2FA/récupération/contrôles device/CAPTCHA.
+- Tu gères le mapping utilisateur (`google_sub` → `user_id`), tes sessions/JWT, le comportement de logout, et le fait de conserver ou non les tokens Drive.
+- Logout de ton app ≠ logout de Google ; une reconnexion peut être en un clic si Google est toujours connecté.
+- L’accès Drive nécessite des scopes + consentement ; les tokens peuvent être révoqués par toi ou par l’utilisateur.
+
+---
+
+## 13. « Et si quelqu’un prétend être Google ? »
+
+Réponse courte : bien implémenté, il ne peut pas. Cela ne marche que si tu sautes la vérification.
+
+### 13.1 Ce que les attaquants pourraient tenter
+
+- Appeler directement `/auth/callback?code=FAKE` avec un code bidon.
+- Envoyer un faux `id_token` comme `{ "email": "victim@gmail.com", "sub": "victim-id" }`.
+- Faire semblant d’être l’endpoint token de Google et renvoyer du JSON arbitraire.
+
+Tout échoue si tu vérifies.
+
+### 13.2 Pourquoi imiter Google est difficile (quand c’est bien fait)
+
+- **Backend → Google directement en HTTPS** : ton backend échange `code` sur `https://oauth2.googleapis.com/token` avec ton `client_id`/`client_secret`. Un code bidon est rejeté par Google ; tu hardcodes la vraie URL token, donc un attaquant ne peut pas te rediriger ailleurs ni forger le cert TLS de Google.  
+- **Vérifier signature + claims de `id_token`** : utilise le JWKS Google pour vérifier la signature JWT ; puis check `iss = https://accounts.google.com`, `aud = ton client_id`, `exp` valide, et éventuellement `email_verified`. Un token forgé sans la clé privée de Google échoue à la vérification.
+
+### 13.3 Ne fais jamais confiance au navigateur
+
+- Ne fais pas confiance aux query params (`code`, `state`), aux bodies (`id_token`, `access_token`) ou aux headers custom.  
+- Ne fais confiance qu’à : (1) ce que ton backend récupère auprès de Google, et (2) aux tokens dont tu verifies signature + claims.
+
+### 13.4 Quand cela devient possible de tricher
+
+- **Bug #1 : accepter `id_token` depuis le frontend sans vérification** → un attaquant poste `FAKE_JWT` et tu l’acceptes. Toujours vérifier côté serveur.  
+- **Bug #2 : ignorer les checks `aud`/`iss`** → un attaquant réutilise un token destiné à une autre app/fournisseur. Toujours appliquer issuer + audience.  
+- **Bug #3 : pas de `state`** → CSRF où l’attaquant injecte son propre code pour que le navigateur de la victime se connecte sur son compte. Toujours générer/stocker/vérifier `state`.
+
+### 13.5 Rappel défenses
+
+- Backend ne parle qu’à `https://oauth2.googleapis.com/token` en HTTPS.  
+- Backend vérifie signature + `iss` + `aud` + `exp` (et `email_verified` si requis) sur `id_token`.  
+- Backend utilise `state` pour empêcher le CSRF.  
+- Backend ne fait jamais confiance à des tokens venus du frontend sans vérification.
+
+Suis ces règles et « prétendre être Google » ne marchera pas ; les ignorer te rend vulnérable.
+
+---
+
+## 14. Remplacer les mots de passe par l’identité Google (et première inscription)
+
+### 14.1 L’échange : email+mot de passe → google_sub + id_token vérifié
+
+Login local (classique) :
+
+- Tu stockes `email`, `password_hash`.
+- L’utilisateur envoie email+mot de passe ; tu vérifies avec `password_hash`.
+- Si ça matche → utilisateur réel.
+
+Login Google :
+
+- Tu stockes `google_sub`, `email` (plus nom/avatar).
+- Google gère mot de passe/2FA/contrôles device et renvoie un `id_token` signé.
+- Tu vérifies signature + `iss` + `aud` + `exp` (et `email_verified`).
+- Ensuite :
+
+```sql
+SELECT * FROM users WHERE google_sub = 'GOOGLE_USER_ID_123';
+```
+
+Si trouvé → utilisateur réel (Google l’a prouvé). L’identité Google devient ton « équivalent mot de passe » pour ce compte.
+
+### 14.2 Et pour la première inscription ?
+
+Il n’existe pas d’API « inscription Google » spéciale. La première connexion Google vaut inscription si l’utilisateur n’existe pas.
+
+Flux :
+
+1) L’utilisateur clique sur « Se connecter avec Google ».  
+2) Danse OAuth → tu vérifies `id_token`.  
+3) Le backend check la DB par `google_sub`.
+
+Cas :
+
+- **A : utilisateur existe** → login, création de session/JWT.
+- **B : utilisateur absent** → création d’une ligne utilisateur, puis login (provisioning à la volée).
+
+Exemple d’insert :
+
+```sql
+INSERT INTO users (email, google_sub, name, avatar_url, created_at)
+VALUES ('user@gmail.com', 'GOOGLE_USER_ID_123', 'User Name', '...', now());
+```
+
+### 14.3 Patterns dans le monde réel
+
+- **100 % Google-only** : pas de mots de passe ; première connexion Google = inscription ; connexions suivantes = login normal. `password_hash` peut être null/absent.  
+- **Hybride (mot de passe + Google)** :
+  - Supporter email+mot de passe **et** Google.
+  - À la première connexion Google, si cet email existe localement, proposer de lier (ou lier auto si tu fais confiance à `email_verified`).
+  - Après liaison, un `user_id` peut se connecter via mot de passe ou Google (même ligne avec `google_sub` renseigné).
+
+### 14.4 Modèle mental clair
+
+- Remplacer « vérif email+mot de passe » par « `id_token` signé par Google + lookup `google_sub` ».
+- Première connexion Google : si pas d’utilisateur, on en crée un (c’est l’« inscription ») ; sinon, login.
+- L’émission de sessions/JWT est identique une fois l’identité confirmée.
+
+---
+
+## 15. Connexion sociale au‑delà de Google (Apple, Facebook, GitHub, etc.)
+
+### 15.1 Le pattern universel (OAuth / OIDC)
+
+Tous les grands fournisseurs suivent le même flux :
+
+1) L’utilisateur clique sur « Se connecter avec X ».  
+2) Le fournisseur gère mot de passe/2FA/contrôles appareil.  
+3) Le fournisseur renvoie un code ou un token signé.  
+4) Ton backend le vérifie, trouve/crée un utilisateur.  
+5) Ton backend émet ta propre session/JWT.
+
+C’est la même idée que email+mot de passe, mais la « vérif de mot de passe » vit chez le fournisseur.
+
+### 15.2 Ce qui change réellement selon les fournisseurs
+
+| Fournisseur | Protocole auth | Type de token | Champ d’ID unique |
+| --- | --- | --- | --- |
+| Google | OAuth2 + OIDC | `id_token` (JWT) | `sub` |
+| Facebook | OAuth2 | access token + profil | `id` |
+| Apple | OAuth2 + OIDC | `id_token` (JWT) | `sub` |
+| GitHub | OAuth2 | access token + profil | `id` |
+
+Ta logique backend reste la même : vérifier le token, extraire l’ID unique, trouver/créer l’utilisateur, émettre ta session/JWT.
+
+### 15.3 Remplacer le « mot de passe » par l’identité du fournisseur
+
+| Fournisseur | Clé d’identité utilisateur | À stocker en DB comme |
+| --- | --- | --- |
+| Google | `sub` | `google_sub` |
+| Facebook | `id` | `facebook_id` |
+| Apple | `sub` | `apple_sub` |
+| GitHub | `id` | `github_id` |
+| Twitter | `id_str` | `twitter_id` |
+
+Cette clé (plus l’auth vérifiée par le fournisseur) est le remplacement du mot de passe.
+
+### 15.4 Première inscription
+
+- Première connexion OAuth = inscription (créer l’utilisateur si manquant).  
+- Les connexions OAuth suivantes = login normal (lookup par ID fournisseur).
+
+### 15.5 Récupération de mot de passe
+
+- Les utilisateurs uniquement fournisseur récupèrent via le fournisseur (Google/Apple/GitHub/etc.).  
+- Ton app ne gère pas le reset de mot de passe pour les comptes OAuth‑only.
+
+### 15.6 Liaison de compte
+
+- Si tu supportes email+mot de passe et OAuth, laisse lier les IDs fournisseurs au même `user_id` (comme Slack/Notion/Discord).  
+- Une fois lié, ils peuvent se connecter par mot de passe ou par fournisseur ; même compte local.
+
+### 15.7 Pourquoi ça marche partout
+
+- OAuth 2.0 + OpenID Connect sont les standards communs.  
+- Tu fais toujours : vérifier les tokens du fournisseur, faire confiance à l’auth fournisseur, et construire ta propre session/JWT par-dessus.
+
+---
+
+## Récap rapide (tableau)
+
+| Étape | Direction | Initiateur | Ce qui se passe |
+| --- | --- | --- | --- |
+| 1 | B → T | Navigateur (clic user) | Appel `/auth/google` |
+| 2 | T → B → G | Backend + Navigateur | Redirige vers l’URL OAuth Google ; le navigateur suit |
+| 3 | B ↔ G | Navigateur + Google | UI de login/consentement Google |
+| 4 | G → B | Google | Redirige vers `redirect_uri` avec `code` |
+| 5 | B → T | Navigateur | Appelle `/auth/callback?code=XYZ` |
+| 6 | T → G | Backend | POST du code vers l’endpoint token Google |
+| 7 | G → T | Google | Retourne `id_token` + `access_token` (+ `refresh_token`) |
+| 8 | T | Backend | Vérifie `id_token`, trouve/crée l’utilisateur |
+| 9 | T | Backend | Crée ta session ou tes JWT |
+| 10 | T → B | Backend | Envoie Set-Cookie / redirection |
+| 11 | B ↔ T | Navigateur + Backend | Requêtes authentifiées normales via ton système |
+
+---
+
+## Lectures associées
+
+- Pour le contexte global et les compromis JWT vs sessions : [Plongée dans l’authentification web](/fr/blogs/web-authentication-deep-dive).

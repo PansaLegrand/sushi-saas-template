@@ -6,6 +6,8 @@
     "what-is-middleware",
     "frontend-vs-backend-vs-fullstack-saas",
     "databases-for-saas-postgres-drizzle",
-    "budget"
+    "budget",
+    "web-authentication-deep-dive",
+    "social-sign-in"
   ]
 }

@@ -1,0 +1,421 @@
+---
+title: "Web Authentication Deep Dive: JWTs, Sessions, and Remember Me"
+icon: "ShieldCheck"
+description: "A practical, end-to-end guide to how web auth really works: signup, login, access vs refresh tokens, session IDs vs remember-me tokens, lazy refresh, logout, and how to choose between JWT-based and server-side sessions."
+keywords:
+  - web authentication
+  - oauth
+  - google sign in
+  - JWT
+  - access token
+  - refresh token
+  - sessions
+  - remember me
+  - Next.js auth
+tags: [auth, security, jwt, sessions]
+author: "Pansa Legrand"
+publishedAt: "2025-11-22T00:00:00.000Z"
+updatedAt: "2025-11-22T00:00:00.000Z"
+canonical: "https://www.sushi-templates.com/en/blogs/web-authentication-deep-dive"
+---
+
+## 0. Big Picture: What’s Actually Going On?
+
+Every web auth system is solving three jobs:
+
+1. Sign up: create a user record.
+2. Log in: verify identity (email + password, OAuth, etc.).
+3. Stay logged in: keep the user authenticated across requests and time.
+
+The interesting part is #3: how do we remember who you are, and for how long?
+
+Two families, same pattern:
+
+- JWT-based (stateless)
+- Server-side sessions (stateful)
+
+Each uses a pair of credentials:
+
+| Short-lived | Long-lived | Purpose |
+| --- | --- | --- |
+| Access token (JWT world) | Refresh token | Get a new access token |
+| Session ID (session world) | Remember-me token | Get a new session |
+
+Same idea; different implementation.
+
+---
+
+## 1. Phase 1 – Sign Up (Account Creation)
+
+Same for JWTs and sessions.
+
+1. User sends email, password, and maybe name/locale.
+2. Server validates email format, password strength, and email uniqueness.
+3. Hash the password (bcrypt/argon2/scrypt); never store raw passwords.
+
+Example table:
+
+```
+users
+------------------------------------
+id | email   | password_hash | ...
+1  | a@b.com | $2b$10$...    | ...
+------------------------------------
+```
+
+4. (Optional) Send an email verification link.
+
+After signup the user exists, but may or may not be logged in automatically.
+
+---
+
+## 2. Phase 2 – Log In (Authenticating)
+
+Same concept regardless of system:
+
+```http
+POST /login
+{ "email": "a@b.com", "password": "secret123", "remember": true }
+```
+
+Server verifies the password, then creates either:
+
+- A pair of JWTs (access + refresh), or
+- A session_id (and maybe a remember-me token).
+
+What happens next depends on which system you choose.
+
+### 2.2 Adding Google / OAuth Login (Same Pattern)
+
+OAuth sign-in (Google, GitHub, etc.) plugs into the same flow:
+
+- User clicks “Continue with Google”.
+- Browser is redirected to Google for consent.
+- Google returns an authorization code to your backend.
+- Backend exchanges the code for tokens + profile/email.
+- Backend links or creates a local user, then issues your own credentials:
+  - JWT world: mint access + refresh tokens.
+  - Session world: mint session_id (+ remember token if you want long-lived).
+
+Implementation tips:
+
+- Treat the provider response as proof of identity; still persist/link a local user row.
+- Store provider IDs (e.g., `google_sub`) to prevent duplicate accounts.
+- Keep your cookies HttpOnly/SameSite/Secure; never put provider tokens in localStorage.
+- Apply the same refresh/remember-me rules as password login; OAuth only replaces the password check.
+- Want a full packet-level walkthrough? See the dedicated guide: [Social Sign-In (Google as example)](/en/blogs/social-sign-in).
+
+### 2.3 Classic Email+Password vs Google Login (Deep Comparison)
+
+#### 2.3.1 Does Google Login eliminate passwords?
+
+- For your app: yes, users do not create or enter a password with you.
+- They still use Google’s password, 2FA, device trust, and recovery; you delegate all of that to Google.
+
+#### 2.3.2 What replaces the password in your app?
+
+- Local login uses `email + password_hash`.
+- Google login uses a trusted identity assertion: verified email + Google’s unique subject (`sub`).
+- Your backend stores/link on `google_sub` (e.g., `user.google_sub = "112233445566778899"`).
+- The flow becomes: `google_sub → user_id → issue your own session/JWT`. No local password required.
+
+#### 2.3.3 How do password resets work with Google Login?
+
+- You don’t handle them. If the user forgets a password, they recover it with Google.
+- No “Forgot password” flow is needed for Google-only users; you simply trust Google’s assertion.
+
+#### 2.3.4 How do account recovery & verification work now?
+
+- Your app stops verifying identity via codes/SMS/password reset.
+- Google handles recovery, 2FA, device checks, risk analysis, CAPTCHAs, suspicious login warnings, and backup codes.
+- You inherit Google’s recovery and verification stack for free.
+
+#### 2.3.5 What about new user verification?
+
+- Google supplies a verified email in the ID token:
+
+```json
+{
+  "email": "user@gmail.com",
+  "email_verified": true
+}
+```
+
+- If `email_verified` is true, you can skip your own email/SMS verification. You “borrow” verification from Google.
+
+#### 2.3.6 Is Google Login secure?
+
+- You inherit Google’s protections: MFA, security keys (FIDO2/U2F), device recognition, risk-based access control, CAPTCHA/bot protection, password leak detection, suspicious-login alerts, and recovery flows.
+- Building all of this yourself is expensive; that’s why many teams prefer Google sign-in.
+
+#### 2.3.7 What if the user loses access to their Google account?
+
+- They cannot log in until they recover the Google account.
+- Offer redundancy: allow linking an email/password later or add another OAuth provider (GitHub/Apple) so support can switch the login method if needed.
+
+#### 2.3.8 Visual Summary
+
+```
+             Without Google
+  +-----------------------------------------+
+  | You manage:                             |
+  |  - password hashing                     |
+  |  - login attempts                       |
+  |  - email verification                   |
+  |  - SMS verification                     |
+  |  - 2FA                                  |
+  |  - password reset                       |
+  |  - account recovery                     |
+  |  - suspicious login detection           |
+  +-----------------------------------------+
+
+
+              With Google Login
+  +-----------------------------------------+
+  | Google manages ALL identity security    |
+  |                                         |
+  | You manage only:                        |
+  |   - user record                         |
+  |   - sessions/JWT tokens                 |
+  |                                         |
+  +-----------------------------------------+
+```
+
+#### 2.3.9 Where does Google Login fit in the auth flow?
+
+```
+NORMAL LOGIN
+email + password -> verify password -> create session -> logged in
+
+GOOGLE LOGIN
+google_sub      -> verify id_token  -> create session -> logged in
+```
+
+Only the first step differs; everything after (sessions/JWTs, refresh/remember-me, logout) is identical.
+
+#### 2.3.10 Are passwords going away?
+
+- Many modern apps default to passwordless/OAuth-first: Google, Apple, Microsoft, GitHub, Slack, Notion, Discord, Figma, Linear, Superhuman, plus magic links and passkeys.
+- Trend: “Sign in with Google/Apple/Microsoft/GitHub” or “Sign in with magic link/passkey” → passwords become legacy.
+
+#### 2.3.11 Final Q&A Recap
+
+| Question | Answer |
+| --- | --- |
+| Do users need a password with Google login? | No local password; you trust Google’s identity. |
+| How does recovery work? | Google handles password reset and account recovery entirely. |
+| How does verification work? | Google supplies a verified email (`email_verified=true`). |
+| Do you still need sessions/JWT? | Yes—after Google login you still issue your own tokens/sessions. |
+| Is this secure? | Yes—you inherit Google’s full security and recovery stack. |
+
+---
+
+## 3. System A – JWT-Based Authentication (Stateless)
+
+### Core Concepts
+
+- Access token: signed JWT, short-lived (15–60 min), sent on every request.
+- Refresh token: long-lived (7–30 days), used only to get a new access token.
+
+Access token = today’s ticket.  
+Refresh token = passport to get a new ticket.
+
+### Login with JWT
+
+1. Verify email + password.
+2. Create access token (short exp).
+3. Create refresh token (long exp).
+4. Send as HttpOnly cookies:
+
+- `access_token=...; HttpOnly; Secure; SameSite=Lax`
+- `refresh_token=...; HttpOnly; Secure; SameSite=Lax`
+
+### Using Access Token on Each Request
+
+Request with header or cookie:
+
+```
+Authorization: Bearer <access_token>
+Cookie: access_token=...
+```
+
+Server verifies signature and `exp`, then attaches the user. No DB lookup (stateless).
+
+### When Access Token Expires – Lazy Refresh
+
+1. Request with expired access token → server returns `401 token_expired`.
+2. Frontend interceptor calls `POST /auth/refresh`.
+3. Server verifies refresh token, issues new access token (and maybe new refresh).
+4. Frontend retries the original request; user never notices.
+
+### Refresh Token Rotation
+
+On each refresh:
+
+1. Validate old refresh token.
+2. Issue new access + refresh tokens.
+3. Mark old refresh as used/invalid in DB.
+
+### Logout with JWT
+
+- Client: delete cookies/localStorage.
+- Server: revoke refresh tokens in DB or bump a `token_version` on the user to invalidate old JWTs.
+
+### JWT Pros and Cons
+
+Pros: no DB lookup for access token; great for SPAs, mobile, microservices, serverless.  
+Cons: revocation is trickier; easy to misconfigure token storage; refresh token security is critical.
+
+---
+
+## 4. System B – Server-Side Sessions (Stateful)
+
+### Core Concepts
+
+- `session_id`: random string in a cookie; maps to a user row in DB/Redis; short-lived.
+- `remember_token`: optional long-lived random string; stored hashed in DB; used to mint a new session. Equivalent to a refresh token.
+
+Session ID = today’s ticket.  
+Remember token = multi-day pass to get a new ticket.
+
+### Login with Sessions (No Remember Me)
+
+1. Verify email + password.
+2. Generate `session_id`; store in `sessions` table with expiry.
+3. Set cookie: `session_id=...; HttpOnly; Secure; SameSite=Lax`.
+4. When it expires, user must log in again.
+
+### Login with Sessions (With Remember Me)
+
+1. Verify email + password.
+2. Generate `session_id` (short) and `remember_token` (long).
+3. Store:
+
+```
+sessions
+session_id | user_id | expires_at
+---------------------------------
+abcd1234   | 42      | +1 day
+
+remember_tokens
+hashed_token | user_id | expires_at
+-----------------------------------
+HASH(xyz...) | 42      | +30 days
+```
+
+4. Set cookies:
+
+- `session_id=abcd1234; HttpOnly; Secure`
+- `remember_token=xyz...; HttpOnly; Secure; Max-Age=30 days`
+
+### Using Session on Each Request
+
+Browser sends `session_id` automatically. Server looks it up in DB/Redis:
+
+- If found and not expired → authenticated; optionally extend expiry.
+- If missing/expired → unauthenticated (for now).
+
+### Sliding Expiration
+
+On each valid request, extend `expires_at` (e.g., now + 1 day). Active users stay signed in; idle sessions die.
+
+### When Session Expires – Use Remember Me
+
+If `session_id` is missing/expired but `remember_token` is present:
+
+1. Hash and look up `remember_token`.
+2. If valid → auto-login, mint new `session_id`, optionally rotate remember token.
+3. If invalid/absent → force login.
+
+### Logout with Sessions
+
+1. Delete session row and clear `session_id` cookie.
+2. If using remember tokens: delete row, clear `remember_token` cookie.
+
+### Session Pros and Cons
+
+Pros: easy revocation (delete rows); simple mental model; good for traditional sites and high-sensitivity apps.  
+Cons: needs a session store; every request hits DB/Redis; less ideal for heavy distributed/mobile setups.
+
+---
+
+## 5. Modern UX Reality – “Remember Me” Is Invisible
+
+Most products default to “stay logged in.” They silently use a long-lived token (remember-me or refresh) without showing a checkbox. Sensitive actions may still re-prompt for password or MFA.
+
+Your product choices:
+
+- Show an explicit “Remember me” checkbox, or
+- Always remember by default unless the user logs out.
+
+---
+
+## 6. Mapping Both Systems Side-by-Side
+
+### Concept Mapping
+
+| JWT World | Session World | Notes |
+| --- | --- | --- |
+| Access token | Session ID | Short-lived credential |
+| Refresh token | Remember-me token | Long-lived credential to renew |
+| Verify signature | Lookup in DB/Redis | Validation step |
+| `/auth/refresh` | Auto-login via remember token | Refresh path |
+| `token_expired` | Session expired | Failure mode |
+
+### Comparison Table
+
+| Feature | JWT-Based Auth | Server-Side Sessions |
+| --- | --- | --- |
+| Short-lived thing | Access token | Session ID |
+| Long-lived thing | Refresh token | Remember-me token |
+| Sent each request | Access token | Session ID |
+| Validation | Verify signature/claims | DB/Redis lookup |
+| Server state | None for access token | Session store required |
+| Refresh | `/auth/refresh` | New session via remember token |
+| Logout | Delete/revoke tokens | Delete session/remember rows |
+| Best for | SPAs, mobile, APIs, microservices | Classic web apps, monoliths, high-security |
+
+---
+
+## 7. Which Should You Use?
+
+Choose JWT if you have SPAs/mobile/microservices, want no session store, and can harden refresh token handling. Pattern: access token in HttpOnly cookie or `Authorization` header; refresh token in HttpOnly cookie; lazy refresh on 401.
+
+Choose server-side sessions if you have one main backend, mostly server-rendered pages, and want simple revocation. Pattern: `session_id` cookie; sessions table (or Redis); optional `remember_tokens` for persistence.
+
+---
+
+## 8. Final Mental Model
+
+```
+SIGN UP  (create user + hashed password)
+          |
+          v
+       LOG IN  (verify email + password)
+          |
+          v
+   Choose an auth system
+   ---------------------
+   |                   |
+   v                   v
+
+JWT-BASED AUTH              SERVER SESSIONS
+-----------------------     -----------------------
+Create ACCESS TOKEN         Create SESSION_ID
+Create REFRESH TOKEN        Store SESSION in DB
+Send both to client         Send SESSION_ID cookie
+
+Every request:              Every request:
+  send ACCESS TOKEN           send SESSION_ID
+  verify signature            lookup in DB
+
+When expired:               When expired:
+  use REFRESH TOKEN           if REMEMBER TOKEN valid:
+  at /auth/refresh               issue new SESSION_ID
+                                 else → login again
+
+Logout:                     Logout:
+  delete/revoke tokens        delete session/remember rows
+```
+
+Both solve the same need: “Let me log in once and stay signed in, but keep me safe.”
