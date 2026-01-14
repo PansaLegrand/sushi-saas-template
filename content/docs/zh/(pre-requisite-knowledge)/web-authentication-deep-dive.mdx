@@ -17,6 +17,12 @@ updatedAt: "2025-11-22T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/zh/blogs/web-authentication-deep-dive"
 ---
 
+## 概述
+
+本指南讲清 Web 认证的完整链路：注册、登录、保持登录。它对比 JWT 与会话、refresh 与 remember me，并说明 OAuth（如 Google 登录）如何接入同一流程。
+
+---
+
 ## 0. 全局图景：登录体系在做什么？
 
 所有 Web 认证都在做三件事：
@@ -319,6 +325,16 @@ Google 登录：
 - **OAuth 登录**：后端验签 `id_token`，检查 `iss/aud/exp/email_verified`，用 `state` 防 CSRF，永不信前端直接给的 token。  
 - **Cookie 安全**：HttpOnly/SameSite/Secure，敏感路径尽量用 Cookie 传递凭证。  
 - **登出**：清除本地会话/refresh；如需撤销外部 API 访问，删除/撤销存储的第三方 token。
+
+---
+
+## 关键要点
+
+- 认证始终围绕三件事：注册、登录、保持登录。
+- JWT 与会话解决同一问题，只是机制不同。
+- Access token / session ID 是短期凭证；refresh / remember 用于续期。
+- OAuth 只是替换“密码校验”，登录后仍需自己签发会话/JWT。
+- 分布式客户端更适合 JWT；需要简单撤销时会话更友好。
 
 ---
 

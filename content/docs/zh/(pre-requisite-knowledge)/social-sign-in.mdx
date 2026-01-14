@@ -17,6 +17,12 @@ updatedAt: "2025-11-22T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/zh/blogs/social-sign-in"
 ---
 
+## 概述
+
+本文用 Google 作为示例，以“数据包视角”完整走一遍社交登录。你会看到每一步由谁发起、发出哪些 HTTP 请求，以及后端需要做什么。同样的模式也适用于 Apple、Facebook、GitHub 等 OAuth/OIDC 提供方。
+
+---
+
 ## 0. 图例
 
 - (B) = Browser 浏览器/前端  
@@ -555,6 +561,16 @@ VALUES ('user@gmail.com', 'GOOGLE_USER_ID_123', 'User Name', '...', now());
 | 9 | Y | 后端 | 创建会话或 JWT |
 | 10 | Y → B | 后端 | Set-Cookie / 重定向 |
 | 11 | B ↔ Y | 浏览器 + 后端 | 之后的正常鉴权请求 |
+
+---
+
+## 关键要点
+
+- OAuth 是重定向流程：浏览器 → 提供方 → 回调 → 后端换 token。
+- `id_token` 用于身份认证；`access_token` 用于调用提供方 API。
+- 必须在服务端验证 token（`iss`、`aud`、`exp`、签名）并校验 `state`。
+- 登录后由你签发自己的会话/JWT，Google 退出请求链路。
+- Apple/GitHub/Facebook 等同样流程，只是字段名不同。
 
 ---
 

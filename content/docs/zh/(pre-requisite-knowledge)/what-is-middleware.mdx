@@ -1,14 +1,14 @@
 ---
-title: "什么是中间件？入门指南"
+title: "什么是中间件？新手友好指南"
 icon: "Workflow"
-description: "从零理解中间件、为什么对 SaaS 有用，以及我们在 Next.js 中的中间件如何处理 i18n 和请求 ID，并介绍如何自定义。"
+description: "从第一原则理解中间件、SaaS 为什么需要它，以及我们的 Next.js 中间件如何处理 i18n 与 request ID — 同时教你如何安全定制。"
 keywords:
-  - 中间件
+  - middleware
   - Next.js middleware
-  - Edge runtime
+  - edge runtime
   - i18n
   - request id
-  - SaaS
+  - SaaS 架构
 tags: [middleware, nextjs, edge, i18n]
 author: "Pansa Legrand"
 publishedAt: "2025-10-13T00:00:00.000Z"
@@ -16,45 +16,60 @@ updatedAt: "2025-10-13T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/zh/blogs/what-is-middleware"
 ---
 
-## 基础概念（面向初学者）
+## 一句话理解中间件
 
-中间件运行在“请求 → 最终处理器”之间。它像一个检查点：读取请求头、决定重定向、设置响应头，然后再进入页面或 API 处理逻辑。
-
-常见用途：
-- 认证拦截（未登录重定向）
-- 多语言 i18n（保持 `/:locale/...` 或自动检测）
-- 日志与追踪（添加 `x-request-id`）
-- 特性开关/实验
-- 安全和限流
-
-在 Next.js 中，`middleware.ts` 在 Edge 侧非常早地执行。
+中间件是在请求进入你的最终处理函数之前运行的代码，用来检查、重定向或添加响应头。
 
 ---
 
-## 为什么有用
+## Middleware 101（新手视角）
 
-把“跨领域”的逻辑集中管理，避免在各路由重复：
+把一次请求想象成一辆车，行驶到检查站时会被拦下审视。中间件就是这个检查站：所有请求都会经过它。你可以读取请求、做决策，并在需要时修改响应（甚至直接终止）。
 
-- 统一的全局规则入口
-- 一致的可观测性（统一的 `request_id`）
-- 早决策、少开销（更少后端工作）
-- 处理器更专注于业务逻辑
+常见用途包括：
 
-SaaS 典型需求：多语言、日志关联、后台区、实验、请求头规范化等。
+- 认证门禁：判断用户是否登录，否则重定向。
+- 国际化（i18n）：根据 URL 或偏好路由到正确语言。
+- 日志与链路追踪：附加 `request_id` 以便全链路关联日志。
+- Feature flag / A/B 测试：尽早分配实验组。
+- 安全与限流：阻止异常流量或强制安全头。
+
+在 Next.js 中，中间件写在 `middleware.ts` 里，在 edge 上（非常早、非常快）执行。它可以重写/重定向请求、读写头部，并在路由处理前短路响应。
 
 ---
 
-## 我们的中间件在做什么
+## 为什么有用（以及什么时候需要）
 
-组合 `next-intl` 的 i18n 路由与轻量的请求 ID 传播。
+中间件让“横切关注点”集中处理，也就是很多路由都需要的逻辑：
 
-要点：
-- 语言路由：`src/i18n/routing.ts`
-- `x-request-id`：复用已有或生成 UUID
-- 保守的匹配器：排除 `api`、`_next`、静态资源、`admin`
+- 规则集中：不容易漏掉 auth 或 locale 检查。
+- 可观测性一致：每个请求都有相同的 `request_id` 和头部。
+- 早期决策：提前重定向或拒绝，减少服务器工作量。
+- Handler 更干净：业务逻辑留在页面/API 里。
+
+SaaS 中典型适用场景：
+
+- 需要稳定 `/:locale/...` URL 的多语言应用。
+- 依赖请求级关联 ID 的日志和追踪系统。
+- 付费/管理区域的访问控制（要谨慎处理 Cookie）。
+- A/B 实验、地理路由、头部规范化。
+
+---
+
+## 我们的中间件：现在做了什么
+
+我们在 `src/middleware.ts` 中提供了一个安全、精简的默认实现，将 `next-intl` 的 i18n 路由与轻量的 request ID 传播组合在一起。
+
+关键行为：
+
+- 语言路由：通过 `next-intl` 调用我们的配置（`src/i18n/routing.ts`、`src/i18n/locale.ts`），保持 `/en/...`、`/fr/...` 等 URL 一致，并可选启用自动语言检测。
+- Request ID：为所有响应添加 `x-request-id`。若请求已有则复用，否则生成 UUID。
+- 保守 matcher：仅在本地化页面和通用路由执行；默认跳过静态资源、Next 内部路由、API 路由和 `admin`。
+
+当前代码（精简版）：
 
 ```ts
-// src/middleware.ts（节选）
+// src/middleware.ts
 import createMiddleware from 'next-intl/middleware';
 import { NextRequest } from 'next/server';
 import { routing } from '@/i18n/routing';
@@ -64,17 +79,54 @@ const intlMiddleware = createMiddleware(routing);
 export default function middleware(request: NextRequest) {
   const existing = request.headers.get('x-request-id');
   const requestId = existing || crypto.randomUUID();
+
   const res = intlMiddleware(request);
+  // 仅用于可观测性；不要修改请求的 cookies/headers。
   res.headers.set('x-request-id', requestId);
   return res;
 }
+
+export const config = {
+  matcher: [
+    '/',
+    '/(en|en-US|zh|zh-CN|zh-TW|zh-HK|zh-MO|ja|ko|ru|fr|de|ar|es|it)/:path*',
+    '/((?!api|_next|_vercel|admin|.*\\..*).*)',
+  ],
+};
 ```
+
+语言路由配置：
+
+```ts
+// src/i18n/routing.ts
+import { defaultLocale, localeDetection, localePrefix, locales } from './locale';
+import { defineRouting } from 'next-intl/routing';
+
+export const routing = defineRouting({ locales, defaultLocale, localePrefix, localeDetection });
+```
+
+语言列表声明（添加/删除从这里改）：
+
+```ts
+// src/i18n/locale.ts
+export const locales = ['en', 'zh', 'es', 'fr', 'ja'];
+export const defaultLocale = 'en';
+export const localePrefix = 'always';
+export const localeDetection = process.env.NEXT_PUBLIC_LOCALE_DETECTION === 'true';
+```
+
+注意事项：
+
+- 为了保持 Better Auth 稳定，我们避免在中间件里修改请求 cookies/headers，只设置响应头。
+- matcher 默认排除 `api`、`_next`、静态资源和 `admin`。如果需要可调整。
 
 ---
 
-## 如何安全地自定义
+## 如何安全定制
 
-添加响应头：
+先确认这段逻辑是否真的适合中间件（横切逻辑、需要早期判断），而不是写在具体路由中。确认后可参考以下模式：
+
+添加自定义头部
 ```ts
 export default function middleware(request: NextRequest) {
   const res = intlMiddleware(request);
@@ -83,32 +135,72 @@ export default function middleware(request: NextRequest) {
 }
 ```
 
-重定向：
+重定向或重写路径
 ```ts
 import { NextResponse } from 'next/server';
+
 export default function middleware(request: NextRequest) {
-  if (request.nextUrl.pathname === '/old') {
+  const { pathname } = request.nextUrl;
+  if (pathname === '/old') {
     return NextResponse.redirect(new URL('/new', request.url));
   }
   return intlMiddleware(request);
 }
 ```
 
-调整 `matcher`，并在线上日志中使用 `x-request-id`。避免在中间件里修改认证 Cookie。
+通过 `matcher` 包含/排除路由
+```ts
+export const config = {
+  matcher: [
+    '/',
+    // 需要对 admin 启用时，移除 negative lookahead
+    // 或显式匹配：
+    '/admin/:path*',
+    '/(en|fr|ja|zh|es)/:path*',
+    '/((?!api|_next|_vercel|.*\\..*).*)',
+  ],
+};
+```
+
+在 handler 中使用 request ID
+```ts
+// 在 Node 的路由处理函数中
+import { headers } from 'next/headers';
+
+export async function GET() {
+  const h = headers();
+  const request_id = h.get('x-request-id');
+  // 用于日志、数据库追踪等
+  return new Response('ok');
+}
+```
+
+国际化调整
+
+- 将 `NEXT_PUBLIC_LOCALE_DETECTION` 设为 `true` 启用自动检测。
+- 在 `src/i18n/locale.ts` 中添加/删除语言。
+- 新增语言时保持 `content/docs`、`messages/`、`src/i18n` 同步。
+
+认证与敏感流程
+
+- 若在中间件做认证门禁，避免修改 Cookie，尽量使用只读检查和重定向。
+- 保护 API 路由时，handler 层也要做校验 — 中间件只是辅助。
 
 ---
 
-## 什么时候不要用中间件
+## 什么时候不该用中间件
 
-- 仅针对某单一路由的逻辑
-- 重型异步任务（如数据库访问）
-- 读取/转换请求体
+- 只适用于某条路由的逻辑。
+- 重量级异步操作（如数据库调用）。
+- 大请求体转换（中间件无法读取 body）。
+
+保持中间件简洁、快速、聚焦。如果它变复杂，把逻辑移到服务函数里，再在 handler 中调用。
 
 ---
 
 ## TL;DR
 
-- 适合 i18n、响应头、重定向、轻量级守卫
-- 默认实现：i18n + `x-request-id`
-- 通过响应头、重定向和 `matcher` 来扩展；不要改动认证 Cookie
-
+- 中间件在早期、集中执行 — 适合 i18n、头部、重定向和轻量保护。
+- 默认中间件负责语言路由，并设置 `x-request-id` 便于追踪。
+- 通过 `config.matcher`、响应头、安保重定向定制；不要操作 auth Cookies。
+- 保持小而快，并在各语言版本保持一致。

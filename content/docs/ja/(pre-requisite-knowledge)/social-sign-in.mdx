@@ -17,6 +17,12 @@ updatedAt: "2025-11-22T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/ja/blogs/social-sign-in"
 ---
 
+## 概要
+
+これは Google を例にしたソーシャルログインのパケットレベル解説です。各ステップの起点、送られるHTTPリクエスト、そしてバックエンドが行う処理を追います。Apple、Facebook、GitHub など他の OAuth/OIDC でも同じ流れです。
+
+---
+
 ## 0. 記号の意味
 
 - (B) = Browser（フロントエンド / ユーザーエージェント）  
@@ -572,6 +578,16 @@ VALUES ('user@gmail.com', 'GOOGLE_USER_ID_123', 'User Name', '...', now());
 | 9 | Y | バックエンド | 自前のセッションまたは JWT を作成 |
 | 10 | Y → B | バックエンド | Set-Cookie / リダイレクトを返す |
 | 11 | B ↔ Y | ブラウザ + バックエンド | 以降は自前システムでの通常リクエスト |
+
+---
+
+## 重要ポイント
+
+- OAuth はリダイレクトの流れ：ブラウザ → プロバイダ → コールバック → バックエンドでトークン交換。
+- `id_token` は本人確認、`access_token` はプロバイダAPI用。
+- サーバー側で必ず検証（`iss`、`aud`、`exp`、署名）し、`state` を確認。
+- ログイン後は自前のセッション/JWTを発行し、Googleはリクエスト経路から外れる。
+- Apple/GitHub/Facebook でも同じ流れで、フィールド名が異なるだけ。
 
 ---
 

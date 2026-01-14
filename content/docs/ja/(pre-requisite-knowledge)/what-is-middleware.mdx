@@ -1,14 +1,14 @@
 ---
-title: "ミドルウェアとは？ 初心者向けガイド"
+title: "ミドルウェアとは？初心者向けガイド"
 icon: "Workflow"
-description: "ミドルウェアの基本、SaaS で役立つ理由、当プロジェクトの Next.js ミドルウェア（i18n と request ID）の動きと安全なカスタマイズ方法を解説。"
+description: "ミドルウェアの基本、SaaSで使われる理由、Next.jsのi18nとrequest IDを扱うミドルウェアの仕組み、そして安全なカスタマイズ方法を解説します。"
 keywords:
-  - ミドルウェア
+  - middleware
   - Next.js middleware
-  - Edge runtime
+  - edge runtime
   - i18n
   - request id
-  - SaaS
+  - SaaS アーキテクチャ
 tags: [middleware, nextjs, edge, i18n]
 author: "Pansa Legrand"
 publishedAt: "2025-10-13T00:00:00.000Z"
@@ -16,45 +16,60 @@ updatedAt: "2025-10-13T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/ja/blogs/what-is-middleware"
 ---
 
-## ミドルウェア 101（初心者向け）
+## 一言でいうと
 
-ミドルウェアは、リクエストと最終的なハンドラーの「間」で動くコードです。各リクエストはこのチェックポイントを通過し、ヘッダーの確認、リダイレクト、レスポンスへのヘッダー追加などを行えます。
-
-よくある用途:
-- 認証ゲート（未ログインならリダイレクト）
-- i18n（`/:locale/...` の維持や検出）
-- ロギングとトレーシング（`x-request-id` 付与）
-- フィーチャーフラグ / 実験
-- セキュリティとレート制限
-
-Next.js の `middleware.ts` は Edge で非常に早い段階で実行されます。
+ミドルウェアは、リクエストと最終的なハンドラの間で動くコードです。ページやAPIが動く前に、検査・リダイレクト・ヘッダー追加ができます。
 
 ---
 
-## なぜ役立つか
+## Middleware 101（初心者視点）
 
-横断的な関心事を 1 箇所にまとめ、重複をなくします。
+リクエストを道路を走る車だとすると、ミドルウェアは検問所です。すべてのリクエストが通過し、そこで内容を確認したり判断したり、必要ならレスポンスを変えたり（早めに止めたり）できます。
 
-- ルール適用が一元化
-- 一貫した可観測性（共通の `request_id`）
-- 早期判断でサーバー負荷を軽減
-- ハンドラーはビジネスロジックに集中
+Webアプリでの代表的な用途:
 
-SaaS では多言語、ログ相関、管理エリア、実験、ヘッダー正規化などで有効です。
+- 認証ゲート: サインイン済みか確認し、未ログインならリダイレクト。
+- 国際化（i18n）: URLや設定に応じて適切なロケールへ誘導。
+- ロギングとトレーシング: `request_id` を付与してログを相関。
+- フィーチャーフラグ / A/Bテスト: 早い段階でユーザーを振り分け。
+- セキュリティとレート制限: 悪質なトラフィックを遮断、ヘッダーを強制。
+
+Next.jsでは `middleware.ts` という特別なファイルに書き、エッジで（非常に早く）実行されます。リダイレクト/リライト、ヘッダーの読み書き、レスポンスのショートサーキットを、ハンドラの前に行えます。
 
 ---
 
-## 当プロジェクトのミドルウェア
+## どんなときに役立つか
 
-`next-intl` による i18n ルーティングと、軽量なリクエスト ID 付与を行います。
+ミドルウェアは横断的な関心ごと（多くのルートに共通する処理）を集約できます。結果として:
 
-ポイント:
-- ロケールルーティング: `src/i18n/routing.ts`
-- `x-request-id`: 既存を再利用、なければ UUID 生成
-- 慎重な `matcher`: `api`、`_next`、アセット、`admin` を除外
+- ルールの一元化: authやロケールの抜け漏れが減る。
+- 観測性の統一: すべてのリクエストに `request_id` を付けられる。
+- 早い判断: エッジでリダイレクトや拒否を行い、サーバー負荷を減らす。
+- ハンドラがすっきり: ビジネスロジックに集中できる。
+
+SaaSで特に効くケース:
+
+- `/:locale/...` を維持したい多言語アプリ。
+- リクエスト単位の相関IDが必要なログ/トレース。
+- 有料機能や管理エリアのゲート（Cookieは慎重に扱う）。
+- A/B、地域ルーティング、ヘッダー正規化。
+
+---
+
+## 現在のミドルウェアの役割
+
+`src/middleware.ts` に、`next-intl` のi18nルーティングと軽量なrequest ID付与を組み合わせた安全なデフォルトを用意しています。
+
+主な挙動:
+
+- ロケールルーティング: `next-intl` に委譲し、`src/i18n/routing.ts` と `src/i18n/locale.ts` を参照します。`/en/...` や `/fr/...` を一貫させ、必要なら自動検出も可能。
+- Request ID: すべてのレスポンスに `x-request-id` を付与。すでにあれば再利用し、なければUUIDを生成。
+- 保守的な matcher: ローカライズされたページと一般ルートのみ対象。`api`、`_next`、アセット、`admin` は除外。
+
+現在のコード（要点のみ）:
 
 ```ts
-// src/middleware.ts（抜粋）
+// src/middleware.ts
 import createMiddleware from 'next-intl/middleware';
 import { NextRequest } from 'next/server';
 import { routing } from '@/i18n/routing';
@@ -64,17 +79,54 @@ const intlMiddleware = createMiddleware(routing);
 export default function middleware(request: NextRequest) {
   const existing = request.headers.get('x-request-id');
   const requestId = existing || crypto.randomUUID();
+
   const res = intlMiddleware(request);
+  // 可視化のみ。リクエストのcookie/headersは変更しない。
   res.headers.set('x-request-id', requestId);
   return res;
 }
+
+export const config = {
+  matcher: [
+    '/',
+    '/(en|en-US|zh|zh-CN|zh-TW|zh-HK|zh-MO|ja|ko|ru|fr|de|ar|es|it)/:path*',
+    '/((?!api|_next|_vercel|admin|.*\\..*).*)',
+  ],
+};
 ```
+
+ロケール設定:
+
+```ts
+// src/i18n/routing.ts
+import { defaultLocale, localeDetection, localePrefix, locales } from './locale';
+import { defineRouting } from 'next-intl/routing';
+
+export const routing = defineRouting({ locales, defaultLocale, localePrefix, localeDetection });
+```
+
+ロケール定義（追加/削除する場所）:
+
+```ts
+// src/i18n/locale.ts
+export const locales = ['en', 'zh', 'es', 'fr', 'ja'];
+export const defaultLocale = 'en';
+export const localePrefix = 'always';
+export const localeDetection = process.env.NEXT_PUBLIC_LOCALE_DETECTION === 'true';
+```
+
+注意点:
+
+- Better Auth を安定させるため、ミドルウェアでリクエストのCookieやヘッダーは変更しません。レスポンスヘッダーのみ付与します。
+- matcher は `api`、`_next`、アセット、`admin` を除外しています。必要なら調整してください。
 
 ---
 
-## 安全にカスタマイズする
+## 安全にカスタマイズする方法
 
-ヘッダー追加:
+まず、その処理がミドルウェア向きか（横断的で早期判断が必要か）を確認しましょう。適切なら次のパターンが使えます。
+
+カスタムヘッダーの追加
 ```ts
 export default function middleware(request: NextRequest) {
   const res = intlMiddleware(request);
@@ -83,32 +135,72 @@ export default function middleware(request: NextRequest) {
 }
 ```
 
-リダイレクト:
+リダイレクト/リライト
 ```ts
 import { NextResponse } from 'next/server';
+
 export default function middleware(request: NextRequest) {
-  if (request.nextUrl.pathname === '/old') {
+  const { pathname } = request.nextUrl;
+  if (pathname === '/old') {
     return NextResponse.redirect(new URL('/new', request.url));
   }
   return intlMiddleware(request);
 }
 ```
 
-`matcher` を調整し、サーバーログで `x-request-id` を活用してください。ミドルウェアで認証クッキーの書き換えは避けましょう。
+`matcher` で対象を調整
+```ts
+export const config = {
+  matcher: [
+    '/',
+    // admin を対象に戻すには negative lookahead から外すか
+    // 明示的にマッチさせる:
+    '/admin/:path*',
+    '/(en|fr|ja|zh|es)/:path*',
+    '/((?!api|_next|_vercel|.*\\..*).*)',
+  ],
+};
+```
+
+request ID をハンドラで使う
+```ts
+// Node のルートハンドラで
+import { headers } from 'next/headers';
+
+export async function GET() {
+  const h = headers();
+  const request_id = h.get('x-request-id');
+  // ログやDBトレースに付与
+  return new Response('ok');
+}
+```
+
+国際化の調整
+
+- `NEXT_PUBLIC_LOCALE_DETECTION` を `true` にして自動検出を有効化。
+- `src/i18n/locale.ts` でロケールの追加/削除。
+- 新しいロケール追加時は `content/docs`、`messages/`、`src/i18n` を同期。
+
+認証などのセンシティブな処理
+
+- ミドルウェアでの認証ゲートはCookieの変更を避け、リダイレクトや読み取りのみで行う。
+- 保護APIはハンドラ側でも必ず検証する（ミドルウェアは補助でしかない）。
 
 ---
 
-## ミドルウェアを使わないほうがよい場合
+## ミドルウェアを使わない方が良い場面
 
-- ルート固有のロジック
-- 重い非同期処理（DB など）
-- リクエストボディの読み取り/変換
+- ルート固有のロジックで、横断的ではない。
+- 重い非同期処理（DBアクセスなど）。
+- 大きなリクエストボディの変換（ミドルウェアでは読めない）。
+
+ミドルウェアは小さく、速く、集中させるのが基本です。複雑化したら、サービス関数に移してハンドラから呼び出しましょう。
 
 ---
 
-## まとめ (TL;DR)
+## TL;DR
 
-- i18n、ヘッダー、リダイレクト、軽いガードに最適
-- 既定は i18n + `x-request-id`
-- ヘッダー/リダイレクト/`matcher` で拡張、クッキー操作は避ける
-
+- ミドルウェアは早く・中央で動くので、i18n、ヘッダー、リダイレクト、軽いガードに最適。
+- デフォルトのミドルウェアはロケールルーティングと `x-request-id` を提供。
+- `config.matcher`、レスポンスヘッダー、安全なリダイレクトでカスタマイズ。認証Cookieは触らない。
+- 小さく、速く、ロケール間で一貫させる。

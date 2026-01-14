@@ -1,78 +1,92 @@
 ---
-title: "什么是 Next.js？初学者指南"
+title: "什么是 Next.js？新手指南"
 icon: "Info"
-description: "为什么 Next.js 适合做 SaaS：在一个仓库内同时拥有路由、SSR/SSG 与 API 路由——一份面向新手的完整指南。"
+description: "为什么 Next.js 适合 SaaS：routing、SSR/SSG、API routes 同仓实现 — 一份完整且易读的入门指南。"
 keywords:
   - Next.js
   - React
   - SSR
   - SSG
-  - API 路由
+  - API routes
   - SaaS 初学者
-tags: [nextjs, 入门, saas]
+tags: [nextjs, beginners, saas]
 author: "Pansa Legrand"
 publishedAt: "2025-10-07T00:00:00.000Z"
 updatedAt: "2025-10-07T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/zh/blogs/what-is-nextjs"
 ---
 
-## 什么是 Next.js？初学者指南
+## 什么是 Next.js（通俗版）
 
-Next.js 是建立在 React 与 Node.js 之上的框架，旨在让现代 Web 应用的开发更简单（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">概览</a>）。一句话概括：Next.js 把前端与后端整合在同一个项目中，为构建功能完善的 SaaS（软件即服务）平台提供“一体化”方案。它开箱即用地提供文件式路由、服务端渲染（SSR）、静态站点生成（SSG）与 API 路由等特性，因此你可以把注意力放在产品功能本身，而不是样板化的工程配置（<a href="https://www.reddit.com/r/nextjs/comments/v01uy1/why_should_i_use_next_other_than_ssr/" target="_blank" rel="noopener noreferrer">开发者为何选择 Next.js</a>）。这组能力的组合正是 Next.js 适合 SaaS 的原因：你能在同一代码库中同时获得快速加载、良好 SEO 与后端接口。
-
----
-
-## 开箱即用的能力
-
-Next.js 的一大优势，是无需配置即可获得很多关键能力，常见包括：
-
-文件式路由：无需单独配置路由器或使用 React Router——Next.js 会基于文件与文件夹自动生成路由（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">文件式路由</a>）。例如，`pages/about.js` 会对应到 `/about` 页面。这种约定使页面组织直观，也省去了手写路由映射。
-
-服务端渲染（SSR）：Next.js 可以在每次请求时在服务端渲染页面，将完整 HTML 发送给客户端（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">SSR 基础</a>）。这带来更快的首屏、也更利于 SEO，搜索引擎可以更轻松地索引内容。随后 React 在浏览器端“水合”页面，提供交互能力。
-
-静态站点生成（SSG）：对于不需要每次请求都动态渲染的页面，Next.js 可以在构建时预生成静态文件（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">SSG</a>）。这类页面加载极快（同样友好于 SEO），因为它们无需实时渲染即可由 CDN/服务器直接返回。适用于营销页、文档或更新不那么频繁的内容。
-
-内置 API 路由：只需在 `api` 目录中添加文件，就可以创建后端端点（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">API 路由</a>）。这些路由作为 Next.js 应用的一部分运行在 Node.js 服务器（或无服务器函数）上。你可以处理表单提交、数据库查询、认证等，而无需额外搭建 Express 之类的独立服务——API 与前端同仓共存（后文会展开）。
-
-自动代码分割与优化：Next.js 会按页面拆分 JavaScript 包并优化资源（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">优化</a>）。每个页面只加载所需的 JS/CSS，而不是一个巨型包，从而提升加载速度与性能。Next.js 还内置了诸如压缩、Tree‑shaking 与图片优化等生产优化，无需你手动配置 Webpack 或 Babel。
-
-零配置的开发体验：除了上述“大能力”，Next.js 原生支持 TypeScript，内置 CSS/Sass 支持，并能与常见库（状态、样式、数据获取等）无缝协作（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">DX 总览</a>）。目标是让你几乎无需准备工作就能直接着手产品功能开发。
-
-简而言之，Next.js 提供了一个“全栈 React 框架”。路由、打包与渲染等重活都有现成方案，你“只需编写 React 组件”（<a href="https://www.reddit.com/r/nextjs/comments/v01uy1/why_should_i_use_next_other_than_ssr/" target="_blank" rel="noopener noreferrer">讨论</a>）。对于 SaaS 开发者，这是巨大的生产力提升：你能更快迭代产品，同时把性能与 SEO 等基础能力交给框架托底。
+Next.js 是构建在 React 和 Node.js 之上的框架，用来更高效地开发现代 Web 应用（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">overview</a>）。它在一个仓库里提供前端页面、后端接口以及 SSR/SSG 等渲染能力，所以很适合 SaaS：性能好、SEO 友好、API 同仓（<a href="https://www.reddit.com/r/nextjs/comments/v01uy1/why_should_i_use_next_other_than_ssr/" target="_blank" rel="noopener noreferrer">why developers use Next.js</a>）。
 
 ---
 
-## 路由模型与布局（Layouts）
+## Next.js 开箱即用的能力
 
-Next.js 使用文件式路由，将你的目录结构映射到 URL。`pages`（或新的 `app`）目录中的文件/文件夹会自动变为路由。例如，`pages/user/settings/notifications.js` 会生成 `/user/settings/notifications`。内置路由器省去了手动配置，让 URL 与项目结构自然一致。
+### 基于文件的路由
 
-在 Next.js 中定义路由的过程，就是“创建文件”。按目录组织页面，Next.js 会把它们转换为可导航的 URL。这也覆盖了动态路由——例如在 `pages/posts/` 下创建 `[id].js` 文件，就能访问类似 `/posts/123` 的文章详情路由。底层上，Next.js 会为这些路由处理链接与代码分割，因此页面间跳转流畅、无需整页刷新。
+- 路由由文件结构自动生成（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">file-based routing</a>）。
+- 例：`pages/about.js` 变成 `/about`。
 
-Next.js 还引入了“布局（Layout）”的概念来管理重复的页面区块。在传统 React 应用中，你可能会用布局组件（头部、底部、侧边栏）包裹页面。Next.js 13 的 App Router 进一步简化了这一点：可以在目录层级定义嵌套布局。例如，你可以创建 `app/dashboard/layout.js` 来定义仪表盘的侧边栏与头部——`/dashboard/*` 下的所有页面都会自动使用该布局。这样你就能在一个地方维护公共导航（比如所有仪表盘页面共享的侧边栏），无需在每个页面手动包裹（<a href="https://blog.logrocket.com/guide-next-js-layouts-nested-layouts/" target="_blank" rel="noopener noreferrer">嵌套布局</a>）。对于 SaaS，这有助于把公共 UI 聚拢在一起：公共营销页用一个布局，登录后应用界面用另一个布局。
+### Server-Side Rendering (SSR)
 
-朴素地说，Next.js 的路由与布局让多页面应用变得“无痛”。你能得到干净的 URL 结构（利于可用性与 SEO），也能容易地维护公共页面元素。无需折腾外部路由库或担心布局组件的挂载/卸载——Next.js 以“约定优于配置”的方式替你处理好了。
+- 每次请求都可在服务器渲染（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">SSR basics</a>）。
+- 首屏更快、SEO 更好，React 在客户端完成 hydration。
+
+### Static Site Generation (SSG)
+
+- 构建时生成静态页面（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">SSG</a>）。
+- 适合营销页和更新不频繁的内容。
+
+### 内置 API Routes
+
+- 后端接口与前端同仓（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">API routes</a>）。
+- 许多项目起步阶段无需单独服务器。
+
+### 自动代码分割与优化
+
+- 每个页面只加载所需 JS/CSS（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">optimizations</a>）。
+- 内置压缩、tree‑shaking 与图片优化。
+
+### 零配置的开发体验
+
+- TypeScript、CSS、Sass 原生支持。
+- 你可以专注于功能而不是配置（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">DX overview</a>）。
 
 ---
 
-## 服务端组件 vs 客户端组件（通俗解释）
+## Next.js 的路由与布局
 
-如果你在使用 Next.js（尤其是 13+）时看到“服务端组件（Server Component）”与“客户端组件（Client Component）”，它们与渲染模型有关。用简单的话来说明：
+Next.js 自动把文件夹/文件映射成 URL。`pages/user/settings/notifications.js` 对应 `/user/settings/notifications`。动态路由同理：`pages/posts/[id].js` 对应 `/posts/123`。
 
-服务端组件是在服务器上运行的 React 组件（在浏览器接收到内容之前），它们会在服务器将内容渲染为 HTML 并下发到浏览器。重要的是，这类组件的 React JS 代码并不会发送到浏览器（<a href="https://dev.to/oskarinmix/server-components-vs-client-components-in-nextjs-differences-pros-and-cons-389f" target="_blank" rel="noopener noreferrer">服务端 vs 客户端组件</a>）。因此它们非常快，适合展示数据（可直接在服务器取数）或不需要交互的内容。可以把它想象为“在服务器上预制好的一段 UI”，用户直接看到现成的 HTML。同时也更安全，因为敏感数据留在服务器。局限是：服务端组件自身无法处理用户交互（没有 onClick 等事件，也无法在浏览器中动态更新），因为它们不携带客户端 JS。
-
-客户端组件是传统意义上在浏览器中运行的 React 组件，凡是需要交互的部分都离不开它们——比如会弹出对话框的按钮、用户输入的表单、或是页面加载后会动态更新的 UI。这类组件会把必要的 JavaScript 发送到浏览器以驱动交互（<a href="https://dev.to/oskarinmix/server-components-vs-client-components-in-nextjs-differences-pros-and-cons-389f" target="_blank" rel="noopener noreferrer">客户端组件</a>）。这意味着它们能带来丰富的交互（点击、输入、动画等），但也会增加包体积，首屏速度较纯 HTML 略慢。在 Next.js 中，只需在文件顶部加入 `"use client"` 指令，就把该组件声明为“客户端组件”。
-
-在实践中，一个 Next.js 页面可以同时包含两类组件：例如，页面的非交互框架用服务端组件渲染（以获得更快加载与更好 SEO），而其中的特定交互小部件使用客户端组件。这样的“混合”能兼顾两者：既有服务端渲染的性能与 SEO 优势，又具备浏览器端 React 的动态交互。以 SaaS 的仪表盘为例：你可以用服务端组件渲染大部分数据与布局（用户能立即、安全地看到内容），再用客户端组件承载可缩放的图表或可提交的表单。
-
-给新手的要点：服务端组件 = 在服务器渲染（客户端不加载 JS，适合静态内容与速度），客户端组件 = 在浏览器渲染（需要交互）。Next.js 默认尽可能使用服务端组件（以优化性能），在确有需要时再“选择性地”标注客户端组件。你不必立刻钻研全部细节，但理解为何有时需要写上 `"use client"` 很有帮助——这是在确保浏览器只加载“真正需要”的部分。这种分工正是 Next.js 在 SaaS 中平衡速度与丰富度的“超能力”之一。
+它也支持可复用布局。App Router 允许在目录层定义布局，比如 `app/dashboard/layout.js`，则 `/dashboard/*` 下的页面都会使用该布局（<a href="https://blog.logrocket.com/guide-next-js-layouts-nested-layouts/" target="_blank" rel="noopener noreferrer">nested layouts</a>）。这对 SaaS 的营销页 + 登录后面板非常友好。
 
 ---
 
-## 内置 API 路由：同仓库的后端
+## Server Components 与 Client Components（简单理解）
 
-对 SaaS 开发而言，Next.js 的一个亮点是 API 路由。以往你可能需要单独创建一个后端（例如 Node/Express 或 Nest.js）来处理数据拉取、表单处理、认证等。有了 Next.js，很多场景可以省去额外的搭建工作——你可以在前端页面旁边直接定义后端端点。
+Next.js（尤其 13+）区分组件在哪运行：
 
-在 Next.js 工程里，放在 `pages/api/`（Pages Router）或 `app/api/`（App Router）下的任意文件都会成为 HTTP 端点。比如，你可以新建 `pages/api/hello.js`：
+### Server Components
+
+- 在服务器渲染，直接发送 HTML。
+- 不会把 JS 发送到客户端（<a href="https://dev.to/oskarinmix/server-components-vs-client-components-in-nextjs-differences-pros-and-cons-389f" target="_blank" rel="noopener noreferrer">server vs client components</a>）。
+- 适合快速渲染和敏感数据展示。
+
+### Client Components
+
+- 在浏览器运行，负责交互。
+- 需要在文件顶部写 `"use client"`（<a href="https://dev.to/oskarinmix/server-components-vs-client-components-in-nextjs-differences-pros-and-cons-389f" target="_blank" rel="noopener noreferrer">client components</a>）。
+- 用于点击、表单、图表、动画等。
+
+实际开发中通常混用：主结构用 Server Components，交互部分用 Client Components，兼顾速度与体验。
+
+---
+
+## 内置 API Routes：后端同仓
+
+Next.js 允许把 API 放在 UI 旁边。`pages/api/`（Pages Router）或 `app/api/`（App Router）下的文件会变成 HTTP 端点。示例：
 
 ```js
 // pages/api/hello.js
@@ -81,54 +95,45 @@ export default function handler(req, res) {
 }
 ```
 
-当应用运行时，请求 `/api/hello` 就会在服务器执行该处理函数，并返回 `{ "greeting": "Hello from Next API" }` 的 JSON。这非常强大——意味着 React 前端与 API 可以共存于同一代码库。你可以为“获取用户信息、保存表单、系统健康检查”等场景创建端点，而无需部署独立服务器。部署到 Vercel 等平台时，这些 API 路由会自动变为无服务器函数。
+访问 `/api/hello` 会在服务器执行并返回 JSON。部署在 Vercel 时，它会变成 serverless 函数。`pages/api` 里的代码不会被发送到浏览器（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">API routes are server-only</a>），所以可以安全存放密钥并连接数据库。
 
-在许多场景中，Next.js 的 API 路由让你在没有“独立后端”的情况下也能构建 SaaS。比如在早期阶段，你可以用 Next.js 页面承载 UI，用 API 路由满足数据需求（对数据库或第三方服务发起请求）。它们可以与前端共享代码、配置与类型定义，让开发更快、更一致。并且 API 路由运行在服务端，你可以安全地保管密钥（API Key、数据库凭据），避免暴露到客户端。
+快速验证：运行 `pnpm dev`，创建 `api/health`，打开 `http://localhost:3000/api/health`。看到 `{ "status": "ok" }` 就证明前后端同仓运行。
 
-需要强调的是，API 路由不会增加客户端包体积——`pages/api` 下的代码不会被发送到浏览器（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">仅服务器端</a>），它只在服务器执行。因此你能拥有“后端能力”，又不拖累前端。
-
-举个具体例子：如果你在做一款 SaaS，想快速提供健康检查端点（用于监控或验证后端工作正常），可以创建 `api/health.js` 返回 `{ status: "ok" }`。本地运行后访问 `http://localhost:3000/api/health`，即可看到 JSON 响应。试试看：在你的 Next.js 项目里运行 `pnpm dev`，然后打开 `/api/health`，亲眼见证一个 API 路由在工作。🎉 这能快速证明：要拥有 API，并不一定需要独立服务器！
-
-当然，随着规模或需求变化，你可能会在某些场景下引入专门的后端服务：比如重型数据处理、专项微服务，或“多个前端共同消费同一 API”的场景。这时你可以在 Next.js 之外再加入一个独立后端（如 Express API 或云函数）。好消息是，Next.js 足够灵活——一些能力用 API 路由实现，另一些可以请求外部服务，并不冲突。
+这也是许多团队用 Next.js 起步的原因：UI 和 API 同步、无需 CORS、可共享类型。需要时再引入独立后端也没问题。
 
 ---
 
-## 常见疑问：是否“杀鸡用牛刀”？是否必须独立后端？
+## Tradeoffs：何时不一定需要 Next.js
 
-Next.js 对于非常简单的项目会不会过度？如果你做的是极其简单的网站——例如单页落地页或非常基础的静态站点——Next.js 可能显得“框架太大”。这类项目可能根本不需要 SSR 或 API 路由。此时，用更轻的方案（如 Vite + React，甚至纯静态 HTML）也许就够了。Next.js 确实带来一定学习曲线与构建流程，这是纯静态站点所没有的。但 Next.js 的设计目标之一就是“随你一起成长”。即便对单页站点略显“豪华”，也不会造成伤害——而当项目日后成长为复杂应用，你会庆幸一开始就拥有 Next.js 的能力。正如一份分析所言：Next.js “对极简项目可能有些过度”，但随着项目规模扩大，它的收益会远超最初的开销（<a href="https://dev.to/hamzakhan/why-nextjs-is-an-all-time-game-changer-for-web-development-a-technical-perspective-1bgf" target="_blank" rel="noopener noreferrer">是否过度？</a>）。换句话说，用 Next.js 小步起步并不违和，随着需求增加，它会持续“顶得住”。
+Next.js 很强，但并非必需：
 
-做 SaaS 是否必须有独立后端？不一定——很多团队并没有从第一天就启用独立后端。借助 Next.js 的 API 路由，很多 SaaS 在起步阶段完全可以省掉单独的服务。你的 Next.js 应用既承载前端 UI，又能通过 API 路由提供 JSON 数据或处理表单。例如 <a href="https://www.sushi-templates.com/en" target="_blank" rel="noopener noreferrer">sushi-templates.com</a> 团队就用 Next.js 打通了整条链路（面向用户的页面与后端逻辑都在一个代码库中）。这种“单应用”方式能简化开发与部署：只需部署一次，前后端天然同步。社区实践也表明，若你偏好独立后端完全没问题——Next.js 当然也能调用外部 API——但除非你的场景一开始就需要，更常见做法是从 API 路由起步（<a href="https://stackoverflow.com/questions/78349307/ssr-and-api-layer-in-nextjs" target="_blank" rel="noopener noreferrer">是否需要独立后端？</a>）。把一切放在一个仓库里，还能避免 CORS、跨项目模型同步与多服务部署的复杂度。
+- 极简网站：单页静态站点用 HTML 或 Vite 更轻量。对超小项目来说可能“过度”（<a href="https://dev.to/hamzakhan/why-nextjs-is-an-all-time-game-changer-for-web-development-a-technical-perspective-1bgf" target="_blank" rel="noopener noreferrer">is it overkill?</a>）。
+- 已有后端：如果只需要纯客户端 UI，且不重视 SSR/SEO，轻量 React 足够。不过喜欢 Next.js 规约也完全可以用。
+- 专门的后端：重计算、微服务或多前端共享 API 时，可以保留独立后端，把 Next.js 作为 UI（<a href="https://stackoverflow.com/questions/78349307/ssr-and-api-layer-in-nextjs" target="_blank" rel="noopener noreferrer">separate backend?</a>）。
 
-当然，也有该用独立后端的时候：例如重度数据处理、专业化微服务，或你已经有多个前端要复用同一 API。此时可以在 Next.js 之外再引入独立后端（Express、云函数等）。二者并不冲突，Next.js 能同时调用内部 API 与外部服务。
-
-总之，Next.js 以“全局视角”覆盖了大多数 Web 应用需求，尤其适合 SaaS。它可能对“纯静态单页”略显“大材小用”，但并非坏选择——更重要的是，它让你为未来的成长做好准备。也完全可以在没有独立后端的情况下用 Next.js 构建 SaaS——许多团队与独立开发者都在这么做（<a href="https://stackoverflow.com/questions/78349307/ssr-and-api-layer-in-nextjs" target="_blank" rel="noopener noreferrer">后端选项</a>）。把前后端放在同一项目中，大幅提升了开发效率（<a href="https://dev.to/hamzakhan/why-nextjs-is-an-all-time-game-changer-for-web-development-a-technical-perspective-1bgf" target="_blank" rel="noopener noreferrer">为何是“游戏规则改变者”</a>）。
-
----
-
-## 结语与下一步
-
-Next.js 提供了“对新手友好、对复杂度也不怵”的 Web 构建方式。它把路由、渲染优化与后端能力打包在一起，显著简化了开发流程。对正要构建 SaaS 的你来说，这意味着更少的搬砖与更快的上线。常见需求无需重复造轮子——Next.js 给你一套稳健的地基。
-
-如果你准备动手尝试，第一步可以先跑起开发服务器并体验一项特性。例如，在已有的 Next.js 项目里（你可以用 `npx create-next-app@latest` 或团队模板初始化），运行 `pnpm dev`。然后在浏览器打开 `http://localhost:3000/api/health`（前提是你按上文创建了 `api/health` 路由），你应该能看到一段 JSON 响应。这一步简单的验证，说明你的 Next.js 应用可以同时提供前端与后端逻辑——很酷对吧？
-
-接下来，你可以继续创建页面、补充更多 API 路由来充实你的 SaaS。用文件式路由创建新页面；用服务端组件获得快速加载与 SEO；在需要交互的地方点缀客户端组件。剩下的繁琐工作，交给 Next.js 在幕后处理。
-
-祝编码愉快，欢迎来到 Next.js 的世界——在这里，你的 React 能力走得更远，而构建“全栈”SaaS 不再让人头疼！
+尽管如此，很多 SaaS 从 Next.js 起步并持续扩展。例如 <a href="https://www.sushi-templates.com/en" target="_blank" rel="noopener noreferrer">sushi-templates.com</a> 就使用 Next.js 覆盖前后端。框架让你先用一个仓库起步，再按需集成外部服务（<a href="https://dev.to/hamzakhan/why-nextjs-is-an-all-time-game-changer-for-web-development-a-technical-perspective-1bgf" target="_blank" rel="noopener noreferrer">why it’s a game-changer</a>）。
 
 ---
 
-## 参考资料
+## 结论与下一步
 
-- Contentful Blog – Next.js vs React：介绍 Next.js 是什么以及核心特性。
-  https://www.contentful.com/blog/next-js-vs-react/
-- Dev.to – Next.js 概览：讨论 Next.js 的优势，以及对简单项目是否“过度”。
-  https://dev.to/hamzakhan/why-nextjs-is-an-all-time-game-changer-for-web-development-a-technical-perspective-1bgf
-- Reddit r/nextjs 讨论：总结 Next.js 的开箱能力（路由、代码分割、API 等）。
-  https://www.reddit.com/r/nextjs/comments/v01uy1/why_should_i_use_next_other_than_ssr/
-- Stack Overflow – Next 与独立后端：何时无需独立后端、如何选择的建议。
-  https://stackoverflow.com/questions/78349307/ssr-and-api-layer-in-nextjs
-- LogRocket Blog – Next.js 布局：演示 Next.js 的嵌套布局（如仪表盘的共享侧边栏）。
-  https://blog.logrocket.com/guide-next-js-layouts-nested-layouts/
-- Dev.to – 服务端 vs 客户端组件：解释 React 服务端组件与客户端组件在 Next.js 中的区别。
-  https://dev.to/oskarinmix/server-components-vs-client-components-in-nextjs-differences-pros-and-cons-389f
+Next.js 兼顾易用与强大，把路由、渲染和后端 API 集成在一个代码库里，让你更专注于产品。
 
+想上手的话：
+
+1. 使用 `npx create-next-app@latest` 或模板创建项目。
+2. 运行 `pnpm dev`。
+3. 添加 `api/health`，打开 `http://localhost:3000/api/health`。
+
+之后你可以用文件路由建页面，用 Server Components 做快速数据渲染，用 Client Components 做交互。剩下的交给 Next.js。
+
+---
+
+## 参考链接
+
+- Contentful Blog – Next.js vs React: https://www.contentful.com/blog/next-js-vs-react/
+- Dev.to – Next.js overview and tradeoffs: https://dev.to/hamzakhan/why-nextjs-is-an-all-time-game-changer-for-web-development-a-technical-perspective-1bgf
+- Reddit r/nextjs discussion (features): https://www.reddit.com/r/nextjs/comments/v01uy1/why_should_i_use_next_other_than_ssr/
+- Stack Overflow – Next vs separate backend: https://stackoverflow.com/questions/78349307/ssr-and-api-layer-in-nextjs
+- LogRocket – Next.js layouts: https://blog.logrocket.com/guide-next-js-layouts-nested-layouts/
+- Dev.to – Server vs client components: https://dev.to/oskarinmix/server-components-vs-client-components-in-nextjs-differences-pros-and-cons-389f

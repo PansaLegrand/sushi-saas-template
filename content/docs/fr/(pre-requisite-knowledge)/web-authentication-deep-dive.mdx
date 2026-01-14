@@ -19,7 +19,13 @@ updatedAt: "2025-11-22T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/fr/blogs/web-authentication-deep-dive"
 ---
 
-## 0. Vue d’ensemble : que se passe-t-il vraiment ?
+## Aperçu
+
+Ce guide explique l’authentification web de bout en bout : inscription, login et maintien de session. Il compare JWT et sessions, “remember me” vs refresh, et montre comment OAuth (Google) s’insère dans le même flux.
+
+---
+
+## 0. Vue d’ensemble : que se passe‑t‑il vraiment ?
 
 Tout système d’auth web remplit trois missions :
 
@@ -419,3 +425,13 @@ Déconnexion :               Déconnexion :
 ```
 
 Les deux résolvent le même besoin : « Laisse-moi me connecter une fois et rester connecté, mais en sécurité. »
+
+---
+
+## Points clés
+
+- L’auth résout toujours trois tâches : inscription, login, maintien de session.
+- JWT et sessions résolvent le même problème avec des mécaniques différentes.
+- Access token / session ID sont courts ; refresh / remember les renouvellent.
+- OAuth ne remplace que la vérification du mot de passe ; vous émettez votre session/JWT.
+- JWT pour clients distribués ; sessions pour révocation simple et sites classiques.

@@ -1,7 +1,7 @@
 ---
-title: Guía de presupuesto SaaS — Costes, hosting y lo importante
+title: Guía de presupuesto SaaS — costes, hosting y lo que importa
 icon: "Wallet"
-description: "Guía práctica sobre los costes reales de iniciar un SaaS: hosting, base de datos, pagos, email y en qué se gasta realmente. Empieza gratis, valida pronto y paga solo cuando creces."
+description: "Guía práctica sobre los costes reales de iniciar un SaaS: hosting, base de datos, pagos, email y en qué se va el dinero. Empieza gratis, valida rápido y paga solo al crecer."
 keywords:
   - presupuesto SaaS
   - coste iniciar SaaS
@@ -10,88 +10,88 @@ keywords:
   - Neon
   - Vercel
   - Resend
-tags: [presupuesto, costes, hosting]
+tags: [budget, costs, hosting]
 author: "Pansa Legrand"
 publishedAt: "2025-10-02T00:00:00.000Z"
 updatedAt: "2025-10-02T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/es/blogs/budget"
 ---
 
-## Resumen
+## TL;DR
 
-Puedes lanzar un SaaS funcional por unos pocos dólares al mes — y a menudo $0 al principio usando planes gratuitos. Gasta dinero solo cuando tengas uso o ingresos.
+Puedes lanzar un SaaS funcional por pocos dólares al mes — y a menudo $0 al inicio usando planes gratuitos. Gasta solo cuando tengas uso o ingresos.
 
 ---
 
-## ¿Cuánto cuesta iniciar un SaaS?
+## ¿Cuánto cuesta empezar un SaaS?
 
-Para un MVP, tus costes pueden ser casi cero:
+Para un MVP, el coste en efectivo puede ser casi cero:
 
-- Dominio: normalmente $10–$20/año (opcional para las primeras pruebas).
-- Repo/CI: GitHub + CI básico son gratis para la mayoría de casos.
-- App y BD: Vercel y Neon ofrecen planes gratuitos generosos.
-- Pagos: Stripe no cobra mensualidad; pagas por transacción exitosa.
+- Dominio: normalmente $10–$20/año (opcional en las primeras pruebas).
+- Repo/CI: GitHub + CI básico son gratis para la mayoría.
+- App y DB: Vercel y Neon tienen planes gratuitos generosos.
+- Pagos: Stripe no cobra cuota mensual; pagas por transacción.
 - Email: Resend tiene plan gratuito; ideal para onboarding y notificaciones.
 
-Primer mes típico: $0–$10 si mantienes todo simple.
+Primer mes típico: $0–$10 si mantienes todo ligero.
 
 ---
 
 ## ¿Cuánto cuesta el hosting?
 
-- [Vercel](https://vercel.com/pricing): El plan Hobby gratuito cubre bien un SaaS pequeño (serverless + edge). Solo pagarás al necesitar límites más altos, funciones avanzadas o mucho tráfico.
-- Alternativas: Puedes usar un servidor propio/contenerizado, pero suele costar más y aumenta la complejidad operativa.
+- [Vercel](https://vercel.com/pricing): El plan Hobby gratuito cubre un SaaS pequeño (serverless + edge). Solo pagas al necesitar más límites, funciones avanzadas o tráfico alto.
+- Alternativas: Puedes usar tu propia VM o contenedores, pero suele costar más al inicio y aumenta la complejidad operativa.
 
-Conclusión: Empieza gratis y actualiza cuando alcances límites.
+Conclusión: empieza gratis y sube de plan al tocar límites.
 
 ---
 
 ## ¿Y la base de datos?
 
-- [Neon](https://neon.tech/pricing): El plan gratuito de Postgres alcanza para desarrollo y usuarios iniciales. Actualiza cuando necesites más almacenamiento, cómputo o funciones.
-- Dev local: También puedes desarrollar en local y provisionar BD gestionada para stage/prod más adelante.
+- [Neon](https://neon.tech/pricing): El plan gratuito de Postgres basta para desarrollo y primeros usuarios. Escala cuando necesites más almacenamiento o cómputo.
+- Local dev: Puedes trabajar localmente y provisionar DB gestionada solo para staging/prod.
 
 ---
 
 ## ¿Cuánto cuesta Stripe?
 
-La tarifa de Stripe depende del país y es por transacción. Normalmente no hay cuota mensual — pagas cuando cobras. En modo test, la integración y las pruebas end‑to‑end son gratis. Consulta la [tarifa de Stripe](https://stripe.com/pricing) y, si lo necesitas, [contacta con soporte de Stripe](https://support.stripe.com/) para las tarifas exactas de tu país.
+Stripe cobra por transacción y varía por región. Normalmente no hay cuota mensual — pagas cuando cobras. En modo test es gratis para integrar y probar. Consulta [Stripe pricing](https://stripe.com/pricing) y, si hace falta, [contacta con soporte](https://support.stripe.com/) para tarifas exactas en tu país.
 
-Si tienes dudas, consulta a Stripe para las tarifas exactas en tu país.
+Si tienes dudas, contacta con Stripe para conocer los costes de tu región.
 
 ---
 
 ## ¿Cuánto cuesta el email?
 
-- [Resend](https://resend.com/pricing): Plan gratuito disponible. Perfecto para registros, verificaciones y notificaciones simples.
-- Al escalar: Quizá necesites un plan de pago para mayor volumen o mejor entregabilidad.
+- [Resend](https://resend.com/pricing): Plan gratuito disponible. Ideal para registros, verificaciones y notificaciones simples.
+- A escala: Puedes necesitar un plan de pago para mayor volumen, IP dedicada o control de entregabilidad.
 
 ---
 
-## Principales partidas de gasto reales
+## Dónde se va el dinero de verdad
 
-- Dominio + DNS: dominio, SSL, servicios DNS.
-- Email + buzones: email transaccional (Resend) y quizá un buzón de soporte.
-- Almacenamiento + media: subidas de usuarios, imágenes, copias de seguridad.
-- Monitorización + logs: errores, rendimiento, observabilidad.
-- Jobs de fondo + colas: tareas programadas y procesos largos.
-- Analítica + herramientas: analítica de producto, A/B testing, feature flags.
-- Legal + cumplimiento: términos/privacidad, fiscalidad, PCI/DSA/GDPR.
+- Dominio + DNS: dominio propio, SSL, servicios DNS.
+- Email + buzones: email transaccional (Resend) y quizá buzón de soporte.
+- Almacenamiento + media: subidas de usuarios, imágenes y backups.
+- Monitorización + logs: errores, métricas de performance, observabilidad.
+- Jobs en segundo plano + colas: tareas programadas, procesos largos.
+- Analítica + tooling: analítica de producto, A/B testing, feature flags.
+- Legal + compliance: términos/privacidad, contabilidad, impuestos, PCI/DSA/GDPR.
 - Diseño + contenido: iconos, plantillas, copy, marketing.
 - Tu tiempo: el mayor coste al inicio.
 
-Muchas de estas partidas pueden esperar hasta tener tracción.
+Muchos de estos costes pueden esperar hasta tener tracción.
 
 ---
 
 ## Presupuesto simple por fase
 
-- Pre‑PMF (MVP): $0–$10/mes (planes gratuitos + dominio).
-- Lanzamiento inicial: $20–$100/mes (cuando superas límites gratis).
-- Crecimiento: $100–$500+/mes (según volumen y herramientas).
+- Pre‑PMF MVP: $0–$10/mes (planes gratis + dominio).
+- Lanzamiento temprano: $20–$100/mes (cuando superas límites gratuitos).
+- Crecimiento: $100–$500+/mes (depende de volumen y necesidades).
 
 ---
 
 ## Ánimo para principiantes
 
-Empieza ya. Usa planes gratuitos (Vercel, Neon, Resend) e integra Stripe en modo test. Lanza una versión mínima, habla con usuarios y paga solo cuando realmente necesites más capacidad. Unos pocos dólares bastan para un SaaS básico — lo esencial es validar la idea cuanto antes.
+Empieza ya. Usa planes gratis (Vercel, Neon, Resend) e integra Stripe en modo test. Lanza algo pequeño, habla con usuarios y paga solo cuando necesites más capacidad. Con pocos dólares puedes operar un SaaS básico — la mejor inversión es validar la idea cuanto antes.

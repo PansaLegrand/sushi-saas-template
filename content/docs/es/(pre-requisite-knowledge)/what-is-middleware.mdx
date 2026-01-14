@@ -1,14 +1,14 @@
 ---
-title: "¿Qué es un middleware? Guía para principiantes"
+title: "¿Qué es el middleware? Guía para principiantes"
 icon: "Workflow"
-description: "Entiende qué es el middleware, por qué ayuda en SaaS y cómo nuestro middleware de Next.js maneja i18n e IDs de solicitud — además de cómo personalizarlo."
+description: "Entiende el middleware desde primeros principios, por qué los SaaS lo usan y cómo funciona nuestro middleware en Next.js con i18n y request IDs — además de cómo personalizarlo."
 keywords:
   - middleware
   - Next.js middleware
   - edge runtime
   - i18n
   - request id
-  - SaaS
+  - arquitectura SaaS
 tags: [middleware, nextjs, edge, i18n]
 author: "Pansa Legrand"
 publishedAt: "2025-10-13T00:00:00.000Z"
@@ -16,45 +16,60 @@ updatedAt: "2025-10-13T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/es/blogs/what-is-middleware"
 ---
 
-## Middleware 101 (Vista principiante)
+## Middleware en una frase
 
-El middleware corre “en medio” de la solicitud y tu handler final. Es un punto de control para leer en‑cabezados, decidir redirecciones y ajustar la respuesta antes de que se ejecute la ruta/página.
-
-Usos comunes:
-- Autenticación básica (redirigir si no hay sesión)
-- i18n (forzar `/:locale/...` o detección de idioma)
-- Logging/tracing (agregar `x-request-id`)
-- Flags/experimentos
-- Seguridad y rate limiting
-
-En Next.js, `middleware.ts` corre muy temprano en el Edge, antes de los handlers.
+El middleware es código que se ejecuta entre una solicitud entrante y tu handler final, para inspeccionar, redirigir o añadir headers antes de que corra la página o API.
 
 ---
 
-## Por qué ayuda
+## Middleware 101 (perspectiva de principiante)
 
-Centraliza preocupaciones transversales y evita duplicar lógica.
+Imagina una solicitud como un auto en la carretera. El middleware es el punto de control: todas las solicitudes pasan por ahí. En ese punto puedes leer la solicitud, tomar decisiones y opcionalmente cambiar la respuesta (o incluso detenerla antes).
 
-- Un solo lugar para reglas globales
-- Observabilidad consistente (`request_id` en todos lados)
-- Decisiones tempranas (menos carga de servidor)
-- Handlers más limpios (enfoque en negocio)
+Usos comunes en apps web:
 
-Típico en SaaS: app localizada, correlación de logs, áreas admin, experimentación y normalización de headers.
+- Puertas de autenticación: comprobar si el usuario está logueado, si no, redirigir.
+- Internacionalización (i18n): enviar al usuario al locale correcto según URL o preferencias.
+- Logging y trazas: adjuntar un `request_id` para correlacionar logs de punta a punta.
+- Feature flags / A/B testing: asignar usuarios a experimentos temprano.
+- Seguridad y rate limiting: bloquear tráfico abusivo o reforzar headers.
+
+En Next.js, el middleware vive en un archivo especial `middleware.ts` y corre en el edge (muy temprano y muy rápido) para las rutas que coinciden. Puede reescribir/redirigir solicitudes, leer o setear headers y cortar la respuesta antes de que se ejecuten los handlers.
 
 ---
 
-## Nuestro middleware (qué hace)
+## Por qué ayuda (y cuándo lo necesitas)
 
-Combinamos `next-intl` para i18n con un ID de solicitud ligero.
+El middleware centraliza preocupaciones transversales (lógica que aplica a muchas rutas), así no repites lo mismo en cada página o API:
 
-Claves:
-- Enrutamiento de locales con `src/i18n/routing.ts`
-- `x-request-id`: reutiliza existente o genera UUID
-- `matcher` conservador: excluye `api`, `_next`, assets y `admin`
+- Un solo lugar para reglas: menos chances de olvidar auth o locale.
+- Observabilidad consistente: todas las requests tienen el mismo `request_id` y headers.
+- Decisiones rápidas: redirige o niega temprano, ahorrando trabajo al servidor.
+- Handlers más limpios: la lógica de negocio queda en páginas/APIs, no en el plumbing.
+
+Escenarios SaaS donde brilla:
+
+- Apps localizadas que deben mantener URLs `/:locale/...` consistentes.
+- Apps que dependen de IDs de correlación por request para logs y trazas.
+- Gatekeeping de funciones de pago o zonas admin (con manejo cuidadoso de cookies).
+- Experimentación (A/B), geo routing y normalización de headers.
+
+---
+
+## Nuestro middleware: qué hace hoy
+
+Incluimos un default mínimo y seguro en `src/middleware.ts` que combina el routing i18n de `next-intl` con propagación ligera de request IDs.
+
+Comportamientos clave:
+
+- Routing de locales: delega a `next-intl` usando nuestra configuración (`src/i18n/routing.ts`, `src/i18n/locale.ts`). Mantiene URLs como `/en/...`, `/fr/...` consistentes y permite detección opcional de locale.
+- Header de request ID: asegura que toda respuesta lleve `x-request-id` para correlación de logs. Si la request ya trae uno, lo reutilizamos; si no, generamos un UUID.
+- Matcher conservador: corre en páginas localizadas y rutas generales; salta assets, internals de Next, rutas API y `admin`.
+
+Código actual (recortado para claridad):
 
 ```ts
-// src/middleware.ts (extracto)
+// src/middleware.ts
 import createMiddleware from 'next-intl/middleware';
 import { NextRequest } from 'next/server';
 import { routing } from '@/i18n/routing';
@@ -64,17 +79,54 @@ const intlMiddleware = createMiddleware(routing);
 export default function middleware(request: NextRequest) {
   const existing = request.headers.get('x-request-id');
   const requestId = existing || crypto.randomUUID();
+
   const res = intlMiddleware(request);
+  // Solo visibilidad; no mutar cookies/headers de la request.
   res.headers.set('x-request-id', requestId);
   return res;
 }
+
+export const config = {
+  matcher: [
+    '/',
+    '/(en|en-US|zh|zh-CN|zh-TW|zh-HK|zh-MO|ja|ko|ru|fr|de|ar|es|it)/:path*',
+    '/((?!api|_next|_vercel|admin|.*\\..*).*)',
+  ],
+};
 ```
+
+Configuración de locales aquí:
+
+```ts
+// src/i18n/routing.ts
+import { defaultLocale, localeDetection, localePrefix, locales } from './locale';
+import { defineRouting } from 'next-intl/routing';
+
+export const routing = defineRouting({ locales, defaultLocale, localePrefix, localeDetection });
+```
+
+Locales declarados aquí (edita para añadir/quitar):
+
+```ts
+// src/i18n/locale.ts
+export const locales = ['en', 'zh', 'es', 'fr', 'ja'];
+export const defaultLocale = 'en';
+export const localePrefix = 'always';
+export const localeDetection = process.env.NEXT_PUBLIC_LOCALE_DETECTION === 'true';
+```
+
+Notas:
+
+- Evitamos cambiar headers/cookies de la request en middleware para mantener Better Auth estable. Solo seteamos un header de respuesta.
+- El matcher excluye `api`, `_next`, assets y `admin` por defecto. Ajusta si necesitas middleware allí.
 
 ---
 
-## Personalizar (con seguridad)
+## Cómo personalizar (con seguridad)
 
-Agregar headers:
+Antes de personalizar, valida que la lógica realmente pertenece al middleware (transversal, decisión temprana) y no a una ruta específica. Cuando sí aplica, usa patrones como estos:
+
+Añadir headers personalizados
 ```ts
 export default function middleware(request: NextRequest) {
   const res = intlMiddleware(request);
@@ -83,32 +135,72 @@ export default function middleware(request: NextRequest) {
 }
 ```
 
-Redirigir:
+Redirigir o reescribir rutas
 ```ts
 import { NextResponse } from 'next/server';
+
 export default function middleware(request: NextRequest) {
-  if (request.nextUrl.pathname === '/old') {
+  const { pathname } = request.nextUrl;
+  if (pathname === '/old') {
     return NextResponse.redirect(new URL('/new', request.url));
   }
   return intlMiddleware(request);
 }
 ```
 
-Ajusta el `matcher` y usa `x-request-id` en tus logs. Evita mutar cookies de auth en middleware.
+Incluir/excluir rutas con `matcher`
+```ts
+export const config = {
+  matcher: [
+    '/',
+    // Volver a incluir admin quitándolo del negative lookahead
+    // o haciendo match explícito:
+    '/admin/:path*',
+    '/(en|fr|ja|zh|es)/:path*',
+    '/((?!api|_next|_vercel|.*\\..*).*)',
+  ],
+};
+```
+
+Usar request IDs dentro de handlers
+```ts
+// En un handler de Node
+import { headers } from 'next/headers';
+
+export async function GET() {
+  const h = headers();
+  const request_id = h.get('x-request-id');
+  // adjunta a logs, trazas de DB, etc.
+  return new Response('ok');
+}
+```
+
+Ajustes de internacionalización
+
+- Cambia `NEXT_PUBLIC_LOCALE_DETECTION` a `true` para activar auto detección.
+- Actualiza `src/i18n/locale.ts` para añadir/quitar locales y nombres.
+- Mantén `content/docs`, `messages/` y `src/i18n` sincronizados al agregar un locale.
+
+Auth y flujos sensibles
+
+- Si agregas gatekeeping de auth en middleware, evita mutar cookies; prefiere redirecciones y checks de solo lectura.
+- Verifica que las rutas API protegidas también se validen en el handler — middleware es una comodidad, no tu único guardia.
 
 ---
 
 ## Cuándo NO usar middleware
 
-- Lógica específica de una ruta
-- Trabajo asíncrono pesado (BD)
-- Lectura/transformación de body
+- Lógica específica de una ruta que no aplica de forma amplia.
+- Trabajo async pesado (llamadas a DB) que debe ir en el handler.
+- Transformar cuerpos grandes de requests (middleware no puede leer el body).
+
+Mantén el middleware rápido y enfocado. Si crece demasiado, mueve la lógica especializada a servicios y llámala desde los handlers.
 
 ---
 
 ## TL;DR
 
-- Ideal para i18n, headers, redirecciones y guardias ligeras
-- Por defecto: i18n + `x-request-id`
-- Personaliza con headers, redirecciones y `matcher` — no toques cookies
-
+- Middleware corre temprano y de forma central — ideal para i18n, headers, redirects y guardas ligeras.
+- Nuestro middleware por defecto maneja locale routing y setea `x-request-id` para trazabilidad.
+- Personaliza con `config.matcher`, headers de respuesta y redirects seguros; evita tocar cookies de auth.
+- Manténlo pequeño, rápido y consistente entre locales.

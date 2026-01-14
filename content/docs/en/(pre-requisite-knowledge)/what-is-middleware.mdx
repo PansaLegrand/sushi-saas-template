@@ -16,35 +16,41 @@ updatedAt: "2025-10-13T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/en/blogs/what-is-middleware"
 ---
 
+## Middleware in one sentence
+
+Middleware is code that runs between an incoming request and your final handler, so you can inspect, redirect, or add headers before the page or API runs.
+
+---
+
 ## Middleware 101 (Beginner Perspective)
 
-Middleware is code that runs “in the middle” of a request and your application’s final handler. Think of it like a checkpoint on the road: every incoming request passes through middleware where you can inspect it, make decisions, and optionally modify the request/response before the page or API route executes.
+Picture a request as a car on a road. Middleware is the checkpoint: every request passes through it. At that checkpoint you can read the request, make a decision, and optionally change the response (or even stop the request early).
 
-In web apps, common uses include:
+Common web app uses:
 
 - Authentication gates: check if a user is signed in, otherwise redirect.
 - Internationalization (i18n): route users to the right locale based on URL or preferences.
-- Logging and tracing: attach a `request_id` so logs can be correlated end‑to‑end.
+- Logging and tracing: attach a `request_id` so logs can be correlated end-to-end.
 - Feature flags / A/B testing: bucket users into experiments early.
 - Security and rate limiting: block abusive traffic or enforce headers.
 
-In Next.js, middleware is a special `middleware.ts` file that runs at the edge (very early and very fast) for matched paths. It can rewrite/redirect requests, read or set headers, and short‑circuit responses — all before your route handlers run.
+In Next.js, middleware lives in a special `middleware.ts` file and runs at the edge (very early and very fast) for matched paths. It can rewrite/redirect requests, read or set headers, and short-circuit responses before your route handlers execute.
 
 ---
 
 ## Why Middleware Helps (And When You Need It)
 
-Middleware centralizes “cross‑cutting concerns” — logic that applies broadly across pages and APIs — so you don’t repeat it in every handler. This makes your codebase simpler and safer:
+Middleware centralizes cross-cutting concerns (logic that should apply to many routes) so you do not repeat it in every page or API handler:
 
 - One place to enforce rules: fewer chances to forget an auth or locale check.
 - Consistent observability: every request gets the same `request_id` and headers.
-- Faster decisions: run at the edge to redirect or deny early, saving server work.
-- Cleaner handlers: page/API code focuses on business logic, not plumbing.
+- Faster decisions: redirect or deny early, saving server work.
+- Cleaner handlers: business logic stays in pages and APIs, not in plumbing.
 
-Scenarios where middleware shines for SaaS:
+SaaS scenarios where middleware is especially useful:
 
 - Localized apps that must keep `/:locale/...` URLs consistent.
-- Apps that rely on per‑request correlation IDs for logs and tracing.
+- Apps that rely on per-request correlation IDs for logs and tracing.
 - Gatekeeping for paid features or admin areas (with careful cookie handling).
 - Experimentation (A/B), geo routing, and header normalization.
 
@@ -118,7 +124,7 @@ Notes:
 
 ## How To Customize (Safely)
 
-Before you customize, decide whether the logic truly belongs in middleware (cross‑cutting, early decision) or in a specific route. When you’re confident it belongs in middleware, follow these patterns:
+Before you customize, confirm the logic truly belongs in middleware (cross-cutting, early decision) instead of a specific route. When it does belong in middleware, use patterns like these:
 
 Add custom headers
 ```ts
@@ -170,23 +176,25 @@ export async function GET() {
 ```
 
 Internationalization tweaks
+
 - Change `NEXT_PUBLIC_LOCALE_DETECTION` to `true` to enable auto detection.
 - Update `src/i18n/locale.ts` to add/remove locales and names.
 - Keep `content/docs`, `messages/`, and `src/i18n` in sync when adding a new locale.
 
 Auth and sensitive flows
-- If you add auth gating in middleware, avoid mutating cookies directly; prefer redirects and read‑only checks.
+
+- If you add auth gating in middleware, avoid mutating cookies directly; prefer redirects and read-only checks.
 - Verify that protected API routes are gated at the handler level too — middleware is a convenience, not your only guard.
 
 ---
 
 ## When Not To Use Middleware
 
-- Route‑specific logic that doesn’t apply broadly.
+- Route-specific logic that does not apply broadly.
 - Heavy async work (DB calls) that belongs in the handler.
-- Transforming large request bodies (middleware can’t read the body anyway).
+- Transforming large request bodies (middleware cannot read the body anyway).
 
-Keep middleware fast and focused. If you find it growing complex, move specialized logic into service functions and call them from handlers instead.
+Keep middleware fast and focused. If it grows complex, move specialized logic into service functions and call them from handlers instead.
 
 ---
 
@@ -196,4 +204,3 @@ Keep middleware fast and focused. If you find it growing complex, move specializ
 - Our default middleware handles locale routing and sets `x-request-id` for tracing.
 - Customize via `config.matcher`, response headers, and safe redirects; avoid touching auth cookies.
 - Keep it small, fast, and consistent across locales.
-

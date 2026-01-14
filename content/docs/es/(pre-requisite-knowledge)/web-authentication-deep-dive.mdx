@@ -19,6 +19,12 @@ updatedAt: "2025-11-22T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/es/blogs/web-authentication-deep-dive"
 ---
 
+## Resumen
+
+Esta guía explica cómo funciona la autenticación web de extremo a extremo: registro, login y mantenerse autenticado. Compara JWT con sesiones, “remember me” vs refresh, y muestra cómo OAuth (Google) encaja en el mismo flujo.
+
+---
+
 ## 0. Panorama general: ¿qué está pasando realmente?
 
 Cada sistema de autenticación web resuelve tres trabajos:
@@ -419,3 +425,13 @@ Logout:                       Logout:
 ```
 
 Ambos resuelven la misma necesidad: “Déjame iniciar una vez y mantenerme logueado, pero manténme seguro.”
+
+---
+
+## Ideas clave
+
+- La autenticación siempre cubre: registro, login y sesión persistente.
+- JWT y sesiones resuelven lo mismo con mecánicas distintas.
+- Access token / session ID son cortos; refresh / remember los renuevan.
+- OAuth solo reemplaza la verificación de contraseña; tú emites tu sesión/JWT.
+- Elige JWT para clientes distribuidos; sesiones para revocación simple y apps clásicas.

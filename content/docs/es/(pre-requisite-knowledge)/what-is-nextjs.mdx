@@ -1,78 +1,92 @@
 ---
 title: "¿Qué es Next.js? Guía para principiantes"
 icon: "Info"
-description: "Por qué Next.js encaja con SaaS: enrutamiento, SSR/SSG y rutas API en un solo repositorio — guía completa y amigable para principiantes."
+description: "Por qué Next.js encaja con SaaS: routing, SSR/SSG y API routes en un solo repo — guía completa y fácil de seguir."
 keywords:
   - Next.js
   - React
   - SSR
   - SSG
-  - rutas API
-  - principiantes SaaS
-tags: [nextjs, principiantes, saas]
+  - API routes
+  - SaaS principiantes
+tags: [nextjs, beginners, saas]
 author: "Pansa Legrand"
 publishedAt: "2025-10-07T00:00:00.000Z"
 updatedAt: "2025-10-07T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/es/blogs/what-is-nextjs"
 ---
 
-## ¿Qué es Next.js? Guía para principiantes
+## ¿Qué es Next.js? (en palabras simples)
 
-Next.js es un framework construido sobre React y Node.js que facilita el desarrollo de aplicaciones web modernas (<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">visión general</a>). En pocas palabras, Next.js ofrece una solución todo‑en‑uno para crear plataformas SaaS (Software as a Service) ricas combinando frontend y backend en un solo proyecto. Incluye características como enrutamiento integrado, renderizado del lado del servidor (SSR), generación estática (SSG) y rutas API listas para usar, para que puedas centrarte en la funcionalidad de tu app en lugar de la configuración base (<a href="https://www.reddit.com/r/nextjs/comments/v01uy1/why_should_i_use_next_other_than_ssr/" target="_blank" rel="noopener noreferrer">por qué los devs usan Next.js</a>). Esta combinación es exactamente la razón por la que Next.js se ha vuelto popular para apps SaaS: cargas rápidas, páginas amigables para SEO y endpoints de backend en un mismo código.
-
----
-
-## Lo que Next.js ofrece de fábrica
-
-Una de las mayores ventajas de Next.js es cuánto entrega sin configuración. Algunas funciones clave que vienen por defecto:
-
-Enrutamiento basado en archivos: No necesitas configurar un router aparte ni usar React Router: Next.js crea rutas automáticamente según tus archivos y carpetas (<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">file‑based routing</a>). Por ejemplo, un archivo `pages/about.js` se convierte en la página `/about`. Esta convención hace intuitiva la organización y elimina definir rutas manualmente.
-
-Renderizado del lado del servidor (SSR): Next.js puede renderizar páginas en el servidor para cada petición, enviando HTML completo al cliente (<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">conceptos SSR</a>). Esto implica cargas iniciales más rápidas y mejor SEO, ya que los buscadores indexan tu contenido con facilidad. Después, React “hidrata” la página en el cliente para la interactividad.
-
-Generación estática (SSG): Para páginas que no necesitan ser dinámicas en cada visita, Next.js puede preconstruirlas como archivos estáticos en build time (<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">SSG</a>). Estas páginas cargan extremadamente rápido (y también ayudan al SEO) porque se sirven desde un CDN/servidor sin renderizar en vivo en cada acceso. SSG es ideal para marketing, documentación o contenido que cambia poco.
-
-Rutas API integradas: Next.js te permite crear endpoints de backend simplemente añadiendo archivos en un directorio `api` (<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">API routes</a>). Esos endpoints corren en Node.js (o funciones serverless) como parte de tu app. Puedes manejar envíos de formularios, consultas a base de datos, autenticación, etc., sin levantar un Express aparte: la API vive en el mismo proyecto que tu frontend. (Más abajo lo exploramos.)
-
-División automática de código y optimizaciones: Next.js divide automáticamente tu bundle por página y optimiza assets (<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">optimizaciones</a>). Cada página carga solo el JS y CSS que necesita, en lugar de un bundle gigante. Resultado: cargas más rápidas y mejor rendimiento. Además, trae minificación, tree‑shaking e imagen optimizada listos. No tienes que configurar Webpack ni Babel: ya viene resuelto.
-
-Experiencia de desarrollo sin configuración: Más allá de lo grande, Next.js soporta TypeScript out‑of‑the‑box, CSS y Sass integrados, e integra librerías populares (estado, estilos, data fetching, etc.) de forma fluida (<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">DX</a>). La idea es que puedas empezar a programar funcionalidades con mínima preparación.
-
-En resumen, Next.js te da un framework React full‑stack. El trabajo pesado de enrutado, empaquetado y renderizado está resuelto, así que “solo tienes que escribir tus componentes de React” (<a href="https://www.reddit.com/r/nextjs/comments/v01uy1/why_should_i_use_next_other_than_ssr/" target="_blank" rel="noopener noreferrer">debate</a>). Gran victoria para devs de SaaS: construyes más rápido sabiendo que los fundamentos (carga veloz y SEO) ya están cubiertos.
+Next.js es un framework basado en React y Node.js que facilita crear aplicaciones web modernas (<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">overview</a>). Te da un stack full‑stack en un solo repo: páginas frontend, endpoints backend y opciones de renderizado como SSR y SSG listas para usar. Por eso es popular para SaaS: buen rendimiento, SEO amigable y APIs en el mismo código (<a href="https://www.reddit.com/r/nextjs/comments/v01uy1/why_should_i_use_next_other_than_ssr/" target="_blank" rel="noopener noreferrer">why developers use Next.js</a>).
 
 ---
 
-## Modelo de enrutamiento y layouts en Next.js
+## Lo que Next.js trae de serie
 
-Next.js usa un sistema de enrutamiento basado en archivos que mapea tu estructura de carpetas a rutas. Cada archivo o carpeta en el directorio `pages` (o el nuevo `app`) se convierte automáticamente en una ruta. Por ejemplo, `pages/user/settings/notifications.js` genera la URL `/user/settings/notifications`. Este router integrado elimina configurar rutas a mano y mantiene la estructura de URLs alineada con tu proyecto.
+### Routing basado en archivos
 
-Definir rutas en Next.js es tan simple como crear archivos. Organizas páginas por directorios y Next.js las convierte en URLs navegables. Esto cubre rutas dinámicas también — por ejemplo, un archivo `[id].js` en `pages/posts/` se convierte en `/posts/123` para una entrada con ID 123. Bajo el capó, Next.js maneja el linking y el code‑splitting, así que moverte entre páginas es ágil y sin recargar el sitio completo.
+- Las rutas se generan desde tu estructura de archivos (<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">file-based routing</a>).
+- Ejemplo: `pages/about.js` se convierte en `/about`.
 
-Next.js introduce además el concepto de layouts para secciones repetidas. En React tradicional, envolverías páginas con componentes de layout (cabecera, pie, sidebar). El nuevo App Router de Next.js 13 lo hace aún más fácil permitiendo layouts anidados a nivel de carpeta. Por ejemplo, `app/dashboard/layout.js` define la barra lateral y cabecera del dashboard — todas las páginas bajo `/dashboard/*` usarán ese layout automáticamente. Así mantienes una navegación consistente sin envolver cada página manualmente (<a href="https://blog.logrocket.com/guide-next-js-layouts-nested-layouts/" target="_blank" rel="noopener noreferrer">layouts anidados</a>). Suele usarse un layout para páginas públicas de marketing y otro para la interfaz del usuario autenticado.
+### Server-Side Rendering (SSR)
 
-En palabras simples, el enrutado y los layouts de Next.js te permiten crear apps multipágina sin dolor. Obtienes URLs limpias (buenas para UX y SEO) y puedes mantener elementos comunes fácilmente, sin librerías externas ni boilerplate — Next.js lo resuelve con convenciones.
+- Las páginas pueden renderizarse en el servidor por request (<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">SSR basics</a>).
+- Mejora el primer render y el SEO. React hidrata en el cliente.
+
+### Static Site Generation (SSG)
+
+- Las páginas se preconstruyen en build time (<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">SSG</a>).
+- Ideal para marketing y docs que cambian poco.
+
+### API Routes integradas
+
+- Endpoints backend en el mismo repo (<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">API routes</a>).
+- No necesitas un servidor aparte al empezar.
+
+### Code splitting y optimización automática
+
+- Cada página carga solo el JS/CSS que necesita (<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">optimizations</a>).
+- Minificación, tree‑shaking e imágenes optimizadas ya vienen incluidos.
+
+### DX sin configuración
+
+- Soporte nativo para TypeScript, CSS y Sass.
+- Puedes enfocarte en el producto, no en la configuración (<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">DX overview</a>).
 
 ---
 
-## Componentes de servidor vs componentes de cliente (en palabras sencillas)
+## Routing y layouts en Next.js
 
-Como principiante en Next.js (especialmente desde la versión 13), verás los términos Server Component y Client Component. Tienen que ver con dónde se renderiza el componente. En simple:
+Next.js mapea carpetas y archivos a URLs automáticamente. Un archivo como `pages/user/settings/notifications.js` se convierte en `/user/settings/notifications`. Las rutas dinámicas funcionan igual: `[id].js` en `pages/posts/` mapea a `/posts/123`.
 
-Los componentes de servidor son partes de tu app React que corren en el servidor (antes de que el navegador del usuario reciba nada). Renderizan su contenido a HTML en el servidor y lo envían al navegador. Importante: no se envía código JS de React de esos componentes al cliente (<a href="https://dev.to/oskarinmix/server-components-vs-client-components-in-nextjs-differences-pros-and-cons-389f" target="_blank" rel="noopener noreferrer">server vs client</a>). Son muy rápidos y geniales para mostrar datos (pueden hacer fetch directamente en el servidor) o contenido sin interactividad. Piénsalo como un fragmento de UI “pre‑hecho” en el servidor. También es más seguro, porque los datos sensibles permanecen en el servidor. Eso sí, por sí solos no manejan interacciones (no hay onClick, ni actualizaciones dinámicas en el navegador) porque no incluyen JS de cliente.
-
-Los componentes de cliente son los React “tradicionales” que corren en el navegador. Son necesarios para cualquier cosa interactiva: botones que abren modales, formularios, animaciones, etc. Incluyen JavaScript que se carga en el cliente (<a href="https://dev.to/oskarinmix/server-components-vs-client-components-in-nextjs-differences-pros-and-cons-389f" target="_blank" rel="noopener noreferrer">client components</a>). Permiten interactividad rica, aunque aumentan el bundle y pueden hacer la carga inicial algo más lenta. En Next.js, marcas un componente como de cliente añadiendo la directiva `"use client"` al principio del archivo.
-
-En la práctica, una página en Next.js mezcla ambos tipos: la estructura no interactiva puede ser de servidor (para velocidad y SEO) y widgets concretos, de cliente. Este enfoque híbrido te da lo mejor de ambos: rendimiento y posicionamiento, junto con dinamismo en el navegador. Por ejemplo, en un dashboard de SaaS, puedes renderizar la mayor parte del layout y datos con componentes de servidor, y usar un componente de cliente para un gráfico con zoom o un formulario interactivo.
-
-Idea clave: Server Components = render en servidor (sin JS en cliente, buenos para contenido estático y velocidad). Client Components = render en navegador (necesarios para interactividad). Next.js usa por defecto componentes de servidor y haces opt‑in a cliente cuando hace falta. No necesitas dominar todos los detalles desde el inicio; basta con saber por qué Next.js te pide marcar algunos con `"use client"`: para incluir en el navegador solo lo imprescindible.
+También soporta layouts reutilizables. Con App Router puedes definir layouts anidados por carpeta (por ejemplo `app/dashboard/layout.js`), y todas las páginas bajo `/dashboard/*` lo heredan (<a href="https://blog.logrocket.com/guide-next-js-layouts-nested-layouts/" target="_blank" rel="noopener noreferrer">nested layouts</a>). Es perfecto para SaaS con sitio público y dashboard con UI distinta.
 
 ---
 
-## Rutas API integradas: tu backend en el mismo repo
+## Server Components vs Client Components (simple)
 
-Una característica destacada de Next.js para SaaS son las rutas API. Normalmente, para construir un backend crearías un servidor aparte (p. ej., Express o Nest.js) para datos, formularios, auth, etc. Con Next.js, a menudo puedes saltarte ese paso: define endpoints junto a tus páginas.
+Next.js (sobre todo 13+) distingue dónde corre un componente:
 
-En un proyecto Next.js, cualquier archivo bajo `pages/api/` (Pages Router) o `app/api/` (App Router) se convierte en un endpoint HTTP. Por ejemplo, crea `pages/api/hello.js` con:
+### Server Components
+
+- Renderizan en el servidor y envían HTML al navegador.
+- No se envía JS al cliente (<a href="https://dev.to/oskarinmix/server-components-vs-client-components-in-nextjs-differences-pros-and-cons-389f" target="_blank" rel="noopener noreferrer">server vs client components</a>).
+- Ideales para render rápido y datos sensibles.
+
+### Client Components
+
+- Corren en el navegador y permiten interactividad.
+- Requieren la directiva `"use client"` al inicio del archivo (<a href="https://dev.to/oskarinmix/server-components-vs-client-components-in-nextjs-differences-pros-and-cons-389f" target="_blank" rel="noopener noreferrer">client components</a>).
+- Necesarios para clicks, formularios, gráficos, animaciones, etc.
+
+En la práctica, las páginas mezclan ambos: server components para estructura/datos, client components para widgets interactivos. Así obtienes velocidad y buena UX.
+
+---
+
+## API Routes integradas: backend en el mismo repo
+
+Next.js permite crear endpoints junto al UI. Cualquier archivo en `pages/api/` (Pages Router) o `app/api/` (App Router) se convierte en un endpoint HTTP. Ejemplo:
 
 ```js
 // pages/api/hello.js
@@ -81,56 +95,45 @@ export default function handler(req, res) {
 }
 ```
 
-Con la app en marcha, una petición a `/api/hello` ejecuta ese handler en el servidor y devuelve `{ "greeting": "Hello from Next API" }` como JSON. Es potentísimo: tu frontend React y tu API viven en el mismo repo. Puedes crear endpoints para obtener usuario, guardar formularios o chequear salud, sin desplegar un servidor aparte. En plataformas como Vercel, estas rutas API se ejecutan como funciones serverless.
+Al pedir `/api/hello`, el código se ejecuta en el servidor y devuelve JSON. En Vercel, estas rutas se convierten en funciones serverless. El código en `pages/api` no se envía al navegador (<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">API routes are server-only</a>), así que puedes guardar secretos y conectar a tu DB con seguridad.
 
-Las rutas API permiten levantar un SaaS sin backend separado en muchos casos. En fases iniciales, puedes tener páginas Next.js para la UI y rutas API para datos (hablando con una base de datos o servicios externos). Comparten código, config y tipos, acelerando el desarrollo. Y como corren en el servidor, puedes mantener secretos (API keys, credenciales) fuera del cliente.
+Ejercicio rápido: ejecuta `pnpm dev` y visita `http://localhost:3000/api/health` (después de crear `api/health`). Si ves `{ "status": "ok" }`, tu frontend y backend están en la misma app.
 
-Ten en cuenta que las rutas API no inflan tu bundle del cliente: el código en `pages/api` nunca se envía al navegador (<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">server‑only</a>). Solo corre en el servidor. Así obtienes backend sin cargar el frontend.
-
-Un ejemplo concreto: imagina que quieres un endpoint de health check para tu SaaS. Crea `api/health.js` que devuelva `{ status: "ok" }`. Al ejecutar tu app y visitar `http://localhost:3000/api/health`, verás ese JSON. De hecho, pruébalo: ejecuta `pnpm dev` y abre `/api/health` para ver una ruta API en acción. 🎉 Una forma rápida de confirmar que tu backend funciona sin necesitar un servidor aparte.
-
-Por supuesto, a medida que crezca tu SaaS, integrarás bases de datos externas o lógica más compleja. Las rutas API pueden llamar a esas BDs o a APIs de terceros. Y si algún día superas lo integrado, siempre puedes montar un servicio dedicado. Para muchos equipos, las rutas API cubren un amplio abanico en apps pequeñas y medianas.
+Por eso muchos equipos empiezan con un solo repo Next.js: UI y API sincronizados, sin CORS, y tipos compartidos. Si más adelante necesitas un backend dedicado, puedes añadirlo y seguir usando Next.js para el frontend. No es todo o nada.
 
 ---
 
-## Trade‑offs: cuándo puede que no necesites Next.js
+## Tradeoffs: cuándo podrías no necesitar Next.js
 
-Con tantas funciones, quizá te preguntes: ¿es Next.js siempre la elección correcta? Es una gran herramienta, pero conviene conocer los trade‑offs y escenarios donde puede ser excesivo.
+Next.js es potente, pero no obligatorio:
 
-¿Es demasiado para proyectos simples? Si construyes un sitio extremadamente sencillo —una landing única o una web estática básica— Next.js puede sentirse más framework del que necesitas. Puede que no requieras SSR ni rutas API. En esos casos, un setup más simple (React + Vite, o HTML estático) puede bastar. Next.js añade curva de aprendizaje y pasos de build que un sitio puramente estático no necesita. Dicho esto, Next.js está pensado para escalar contigo. Aunque pueda parecer “overkill” para una sola página, no te perjudica usarlo —y si el sitio crece, agradecerás tener sus capacidades listas (<a href="https://dev.to/hamzakhan/why-nextjs-is-an-all-time-game-changer-for-web-development-a-technical-perspective-1bgf" target="_blank" rel="noopener noreferrer">¿overkill?</a>).
+- Sitios muy simples: una landing estática puede ser más sencilla con HTML o Vite. Next.js puede sentirse excesivo en proyectos mínimos, aunque escala bien (<a href="https://dev.to/hamzakhan/why-nextjs-is-an-all-time-game-changer-for-web-development-a-technical-perspective-1bgf" target="_blank" rel="noopener noreferrer">is it overkill?</a>).
+- Backend ya existente: si solo necesitas UI cliente y no te importa SSR/SEO, un React más ligero puede bastar. Aun así, Next.js sigue siendo válido si quieres convenciones.
+- Backends especializados: para procesamiento pesado, microservicios o varios frontends compartiendo API, podrías usar un backend separado y Next.js como UI (<a href="https://stackoverflow.com/questions/78349307/ssr-and-api-layer-in-nextjs" target="_blank" rel="noopener noreferrer">separate backend?</a>).
 
-¿Puedo construir un SaaS sin backend separado? Sí, y muchos lo hacen. Las rutas API integradas permiten que, en muchos SaaS, no necesites un servidor aparte al inicio. Tu app Next.js puede servir la UI y también JSON/formularios vía rutas API. Por ejemplo, el equipo de <a href="https://www.sushi-templates.com/en" target="_blank" rel="noopener noreferrer">sushi-templates.com</a> usa Next.js para todo (páginas de usuario y lógica backend en el mismo codebase). Es un enfoque que simplifica desarrollo y despliegue: despliegas una app y todo (UI + API) va sincronizado. Según respuestas en la comunidad, no hay nada malo en usar un backend separado si lo prefieres —puedes llamar APIs externas desde Next.js—, pero suele ser más fácil empezar con rutas API salvo que tu caso requiera lo contrario (<a href="https://stackoverflow.com/questions/78349307/ssr-and-api-layer-in-nextjs" target="_blank" rel="noopener noreferrer">¿backend separado?</a>).
-
-¿Cuándo quizá no necesites Next.js? Si tu app no necesita SSR para SEO ni te beneficias del enrutado por archivos y estás construyendo algo puramente del lado del cliente (una herramienta interna, un juego), podrías quedarte con React simple. Next.js aporta convenciones (que a veces son restricciones) y cierta sobrecarga (build, despliegue). Si ya tienes un backend completo y solo quieres un frontend 100% CSR, usar Next.js sigue siendo válido —pero algunos equipos optan por CRA o Vite + React si el SEO no importa y quieren total libertad. En esencia, Next.js brilla cuando quieres un framework full‑stack con opiniones; si tus necesidades son extremadamente simples o únicas, esas opiniones pueden estorbar.
-
-En resumen, Next.js es una elección potente para la mayoría de apps web y, desde luego, para SaaS por su enfoque holístico. Puede ser “overkill” para una one‑pager estática, pero rara vez es una mala elección —y te deja listo para crecer. Y sí, puedes construir un SaaS sin backend separado con Next.js; muchas empresas e indie makers lo hacen, aprovechando su puente entre front y back en un mismo proyecto (<a href="https://dev.to/hamzakhan/why-nextjs-is-an-all-time-game-changer-for-web-development-a-technical-perspective-1bgf" target="_blank" rel="noopener noreferrer">por qué es un game‑changer</a>).
+Aun así, muchos SaaS empiezan y crecen solo con Next.js. Por ejemplo, <a href="https://www.sushi-templates.com/en" target="_blank" rel="noopener noreferrer">sushi-templates.com</a> usa Next.js en todo el stack. El framework te da un flujo full‑stack y te deja integrar servicios externos solo cuando hace falta (<a href="https://dev.to/hamzakhan/why-nextjs-is-an-all-time-game-changer-for-web-development-a-technical-perspective-1bgf" target="_blank" rel="noopener noreferrer">why it’s a game-changer</a>).
 
 ---
 
-## Conclusión y próximos pasos
+## Conclusión y siguientes pasos
 
-Next.js ofrece una forma potente y amigable para construir aplicaciones web. Agiliza el desarrollo con enrutado, optimizaciones de render y capacidades de backend desde el primer minuto. Si estás construyendo un SaaS, eso significa llevar tu idea a producción más rápido y con menos piezas móviles.
+Next.js ofrece una forma potente y accesible de construir apps web. Simplifica el routing, el renderizado y los endpoints backend en un mismo código, para que te concentres en el producto.
 
-Si quieres probar Next.js, un buen primer paso es levantar el servidor de desarrollo y curiosear una de sus funciones. Si ya tienes un proyecto (puedes usar `npx create-next-app@latest` o una plantilla), arráncalo con `pnpm dev`. Abre `http://localhost:3000/api/health` (asumiendo que creaste la ruta `api/health` como se describió). Deberías ver una respuesta JSON. Esa acción confirma que tu app Next.js sirve frontend y backend juntos.
+Si quieres probarlo:
 
-A partir de aquí, crea páginas y añade rutas API para ampliar tu SaaS. Usa enrutado por archivos para nuevas páginas, componentes de servidor para carga veloz y de cliente para interactividad. Next.js hará el trabajo pesado.
+1. Crea un proyecto con `npx create-next-app@latest` o un template.
+2. Ejecuta `pnpm dev`.
+3. Agrega una ruta `api/health` y abre `http://localhost:3000/api/health`.
 
-¡Feliz programación, y bienvenido al mundo Next.js! Donde tus habilidades con React llegan más lejos y construir un SaaS full‑stack es un placer en lugar de un dolor de cabeza.
+Desde ahí, crea páginas con routing por archivos, usa server components para datos rápidos y client components para interactividad. Next.js se encarga del resto.
 
 ---
 
 ## Referencias
 
-- Contentful Blog – Next.js vs React: Explicación de qué es Next.js y sus características.
-  https://www.contentful.com/blog/next-js-vs-react/
-- Dev.to – Next.js Overview: Ventajas y si puede ser excesivo para proyectos simples.
-  https://dev.to/hamzakhan/why-nextjs-is-an-all-time-game-changer-for-web-development-a-technical-perspective-1bgf
-- Reddit r/nextjs – Debate: Resumen de funciones out‑of‑the‑box de Next.js (routing, code splitting, API, etc.).
-  https://www.reddit.com/r/nextjs/comments/v01uy1/why_should_i_use_next_other_than_ssr/
-- Stack Overflow – Next vs backend separado: Confirmación de que no necesitas backend aparte salvo que lo prefieras.
-  https://stackoverflow.com/questions/78349307/ssr-and-api-layer-in-nextjs
-- LogRocket Blog – Layouts en Next.js: Demostración de layouts anidados (p. ej., sidebar compartida del dashboard).
-  https://blog.logrocket.com/guide-next-js-layouts-nested-layouts/
-- Dev.to – Server vs Client Components: Definiciones sencillas de RSC vs Client Components en Next.js.
-  https://dev.to/oskarinmix/server-components-vs-client-components-in-nextjs-differences-pros-and-cons-389f
-
+- Contentful Blog – Next.js vs React: https://www.contentful.com/blog/next-js-vs-react/
+- Dev.to – Next.js overview and tradeoffs: https://dev.to/hamzakhan/why-nextjs-is-an-all-time-game-changer-for-web-development-a-technical-perspective-1bgf
+- Reddit r/nextjs discussion (features): https://www.reddit.com/r/nextjs/comments/v01uy1/why_should_i_use_next_other_than_ssr/
+- Stack Overflow – Next vs separate backend: https://stackoverflow.com/questions/78349307/ssr-and-api-layer-in-nextjs
+- LogRocket – Next.js layouts: https://blog.logrocket.com/guide-next-js-layouts-nested-layouts/
+- Dev.to – Server vs client components: https://dev.to/oskarinmix/server-components-vs-client-components-in-nextjs-differences-pros-and-cons-389f

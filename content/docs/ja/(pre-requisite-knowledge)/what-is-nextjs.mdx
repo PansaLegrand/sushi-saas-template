@@ -1,7 +1,7 @@
 ---
-title: "Next.js とは？ 初心者向けガイド"
+title: "Next.js とは？初心者向けガイド"
 icon: "Info"
-description: "Next.js が SaaS に適する理由: ルーティング、SSR/SSG、API ルートを 1 リポジトリで — 初心者にも読みやすいロングガイド。"
+description: "SaaSにNext.jsが向く理由（routing、SSR/SSG、API routes）を1つのリポジトリで理解できる初心者向けガイド。"
 keywords:
   - Next.js
   - React
@@ -9,70 +9,84 @@ keywords:
   - SSG
   - API routes
   - SaaS 初心者
-tags: [nextjs, 初心者, saas]
+tags: [nextjs, beginners, saas]
 author: "Pansa Legrand"
 publishedAt: "2025-10-07T00:00:00.000Z"
 updatedAt: "2025-10-07T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/ja/blogs/what-is-nextjs"
 ---
 
-## Next.js とは？ 初心者向けガイド
+## Next.js とは（やさしく説明）
 
-Next.js は React と Node.js の上に構築されたフレームワークで、モダンな Web アプリ開発を楽にしてくれます（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">概要</a>）。要するに、Next.js はフロントエンドとバックエンドを 1 つのプロジェクトに統合し、SaaS（Software‑as‑a‑Service）のようなリッチなアプリを作るためのオールインワンな解決策を提供します。ルーティング、サーバーサイドレンダリング（SSR）、静的サイト生成（SSG）、API ルートなどが最初から使え、ボイラープレートの設定に時間を取られずアプリ本体の開発に集中できます（<a href="https://www.reddit.com/r/nextjs/comments/v01uy1/why_should_i_use_next_other_than_ssr/" target="_blank" rel="noopener noreferrer">なぜ Next.js を使うか</a>）。これらが 1 つにまとまっているからこそ、Next.js は SaaS で人気です。高速なページ表示、SEO に強いページ、バックエンドのエンドポイントを同一コードベースで実現できます。
+Next.js は React と Node.js 上に構築されたフレームワークで、モダンなWebアプリを効率よく作れます（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">overview</a>）。フロントエンドのページ、バックエンドのエンドポイント、SSR/SSG などを1つのリポジトリで扱えるため、SaaSに向いています（<a href="https://www.reddit.com/r/nextjs/comments/v01uy1/why_should_i_use_next_other_than_ssr/" target="_blank" rel="noopener noreferrer">why developers use Next.js</a>）。
 
 ---
 
 ## Next.js が最初から提供するもの
 
-Next.js の大きな利点の 1 つは、ゼロ設定で得られる機能がとても多いことです。代表的なものを挙げます。
+### ファイルベースルーティング
 
-ファイルベースのルーティング: 別途ルーターの設定や React Router は不要です。Next.js はファイル／フォルダ構成から自動的にルートを生成します（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">ファイルベースルーティング</a>）。たとえば `pages/about.js` というファイルは、そのまま `/about` ページになります。ページの整理が直感的になり、手動のルート定義が要りません。
+- ファイル構成がそのままURLになります（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">file-based routing</a>）。
+- 例: `pages/about.js` は `/about`。
 
-サーバーサイドレンダリング（SSR）: Next.js はリクエストごとにサーバーでページを描画し、完成した HTML をクライアントへ返せます（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">SSR の基本</a>）。初回表示が速く、検索エンジンがコンテンツをクロールしやすいので SEO に有利です。サーバーが HTML を返した後は、クライアント側で React がハイドレーションしてインタラクションを提供します。
+### Server-Side Rendering (SSR)
 
-静的サイト生成（SSG）: 毎回動的にする必要のないページは、ビルド時に静的ファイルとして事前生成できます（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">SSG</a>）。CDN などから静的に配信されるため非常に高速で、SEO にも有利です。マーケティングページやドキュメントなど、更新頻度が低いコンテンツに最適です。
+- リクエストごとにサーバーでHTMLを生成できます（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">SSR basics</a>）。
+- 初回表示が速く、SEOにも有利。React がクライアントでハイドレーションします。
 
-組み込みの API ルート: `api` ディレクトリにファイルを追加するだけでバックエンドのエンドポイントを作れます（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">API ルート</a>）。これらは Next.js アプリの一部として Node.js（あるいはサーバーレス）で動作します。フォーム送信、DB クエリ、認証などを、別の Express サーバーを立てずに同じプロジェクト内で扱えます（後述）。
+### Static Site Generation (SSG)
 
-自動コード分割と最適化: Next.js はページ単位で自動的に JS バンドルを分割し、アセットを最適化します（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">最適化</a>）。各ページは本当に必要な JS/CSS だけを読み込み、巨大な単一バンドルを避けられます。結果としてページ表示が速くなり、ユーザー体験が向上します。ミニファイ、ツリーシェイキング、画像最適化など本番向けの最適化も内蔵。Webpack や Babel の複雑な設定は不要です。
+- ビルド時に静的HTMLを生成できます（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">SSG</a>）。
+- 変更頻度が低いマーケ/ドキュメントに最適。
 
-ゼロコンフィグの DX: TypeScript のサポート、CSS/Sass の組み込みサポート、状態管理やスタイリング、データ取得など人気ライブラリとの統合がシームレスです（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">DX の概要</a>）。最小限のセットアップで、すぐに機能開発に取り掛かれます。
+### API Routes
 
-要するに、Next.js は「フルスタックな React フレームワーク」です。ルーティング、バンドル、レンダリングの重労働を肩代わりしてくれるので、「あなたは React コンポーネントを書くことに集中できる」（<a href="https://www.reddit.com/r/nextjs/comments/v01uy1/why_should_i_use_next_other_than_ssr/" target="_blank" rel="noopener noreferrer">ディスカッション</a>）。SaaS 開発では特に強力で、基本性能（高速表示や SEO 対応）が最初から担保されます。
+- バックエンドのエンドポイントを同じリポジトリに置けます（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">API routes</a>）。
+- 小規模なら別サーバー不要。
 
----
+### 自動コード分割と最適化
 
-## Next.js のルーティングとレイアウト
+- ページごとに必要なJS/CSSだけを配信（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">optimizations</a>）。
+- minify、tree‑shaking、画像最適化も標準搭載。
 
-Next.js は、フォルダ構成を URL にマッピングするファイルベースのルーティングを採用しています。`pages`（または新しい `app`）配下のファイルやフォルダが自動的にルートになります。たとえば `pages/user/settings/notifications.js` のような入れ子構造は、そのまま `/user/settings/notifications` というパスを生成します。手動設定なしで URL 構造がプロジェクト構造と同期し、整然と保てます。
+### ほぼ設定不要のDX
 
-ルート定義はファイルを作るだけ。ディレクトリでページを整理すれば、Next.js がナビゲーション可能な URL を用意してくれます。動的ルートもカバーしており、`pages/posts/[id].js` のようなファイルは `/posts/123` のようなルートになります。内部的にはリンクやコード分割が自動化され、ページ遷移は軽快、フルリロードも不要です。
-
-さらに Next.js 13 の App Router は「レイアウト」の概念を強化し、フォルダ単位で入れ子のレイアウトを定義できます。たとえば `app/dashboard/layout.js` にサイドバーやヘッダーを定義すれば、`/dashboard/*` 配下のすべてのページでそのレイアウトが共有されます（<a href="https://blog.logrocket.com/guide-next-js-layouts-nested-layouts/" target="_blank" rel="noopener noreferrer">ネストされたレイアウト</a>）。SaaS では、マーケティング用の公開ページと、ログイン後のアプリ UI で異なるレイアウトを使い分ける、という整理が容易です。
-
-要は、Next.js のルーティングとレイアウトにより、マルチページアプリを苦労なく構築できます。ユーザーにも検索エンジンにもやさしいクリーンな URL と、共通 UI の容易な維持管理。外部ルーターの細かい調整や、レイアウトのマウント／アンマウントに悩まされる必要はありません。
-
----
-
-## サーバーコンポーネント vs クライアントコンポーネント（やさしい説明）
-
-とくに Next.js 13+ では、Server Component と Client Component という用語を目にします。これは Next.js と React のレンダリング方式に関わる話です。噛み砕いて説明します。
-
-サーバーコンポーネントは、サーバー側で実行される React コンポーネントです（ブラウザが受け取る前にサーバーで描画）。サーバーで HTML を生成してブラウザに送るため、そのコンポーネントの React JS はクライアントに送られません（<a href="https://dev.to/oskarinmix/server-components-vs-client-components-in-nextjs-differences-pros-and-cons-389f" target="_blank" rel="noopener noreferrer">比較</a>）。表示が非常に速く、サーバーで直接データ取得できるので、データ表示やインタラクション不要の UI に最適です。サーバーで完済した HTML をそのまま見せるイメージで、機密データもサーバーに留められるため安全です。ただし、クリックなどのインタラクションは扱えません（クライアント JS を含まないため）。
-
-クライアントコンポーネントは、従来どおりブラウザで実行される React コンポーネントです。ポップアップを開くボタン、ユーザーが入力するフォーム、ページ表示後に動的に更新される UI など、インタラクティブな部分にはクライアントコンポーネントが必要です（<a href="https://dev.to/oskarinmix/server-components-vs-client-components-in-nextjs-differences-pros-and-cons-389f" target="_blank" rel="noopener noreferrer">クライアント側</a>）。動作のためにブラウザで JS を読み込むぶん、純粋な HTML に比べて初回表示はやや重くなります。Next.js では、ファイル先頭に特別なディレクティブ `"use client"` を置くことで、そのファイルをクライアントコンポーネントとして指定します。
-
-実運用では、1 つのページを両者の組み合わせで構成します。たとえばページの骨格やデータ表示はサーバーコンポーネント（高速で SEO に有利）、内部のグラフや入力フォームはクライアントコンポーネント、という具合です。これでサーバー描画の速度と SEO の利点、クライアントのリッチな動作の両取りができます。ダッシュボードなら、大枠のデータとレイアウトはサーバー側でレンダリングし、ズーム可能なチャートや送信フォームだけクライアント化――といった使い分けが現実的です。
-
-まとめると、サーバーコンポーネント＝サーバーで描画（クライアント JS なし、静的表示や速度に最適）、クライアントコンポーネント＝ブラウザで描画（インタラクションに必須）。Next.js は基本をサーバー側に寄せ、必要な所だけ `"use client"` で明示してクライアント化します。これは、SaaS における「速度」と「リッチさ」のバランスを取るための強力な仕組みです。
+- TypeScript、CSS、Sassを標準サポート。
+- セットアップではなくプロダクトに集中できます（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">DX overview</a>）。
 
 ---
 
-## 組み込み API ルート：同じリポジトリにバックエンド
+## ルーティングとレイアウト
 
-SaaS 開発で光る Next.js の機能が API ルートです。通常、バックエンドを作るには、データ取得やフォーム処理、認証などのために別のサーバー（Node/Express や Nest.js）を用意することがあります。Next.js では、しばしばその追加構築をスキップできます。フロントページの隣にバックエンドのエンドポイントを定義できるからです。
+Next.js はフォルダ/ファイルをURLに自動変換します。`pages/user/settings/notifications.js` は `/user/settings/notifications` になります。動的ルートも同様で、`pages/posts/[id].js` は `/posts/123` のように動きます。
 
-Next.js プロジェクトでは、Pages Router なら `pages/api/`、App Router なら `app/api/` 配下のファイルが HTTP エンドポイントになります。たとえば `pages/api/hello.js` を次のように作成します。
+さらに、レイアウトの再利用が簡単です。App Router では `app/dashboard/layout.js` のようにフォルダ単位でレイアウトを定義でき、`/dashboard/*` のページが共有します（<a href="https://blog.logrocket.com/guide-next-js-layouts-nested-layouts/" target="_blank" rel="noopener noreferrer">nested layouts</a>）。マーケサイトとログイン後ダッシュボードを分けたいSaaSにぴったりです。
+
+---
+
+## Server Components と Client Components（簡単に）
+
+Next.js（特に13+）はコンポーネントの実行場所を分けます。
+
+### Server Components
+
+- サーバーでHTMLを生成して送ります。
+- クライアント側にJSが送られません（<a href="https://dev.to/oskarinmix/server-components-vs-client-components-in-nextjs-differences-pros-and-cons-389f" target="_blank" rel="noopener noreferrer">server vs client components</a>）。
+- 速さとセキュアなデータ表示に強い。
+
+### Client Components
+
+- ブラウザで動き、インタラクションを担当。
+- ファイル先頭に `"use client"` が必要（<a href="https://dev.to/oskarinmix/server-components-vs-client-components-in-nextjs-differences-pros-and-cons-389f" target="_blank" rel="noopener noreferrer">client components</a>）。
+- クリック、フォーム、チャート、アニメーションなどに必須。
+
+実際は両方を組み合わせます。構造やデータはServer、動きはClientという分担で、速度とUXを両立できます。
+
+---
+
+## API Routes: 同じリポジトリにバックエンド
+
+Next.js ではUIの隣にAPIを置けます。`pages/api/`（Pages Router）や `app/api/`（App Router）配下のファイルはHTTPエンドポイントになります。例:
 
 ```js
 // pages/api/hello.js
@@ -81,56 +95,45 @@ export default function handler(req, res) {
 }
 ```
 
-アプリが起動していれば、`/api/hello` へのアクセスで上のハンドラーがサーバー上で実行され、`{ "greeting": "Hello from Next API" }` という JSON が返ります。これが非常に強力です。React のフロントと API を同じコードベースに同居させ、ユーザー情報の取得、フォーム保存、ヘルスチェックなどのエンドポイントを、別サーバーなしで用意できます。Vercel などにデプロイすれば、API ルートは自動的にサーバーレス関数として動きます。
+`/api/hello` にアクセスするとサーバーで実行され、JSONを返します。Vercel ではこれがサーバーレス関数になります。`pages/api` のコードはブラウザに送られません（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">API routes are server-only</a>）ので、秘密情報やDB接続も安全です。
 
-多くのケースで、Next.js の API ルートがあれば「別バックエンドなし」で SaaS を構築できます。初期段階では UI を Next.js のページで、データ取得を Next.js の API ルートで、という構成が現実的です。フロントとコード／設定／型を共有でき、開発がスムーズになります。API ルートはサーバー側で実行されるため、シークレットや DB 資格情報を安全に保持できるのも利点です。
+簡単な確認: `pnpm dev` を実行し、`api/health` を作って `http://localhost:3000/api/health` を開いてみましょう。`{ "status": "ok" }` が出れば、フロントとバックが同じアプリで動いています。
 
-なお、API ルートのコードはクライアント側に送られません（<a href="https://www.contentful.com/blog/next-js-vs-react/" target="_blank" rel="noopener noreferrer">サーバー専用</a>）。フロントのバンドルが肥大化しないので、UI 側への負担もありません。
-
-具体例として、SaaS の簡単なヘルスチェック用エンドポイント（バックエンドが動いていることの確認）を作りたいとします。`api/health.js` を用意し、`{ status: "ok" }` のような JSON を返すだけ。`pnpm dev` でアプリを起動し、ブラウザで `http://localhost:3000/api/health` を開くと JSON 応答が見られます。🎉 これは Next.js がフロントとバックの両方を同時に提供できていることを手早く確かめる方法でもあります。
-
-もちろん、SaaS が成長すれば外部データベースや複雑なロジックが必要になります。API ルートから DB にアクセスしたり、外部 API を呼び出したりも可能です。内蔵の API で足りなくなったら、後から専用のバックエンドサービスを足す選択肢もあります。とはいえ、小〜中規模では API ルートだけで十分というチームも多いでしょう。
+この手軽さが、単一のNext.jsリポジトリから始める理由です。UIとAPIの同期、CORS不要、型共有。必要になれば後から専用バックエンドを追加してもOKです。
 
 ---
 
-## トレードオフ：Next.js が不要な場合もある？
+## Tradeoffs: Next.jsが不要な場合
 
-ここまで見ると「常に Next.js が最適？」と思うかもしれません。とても良いツールですが、過剰になり得る場面やトレードオフも理解しておくと健全です。
+Next.jsは強力ですが、必須ではありません。
 
-超シンプルな用途ではオーバーキル？ 1 ページだけのランディングや、極めて基本的な静的サイトなら、SSR や API ルートが不要で、Next.js は「やりすぎ」に感じるかもしれません。その場合は Vite + React のような軽量構成や、素の静的 HTML でも十分です。Next.js には学習コストやビルド工程もあります。ただし、Next.js はスケールと共に真価を発揮します。最初はオーバーキルに見えても、後に複雑化したときに備えができている（<a href="https://dev.to/hamzakhan/why-nextjs-is-an-all-time-game-changer-for-web-development-a-technical-perspective-1bgf" target="_blank" rel="noopener noreferrer">オーバーキルか？</a>）。つまり、小さく始めても将来の拡張に強いという安心感があります。
+- 超シンプルなサイト: 静的LPだけならHTMLやViteが軽い場合もあります。小規模だとオーバーに感じることも（<a href="https://dev.to/hamzakhan/why-nextjs-is-an-all-time-game-changer-for-web-development-a-technical-perspective-1bgf" target="_blank" rel="noopener noreferrer">is it overkill?</a>）。
+- すでにバックエンドがある: SSR/SEOが不要なら軽量なReact構成でも十分。ただしNext.jsの規約が好きなら使ってもOK。
+- 特殊なバックエンド: 重い処理やマイクロサービス、複数フロントから同一APIを叩く場合は、別バックエンド＋Next.js UIが良いことも（<a href="https://stackoverflow.com/questions/78349307/ssr-and-api-layer-in-nextjs" target="_blank" rel="noopener noreferrer">separate backend?</a>）。
 
-別バックエンドなしで SaaS は作れる？ はい、多くのプロジェクトがそうしています。Next.js の API ルートにより、最初は別サーバーを持たなくても十分です。UI は React で、データは API ルート経由で JSON として提供。たとえば <a href="https://www.sushi-templates.com/en" target="_blank" rel="noopener noreferrer">sushi-templates.com</a> では、ユーザー向けページとバックエンドロジックが 1 つの Next.js コードベースに同居しています。デプロイも 1 アプリで済み、UI と API の整合性も取りやすい。もちろん別バックエンドを使っても構いませんが、要件がない限り最初は API ルートだけで十分、というのがコミュニティでも一般的です（<a href="https://stackoverflow.com/questions/78349307/ssr-and-api-layer-in-nextjs" target="_blank" rel="noopener noreferrer">別バックエンド？</a>）。
-
-まったく Next.js が要らない場面は？ SEO を気にせず、全面的にクライアントサイドのインタラクションに寄った内向きツールやゲームのようなケースでは、もっと軽い React セットアップで十分かもしれません。Next.js は規約やビルド手順など一定の前提があるため、超特化のウィジェットや一発のプロトタイプでは、素の React が軽快なこともあります。既に完全に別バックエンドがあり、フロントはクライアントレンダリングのみという構成でも Next.js を使うのは問題ありませんが、SEO が不要で自由度を最優先するチームは Vite + React 等を選ぶこともあります。要は、Next.js は「意見のあるフルスタックフレームワーク」。要件が極端にシンプル、または極端に特殊なら、その意見が重く感じられることがあります。
-
-まとめると、Next.js はほとんどの Web アプリ、とりわけ SaaS に強力な選択肢です。静的一枚物にはやや過剰でも、悪手ではなく、将来の成長に備えられます。そして、Next.js を用いれば別バックエンドなしでも SaaS を構築可能です――多くの個人開発者や企業が、UI と API を 1 つのプロジェクトで完結させています（<a href="https://stackoverflow.com/questions/78349307/ssr-and-api-layer-in-nextjs" target="_blank" rel="noopener noreferrer">バックエンドの選択肢</a> / <a href="https://dev.to/hamzakhan/why-nextjs-is-an-all-time-game-changer-for-web-development-a-technical-perspective-1bgf" target="_blank" rel="noopener noreferrer">なぜゲームチェンジャーか</a>）。
+それでも多くのSaaSはNext.jsだけで始め、成長できます。例えば <a href="https://www.sushi-templates.com/en" target="_blank" rel="noopener noreferrer">sushi-templates.com</a> はNext.jsで全体を構築しています。必要になった時だけ外部サービスを追加できるのが強みです（<a href="https://dev.to/hamzakhan/why-nextjs-is-an-all-time-game-changer-for-web-development-a-technical-perspective-1bgf" target="_blank" rel="noopener noreferrer">why it’s a game-changer</a>）。
 
 ---
 
 ## まとめと次の一歩
 
-Next.js は、初心者にも扱いやすく、かつ強力な Web アプリ構築の道を提供します。ルーティング、描画最適化、バックエンド機能が最初から揃っており、SaaS を作る人にとっては「少ない部品で、早くオンラインへ」が実現します。車輪の再発明は不要――Next.js が堅実な土台を用意してくれます。
+Next.jsは初心者にも扱いやすく、同時に強力です。ルーティング、レンダリング、APIを1つのコードベースで扱えるので、プロダクト作りに集中できます。
 
-試してみたいなら、まず開発サーバーを起動して、どれか 1 つ機能を触ってみましょう。チームのテンプレートや `npx create-next-app@latest` でプロジェクトを用意し、`pnpm dev` で起動。`/api/health` を開いて API ルートのレスポンス（JSON）を確認すれば、フロントとバックが 1 つで動いていることが体感できます。
+試してみるなら:
 
-ここからは、ファイルベースルーティングでページを増やし、サーバーコンポーネントで高速表示を実現し、必要な部分だけクライアントコンポーネントでインタラクションを加えていきましょう。重い処理は Next.js が裏で面倒を見てくれます。
+1. `npx create-next-app@latest` かテンプレートで作成。
+2. `pnpm dev` を実行。
+3. `api/health` を追加して `http://localhost:3000/api/health` を開く。
 
-ハッピーコーディング！React のスキルを活かして、フルスタックな SaaS 開発を「悩み」から「楽しさ」へ。
+その後は、ファイルベースルーティングでページを増やし、Server Componentsで高速レンダリング、Client Componentsでインタラクションを追加していきましょう。
 
 ---
 
-## 参考
+## 参考リンク
 
-- Contentful Blog – Next.js vs React: Next.js の概要と中核機能の説明。
-  https://www.contentful.com/blog/next-js-vs-react/
-- Dev.to – Next.js Overview: Next.js の利点と、シンプルな用途での是非。
-  https://dev.to/hamzakhan/why-nextjs-is-an-all-time-game-changer-for-web-development-a-technical-perspective-1bgf
-- Reddit r/nextjs Discussion: ルーティング、コード分割、API など「最初からあるもの」のまとめコメント。
-  https://www.reddit.com/r/nextjs/comments/v01uy1/why_should_i_use_next_other_than_ssr/
-- Stack Overflow – Next と別バックエンド: Next.js で別バックエンドが不要なケースに関する助言。
-  https://stackoverflow.com/questions/78349307/ssr-and-api-layer-in-nextjs
-- LogRocket Blog – Next.js のレイアウト: ネストしたレイアウト（例：共有サイドバー）のデモ。
-  https://blog.logrocket.com/guide-next-js-layouts-nested-layouts/
-- Dev.to – Server vs Client Components: Next.js におけるサーバー／クライアントコンポーネントの定義。
-  https://dev.to/oskarinmix/server-components-vs-client-components-in-nextjs-differences-pros-and-cons-389f
-
+- Contentful Blog – Next.js vs React: https://www.contentful.com/blog/next-js-vs-react/
+- Dev.to – Next.js overview and tradeoffs: https://dev.to/hamzakhan/why-nextjs-is-an-all-time-game-changer-for-web-development-a-technical-perspective-1bgf
+- Reddit r/nextjs discussion (features): https://www.reddit.com/r/nextjs/comments/v01uy1/why_should_i_use_next_other_than_ssr/
+- Stack Overflow – Next vs separate backend: https://stackoverflow.com/questions/78349307/ssr-and-api-layer-in-nextjs
+- LogRocket – Next.js layouts: https://blog.logrocket.com/guide-next-js-layouts-nested-layouts/
+- Dev.to – Server vs client components: https://dev.to/oskarinmix/server-components-vs-client-components-in-nextjs-differences-pros-and-cons-389f

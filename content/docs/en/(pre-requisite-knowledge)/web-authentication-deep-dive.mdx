@@ -19,6 +19,12 @@ updatedAt: "2025-11-22T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/en/blogs/web-authentication-deep-dive"
 ---
 
+## Overview
+
+This guide explains how web authentication works end to end: signing up, logging in, and staying logged in. It compares JWT-based auth with server-side sessions, explains remember-me vs refresh tokens, and shows how OAuth (Google login) fits into the same flow.
+
+---
+
 ## 0. Big Picture: What’s Actually Going On?
 
 Every web auth system is solving three jobs:
@@ -419,3 +425,13 @@ Logout:                     Logout:
 ```
 
 Both solve the same need: “Let me log in once and stay signed in, but keep me safe.”
+
+---
+
+## Key Takeaways
+
+- Auth always has three jobs: sign up, log in, and stay logged in.
+- JWT and session systems solve the same problem with different mechanics.
+- Access token / session ID are short-lived; refresh / remember tokens renew them.
+- OAuth just replaces the password check; you still issue your own session/JWT.
+- Choose JWT for distributed clients; choose sessions for simple revocation and classic web apps.

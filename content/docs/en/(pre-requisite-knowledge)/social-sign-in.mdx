@@ -17,6 +17,12 @@ updatedAt: "2025-11-22T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/en/blogs/social-sign-in"
 ---
 
+## Overview
+
+This is a packet-level walkthrough of social sign-in using Google as the example. You will see who initiates each step, which HTTP request is sent, and what your backend must do. The same pattern applies to Apple, Facebook, GitHub, and other OAuth/OIDC providers.
+
+---
+
 ## 0. Legend
 
 - (B) = Browser (front-end / user agent)  
@@ -572,6 +578,16 @@ That key (plus verified provider auth) is the password replacement.
 | 9 | Y | Backend | Create your session or JWT tokens |
 | 10 | Y → B | Backend | Send Set-Cookie / redirect |
 | 11 | B ↔ Y | Browser + Backend | Normal authenticated requests using your system |
+
+---
+
+## Key Takeaways
+
+- OAuth is a redirect flow: browser → provider → your callback → backend token exchange.
+- `id_token` proves identity; `access_token` is for provider APIs.
+- Always verify tokens server-side (`iss`, `aud`, `exp`, signature) and check `state`.
+- After login, you issue your own session/JWT; Google is out of the request path.
+- The same flow works for Apple, GitHub, Facebook, etc., with different token fields.
 
 ---
 
