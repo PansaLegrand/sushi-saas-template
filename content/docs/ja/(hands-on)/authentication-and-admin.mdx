@@ -1,127 +1,395 @@
 ---
-title: 認証と管理者ロール
+title: 認証と管理機能のアーキテクチャ
 icon: "Shield"
-description: 読み取り専用/読み取り+操作の管理者ロールをDBで管理し、管理APIを保護し、このテンプレートの認証パイプラインを説明します。
+description: このテンプレートにおける Better Auth のセッション、OAuth、RBAC、そしてクレジット/クォータの業務データ設計を詳しく解説します。
 keywords:
   - 認証
-  - RBAC
-  - 管理者
-  - ロール
   - 認可
-  - Next.js
   - Better Auth
-  - Drizzle ORM
-tags: [auth, roles, admin]
+  - OAuth
+  - セッション
+  - admin
+  - RBAC
+  - データモデリング
+tags: [auth, admin, oauth, sessions]
 author: "Pansa Legrand"
 publishedAt: "2025-09-29T00:00:00.000Z"
-updatedAt: "2025-09-29T00:00:00.000Z"
+updatedAt: "2026-02-02T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/ja/blogs/authentication-and-admin"
 ---
 
-# 認証と管理者ロール
+# 認証と Admin
 
-このテンプレートは Better Auth + Drizzle を使用します。RBAC はデータベースに保存し、環境変数での昇格は行いません。
+このドキュメントは、このテンプレートの認証と管理者認可の仕組みを理解するための基準ドキュメントです。
 
-## 基本: 認証と認可の違い
+以下を扱います。
 
-- 認証 (Authentication): 誰かを確認する（サインアップ/サインイン）。結果としてセッションが得られます。
-- 認可 (Authorization): その後に何ができるかを決める。このテンプレートでは `users` テーブルの `role` が制御します。
+- このプロジェクトで実際に使っている Better Auth モデル
+- メール/パスワードと Google OAuth がどうセッションを維持するか
+- `users` / `accounts` / `sessions` / `verifications` を分ける理由
+- 認証データと業務データ（クレジット、クォータ、権限）の境界
+- このコードベースでの Admin RBAC 実装
 
-ロール:
+---
 
-- `user` — すべてのユーザーの既定。
-- `admin_ro` — 読み取り専用（管理データの閲覧のみ）。
-- `admin_rw` — 読み取り + 書き込み（クレジット付与などの管理操作を含む）。
+## 1) このテンプレートの認証モデル
 
-### 空港のアナロジー
+**このプロジェクトは、Postgres をバックエンドにした Cookie ベースのサーバー管理セッションを使います。**
+デフォルトでは **JWT-first ではありません**。
 
-保安検査で身分証を提示するのが「認証」（本人確認）。搭乗口で搭乗券を提示するのが「認可」（その便に乗れるかの確認）。
+根拠:
 
-### クイック比較
+- `src/lib/auth.ts` で Better Auth を Drizzle + Postgres アダプタで設定
+- セッション保存先は `src/db/schema.ts` の `sessions` テーブル
+- `nextCookies()` プラグインを有効化
+- JWT を主方式にするプラグインは有効化していない
 
-| 項目 | 認証 | 認可 |
-| --- | --- | --- |
-| 目的 | 身元の確認（誰か） | 権限の確認（何ができるか） |
-| タイミング | 認可より前 | 認証が成功した後 |
-| 典型入力 | 資格情報（パスワード、メールリンク、ソーシャル） | ポリシー/ロール（`user`、`admin_ro`、`admin_rw`） |
-| 出力 | セッション/アイデンティティ | 許可された操作と保護されたルート |
-| 一般的な標準 | OIDC、ID トークン | OAuth 2.0、スコープ |
+実際の挙動:
 
-本テンプレートでは、フロントのトークンではなくサーバーの HttpOnly セッションクッキーを使用し、DB 上の `role` で認可を行います。
+1. ブラウザは HttpOnly の認証 Cookie（セッショントークン）を保持
+2. サーバーはそのトークンを `sessions` と照合
+3. セッション行からユーザーを特定
 
-## Better Auth とは？
+Better Auth は JWT もサポートしますが opt-in であり、このテンプレートの DB セッション方式を置き換えるものではありません。
 
-Next.js 向けの軽量で TypeScript ファーストな認証ライブラリです。
+---
 
-- ストレージ: Drizzle ORM + Postgres（`src/lib/auth.ts` を参照）。
-- データモデル: `users`、`sessions`、`accounts`、`verifications`（`src/db/schema.ts`）。
-- セッション: HttpOnly クッキー + `sessions` テーブルに保存。サーバールートは `auth.api.getSession({ headers })` で読み取ります。
-- 追加フィールド: `additionalFields` で `uuid` と `role` をセッションに含め、サーバー側のチェックを簡単にします。
+## 2) 認証テーブルの役割分担
 
-## シークレットと URL（入門）
+Better Auth は、アイデンティティ、認証手段、ログイン状態を意図的に分離します。
 
-- `BETTER_AUTH_SECRET`: 認証用のクッキー/トークンに署名・検証するサーバー専用の長い乱数文字列。1 回生成して安全に保管します。
-  - 生成: `openssl rand -base64 32`
-  - ローテーション: 値を変更すると全ユーザーがサインアウトされます（既存セッションが無効に）。
-- `BETTER_AUTH_URL`: 認証ライブラリが使用するサーバーのベース URL（通常はサイト URL）。
-- `NEXT_PUBLIC_AUTH_BASE_URL`: クライアント側のベース（多くの場合サイト URL と同じ）。
-- クッキーは本番で `HttpOnly` かつ `secure`（`src/lib/auth.ts` の `advanced.defaultCookieAttributes` を参照）。
+### `users`（ユーザープロファイル）
 
-サインインが 1 回しか動かない/再起動でセッションが消える場合は、上記の環境変数を確認して dev サーバーを再起動してください。
+**その人が誰か**を表すテーブルです。
 
-## ロール
+代表的な項目:
 
-- `user`: 既定ロール。
-- `admin_ro`: 読み取り専用。ユーザー/注文の一覧、ユーザーのクレジット閲覧。
-- `admin_rw`: 読み取り+操作。`system_add` でクレジット付与も可能。
+- Email
+- プロファイル（`nickname`, `avatar_url`）
+- ロール（`role`）
+- 検証/状態フラグ
+- 作成/更新時刻
 
-マイグレーション `0001_add_user_role.sql` で `users.role`（既定値 `user`）を追加します。
+このテンプレートでは追加で:
 
-## 認可
+- `uuid`（作成時に付与）
+- `role`
 
-- `src/lib/authz.ts` がセッション/DB からロールを取得します：
-  - `requireAdminRead()` → `admin_ro`/`admin_rw` を許可。
-  - `requireAdminWrite()` → `admin_rw` を許可。
+`users` は高頻度更新の業務カウンタを入れず、安定させるのが基本です。
 
-## 管理API
+### `accounts`（認証手段）
 
-- `GET /api/admin/users` → ユーザー一覧（`page`, `limit`）。
-- `GET /api/admin/orders` → 支払い済み注文（ページング）。
-- `GET /api/admin/users/:uuid/credits` → クレジット要約。
-- `POST /api/admin/credits/grant` → `system_add` でクレジット付与。
+**どうログインするか**を表すテーブルです。
 
-## セットアップ手順
+- 1ユーザーが複数のプロバイダを持てる
+- プロバイダ識別子とトークンを保持
 
-1) DB をマイグレーション：
+代表的な項目:
+
+- `provider_id`
+- `account_id`
+- パスワードハッシュ（メール/パスワード）
+- OAuth の access token / refresh token
+- OAuth トークン有効期限
+
+資格情報を扱うため、特にセキュリティ重要度が高いテーブルです。
+
+### `sessions`（ログイン状態）
+
+アプリ内のアクティブなログインセッションを表します。
+
+代表的な項目:
+
+- `user_id`
+- `token`
+- `expires_at`
+- `ip_address`
+- `user_agent`
+
+性質:
+
+- セッション有効期限がログイン状態を決める
+- 失効は行の削除/無効化で行う
+- スライディング更新はセッションポリシー依存
+
+### `verifications`（一時的な検証フロー）
+
+以下のような一時トークン用途:
+
+- パスワードリセット
+- メール検証
+- マジックリンク / OTP（有効時）
+
+通常のサインイン/サインアウトでは継続的に増えないため、行数が少ないのは正常です。
+
+---
+
+## 3) このコードベースでの認証フロー（エンドツーエンド）
+
+### 3.1 メール + パスワード サインアップ
+
+1. クライアントがサインアップフォーム送信
+2. Better Auth が `users` 行を作成
+3. `src/lib/auth.ts` の `databaseHooks.user.create.before` で `uuid` を保証
+4. Better Auth がメール/パスワード用 `accounts` 行を作成
+5. Better Auth が `sessions` 行を作成
+6. レスポンスでセッション Cookie を設定
+7. `databaseHooks.user.create.after` がウェルカムメール送信を非同期実行
+
+結果: ユーザーは即時ログイン状態になります。
+
+### 3.2 メール + パスワード サインイン
+
+1. クライアントが資格情報を送信
+2. Better Auth が `accounts` のパスワードハッシュを検証
+3. Better Auth が `sessions` を作成/更新
+4. セッション Cookie を設定/更新
+
+### 3.3 Google OAuth サインイン
+
+1. ユーザーが Google サインインをクリック
+2. OAuth のリダイレクト + コールバックが実行
+3. Google からアカウント識別子（`sub`）とプロフィール情報を取得
+4. Better Auth がユーザーを検索または作成
+5. Better Auth が `google` 用 `accounts` 行を作成/更新
+6. Better Auth がセッション行を作成
+7. セッション Cookie を設定
+
+---
+
+## 4) OAuth アイデンティティの重要ルール
+
+Google サインインは **Gmail アドレス必須ではありません**。
+
+- Gmail、Outlook、Yahoo、独自ドメインでも Google アカウントなら利用可能
+- 同一性はメールドメインではなく、プロバイダのアカウント識別子（`provider_id`, `account_id` / `sub`）で判断
+
+メールドメインをプロバイダ証明として扱わないでください。
+
+---
+
+## 5) セッション期限と OAuth トークン期限の違い
+
+この2つは独立したライフサイクルです。
+
+### アプリセッション（`sessions`）
+
+- アプリ内でログイン済みかを決める
+- 期限切れなら `getSession()` は null
+- ユーザーは再ログインが必要
+
+### プロバイダトークン（`accounts`）
+
+- バックエンドがプロバイダ API を叩けるかを決める
+- access token は短命
+- refresh token で再発行可能
+
+重要ポイント:
+
+- Better Auth のセッション失効で、Google refresh token を使って自動再ログインはしない
+- refresh token はプロバイダ API アクセス用途であり、アプリ認証用途ではない
+
+---
+
+## 6) セッションと OAuth トークンを分ける理由
+
+この分離は安全性と運用性のために必須です。
+
+- OAuth refresh token はアプリの本人証明ではない
+- セッション失効を意味あるものにできる
+- 明示的な再認証を維持できる
+- セキュリティ監査境界が明確になる
+
+refresh token から自動的にアプリセッションを再作成すると、失効管理と監査性が弱くなります。
+
+---
+
+## 7) このテンプレートの認可（RBAC）
+
+認証は「誰か」を判定し、認可は「何ができるか」を判定します。
+
+ロールは `users.role` で管理:
+
+- `user`
+- `admin_ro`
+- `admin_rw`
+
+ロールチェック実装: `src/lib/authz.ts`
+
+- `requireAdminRead()` -> `admin_ro` と `admin_rw` を許可
+- `requireAdminWrite()` -> `admin_rw` のみ許可
+
+管理画面レイアウトガード: `src/app/(admin)/layout.tsx`
+
+---
+
+## 8) 現在の管理画面機能と API
+
+### Admin ページ
+
+- ダッシュボード: `src/app/(admin)/admin/page.tsx`
+- ユーザー一覧: `src/app/(admin)/admin/users/page.tsx`
+- ユーザー詳細/クォータ/クレジット: `src/app/(admin)/admin/users/[uuid]/page.tsx`
+- 注文一覧/ステータス: `src/app/(admin)/admin/orders/page.tsx`
+- フィードバック: `src/app/(admin)/admin/feedbacks/page.tsx`
+- 予約: `src/app/(admin)/admin/reservations/page.tsx`
+- アフィリエイト: `src/app/(admin)/admin/affiliates/page.tsx`
+
+### Admin API ルート
+
+- `GET /api/admin/users` -> ユーザー一覧（ページング）
+- `GET /api/admin/users/[uuid]` -> ユーザー詳細 + 月次利用量 + クレジット概要
+- `PATCH /api/admin/users/[uuid]` -> `monthlyCreditsQuota` 更新
+- `GET /api/admin/users/[uuid]/credits` -> クレジット概要 + 台帳
+- `POST /api/admin/credits/grant` -> クレジット付与
+- `POST /api/admin/credits/adjust` -> クレジット増減調整
+- `GET /api/admin/orders` -> ステータスフィルタ付き注文一覧（`all|paid|created|deleted`）
+
+---
+
+## 9) Cookie セッションと JWT の違い（現状）
+
+現状の構成:
+
+- セッション Cookie にセッショントークンを保持
+- サーバーは `sessions` テーブルで検証
+- DB セッション経由でユーザーを解決
+
+つまり、DB バックドのセッション認証であり、純粋な stateless JWT 認証ではありません。
+
+純粋 JWT モデル（現状のデフォルトではない）:
+
+- トークン自体に claims を保持
+- 各リクエストで署名検証
+- 基本検証に DB 参照が不要なことが多い
+
+---
+
+## 10) `BETTER_AUTH_SECRET` が必要な理由
+
+セッショントークンがランダムでも、署名/検証の暗号処理のために secret は必要です。
+
+Better Auth の secret 解決順:
+
+1. 設定の `secret`
+2. `BETTER_AUTH_SECRET`
+3. `AUTH_SECRET`
+4. 内部フォールバック（開発向け、運用非推奨）
+
+そのため env に secret がなくても起動する場合がありますが、本番のセキュリティとしては不十分です。
+
+環境ごとに強く安定した secret を設定してください。
+secret を変更すると、署名済み認証情報が無効化されログアウトが発生することがあります。
+
+---
+
+## 11) 業務データ設計: 認証テーブルに入れないもの
+
+高頻度更新の業務カウンタを認証テーブルへ混在させないでください。
+
+### 認証テーブルは認証に限定
+
+- `users`: identity/profile/role
+- `accounts`: ログインプロバイダ + 資格情報/トークン
+- `sessions`: ログイン状態
+- `verifications`: one-time 検証トークン
+
+### プロダクト/課金状態はドメインテーブルへ
+
+推奨パターン:
+
+1. 現在状態テーブル（高速参照）
+2. 追記専用 ledger/event（監査・再計算）
+3. entitlement テーブル（機能許可）
+
+構造例:
+
+- `user_balance`
+  - `user_id` (PK)
+  - `credits_balance`
+  - `quota_limit`
+  - `quota_used`
+  - `plan_id`
+  - `billing_period_start`
+  - `billing_period_end`
+  - `updated_at`
+
+- `usage_events`
+  - `id`
+  - `user_id`
+  - `type`
+  - `amount`
+  - `cost_credits`
+  - `metadata` (JSON)
+  - `created_at`
+
+- `entitlements`
+  - `user_id`
+  - `key`
+  - `value`
+  - `source` (plan/admin/promo)
+  - `expires_at`
+
+この分離により、認証層は安定し、業務ロジックは監査可能になります。
+
+---
+
+## 12) クォータ/クレジット消費とトランザクション安全性
+
+クレジット/クォータ消費時:
+
+- DB トランザクションを使う
+- 残高/クォータを確認
+- 利用イベントを ledger に追加
+- 条件付きで残高更新
+
+これにより並行実行時の race condition やマイナス残高を防げます。
+
+このテンプレートでは:
+
+- タスク利用量は `tasks`
+- クレジット台帳は `credits`
+- 月次クォータ（`users.monthly_credits_quota`）を消費前にチェック
+
+---
+
+## 13) 将来拡張: Organizations
+
+チーム向けを想定するなら:
+
+- `organizations` を追加
+- 残高/クォータ/entitlement を組織単位へ移動
+- 個人アカウントは 1人組織として扱う
+
+早めにこのモデルを前提化すると、後の大規模リファクタを避けられます。
+
+---
+
+## 14) 環境変数とセットアップチェックリスト
+
+最低限必要な認証関連 env:
+
+- `BETTER_AUTH_URL`
+- `NEXT_PUBLIC_AUTH_BASE_URL`
+- `BETTER_AUTH_SECRET`（強いランダム値）
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`（Google 有効時）
+
+スキーマ変更時はマイグレーション実行:
 
 ```bash
+pnpm drizzle-kit generate --config src/db/config.ts
 pnpm drizzle-kit migrate --config src/db/config.ts
 ```
 
-2) 管理アカウントでエンドポイントを確認。
+---
 
-## ロールの変更方法
+## 最終まとめ
 
-権威は DB 側に持たせます：
+- このプロジェクトは Cookie + DB セッション方式（JWT-first ではない）
+- OAuth の同一性はメールドメインではなく provider account で扱う
+- アプリセッションと provider token は別ライフサイクル
+- 認証テーブルは auth 専用に保つ
+- クレジット/クォータ/権限は ledger を伴うドメインテーブルへ分離
+- Admin RBAC は DB ロールをサーバー側で厳格にガード
 
-- SQL：
-  ```sql
-  update users set role = 'admin_rw' where uuid = '<uuid>';
-  ```
-- ヘルパー：
-  - `updateUserRole(uuid, 'admin_ro' | 'admin_rw' | 'user')`（`src/models/user.ts`）。
-
-## 注意
-
-- 管理アカウントは MFA/SSO と短いセッション期限を推奨。
-- 管理ページはサーバー側でチェックし、未認可はリダイレクト。
-- ロールは .env では管理しません。DB で設定/解除します。
-
-## ソーシャルログイン（Google）
-
-- Google プロバイダは `src/lib/auth.ts` の `socialProviders.google` で設定され、`.env` の `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` を参照します。
-- `.env` に `GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET` を設定し、`BETTER_AUTH_URL` と `NEXT_PUBLIC_AUTH_BASE_URL` が正しいことを確認してください（開発では `http://localhost:3000`）。
-- Google Cloud Console → Credentials で認可済みリダイレクト URI に次を追加：
-  - `http://localhost:3000/api/auth/callback/google`（開発）
-  - `https://あなたのドメイン.com/api/auth/callback/google`（本番）
-- `/[locale]/login` のログイン画面に「Google で続行」ボタンが表示され、OAuth フローが開始されます。
+この構成により、強固なセキュリティ境界、運用しやすさ、将来の拡張性を同時に確保できます。

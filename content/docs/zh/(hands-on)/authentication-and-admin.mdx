@@ -1,127 +1,395 @@
 ---
-title: 认证与管理员角色
+title: 认证与管理架构
 icon: "Shield"
-description: 使用数据库管理只读/读写管理员角色，保护管理 API，并介绍本模板的认证流程。
+description: 深入说明本模板中的 Better Auth 会话机制、OAuth、RBAC，以及积分/配额等业务数据建模方式。
 keywords:
   - 认证
-  - RBAC
-  - 管理员
-  - 角色
   - 授权
-  - Next.js
   - Better Auth
-  - Drizzle ORM
-tags: [auth, roles, admin]
+  - OAuth
+  - 会话
+  - admin
+  - RBAC
+  - 数据建模
+tags: [auth, admin, oauth, sessions]
 author: "Pansa Legrand"
 publishedAt: "2025-09-29T00:00:00.000Z"
-updatedAt: "2025-09-29T00:00:00.000Z"
+updatedAt: "2026-02-02T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/zh/blogs/authentication-and-admin"
 ---
 
-# 认证与管理员角色
+# 认证与 Admin
 
-本模板基于 Better Auth + Drizzle。RBAC 仅存储在数据库中，不支持通过环境变量临时提升权限。
+本文是本模板中认证与管理员授权机制的核心说明文档。
 
-## 基础：认证 vs 授权
+本文包含：
 
-- 认证（Authentication）：证明“你是谁”（注册/登录），最终得到一个会话（session）。
-- 授权（Authorization）：决定“你能做什么”。在本模板中由 `users` 表的 `role` 字段控制。
+- 本项目实际使用的 Better Auth 模型
+- 邮箱密码与 Google OAuth 如何建立并维持会话
+- 为什么要拆分 `users`、`accounts`、`sessions`、`verifications`
+- 什么是认证数据，什么是业务数据（积分、配额、权限）
+- 本代码库中 Admin RBAC 的实现方式
 
-我们使用的角色：
+---
 
-- `user` — 默认角色。
-- `admin_ro` — 只读管理员（可查看管理数据，不能写）。
-- `admin_rw` — 读写管理员（含授予积分等管理操作）。
+## 1) 本模板使用的认证模型
 
-### 一个简单的类比
+**本项目使用基于 Cookie 的服务端会话，并以 Postgres 作为会话真相源。**
+默认情况下它**不是 JWT-first 模型**。
 
-在机场安检出示身份证是“认证”（证明身份）；登机口出示登机牌是“授权”（验证你是否被允许登机）。
+原因：
 
-### 快速对比
+- `src/lib/auth.ts` 中使用 Better Auth + Drizzle + Postgres 适配器
+- 会话存储映射到 `src/db/schema.ts` 里的 `sessions` 表
+- 启用了 `nextCookies()` 插件
+- 没有启用以 JWT 作为主认证机制的插件
 
-| 维度 | 认证 | 授权 |
-| --- | --- | --- |
-| 目的 | 验证身份（是谁） | 验证权限（能做什么） |
-| 时机 | 在授权之前 | 成功认证之后 |
-| 常见输入 | 凭证（密码、邮件链接、社交登录） | 策略/角色（如 `user`、`admin_ro`、`admin_rw`） |
-| 产物 | 会话/身份 | 被允许的操作与受保护路由 |
-| 常见标准（一般情况） | OIDC、ID Token | OAuth 2.0、scopes |
+实际含义：
 
-在本模板中：使用服务器端的 HttpOnly 会话 Cookie（不在前端持有 token），并用数据库中的 `role` 做授权判断。
+1. 浏览器保存一个 HttpOnly 认证 Cookie（会话 token）
+2. 服务端用该 token 去 `sessions` 表校验
+3. 根据会话记录定位用户身份
 
-## 什么是 Better Auth？
+Better Auth 支持 JWT，但它是可选能力，不会替代这里正在使用的 DB 会话模型。
 
-一个面向 TypeScript、轻量的 Next.js 认证库。
+---
 
-- 存储：通过 `src/lib/auth.ts` 使用 Drizzle ORM + Postgres。
-- 数据模型：`users`、`sessions`、`accounts`、`verifications`（见 `src/db/schema.ts`）。
-- 会话：写入 HttpOnly Cookie 并在 `sessions` 表中持久化；服务端路由通过 `auth.api.getSession({ headers })` 读取会话。
-- 扩展字段：通过 `additionalFields` 将 `uuid` 与 `role` 暴露给会话，便于服务端检查。
+## 2) 核心认证表与职责
 
-## 密钥与 URL（入门）
+Better Auth 有意将身份、登录方式、登录状态分离。
 
-- `BETTER_AUTH_SECRET`：仅服务器可见的、足够随机的密钥，用于签名/校验认证相关的 Cookie/令牌。只生成一次并妥善保管。
-  - 生成：`openssl rand -base64 32`
-  - 轮换提示：修改该值会让所有用户掉线（旧会话不再可验证）。
-- `BETTER_AUTH_URL`：认证库使用的服务端基址（通常即站点 URL）。
-- `NEXT_PUBLIC_AUTH_BASE_URL`：客户端使用的基址（大多数情况下等于站点 URL）。
-- Cookie 在生产环境下使用 `HttpOnly` 且 `secure`（见 `src/lib/auth.ts` 中 `advanced.defaultCookieAttributes`）。
+### `users`（身份档案）
 
-如果出现“只登录一次就失效”或“重启后会话丢失”的情况，请检查以上环境变量并重启开发服务器。
+表示**这个人是谁**。
 
-## 角色
+常见字段：
 
-- `user`：默认角色。
-- `admin_ro`：只读管理员；可查看用户列表/订单列表及用户积分汇总。
-- `admin_rw`：读写管理员；在只读权限基础上可为用户增加积分（`system_add`）。
+- Email
+- 资料信息（`nickname`, `avatar_url`）
+- 角色（`role`）
+- 验证/状态字段
+- 创建与更新时间
 
-迁移 `0001_add_user_role.sql` 会为 `users` 表新增 `role` 字段，默认 `user`。
+在本模板中还映射了：
 
-## 授权
+- `uuid`（创建时生成）
+- `role`
 
-- `src/lib/authz.ts` 仅从会话/数据库获取角色：
-  - `requireAdminRead()` → 允许 `admin_ro`/`admin_rw`。
-  - `requireAdminWrite()` → 仅允许 `admin_rw`。
+`users` 表应尽量保持稳定，避免高频业务写入。
 
-## 管理 API
+### `accounts`（认证方式）
 
-- `GET /api/admin/users` → 用户列表（分页：`page`, `limit`）。
-- `GET /api/admin/orders` → 已支付订单（分页）。
-- `GET /api/admin/users/:uuid/credits` → 用户积分汇总。
-- `POST /api/admin/credits/grant` → 以 `system_add` 方式增加积分。
+表示**这个人如何登录**。
 
-## 配置步骤
+- 一个用户可以绑定多个登录提供方
+- 保存提供方身份信息和提供方 token
 
-1) 数据库迁移：
+常见字段：
+
+- `provider_id`
+- `account_id`
+- 密码哈希（邮箱密码登录）
+- OAuth access token / refresh token
+- OAuth token 过期时间
+
+这张表以凭据为核心，安全敏感度高。
+
+### `sessions`（登录状态）
+
+表示当前在你系统中的登录会话。
+
+常见字段：
+
+- `user_id`
+- `token`
+- `expires_at`
+- `ip_address`
+- `user_agent`
+
+特点：
+
+- 会话过期时间决定用户是否仍登录
+- 撤销会话通常通过删除/失效会话记录
+- 滑动续期由会话策略控制
+
+### `verifications`（一次性验证流）
+
+用于临时 token 场景，例如：
+
+- 重置密码
+- 邮箱验证
+- 魔法链接 / OTP（启用时）
+
+普通登录/退出不会持续写入这张表，所以行数很少是正常现象。
+
+---
+
+## 3) 本代码库中的端到端认证流程
+
+### 3.1 邮箱 + 密码注册
+
+1. 客户端提交注册表单
+2. Better Auth 创建 `users` 记录
+3. `src/lib/auth.ts` 中 `databaseHooks.user.create.before` 确保有 `uuid`
+4. Better Auth 创建邮箱密码对应的 `accounts` 记录
+5. Better Auth 创建 `sessions` 记录
+6. 在响应中写入会话 Cookie
+7. `databaseHooks.user.create.after` 异步发送欢迎邮件
+
+结果：用户注册后立即处于登录状态。
+
+### 3.2 邮箱 + 密码登录
+
+1. 客户端提交凭据
+2. Better Auth 校验 `accounts` 中密码哈希
+3. Better Auth 创建/刷新 `sessions` 记录
+4. 设置/更新会话 Cookie
+
+### 3.3 Google OAuth 登录
+
+1. 用户点击 Google 登录
+2. 执行 OAuth 跳转与回调流程
+3. Google 返回账号身份（`sub`）及资料 claims
+4. Better Auth 查找或创建用户
+5. Better Auth 创建/更新 `google` 的 `accounts` 记录
+6. Better Auth 创建会话记录
+7. 写入会话 Cookie
+
+---
+
+## 4) OAuth 身份识别的重要规则
+
+Google 登录**不要求必须是 Gmail 邮箱**。
+
+- 用户可以使用 Gmail、Outlook、Yahoo 或自定义域邮箱（只要绑定了 Google 账号）
+- 身份应基于提供方账号标识（`provider_id`, `account_id` / `sub`），不是邮箱域名
+
+不要把邮箱域名当作提供方身份证明。
+
+---
+
+## 5) 会话过期 与 OAuth Token 过期
+
+这是两个独立生命周期。
+
+### 应用会话生命周期（`sessions`）
+
+- 决定用户是否已登录你的应用
+- 会话过期后，`getSession()` 返回 null
+- 用户必须重新登录
+
+### 提供方 token 生命周期（`accounts`）
+
+- 决定后端是否还能调用提供方 API
+- access token 通常较短期
+- refresh token 可用于换新 access token
+
+关键点：
+
+- Better Auth 会话过期不会自动用 Google refresh token 重新登录
+- refresh token 用于调用提供方 API，不用于应用登录认证
+
+---
+
+## 6) 为什么会话与 OAuth Token 必须分离
+
+这种分离是为了可预测的安全边界：
+
+- OAuth refresh token 不是应用身份凭证
+- 会话撤销必须真实有效
+- 用户应能被要求显式重新认证
+- 安全与审计边界更清晰
+
+如果用 refresh token 自动重建应用会话，会削弱撤销能力和审计可追溯性。
+
+---
+
+## 7) 本模板中的授权（RBAC）
+
+认证回答“你是谁”，授权回答“你能做什么”。
+
+角色来自 DB 的 `users.role`：
+
+- `user`
+- `admin_ro`
+- `admin_rw`
+
+角色校验在 `src/lib/authz.ts`：
+
+- `requireAdminRead()` -> 允许 `admin_ro` 与 `admin_rw`
+- `requireAdminWrite()` -> 仅允许 `admin_rw`
+
+Admin 布局守卫：`src/app/(admin)/layout.tsx`。
+
+---
+
+## 8) 当前 Admin 页面与 API
+
+### Admin 页面
+
+- 仪表盘：`src/app/(admin)/admin/page.tsx`
+- 用户列表：`src/app/(admin)/admin/users/page.tsx`
+- 用户详情/配额/积分：`src/app/(admin)/admin/users/[uuid]/page.tsx`
+- 订单列表/状态：`src/app/(admin)/admin/orders/page.tsx`
+- 反馈：`src/app/(admin)/admin/feedbacks/page.tsx`
+- 预约：`src/app/(admin)/admin/reservations/page.tsx`
+- 分销：`src/app/(admin)/admin/affiliates/page.tsx`
+
+### Admin API 路由
+
+- `GET /api/admin/users` -> 分页用户列表
+- `GET /api/admin/users/[uuid]` -> 用户详情 + 月度使用 + 积分汇总
+- `PATCH /api/admin/users/[uuid]` -> 更新 `monthlyCreditsQuota`
+- `GET /api/admin/users/[uuid]/credits` -> 积分汇总 + 台账
+- `POST /api/admin/credits/grant` -> 发放积分
+- `POST /api/admin/credits/adjust` -> 正负积分调整
+- `GET /api/admin/orders` -> 按状态过滤分页订单（`all|paid|created|deleted`）
+
+---
+
+## 9) Cookie Session 与 JWT（你现在实际是什么）
+
+当前配置：
+
+- 会话 Cookie 保存 session token
+- 服务端拿 token 去 `sessions` 表校验
+- 用户身份由 DB 会话解析
+
+所以这是 DB 支撑的会话认证，不是纯无状态 JWT 认证。
+
+纯 JWT 模型（当前默认不是）：
+
+- token 本身携带 claims
+- 每次请求做签名校验
+- 基础校验通常不需要查 DB
+
+---
+
+## 10) 为什么仍然需要 `BETTER_AUTH_SECRET`
+
+即使 session token 是随机串，也仍然需要 secret 去完成签名/验签等密码学操作。
+
+Better Auth 的 secret 解析顺序：
+
+1. 配置里显式 `secret`
+2. `BETTER_AUTH_SECRET`
+3. `AUTH_SECRET`
+4. 内置 fallback（开发方便，不适合生产）
+
+所以没有环境变量时应用可能还能跑，但这不是安全的生产配置。
+
+请为每个环境设置强随机且稳定的 secret。
+变更 secret 可能导致已签名认证数据失效并引发用户退出登录。
+
+---
+
+## 11) 业务数据建模：哪些不该放在认证表里
+
+不要把高频变化的业务计数塞进认证表。
+
+### 认证表应保持“只做认证”
+
+- `users`: 身份/资料/角色
+- `accounts`: 登录提供方 + 凭据/token
+- `sessions`: 登录状态
+- `verifications`: 一次性验证 token
+
+### 产品/计费状态应放在领域表
+
+推荐模式：
+
+1. 当前状态表（快速读取）
+2. 追加写 ledger/event（审计/重算）
+3. entitlement 表（功能权限）
+
+示例结构：
+
+- `user_balance`
+  - `user_id` (PK)
+  - `credits_balance`
+  - `quota_limit`
+  - `quota_used`
+  - `plan_id`
+  - `billing_period_start`
+  - `billing_period_end`
+  - `updated_at`
+
+- `usage_events`
+  - `id`
+  - `user_id`
+  - `type`
+  - `amount`
+  - `cost_credits`
+  - `metadata` (JSON)
+  - `created_at`
+
+- `entitlements`
+  - `user_id`
+  - `key`
+  - `value`
+  - `source` (plan/admin/promo)
+  - `expires_at`
+
+这样可以让认证层稳定，同时业务逻辑可审计、可回放。
+
+---
+
+## 12) 配额/积分消费与事务安全
+
+消耗配额或积分时：
+
+- 必须使用 DB 事务
+- 先检查余额/可用配额
+- 写入 usage ledger 事件
+- 有条件地更新余额
+
+这能避免并发下的竞态和负余额问题。
+
+在本模板中：
+
+- 任务使用量记录在 `tasks`
+- 积分台账记录在 `credits`
+- 月度配额（`users.monthly_credits_quota`）会在扣积分前校验
+
+---
+
+## 13) 面向未来：Organizations
+
+如果未来要支持团队：
+
+- 新增 `organizations`
+- 把余额/配额/entitlement 下沉到组织级
+- 个人账号视为单人组织
+
+尽早按这个方向设计，可以避免后期大规模重构。
+
+---
+
+## 14) 环境变量与初始化清单
+
+最小认证相关环境变量：
+
+- `BETTER_AUTH_URL`
+- `NEXT_PUBLIC_AUTH_BASE_URL`
+- `BETTER_AUTH_SECRET`（强随机）
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`（启用 Google 时）
+
+如果 schema 变更，执行迁移：
 
 ```bash
+pnpm drizzle-kit generate --config src/db/config.ts
 pnpm drizzle-kit migrate --config src/db/config.ts
 ```
 
-2) 使用管理员账号验证以上接口。
+---
 
-## 修改角色
+## 最终总结
 
-以数据库为唯一来源：
+- 本项目是 Cookie + DB Session（不是 JWT-first）
+- OAuth 身份以 provider account 为准，不以邮箱域名为准
+- 应用会话生命周期与 provider token 生命周期相互独立
+- 认证表应保持 auth-only
+- 积分/配额/权限应放在带 ledger 的业务领域表
+- Admin RBAC 基于 DB 角色并在服务端严格保护
 
-- SQL：
-  ```sql
-  update users set role = 'admin_rw' where uuid = '<uuid>';
-  ```
-- 代码助手：
-  - `updateUserRole(uuid, 'admin_ro' | 'admin_rw' | 'user')` 位于 `src/models/user.ts`。
-
-## 说明
-
-- 管理账号建议开启 MFA/SSO，并缩短会话有效期。
-- 管理页面需在服务端做权限校验，未授权则重定向。
-- 角色不通过 .env 控制；请在数据库中进行赋权/回收。
-
-## 社交登录（Google）
-
-- 提供商在 `src/lib/auth.ts` 的 `socialProviders.google` 中配置，并从 `.env` 读取 `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`。
-- 在 `.env` 中设置：`GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`，并确保 `BETTER_AUTH_URL` 与 `NEXT_PUBLIC_AUTH_BASE_URL` 正确（开发可用 `http://localhost:3000`）。
-- 在 Google Cloud Console → Credentials 添加授权回调 URI：
-  - `http://localhost:3000/api/auth/callback/google`（开发）
-  - `https://你的域名.com/api/auth/callback/google`（生产）
-- `/[locale]/login` 登录页包含“使用 Google 继续”按钮，点击后进入 OAuth 流程。
+该架构能提供清晰的安全边界、可运维性，以及后续扩展能力。

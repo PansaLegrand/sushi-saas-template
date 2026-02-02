@@ -1,200 +1,396 @@
 ---
-title: Admin Roles & Authorization
+title: Authentication & Admin Architecture
 icon: "Shield"
-description: Configure read-only and read/write admin roles, protect admin APIs, and understand the authentication pipeline used by this template.
+description: Deep dive into how this template handles Better Auth sessions, OAuth, RBAC, and business data modeling for credits and quota.
 keywords:
   - authentication
-  - RBAC
-  - admin
-  - roles
   - authorization
-  - Next.js
   - Better Auth
-  - Drizzle ORM
-tags: [auth, roles, admin]
+  - OAuth
+  - sessions
+  - admin
+  - RBAC
+  - data modeling
+tags: [auth, admin, oauth, sessions]
 author: "Pansa Legrand"
 publishedAt: "2025-09-29T00:00:00.000Z"
-updatedAt: "2025-09-29T00:00:00.000Z"
+updatedAt: "2026-02-02T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/en/blogs/authentication-and-admin"
 ---
 
 # Authentication & Admin
 
-This template uses Better Auth + Drizzle for authentication and sessions. A simple, DB‑backed RBAC layer adds two admin roles on top of regular users. Roles are stored in the database only (no env-based elevation).
+This document is the source of truth for how authentication and admin authorization work in this template.
 
-## Basics: Authentication vs. Authorization
+It covers:
 
-- Authentication: Proves who you are (sign‑in/sign‑up). The result is a session.
-- Authorization: Decides what you can do after sign‑in. In this template, a `role` on the `users` table controls access.
+- The exact Better Auth model used here
+- How email/password and Google OAuth flows persist sessions
+- Why `users`, `accounts`, `sessions`, and `verifications` are separate
+- What is auth data vs what is business data (credits, quotas, permits)
+- How admin RBAC is implemented in this codebase
 
-Roles we use:
+---
 
-- `user` – default for everyone.
-- `admin_ro` – read‑only admin (can view admin data, no writes).
-- `admin_rw` – read + write admin (includes granting credits and other admin actions).
+## 1) Authentication Model Used in This Template
 
-### A simple analogy
+**This project uses cookie-based, server-managed sessions backed by Postgres.**
+It is **not JWT-first auth** by default.
 
-At an airport, showing your ID to security is authentication (proving identity). Presenting your boarding pass at the gate is authorization (verifying you’re allowed on that flight).
+Why:
 
-### Quick comparison
+- Better Auth is configured with Drizzle + Postgres adapter in `src/lib/auth.ts`
+- Session storage maps to the `sessions` table in `src/db/schema.ts`
+- `nextCookies()` plugin is enabled
+- No JWT plugin is enabled for primary auth
 
-| Topic | Authentication | Authorization |
-| --- | --- | --- |
-| Purpose | Verify identity (who you are) | Verify permissions (what you can do) |
-| When | Before authorization | After successful authentication |
-| Typical inputs | Credentials (password, email link, social sign‑in) | Policies/roles (e.g., `user`, `admin_ro`, `admin_rw`) |
-| Output | A session/identity | Allowed actions and protected routes |
-| Common standards (general) | OpenID Connect (OIDC), ID tokens | OAuth 2.0, access scopes |
+Practical implication:
 
-In this template: we use secure, HttpOnly session cookies on the server (not front‑end tokens) and a simple role field on `users` to drive authorization checks.
+1. Browser stores an HttpOnly auth cookie (session token)
+2. Server validates session token against `sessions`
+3. Session row points to the user identity
 
-## What is Better Auth?
+JWT support exists in Better Auth, but it is opt-in and does not replace the core DB session model used here.
 
-Better Auth is a lightweight, TypeScript‑first auth library for Next.js.
+---
 
-- Storage: Uses Drizzle ORM + Postgres via the adapter configured in `src/lib/auth.ts`.
-- Data model: `users`, `sessions`, `accounts`, `verifications` in `src/db/schema.ts`.
-- Sessions: Sets an HttpOnly cookie and persists session rows in the `sessions` table; server routes read the session via `auth.api.getSession({ headers })`.
-- Extra fields: We expose `uuid` and `role` on the session through `additionalFields` for easy server checks.
+## 2) Core Auth Tables and Responsibilities
 
-## Secrets and URLs (entry‑level)
+Better Auth intentionally splits identity, credentials, and login state.
 
-- `BETTER_AUTH_SECRET`: A long, random server‑only secret used to sign/verify auth tokens and secure cookies. Generate one time and keep it private.
-  - Generate: `openssl rand -base64 32`
-  - Rotation note: Changing it logs out all users because existing sessions can no longer be verified.
-- `BETTER_AUTH_URL`: Server base URL used by the auth library (usually your site URL).
-- `NEXT_PUBLIC_AUTH_BASE_URL`: Client‑side base (keep same as site URL in most cases).
-- Cookies are `HttpOnly` and `secure` in production (see `advanced.defaultCookieAttributes` in `src/lib/auth.ts`).
+### `users` (identity profile)
 
-If sign‑in seems to work only once or sessions vanish after restart, double‑check these envs and restart the dev server.
+Represents **who the person is in your product**.
 
-## Auth Pipeline Overview
+Typical fields:
 
-- Library: Better Auth (`src/lib/auth.ts`) with Drizzle adapter to Postgres (`src/db/schema.ts`).
-- Users are stored in `users`. Sessions, accounts, and verifications live in `sessions`, `accounts`, `verifications`.
-- The session is fetched in App Router via `auth.api.getSession({ headers })`.
-- Custom user fields are exposed to the session via `additionalFields` (we include `uuid` and `role`).
+- Email
+- Display profile (`nickname`, `avatar_url`)
+- Role (`role`)
+- Verification/status flags
+- Created/updated timestamps
 
-## Roles
+In this template, additional mapped fields include:
 
-- `user`: default for everyone.
-- `admin_ro`: read‑only admin; can list users, list orders, and view a user’s credit summary.
-- `admin_rw`: read + operation admin; includes all read‑only powers and can grant credits to users (`trans_type = system_add`).
+- `uuid` (generated on create)
+- `role`
 
-Table changes (migration `0001_add_user_role.sql`) add `users.role` with default `user`.
+This table should stay relatively stable.
 
-## How Authorization Works
+### `accounts` (authentication methods)
 
-- Helpers in `src/lib/authz.ts` derive the current user’s role from the session/DB only:
-  - `requireAdminRead()` → allows `admin_ro`/`admin_rw`.
-  - `requireAdminWrite()` → allows `admin_rw`.
+Represents **how they can sign in**.
 
-## Admin APIs
+- One user can have multiple accounts/providers
+- Stores provider identity and provider tokens
 
-All endpoints are server‑only and role‑guarded:
+Typical fields:
 
-- `GET /api/admin/users` → list users. Query: `page`, `limit`.
-- `GET /api/admin/orders` → list paid orders. Query: `page`, `limit`.
-- `GET /api/admin/users/:uuid/credits` → credit summary + recent ledger.
-- `POST /api/admin/credits/grant` → grant credits as `system_add`.
+- `provider_id`
+- `account_id`
+- Password hash (email/password)
+- OAuth access token / refresh token
+- OAuth token expiration timestamps
 
-```jsonc
-// POST /api/admin/credits/grant body
-{
-  "userUuid": "<target-user-uuid>",
-  "credits": 100,
-  "expiredAt": null,     // optional ISO string or null
-  "orderNo": "",         // optional
-  "note": "promo Q4"     // reserved for future auditing
-}
-```
+This table is credential-focused and security-sensitive.
 
-## Setup Steps
+### `sessions` (login state)
 
-1) Migrate DB
+Represents active login sessions for your app.
 
-Run migrations to add the `role` column:
+Typical fields:
+
+- `user_id`
+- `token`
+- `expires_at`
+- `ip_address`
+- `user_agent`
+
+Properties:
+
+- Session expiration controls whether user stays logged in
+- Revoking sessions is done by deleting/invalidating rows
+- Sliding refresh behavior is controlled by session policy
+
+### `verifications` (one-time flows)
+
+Used for temporary tokens in flows such as:
+
+- Password reset
+- Email verification
+- Magic link / OTP (if enabled)
+
+Normal sign-in/sign-out does not continuously write here, so seeing very few rows is expected.
+
+---
+
+## 3) End-to-End Auth Procedure in This Codebase
+
+### 3.1 Email + Password Sign-Up
+
+1. Client submits sign-up form
+2. Better Auth creates a `users` row
+3. `databaseHooks.user.create.before` in `src/lib/auth.ts` ensures `uuid` exists
+4. Better Auth creates an `accounts` row for email/password
+5. Better Auth creates a `sessions` row
+6. Session cookie is set in response
+7. `databaseHooks.user.create.after` triggers welcome email async
+
+Result: user is signed in immediately.
+
+### 3.2 Email + Password Sign-In
+
+1. Client submits credentials
+2. Better Auth validates password hash in `accounts`
+3. Better Auth creates/refreshes session in `sessions`
+4. Session cookie is set/updated
+
+### 3.3 Google OAuth Sign-In
+
+1. User clicks Google sign-in
+2. OAuth redirect + callback flow executes
+3. Google returns account identity (`sub`) and profile claims
+4. Better Auth finds or creates user
+5. Better Auth creates/updates `accounts` row for provider `google`
+6. Better Auth creates session row
+7. Session cookie is set
+
+---
+
+## 4) Important OAuth Identity Rule
+
+Google sign-in does **not** require a Gmail address.
+
+- Users may use Gmail, Outlook, Yahoo, or custom domain email tied to a Google account
+- Identity should be treated as provider account identity (`provider_id`, `account_id` / `sub`), not email domain
+
+Never treat email domain as proof of provider identity.
+
+---
+
+## 5) Session Expiration vs OAuth Token Expiration
+
+These are separate lifecycles.
+
+### App session lifecycle (`sessions`)
+
+- Controls login state in your app
+- If session expires, `getSession()` returns null
+- User must sign in again
+
+### Provider token lifecycle (`accounts`)
+
+- Controls your backend's ability to call provider APIs
+- Access tokens expire quickly
+- Refresh tokens may be used to get new access tokens
+
+Critical point:
+
+- Better Auth session expiry does not auto-log users back in via Google refresh token
+- Refresh token usage is for provider API calls, not app authentication
+
+---
+
+## 6) Why Sessions and OAuth Tokens Must Stay Separate
+
+This separation is required for predictable security:
+
+- OAuth refresh token is not app identity proof
+- Session revocation must remain meaningful
+- Explicit re-authentication should be possible
+- Security/audit boundaries stay clear
+
+Auto-recreating app sessions from provider refresh tokens would weaken revocation and auditability.
+
+---
+
+## 7) Authorization (RBAC) in This Template
+
+Authentication answers "who are you".
+Authorization answers "what can you do".
+
+Roles are DB-driven in `users.role`:
+
+- `user`
+- `admin_ro`
+- `admin_rw`
+
+Role checks are implemented in `src/lib/authz.ts`:
+
+- `requireAdminRead()` -> allows `admin_ro` and `admin_rw`
+- `requireAdminWrite()` -> allows `admin_rw`
+
+Admin layout guard: `src/app/(admin)/layout.tsx`.
+
+---
+
+## 8) Current Admin Surfaces and APIs
+
+### Admin pages
+
+- Dashboard: `src/app/(admin)/admin/page.tsx`
+- Users list: `src/app/(admin)/admin/users/page.tsx`
+- User detail/quota/credits: `src/app/(admin)/admin/users/[uuid]/page.tsx`
+- Orders list/status view: `src/app/(admin)/admin/orders/page.tsx`
+- Feedbacks: `src/app/(admin)/admin/feedbacks/page.tsx`
+- Reservations: `src/app/(admin)/admin/reservations/page.tsx`
+- Affiliates: `src/app/(admin)/admin/affiliates/page.tsx`
+
+### Admin API routes
+
+- `GET /api/admin/users` -> paginated users list
+- `GET /api/admin/users/[uuid]` -> user detail + monthly usage + credits summary
+- `PATCH /api/admin/users/[uuid]` -> update `monthlyCreditsQuota`
+- `GET /api/admin/users/[uuid]/credits` -> credit summary + ledger
+- `POST /api/admin/credits/grant` -> grant credits
+- `POST /api/admin/credits/adjust` -> positive/negative credit adjustments
+- `GET /api/admin/orders` -> paginated orders with status filter (`all|paid|created|deleted`)
+
+---
+
+## 9) Cookie Sessions vs JWT (What You Actually Have)
+
+Current setup:
+
+- Session cookie contains a session token
+- Server checks token against `sessions` table
+- User resolved from DB-backed session
+
+So this is DB-backed session auth, not pure stateless JWT auth.
+
+Pure JWT model (not current default):
+
+- Token itself carries claims
+- Server verifies signature each request
+- Usually no DB lookup required for basic validation
+
+---
+
+## 10) Why `BETTER_AUTH_SECRET` Is Still Required
+
+Even when session tokens are random, secret is still needed for cryptographic signing/verification flows.
+
+Better Auth resolves secret from:
+
+1. Explicit `secret` option in config
+2. `BETTER_AUTH_SECRET`
+3. `AUTH_SECRET`
+4. Internal fallback (dev convenience, not production-safe)
+
+So app may still run without env secret, but that is not a safe production posture.
+
+Use a strong stable secret per environment.
+Changing secret invalidates existing signed auth artifacts and can log users out.
+
+---
+
+## 11) Business Data Modeling: What Belongs Outside Auth Tables
+
+Do not overload auth tables with high-churn business counters.
+
+### Keep auth tables auth-focused
+
+- `users`: identity/profile/role
+- `accounts`: login providers + credentials/tokens
+- `sessions`: login state
+- `verifications`: one-time verification tokens
+
+### Put product/billing state in domain tables
+
+Recommended pattern:
+
+1. Current-state table (fast reads)
+2. Append-only ledger/events (audit/rebuild)
+3. Entitlements table (feature permits)
+
+Example structures:
+
+- `user_balance`
+  - `user_id` (PK)
+  - `credits_balance`
+  - `quota_limit`
+  - `quota_used`
+  - `plan_id`
+  - `billing_period_start`
+  - `billing_period_end`
+  - `updated_at`
+
+- `usage_events`
+  - `id`
+  - `user_id`
+  - `type`
+  - `amount`
+  - `cost_credits`
+  - `metadata` (JSON)
+  - `created_at`
+
+- `entitlements`
+  - `user_id`
+  - `key`
+  - `value`
+  - `source` (plan/admin/promo)
+  - `expires_at`
+
+This keeps auth stable while business logic stays auditable.
+
+---
+
+## 12) Quota, Credits, and Transaction Safety
+
+When spending credits/quota:
+
+- Use DB transactions
+- Check available balance/quota
+- Insert usage ledger event
+- Apply balance update conditionally
+
+This avoids race conditions and negative balances under concurrency.
+
+In this template:
+
+- Task usage is tracked in `tasks`
+- Credit ledger is tracked in `credits`
+- Monthly quota (`users.monthly_credits_quota`) is enforced in task orchestration before credit spend
+
+---
+
+## 13) Forward Compatibility: Organizations
+
+If you expect team accounts:
+
+- Add `organizations`
+- Move balance/quota/entitlements to org level
+- Treat personal accounts as single-member orgs
+
+Designing for org-capable ownership early avoids painful refactors later.
+
+---
+
+## 14) Environment and Setup Checklist
+
+Minimum auth-related env:
+
+- `BETTER_AUTH_URL`
+- `NEXT_PUBLIC_AUTH_BASE_URL`
+- `BETTER_AUTH_SECRET` (strong random)
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (if Google enabled)
+
+If schema changed, run migrations:
 
 ```bash
 pnpm drizzle-kit generate --config src/db/config.ts
 pnpm drizzle-kit migrate --config src/db/config.ts
 ```
 
-This repo includes `src/db/migrations/0001_add_user_role.sql` so a generate is optional if you don’t change the schema further.
+---
 
-2) Verify endpoints
+## Final Summary
 
-- Call `GET /api/admin/users` as an admin to confirm access.
-- Call `POST /api/admin/credits/grant` with a target `userUuid` to add credits; the ledger shows `trans_type = system_add`.
+- This project uses cookie-based DB sessions (not JWT-first)
+- OAuth identity is provider-account based, not email-domain based
+- Session lifecycle and provider-token lifecycle are separate
+- Auth tables should stay auth-only
+- Credits/quota/permits should live in domain tables with ledger support
+- Admin RBAC is DB role-based and guarded server-side
 
-## Changing Roles
-
-Update roles in the database (authoritative source):
-
-- SQL (direct):
-  ```sql
-  update users set role = 'admin_rw' where uuid = '<uuid>';
-  ```
-- Update via code helper:
-  - `updateUserRole(uuid, 'admin_ro' | 'admin_rw' | 'user')` in `src/models/user.ts`.
-
-## Notes & Tips
-
-- The existing dev endpoint `POST /api/account/credits/grant` is for local testing; lock it down or remove in production in favor of the admin endpoint above.
-- Consider adding an audit log table if you need to track who granted credits (operator UUID, timestamp, reason).
-- Protect admin accounts with MFA/SSO and shorter session TTLs.
-- Only expose admin UI/pages after guarding them on the server (check role in the server component and redirect if unauthorized).
-- Roles are not controlled by environment variables; use DB changes for assignment/revocation.
-
-## Social Sign‑In (Google)
-
-- The Google provider is configured in `src/lib/auth.ts` under `socialProviders.google` and reads `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` from `.env`.
-- Ensure these envs are set: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, plus `BETTER_AUTH_URL` and `NEXT_PUBLIC_AUTH_BASE_URL` (e.g. `http://localhost:3000` in development).
-- In Google Cloud Console → Credentials, add the Authorized redirect URI:
-  - `http://localhost:3000/api/auth/callback/google` (dev)
-  - `https://your-domain.com/api/auth/callback/google` (prod)
-- The login screen at `/[locale]/login` shows a “Continue with Google” button that starts the OAuth flow.
-
-## Email & Password
-
-This template enables Better Auth’s email & password authenticator and includes localized “Forgot password” and “Reset password” pages.
-
-- Server config lives in `src/lib/auth.ts` → `emailAndPassword` is enabled and wired with `sendResetPassword` and `onPasswordReset` callbacks.
-- Emails are sent via Resend using `src/services/email/send.ts` and the template `src/services/email/templates/reset-password.tsx`.
-- UI routes are localized under the App Router:
-  - `/[locale]/forgot-password` → request reset link
-  - `/[locale]/reset-password?token=...` → set new password
-- All UI strings come from `messages/*.json` under the `auth.*` namespace (see `messages/en.json`).
-
-### Client usage
-
-```ts
-// Request a reset link
-await authClient.requestPasswordReset({
-  email: "john.doe@example.com",
-  redirectTo: "/en/reset-password", // locale-aware in app
-});
-
-// Reset password (token comes from the reset link)
-await authClient.resetPassword({
-  newPassword: "newpassword1234",
-  token,
-});
-```
-
-### Pages & Components
-
-- Components: `src/components/auth/forgot-password-form.tsx`, `src/components/auth/reset-password-form.tsx` (client components; i18n with `next-intl`).
-- Pages: thin wrappers at `src/app/[locale]/(auth)/forgot-password/page.tsx` and `src/app/[locale]/(auth)/reset-password/page.tsx` render the components.
-
-### Environment
-
-- Required: `BETTER_AUTH_URL`, `RESEND_API_KEY`, `EMAIL_FROM`.
-- Optional: `NEXT_PUBLIC_AUTH_BASE_URL` for client in edge cases.
-
-### Manual check
-
-1. Visit `/[locale]/forgot-password`, submit a known user email.
-2. Open the email and follow the link to `reset-password?token=...`.
-3. Set a new password and sign in at `/[locale]/login`.
+This architecture gives strong security boundaries, good operational control, and clear scaling paths.

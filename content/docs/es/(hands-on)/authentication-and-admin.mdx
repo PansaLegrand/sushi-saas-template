@@ -1,127 +1,396 @@
 ---
-title: Autenticación y Admin
+title: Arquitectura de autenticación y administración
 icon: "Shield"
-description: Configura roles de administrador de solo lectura y lectura/escritura, protege las APIs de admin y entiende el flujo de autenticación del template.
+description: Guía completa de sesiones con Better Auth, OAuth, RBAC y modelado de datos de negocio (créditos y cuotas) en esta plantilla.
 keywords:
-  - autenticación
-  - RBAC
-  - administrador
-  - roles
-  - autorización
-  - Next.js
+  - autenticacion
+  - autorizacion
   - Better Auth
-  - Drizzle ORM
-tags: [auth, roles, admin]
+  - OAuth
+  - sesiones
+  - admin
+  - RBAC
+  - modelado de datos
+tags: [auth, admin, oauth, sesiones]
 author: "Pansa Legrand"
 publishedAt: "2025-09-29T00:00:00.000Z"
-updatedAt: "2025-09-29T00:00:00.000Z"
+updatedAt: "2026-02-02T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/es/blogs/authentication-and-admin"
 ---
 
 # Autenticación y Admin
 
-Este template usa Better Auth + Drizzle. El control de acceso (RBAC) se basa en la base de datos, sin elevación por variables de entorno.
+Este documento es la referencia principal para entender cómo funciona la autenticación y la autorización admin en esta plantilla.
 
-## Conceptos básicos: autenticación vs autorización
+Incluye:
 
-- Autenticación: prueba quién eres (registro/inicio de sesión). El resultado es una sesión.
-- Autorización: decide qué puedes hacer después de iniciar sesión. Aquí lo controla el campo `role` en la tabla `users`.
+- El modelo exacto de Better Auth usado aquí
+- Cómo email/contraseña y OAuth de Google mantienen sesiones
+- Por qué `users`, `accounts`, `sessions` y `verifications` están separadas
+- Qué datos son de auth y cuáles son de negocio (créditos, cuotas, permisos)
+- Cómo está implementado el RBAC admin en este código
 
-Roles:
+---
 
-- `user` — por defecto para todos.
-- `admin_ro` — solo lectura (ver datos de admin, sin escribir).
-- `admin_rw` — lectura + escritura (incluye otorgar créditos y otras acciones admin).
+## 1) Modelo de autenticación usado en esta plantilla
 
-### Una analogía sencilla
+**Este proyecto usa sesiones gestionadas en servidor, basadas en cookies y respaldadas por Postgres.**
+No es un modelo JWT-first por defecto.
 
-En un aeropuerto, mostrar tu identificación en seguridad es autenticación (probar identidad). Presentar la tarjeta de embarque en la puerta es autorización (verificar que puedes subirte a ese vuelo).
+Por qué:
 
-### Comparación rápida
+- Better Auth está configurado con adaptador Drizzle + Postgres en `src/lib/auth.ts`
+- El almacenamiento de sesiones está mapeado a la tabla `sessions` en `src/db/schema.ts`
+- El plugin `nextCookies()` está habilitado
+- No hay plugin JWT habilitado como mecanismo principal
 
-| Tema | Autenticación | Autorización |
-| --- | --- | --- |
-| Propósito | Verificar identidad (quién) | Verificar permisos (qué) |
-| Momento | Antes de la autorización | Después de autenticación exitosa |
-| Entradas típicas | Credenciales (contraseña, enlace por email, social) | Políticas/roles (`user`, `admin_ro`, `admin_rw`) |
-| Salida | Sesión/identidad | Acciones permitidas y rutas protegidas |
-| Estándares (generales) | OIDC, ID Tokens | OAuth 2.0, scopes |
+Implicación práctica:
 
-En este template: usamos cookies de sesión HttpOnly en el servidor (no tokens en el front) y un rol en la BD para los checks de autorización.
+1. El navegador guarda una cookie HttpOnly de auth (token de sesión)
+2. El servidor valida ese token contra `sessions`
+3. La fila de sesión apunta a la identidad del usuario
 
-## ¿Qué es Better Auth?
+Better Auth sí soporta JWT, pero es opt-in y no reemplaza el modelo de sesión en DB que se usa aquí.
 
-Una librería de auth ligera y orientada a TypeScript para Next.js.
+---
 
-- Almacenamiento: Drizzle ORM + Postgres (ver `src/lib/auth.ts`).
-- Modelo de datos: `users`, `sessions`, `accounts`, `verifications` (ver `src/db/schema.ts`).
-- Sesiones: cookie HttpOnly y registro en `sessions`; las rutas del servidor leen la sesión con `auth.api.getSession({ headers })`.
-- Campos extra: exponemos `uuid` y `role` en la sesión vía `additionalFields` para facilitar validaciones en servidor.
+## 2) Tablas de auth principales y responsabilidades
 
-## Secretos y URLs (nivel inicial)
+Better Auth separa de forma intencional identidad, credenciales y estado de sesión.
 
-- `BETTER_AUTH_SECRET`: secreto largo y aleatorio del servidor para firmar/verificar cookies/JSON Web Tokens. Genera una vez y mantenlo privado.
-  - Generar: `openssl rand -base64 32`
-  - Rotación: cambiarlo cierra la sesión de todos los usuarios (las sesiones previas dejan de ser válidas).
-- `BETTER_AUTH_URL`: base URL del servidor usada por la librería de auth (normalmente la URL del sitio).
-- `NEXT_PUBLIC_AUTH_BASE_URL`: base del lado del cliente (en la mayoría de casos, igual que la del sitio).
-- Cookies `HttpOnly` y `secure` en producción (ver `advanced.defaultCookieAttributes` en `src/lib/auth.ts`).
+### `users` (perfil de identidad)
 
-Si ves que la sesión se pierde tras reiniciar o solo funciona una vez, revisa estas variables y reinicia el servidor de dev.
+Representa **quién es la persona en tu producto**.
 
-## Roles
+Campos típicos:
 
-- `user`: por defecto.
-- `admin_ro`: solo lectura; puede listar usuarios, pedidos y ver créditos de un usuario.
-- `admin_rw`: lectura + operaciones; además puede otorgar créditos (`trans_type = system_add`).
+- Email
+- Perfil (`nickname`, `avatar_url`)
+- Rol (`role`)
+- Flags de verificación/estado
+- Timestamps de creación/actualización
 
-La migración `0001_add_user_role.sql` añade `users.role` con valor por defecto `user`.
+En esta plantilla, también se mapean:
 
-## Autorización
+- `uuid` (generado al crear)
+- `role`
 
-- `src/lib/authz.ts` obtiene el rol desde la sesión/BD:
-  - `requireAdminRead()` → permite `admin_ro`/`admin_rw`.
-  - `requireAdminWrite()` → permite `admin_rw`.
+Esta tabla debe mantenerse estable.
 
-## Endpoints de Admin
+### `accounts` (métodos de autenticación)
 
-- `GET /api/admin/users` → lista de usuarios (paginación `page`, `limit`).
-- `GET /api/admin/orders` → pedidos pagados (paginación).
-- `GET /api/admin/users/:uuid/credits` → resumen de créditos.
-- `POST /api/admin/credits/grant` → otorga créditos como `system_add`.
+Representa **cómo puede iniciar sesión**.
 
-## Pasos de configuración
+- Un usuario puede tener múltiples cuentas/proveedores
+- Guarda identidad del proveedor y tokens del proveedor
 
-1) Migrar BD:
+Campos típicos:
+
+- `provider_id`
+- `account_id`
+- Hash de contraseña (email/contraseña)
+- Access token / refresh token OAuth
+- Expiración de tokens OAuth
+
+Esta tabla es sensible y centrada en credenciales.
+
+### `sessions` (estado de login)
+
+Representa sesiones activas de tu app.
+
+Campos típicos:
+
+- `user_id`
+- `token`
+- `expires_at`
+- `ip_address`
+- `user_agent`
+
+Propiedades:
+
+- La expiración de sesión controla si el usuario sigue autenticado
+- Revocar sesiones implica borrar/invalidar filas
+- La renovación deslizante depende de la policy de sesión
+
+### `verifications` (flujos one-time)
+
+Se usa para tokens temporales en flujos como:
+
+- Reset de contraseña
+- Verificación de email
+- Magic link / OTP (si se habilita)
+
+El login/logout normal no escribe continuamente aquí, así que ver pocas filas es normal.
+
+---
+
+## 3) Procedimiento de autenticación end-to-end en este código
+
+### 3.1 Registro con email + contraseña
+
+1. El cliente envía el formulario de registro
+2. Better Auth crea fila en `users`
+3. `databaseHooks.user.create.before` en `src/lib/auth.ts` asegura `uuid`
+4. Better Auth crea fila en `accounts` para email/contraseña
+5. Better Auth crea fila en `sessions`
+6. Se envía cookie de sesión en la respuesta
+7. `databaseHooks.user.create.after` dispara email de bienvenida de forma asíncrona
+
+Resultado: el usuario queda autenticado inmediatamente.
+
+### 3.2 Login con email + contraseña
+
+1. El cliente envía credenciales
+2. Better Auth valida el hash en `accounts`
+3. Better Auth crea/refresca sesión en `sessions`
+4. La cookie de sesión se crea/actualiza
+
+### 3.3 Login con Google OAuth
+
+1. El usuario hace click en Google
+2. Ocurre el flujo redirect + callback OAuth
+3. Google devuelve identidad de cuenta (`sub`) y claims de perfil
+4. Better Auth encuentra o crea usuario
+5. Better Auth crea/actualiza fila `accounts` para `google`
+6. Better Auth crea fila de sesión
+7. Se envía la cookie de sesión
+
+---
+
+## 4) Regla importante sobre identidad OAuth
+
+Iniciar sesión con Google **no requiere** Gmail.
+
+- El usuario puede usar Gmail, Outlook, Yahoo o dominio propio vinculado a una cuenta Google
+- La identidad debe basarse en identidad del proveedor (`provider_id`, `account_id` / `sub`), no en dominio de email
+
+Nunca uses el dominio del email como prueba de proveedor.
+
+---
+
+## 5) Expiración de sesión vs expiración de tokens OAuth
+
+Son dos ciclos de vida independientes.
+
+### Ciclo de sesión app (`sessions`)
+
+- Controla el estado autenticado en tu app
+- Si la sesión expira, `getSession()` devuelve null
+- El usuario debe iniciar sesión otra vez
+
+### Ciclo de token de proveedor (`accounts`)
+
+- Controla si tu backend puede llamar APIs del proveedor
+- Los access tokens expiran rápido
+- Los refresh tokens pueden renovarlos
+
+Punto crítico:
+
+- La expiración de sesión de Better Auth no reloguea automáticamente usando refresh token de Google
+- El refresh token es para llamadas a APIs del proveedor, no para auth de tu app
+
+---
+
+## 6) Por qué sesiones y tokens OAuth deben estar separados
+
+Esta separación es necesaria para una seguridad predecible:
+
+- Un refresh token OAuth no es prueba de identidad de la app
+- La revocación de sesión debe tener efecto real
+- Debe existir reautenticación explícita
+- Los límites de seguridad/auditoría deben ser claros
+
+Recrear sesiones automáticamente desde refresh tokens debilita revocación y auditabilidad.
+
+---
+
+## 7) Autorización (RBAC) en esta plantilla
+
+La autenticación responde "quién eres".
+La autorización responde "qué puedes hacer".
+
+Los roles vienen de DB en `users.role`:
+
+- `user`
+- `admin_ro`
+- `admin_rw`
+
+Los checks de rol están en `src/lib/authz.ts`:
+
+- `requireAdminRead()` -> permite `admin_ro` y `admin_rw`
+- `requireAdminWrite()` -> permite `admin_rw`
+
+Guard de layout admin: `src/app/(admin)/layout.tsx`.
+
+---
+
+## 8) Superficies admin y APIs actuales
+
+### Páginas admin
+
+- Dashboard: `src/app/(admin)/admin/page.tsx`
+- Lista de usuarios: `src/app/(admin)/admin/users/page.tsx`
+- Detalle usuario/cuota/créditos: `src/app/(admin)/admin/users/[uuid]/page.tsx`
+- Lista de pedidos/estado: `src/app/(admin)/admin/orders/page.tsx`
+- Feedbacks: `src/app/(admin)/admin/feedbacks/page.tsx`
+- Reservas: `src/app/(admin)/admin/reservations/page.tsx`
+- Afiliados: `src/app/(admin)/admin/affiliates/page.tsx`
+
+### Rutas API admin
+
+- `GET /api/admin/users` -> lista paginada de usuarios
+- `GET /api/admin/users/[uuid]` -> detalle usuario + uso mensual + resumen de créditos
+- `PATCH /api/admin/users/[uuid]` -> actualiza `monthlyCreditsQuota`
+- `GET /api/admin/users/[uuid]/credits` -> resumen de créditos + ledger
+- `POST /api/admin/credits/grant` -> otorga créditos
+- `POST /api/admin/credits/adjust` -> ajuste positivo/negativo de créditos
+- `GET /api/admin/orders` -> pedidos paginados con filtro de estado (`all|paid|created|deleted`)
+
+---
+
+## 9) Sesiones con cookie vs JWT (lo que tienes de verdad)
+
+Configuración actual:
+
+- La cookie de sesión contiene un token de sesión
+- El servidor valida el token contra la tabla `sessions`
+- El usuario se resuelve desde sesión respaldada en DB
+
+Es un modelo de sesión en DB, no JWT stateless puro.
+
+Modelo JWT puro (no es el default actual):
+
+- El token contiene claims
+- El servidor valida firma en cada request
+- Normalmente no requiere lookup en DB para validación básica
+
+---
+
+## 10) Por qué `BETTER_AUTH_SECRET` sigue siendo necesario
+
+Aunque el token de sesión sea aleatorio, el secreto sigue siendo necesario para flujos criptográficos de firma/verificación.
+
+Better Auth resuelve el secreto en este orden:
+
+1. Opción `secret` explícita en config
+2. `BETTER_AUTH_SECRET`
+3. `AUTH_SECRET`
+4. Fallback interno (útil en dev, inseguro en producción)
+
+Por eso la app puede arrancar sin secret en env, pero no es una postura segura para prod.
+
+Usa un secreto fuerte y estable por entorno.
+Cambiarlo puede invalidar artefactos de auth firmados y cerrar sesiones.
+
+---
+
+## 11) Modelado de datos de negocio: qué debe quedar fuera de auth
+
+No cargues tablas de auth con contadores de negocio de alto cambio.
+
+### Mantén tablas de auth enfocadas en auth
+
+- `users`: identidad/perfil/rol
+- `accounts`: proveedores de login + credenciales/tokens
+- `sessions`: estado de sesión
+- `verifications`: tokens one-shot
+
+### Lleva estado de producto/facturación a tablas de dominio
+
+Patrón recomendado:
+
+1. Tabla de estado actual (lectura rápida)
+2. Ledger/eventos append-only (auditoría/rebuild)
+3. Tabla de entitlements (permisos por feature)
+
+Ejemplos de estructura:
+
+- `user_balance`
+  - `user_id` (PK)
+  - `credits_balance`
+  - `quota_limit`
+  - `quota_used`
+  - `plan_id`
+  - `billing_period_start`
+  - `billing_period_end`
+  - `updated_at`
+
+- `usage_events`
+  - `id`
+  - `user_id`
+  - `type`
+  - `amount`
+  - `cost_credits`
+  - `metadata` (JSON)
+  - `created_at`
+
+- `entitlements`
+  - `user_id`
+  - `key`
+  - `value`
+  - `source` (plan/admin/promo)
+  - `expires_at`
+
+Esto mantiene auth estable y la lógica de negocio auditable.
+
+---
+
+## 12) Cuotas, créditos y seguridad transaccional
+
+Al gastar créditos/cuotas:
+
+- Usa transacciones DB
+- Verifica balance/cuota disponible
+- Inserta evento de uso en ledger
+- Aplica update de balance de forma condicional
+
+Esto evita race conditions y balances negativos bajo concurrencia.
+
+En esta plantilla:
+
+- Uso de tareas en `tasks`
+- Ledger de créditos en `credits`
+- Cuota mensual (`users.monthly_credits_quota`) se valida antes de gastar créditos
+
+---
+
+## 13) Compatibilidad futura: organizaciones
+
+Si planeas cuentas de equipo:
+
+- Agrega `organizations`
+- Mueve balance/cuota/entitlements a nivel organización
+- Trata cuentas personales como organizaciones de un solo miembro
+
+Diseñar esto desde temprano evita refactors dolorosos.
+
+---
+
+## 14) Checklist de entorno y setup
+
+Variables mínimas de auth:
+
+- `BETTER_AUTH_URL`
+- `NEXT_PUBLIC_AUTH_BASE_URL`
+- `BETTER_AUTH_SECRET` (fuerte y aleatorio)
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (si Google está activo)
+
+Si cambió el schema, corre migraciones:
 
 ```bash
+pnpm drizzle-kit generate --config src/db/config.ts
 pnpm drizzle-kit migrate --config src/db/config.ts
 ```
 
-2) Verificar endpoints (con una cuenta admin).
+---
 
-## Cambiar roles
+## Resumen final
 
-Usa la base de datos como fuente de verdad:
+- Este proyecto usa sesiones en DB con cookies (no JWT-first)
+- La identidad OAuth se basa en cuenta del proveedor, no en dominio de email
+- El ciclo de sesión app y el ciclo de token del proveedor son independientes
+- Las tablas auth deben mantenerse solo para auth
+- Créditos/cuotas/permisos deben vivir en tablas de dominio con ledger
+- El RBAC admin está basado en rol en DB y protegido en servidor
 
-- SQL:
-  ```sql
-  update users set role = 'admin_rw' where uuid = '<uuid>';
-  ```
-- Helper de código:
-  - `updateUserRole(uuid, 'admin_ro' | 'admin_rw' | 'user')` en `src/models/user.ts`.
-
-## Notas
-
-- Protege cuentas admin con MFA/SSO y sesiones más cortas.
-- Asegura páginas de admin en componentes de servidor y redirige si no hay permisos.
-- Los roles no se configuran por .env; cámbialos en la BD.
-
-## Inicio de sesión social (Google)
-
-- El proveedor está configurado en `src/lib/auth.ts` dentro de `socialProviders.google` y toma `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` de `.env`.
-- Asegúrate de definir: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, y también `BETTER_AUTH_URL` y `NEXT_PUBLIC_AUTH_BASE_URL` (por ejemplo `http://localhost:3000` en desarrollo).
-- En Google Cloud Console → Credentials, añade la URI de redirección autorizada:
-  - `http://localhost:3000/api/auth/callback/google` (dev)
-  - `https://tu-dominio.com/api/auth/callback/google` (prod)
-- La pantalla `/[locale]/login` muestra un botón “Continuar con Google” que inicia el flujo OAuth.
+Esta arquitectura da límites de seguridad sólidos, buen control operativo y una base clara para escalar.
