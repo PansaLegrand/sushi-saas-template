@@ -2,13 +2,12 @@ node_modules
 .next/
 out
 .env*
+!.env.example
 .data/
 *.db
 .source/index.ts
 .source/source.config.mjs
 /node_modules
-.env.example
-.env
 /.source
 /.next
 tsconfig.tsbuildinfo
