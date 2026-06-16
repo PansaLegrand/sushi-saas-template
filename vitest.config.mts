@@ -12,7 +12,7 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "src"),
       "@/app": path.resolve(__dirname, "src/app"),
+      "server-only": path.resolve(__dirname, "tests/shims/server-only.ts"),
     },
   },
 });
-
