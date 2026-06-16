@@ -315,6 +315,9 @@ importers:
       drizzle-kit:
         specifier: ^0.31.1
         version: 0.31.4
+      eslint:
+        specifier: 9.36.0
+        version: 9.36.0(jiti@2.6.0)
       husky:
         specifier: ^9.1.7
         version: 9.1.7

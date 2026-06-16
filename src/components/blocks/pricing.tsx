@@ -14,10 +14,6 @@ import { useAppContext } from "@/contexts/app";
 import { useLocale } from "next-intl";
 
 export default function Pricing({ pricing }: { pricing: PricingType }) {
-  if (pricing.disabled) {
-    return null;
-  }
-
   const locale = useLocale();
 
   const { setShowSignModal } = useAppContext();
@@ -88,6 +84,10 @@ export default function Pricing({ pricing }: { pricing: PricingType }) {
       setIsLoading(false);
     }
   }, [pricing.items]);
+
+  if (pricing.disabled) {
+    return null;
+  }
 
   return (
     <section id={pricing.name} className="py-16">
