@@ -11,6 +11,20 @@ import * as schema from "@/db/schema";
 
 const database = db();
 
+function getAuthSecret() {
+  const secret = process.env.BETTER_AUTH_SECRET || process.env.AUTH_SECRET;
+  if (secret) {
+    return secret;
+  }
+
+  const isBuild = process.env.npm_lifecycle_event === "build";
+  if (process.env.NODE_ENV === "production" && !isBuild) {
+    throw new Error("BETTER_AUTH_SECRET must be set in production");
+  }
+
+  return "sushi-saas-template-local-dev-auth-secret";
+}
+
 const socialProviders = (() => {
   const id = process.env.GOOGLE_CLIENT_ID;
   const secret = process.env.GOOGLE_CLIENT_SECRET;
@@ -30,6 +44,7 @@ const socialProviders = (() => {
 export const auth = betterAuth({
   appName: process.env.NEXT_PUBLIC_APP_NAME || "Sushi SaaS",
   baseURL: process.env.BETTER_AUTH_URL,
+  secret: getAuthSecret(),
   database: drizzleAdapter(database, {
     schema,
     provider: "pg",
