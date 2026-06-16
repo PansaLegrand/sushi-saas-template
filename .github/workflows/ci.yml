@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint, Test, Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      NEXT_PUBLIC_WEB_URL: http://localhost:3000
+      BETTER_AUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_AUTH_BASE_URL: http://localhost:3000
+      BETTER_AUTH_SECRET: ci-better-auth-secret-change-me
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      STRIPE_PRIVATE_KEY: sk_test_ci_placeholder
+      STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+      STORAGE_BUCKET: ci-placeholder
+      STORAGE_REGION: auto
+      STORAGE_ACCESS_KEY: ci-placeholder
+      STORAGE_SECRET_KEY: ci-placeholder
+      RESEND_API_KEY: re_ci_placeholder
+      EMAIL_FROM: CI <ci@example.com>
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test:run
+
+      - name: Build
+        run: pnpm build
