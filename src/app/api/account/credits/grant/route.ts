@@ -1,4 +1,4 @@
-import { respData, respErr, respNoAuth } from "@/lib/resp";
+import { respData, respErr, respForbidden, respNoAuth } from "@/lib/resp";
 import {
   CreditsTransType,
   increaseCredits,
@@ -7,7 +7,18 @@ import {
 import { getUserUuid } from "@/services/user";
 import type { CreditGrantRequest } from "@/types/api";
 
+function isAccountCreditGrantEnabled() {
+  return (
+    process.env.NODE_ENV !== "production" &&
+    process.env.ENABLE_ACCOUNT_CREDIT_GRANT === "true"
+  );
+}
+
 export async function POST(req: Request) {
+  if (!isAccountCreditGrantEnabled()) {
+    return respForbidden("account credit grant is disabled");
+  }
+
   try {
     const userUuid = await getUserUuid(req);
     if (!userUuid) {

@@ -2,7 +2,8 @@
  * Integration tests for the "grant credits" API.
  *
  * What we test
- * - Happy path: accepts `{ credits: 5 }`, records a positive ledger entry,
+ * - Safe default: rejects requests unless the demo grant flag is explicitly enabled.
+ * - Demo happy path: accepts `{ credits: 5 }`, records a positive ledger entry,
  *   and responds with the updated credit summary.
  * - Validation: rejects non‑positive amounts with status 400.
  *
@@ -43,9 +44,28 @@ import { POST as grantCredits } from "@/app/api/account/credits/grant/route";
 describe("POST /api/account/credits/grant", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    delete process.env.ENABLE_ACCOUNT_CREDIT_GRANT;
   });
 
-  it("grants credits and returns summary", async () => {
+  it("rejects requests by default", async () => {
+    const req = new Request("http://test", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ credits: 5 }),
+    });
+
+    const res = await grantCredits(req);
+    const payload = await res.json();
+    const credit = await import("@/services/credit");
+
+    expect(res.status).toBe(403);
+    expect(payload.code).toBe(-3);
+    expect(credit.increaseCredits).not.toHaveBeenCalled();
+  });
+
+  it("grants credits and returns summary when demo grant is enabled", async () => {
+    process.env.ENABLE_ACCOUNT_CREDIT_GRANT = "true";
+
     const req = new Request("http://test", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -73,6 +93,8 @@ describe("POST /api/account/credits/grant", () => {
   });
 
   it("rejects invalid amounts", async () => {
+    process.env.ENABLE_ACCOUNT_CREDIT_GRANT = "true";
+
     const req = new Request("http://test", {
       method: "POST",
       headers: { "content-type": "application/json" },
