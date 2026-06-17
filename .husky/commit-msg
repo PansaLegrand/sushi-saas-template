@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+# No commit message policy yet; keep this hook explicit so Husky's wrapper exits cleanly.
+exit 0
