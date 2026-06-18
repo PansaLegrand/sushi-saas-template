@@ -13,6 +13,7 @@ import { increaseCredits, CreditsTransType } from "@/services/credit";
 import { updateAffiliateForOrder } from "@/services/affiliate";
 import { findUserByEmail } from "@/models/user";
 import { notifySlackEvent, notifySlackError } from "@/integrations/slack";
+import { getAppEnv, getRequiredEnv } from "@/lib/env";
 
 // Stripe sends webhook events via POST requests with a signed payload.
 // Configure Stripe CLI or dashboard to forward events to this endpoint:
@@ -27,10 +28,7 @@ export async function POST(req: Request) {
       return new Response("missing signature", { status: 400 });
     }
 
-    const secret = process.env.STRIPE_WEBHOOK_SECRET;
-    if (!secret) {
-      return new Response("webhook secret not configured", { status: 500 });
-    }
+    const secret = getRequiredEnv("STRIPE_WEBHOOK_SECRET");
 
     const rawBody = await req.text();
 
@@ -46,11 +44,7 @@ export async function POST(req: Request) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        const apiKey = process.env.STRIPE_PRIVATE_KEY;
-        if (!apiKey) {
-          return new Response("stripe secret not configured", { status: 500 });
-        }
-        const stripe = new Stripe(apiKey);
+        const stripe = new Stripe(getRequiredEnv("STRIPE_PRIVATE_KEY"));
         await handleCheckoutSession(stripe, session);
         // If this checkout was for a reservation, confirm it now
         if (ReservationsConfig.enabled && session.metadata?.type === "reservation") {
@@ -69,7 +63,7 @@ export async function POST(req: Request) {
                   end,
                   title: `Reservation: ${svc?.title ?? "Service"}`,
                   description: `Reservation #${reservationNo} — ${svc?.title ?? "Service"}`,
-                  url: process.env.NEXT_PUBLIC_WEB_URL ? `${process.env.NEXT_PUBLIC_WEB_URL}/en/reserve?reservation_no=${reservationNo}` : undefined,
+                  url: `${getAppEnv().NEXT_PUBLIC_WEB_URL}/en/reserve?reservation_no=${reservationNo}`,
                 });
                 const googleUrl = buildGoogleCalendarUrl({
                   title: `Reservation: ${svc?.title ?? "Service"}`,
@@ -126,9 +120,7 @@ export async function POST(req: Request) {
         }
 
         try {
-          const apiKey = process.env.STRIPE_PRIVATE_KEY;
-          if (!apiKey) return new Response("stripe secret not configured", { status: 500 });
-          const stripe = new Stripe(apiKey);
+          const stripe = new Stripe(getRequiredEnv("STRIPE_PRIVATE_KEY"));
 
           const subId = (invoice.subscription as string) || "";
           if (!subId) break;
@@ -254,7 +246,7 @@ export async function POST(req: Request) {
         const to = invoice.customer_email || (invoice.customer as string | null) || null;
         if (invoice.customer_email) {
           const amountDue = typeof invoice.amount_due === "number" ? invoice.amount_due / 100 : undefined;
-          const manageUrlBase = process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000";
+          const manageUrlBase = getAppEnv().NEXT_PUBLIC_WEB_URL;
           const manageUrl = `${manageUrlBase}/en/account/billing`;
           queueMicrotask(() => {
             sendPaymentFailedEmail(invoice.customer_email!, {

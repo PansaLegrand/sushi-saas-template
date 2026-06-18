@@ -38,7 +38,7 @@ Focus: fix the risky gaps that make the boilerplate safer to clone, configure, a
 1. [x] [P0] Hide demo/test surfaces in production
    - Gate or remove `/credits-test`, mock task/video behavior, demo reservation seeding, and other internal playground flows.
 
-2. [ ] [P0] Add typed environment validation
+2. [x] [P0] Add typed environment validation
    - Fail clearly when required production secrets are missing.
    - Keep `.env.example` synced with the validation rules.
 

@@ -1,4 +1,5 @@
 import type { CreateUploadRequest, CreateUploadResponse, SignedDownloadUrl } from "@/types/storage";
+import { getAppEnv, getRequiredEnv } from "@/lib/env";
 
 export interface StorageAdapter {
   readonly provider: string;
@@ -39,10 +40,8 @@ export interface StorageConfig {
 }
 
 export function getStorageConfig(): StorageConfig {
-  const provider = (process.env.STORAGE_PROVIDER || "s3").toLowerCase();
-  const bucket = process.env.S3_BUCKET || process.env.STORAGE_BUCKET || "";
-  if (!bucket) {
-    throw new Error("STORAGE_BUCKET/S3_BUCKET is not configured");
-  }
+  const env = getAppEnv();
+  const provider = env.STORAGE_PROVIDER;
+  const bucket = getRequiredEnv("STORAGE_BUCKET");
   return { provider, bucket };
 }

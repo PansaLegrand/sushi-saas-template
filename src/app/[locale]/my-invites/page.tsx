@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { auth } from "@/lib/auth";
+import { getAppEnv } from "@/lib/env";
 import { AffiliateConfig } from "@/data/affiliate";
 import { findUserByEmail, findUserByUuid } from "@/models/user";
 import { buildMetadata, defaultMetaFallbacks } from "@/lib/seo";
@@ -33,7 +34,7 @@ export async function generateMetadata({
 }
 
 function toShareUrl(code: string): string {
-  const base = process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000";
+  const base = getAppEnv().NEXT_PUBLIC_WEB_URL;
   return `${base}${AffiliateConfig.sharePath}/${code}`;
 }
 

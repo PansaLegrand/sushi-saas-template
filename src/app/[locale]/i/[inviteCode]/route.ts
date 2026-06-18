@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { findUserByInviteCode } from "@/models/user";
 import { AffiliateConfig } from "@/data/affiliate";
+import { getAppEnv } from "@/lib/env";
 
 export async function GET(_req: Request, ctx: any) {
   const { inviteCode, locale } = await (ctx?.params || {}) as {
@@ -10,7 +11,7 @@ export async function GET(_req: Request, ctx: any) {
 
   try {
     const inviter = await findUserByInviteCode(inviteCode);
-    const base = process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000";
+    const base = getAppEnv().NEXT_PUBLIC_WEB_URL;
     const redirectTo = new URL(`/${locale}/signup`, base);
 
     const res = NextResponse.redirect(redirectTo);
@@ -28,7 +29,7 @@ export async function GET(_req: Request, ctx: any) {
 
     return res;
   } catch (e) {
-    const base = process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000";
+    const base = getAppEnv().NEXT_PUBLIC_WEB_URL;
     return NextResponse.redirect(new URL(`/${locale}`, base));
   }
 }

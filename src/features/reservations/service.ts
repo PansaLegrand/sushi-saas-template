@@ -11,6 +11,7 @@ import {
 } from "./models";
 import { newStripeClient } from "@/integrations/stripe";
 import { getSnowId } from "@/lib/hash";
+import { getAppEnv } from "@/lib/env";
 import { insertOrder, OrderStatus, updateOrderSession } from "@/models/order";
 import { findUserByUuid } from "@/models/user";
 
@@ -161,7 +162,7 @@ export async function createReservationAndCheckout(params: {
 
   // Build Stripe Checkout
   const client = newStripeClient();
-  const webUrl = process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000";
+  const webUrl = getAppEnv().NEXT_PUBLIC_WEB_URL;
   const successUrl = `${webUrl}/${params.locale}/reserve?reservation_no=${encodeURIComponent(
     reservation.reservation_no
   )}&success=1`;
@@ -183,7 +184,7 @@ export async function createReservationAndCheckout(params: {
     ],
     allow_promotion_codes: false,
     metadata: {
-      project: process.env.NEXT_PUBLIC_PROJECT_NAME || "",
+      project: getAppEnv().NEXT_PUBLIC_PROJECT_NAME,
       type: "reservation",
       reservation_no: reservation.reservation_no,
       order_no,

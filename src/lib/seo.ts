@@ -15,9 +15,10 @@ const normalizeKeywords = (keywords?: string | string[]): string[] | undefined =
 
 import { defaultLocale, localePrefix, locales } from "@/i18n/locale";
 import type { Metadata } from "next";
+import { getAppEnv } from "@/lib/env";
 
-const FALLBACK_BASE_URL = process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000";
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Sushi SaaS";
+const FALLBACK_BASE_URL = getAppEnv().NEXT_PUBLIC_WEB_URL;
+const APP_NAME = getAppEnv().NEXT_PUBLIC_APP_NAME;
 export const appName = APP_NAME;
 export const baseUrlFallback = normalizeBaseUrl(FALLBACK_BASE_URL);
 

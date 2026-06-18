@@ -3,11 +3,12 @@ import Stripe from "stripe";
 import { getUserUuid } from "@/services/user";
 import { findUserByUuid } from "@/models/user";
 import { getOrCreateCustomerIdForUser } from "@/services/stripe-customer";
+import { getAppEnv, getRequiredEnv } from "@/lib/env";
 
 export const runtime = "nodejs";
 
 function withLocaleReturnUrl(locale: string | null | undefined) {
-  const base = process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000";
+  const base = getAppEnv().NEXT_PUBLIC_WEB_URL;
   const loc = locale && locale.length > 0 ? locale : "en";
   return `${base}/${loc}/account/billing`;
 }
@@ -30,9 +31,7 @@ export async function GET(req: NextRequest) {
       stripe_customer_id: (user as any).stripe_customer_id,
     });
 
-    const key = process.env.STRIPE_PRIVATE_KEY;
-    if (!key) throw new Error("STRIPE_PRIVATE_KEY not configured");
-    const stripe = new Stripe(key);
+    const stripe = new Stripe(getRequiredEnv("STRIPE_PRIVATE_KEY"));
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
       return_url,
@@ -62,9 +61,7 @@ export async function POST(req: NextRequest) {
       nickname: user.nickname || undefined,
       stripe_customer_id: (user as any).stripe_customer_id,
     });
-    const key = process.env.STRIPE_PRIVATE_KEY;
-    if (!key) throw new Error("STRIPE_PRIVATE_KEY not configured");
-    const stripe = new Stripe(key);
+    const stripe = new Stripe(getRequiredEnv("STRIPE_PRIVATE_KEY"));
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
       return_url,

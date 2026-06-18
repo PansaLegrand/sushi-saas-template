@@ -6,13 +6,14 @@ import { createFieldAttribute } from "better-auth/db";
 import { randomUUID } from "node:crypto";
 
 import { db } from "@/db";
+import { getAppEnv } from "@/lib/env";
 import { sendResetPasswordEmail } from "@/services/email/send";
 import * as schema from "@/db/schema";
 
 const database = db();
 
 function getAuthSecret() {
-  const secret = process.env.BETTER_AUTH_SECRET || process.env.AUTH_SECRET;
+  const secret = getAppEnv().BETTER_AUTH_SECRET;
   if (secret) {
     return secret;
   }
@@ -26,8 +27,9 @@ function getAuthSecret() {
 }
 
 const socialProviders = (() => {
-  const id = process.env.GOOGLE_CLIENT_ID;
-  const secret = process.env.GOOGLE_CLIENT_SECRET;
+  const env = getAppEnv();
+  const id = env.GOOGLE_CLIENT_ID;
+  const secret = env.GOOGLE_CLIENT_SECRET;
   if (id && secret) {
     return {
       google: {
@@ -42,8 +44,8 @@ const socialProviders = (() => {
 })();
 
 export const auth = betterAuth({
-  appName: process.env.NEXT_PUBLIC_APP_NAME || "Sushi SaaS",
-  baseURL: process.env.BETTER_AUTH_URL,
+  appName: getAppEnv().NEXT_PUBLIC_APP_NAME,
+  baseURL: getAppEnv().BETTER_AUTH_URL,
   secret: getAuthSecret(),
   database: drizzleAdapter(database, {
     schema,
@@ -166,5 +168,5 @@ export const auth = betterAuth({
 });
 
 export function isAuthEnabled() {
-  return process.env.NEXT_PUBLIC_AUTH_ENABLED !== "false";
+  return getAppEnv().NEXT_PUBLIC_AUTH_ENABLED;
 }

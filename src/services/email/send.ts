@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { render } from "@react-email/render";
+import { getRequiredEnv } from "@/lib/env";
 
 type Attachment = {
   filename: string;
@@ -16,15 +17,11 @@ export type MailInput = {
   attachments?: Attachment[];
 };
 
-const resendApiKey = process.env.RESEND_API_KEY;
-const defaultFrom = process.env.EMAIL_FROM;
-
 export async function sendMail({ to, subject, html, text, from, attachments }: MailInput) {
-  if (!resendApiKey) throw new Error("RESEND_API_KEY not set");
-  const fromEmail = from ?? defaultFrom;
-  if (!fromEmail) throw new Error("EMAIL_FROM not set");
+  const resendApiKey = getRequiredEnv("RESEND_API_KEY");
+  const fromEmail = from ?? getRequiredEnv("EMAIL_FROM");
 
-  const client = new Resend(resendApiKey!);
+  const client = new Resend(resendApiKey);
   const res = await client.emails.send({
     from: fromEmail,
     to: Array.isArray(to) ? to : [to],

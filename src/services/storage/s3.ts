@@ -1,26 +1,20 @@
 import { S3Client, DeleteObjectCommand, HeadObjectCommand, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { StorageAdapter } from "@/services/storage/adapter";
-
-function getEnvFlag(name: string, def = false): boolean {
-  const v = process.env[name];
-  if (!v) return def;
-  const s = v.toLowerCase();
-  return s === "1" || s === "true" || s === "yes";
-}
+import { getAppEnv, getRequiredEnv } from "@/lib/env";
 
 function getS3Client(): S3Client {
-  const region = process.env.S3_REGION || process.env.STORAGE_REGION || "auto";
-  const endpoint = process.env.S3_ENDPOINT || process.env.STORAGE_ENDPOINT || undefined; // e.g., https://<accountid>.r2.cloudflarestorage.com
-  const forcePathStyle = getEnvFlag("S3_FORCE_PATH_STYLE", !!endpoint);
+  const env = getAppEnv();
+  const endpoint = env.STORAGE_ENDPOINT; // e.g., https://<accountid>.r2.cloudflarestorage.com
+  const forcePathStyle = env.S3_FORCE_PATH_STYLE || !!endpoint;
 
   return new S3Client({
-    region,
+    region: env.STORAGE_REGION,
     endpoint,
     forcePathStyle,
     credentials: {
-      accessKeyId: process.env.S3_ACCESS_KEY_ID || process.env.STORAGE_ACCESS_KEY || "",
-      secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || process.env.STORAGE_SECRET_KEY || "",
+      accessKeyId: getRequiredEnv("STORAGE_ACCESS_KEY"),
+      secretAccessKey: getRequiredEnv("STORAGE_SECRET_KEY"),
     },
   });
 }
@@ -41,11 +35,10 @@ function datePrefix(d = new Date()): string {
 }
 
 export function createS3Adapter(): StorageAdapter {
-  const bucket = process.env.S3_BUCKET || process.env.STORAGE_BUCKET || "";
-  if (!bucket) throw new Error("S3_BUCKET must be set");
+  const bucket = getRequiredEnv("STORAGE_BUCKET");
 
   const client = getS3Client();
-  const provider = (process.env.STORAGE_PROVIDER || "s3").toLowerCase();
+  const provider = getAppEnv().STORAGE_PROVIDER;
 
   return {
     provider,
@@ -71,7 +64,7 @@ export function createS3Adapter(): StorageAdapter {
       };
       // Some buckets have Object Ownership = Bucket owner enforced (ACLs disabled).
       // Only include ACL when explicitly requested.
-      if (getEnvFlag("S3_USE_ACL", false)) {
+      if (getAppEnv().S3_USE_ACL) {
         putParams.ACL = "private";
       }
       const cmd = new PutObjectCommand(putParams);

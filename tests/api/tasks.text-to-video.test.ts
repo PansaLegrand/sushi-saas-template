@@ -5,6 +5,7 @@
  * production clones do not expose credit-consuming playground behavior.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { resetEnvCacheForTests } from "@/lib/env";
 
 vi.mock("@/services/user", () => ({
   getUserUuid: vi.fn().mockResolvedValue("u-test"),
@@ -38,6 +39,7 @@ describe("POST /api/tasks/text-to-video", () => {
     vi.clearAllMocks();
     delete process.env.ENABLE_DEMO_FEATURES;
     delete process.env.ENABLE_TEXT2VIDEO_MOCK;
+    resetEnvCacheForTests();
   });
 
   it("rejects requests when the demo provider is disabled", async () => {
@@ -57,6 +59,7 @@ describe("POST /api/tasks/text-to-video", () => {
   it("creates a demo task when the mock provider is explicitly enabled", async () => {
     process.env.ENABLE_DEMO_FEATURES = "true";
     process.env.ENABLE_TEXT2VIDEO_MOCK = "true";
+    resetEnvCacheForTests();
 
     const req = new Request("http://test", {
       method: "POST",

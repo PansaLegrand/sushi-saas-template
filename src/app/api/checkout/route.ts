@@ -9,6 +9,7 @@ import { getPricingPage } from "@/services/page";
 import { PricingItem } from "@/types/blocks/pricing";
 import { newStripeClient } from "@/integrations/stripe";
 import { Order } from "@/types/order";
+import { getAppEnv } from "@/lib/env";
 import { getOrCreateCustomerIdForUser } from "@/services/stripe-customer";
 import { buildIntroDiscounts } from "@/services/stripe-promotions";
 import { logger as baseLogger, requestIdFromHeaders } from "@/lib/logger/server";
@@ -20,12 +21,11 @@ export async function POST(req: Request) {
     const start = Date.now();
     let { product_id, currency, locale } = await req.json();
 
-    let cancel_url = `${
-      process.env.NEXT_PUBLIC_PAY_CANCEL_URL || process.env.NEXT_PUBLIC_WEB_URL
-    }`;
+    const env = getAppEnv();
+    let cancel_url = `${env.NEXT_PUBLIC_PAY_CANCEL_URL || env.NEXT_PUBLIC_WEB_URL}`;
     if (cancel_url && cancel_url.startsWith("/")) {
       // relative url
-      cancel_url = `${process.env.NEXT_PUBLIC_WEB_URL}/${locale}${cancel_url}`;
+      cancel_url = `${env.NEXT_PUBLIC_WEB_URL}/${locale}${cancel_url}`;
     }
 
     if (!product_id) {
@@ -228,7 +228,7 @@ async function stripeCheckout({
     allow_promotion_codes: true,
     client_reference_id: order.order_no,
     metadata: {
-      project: process.env.NEXT_PUBLIC_PROJECT_NAME || "",
+      project: getAppEnv().NEXT_PUBLIC_PROJECT_NAME,
       product_name: order.product_name || "",
       order_no: order.order_no,
       user_email: order.user_email,
@@ -236,7 +236,7 @@ async function stripeCheckout({
       user_uuid: order.user_uuid,
     },
     mode: is_subscription ? "subscription" : "payment",
-    success_url: `${process.env.NEXT_PUBLIC_WEB_URL}/api/pay/callback/stripe?locale=${locale}&session_id={CHECKOUT_SESSION_ID}&order_no=${order.order_no}`,
+    success_url: `${getAppEnv().NEXT_PUBLIC_WEB_URL}/api/pay/callback/stripe?locale=${locale}&session_id={CHECKOUT_SESSION_ID}&order_no=${order.order_no}`,
     cancel_url: cancel_url,
     billing_address_collection: "auto",
     customer_update: { address: "auto", name: "auto" },

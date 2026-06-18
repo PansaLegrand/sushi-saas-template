@@ -1,11 +1,12 @@
 import type { StorageAdapter } from "@/services/storage/adapter";
 import { createS3Adapter } from "@/services/storage/s3";
+import { getAppEnv } from "@/lib/env";
 
 let adapter: StorageAdapter | null = null;
 
 export function getStorageAdapter(): StorageAdapter {
   if (adapter) return adapter;
-  const provider = (process.env.STORAGE_PROVIDER || "s3").toLowerCase();
+  const provider = getAppEnv().STORAGE_PROVIDER;
   switch (provider) {
     case "s3":
     case "r2":
@@ -17,4 +18,3 @@ export function getStorageAdapter(): StorageAdapter {
       return adapter;
   }
 }
-

@@ -3,11 +3,12 @@ import { getUserUuid } from "@/services/user";
 import { getSnowId } from "@/lib/hash";
 import { insertFile } from "@/models/file";
 import { getStorageAdapter } from "@/services/storage";
+import { getAppEnv } from "@/lib/env";
 import type { CreateUploadRequest, CreateUploadResponse } from "@/types/storage";
 import { logger as baseLogger, requestIdFromHeaders } from "@/lib/logger/server";
 import { notifySlackError } from "@/integrations/slack";
 
-const DEFAULT_MAX_UPLOAD_MB = Number(process.env.STORAGE_MAX_UPLOAD_MB || 25);
+const DEFAULT_MAX_UPLOAD_MB = getAppEnv().STORAGE_MAX_UPLOAD_MB;
 
 export async function POST(req: Request) {
   try {
@@ -99,8 +100,8 @@ export async function POST(req: Request) {
       provider: storage.provider,
       bucket,
       key,
-      region: process.env.S3_REGION || process.env.STORAGE_REGION || null,
-      endpoint: process.env.S3_ENDPOINT || process.env.STORAGE_ENDPOINT || null,
+      region: getAppEnv().STORAGE_REGION || null,
+      endpoint: getAppEnv().STORAGE_ENDPOINT || null,
       original_filename: filename,
       extension: filename.includes(".") ? filename.split(".").pop()!.toLowerCase() : "",
       content_type: contentType,

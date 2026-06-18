@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { findUserByInviteCode } from "@/models/user";
 import { AffiliateConfig } from "@/data/affiliate";
+import { getAppEnv } from "@/lib/env";
 
 export async function GET(_req: Request, ctx: any) {
   const { inviteCode } = (ctx?.params || {}) as { inviteCode: string };
 
   try {
     const inviter = await findUserByInviteCode(inviteCode);
-    const redirectTo = new URL("/", process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000");
+    const redirectTo = new URL("/", getAppEnv().NEXT_PUBLIC_WEB_URL);
 
     const res = NextResponse.redirect(redirectTo);
 
@@ -26,6 +27,6 @@ export async function GET(_req: Request, ctx: any) {
     return res;
   } catch (e) {
     // On any error, just redirect normally
-    return NextResponse.redirect(new URL("/", process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000"));
+    return NextResponse.redirect(new URL("/", getAppEnv().NEXT_PUBLIC_WEB_URL));
   }
 }

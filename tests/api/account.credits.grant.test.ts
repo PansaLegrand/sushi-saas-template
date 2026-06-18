@@ -17,6 +17,7 @@
  * - Mocked summary: `{ balance: 5, granted: 5, consumed: 0, ... }`
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { resetEnvCacheForTests } from "@/lib/env";
 
 // Define mocks BEFORE importing the route under test
 vi.mock("@/services/user", () => ({
@@ -46,6 +47,7 @@ describe("POST /api/account/credits/grant", () => {
     vi.clearAllMocks();
     delete process.env.ENABLE_DEMO_FEATURES;
     delete process.env.ENABLE_ACCOUNT_CREDIT_GRANT;
+    resetEnvCacheForTests();
   });
 
   it("rejects requests by default", async () => {
@@ -67,6 +69,7 @@ describe("POST /api/account/credits/grant", () => {
   it("grants credits and returns summary when demo grant is enabled", async () => {
     process.env.ENABLE_DEMO_FEATURES = "true";
     process.env.ENABLE_ACCOUNT_CREDIT_GRANT = "true";
+    resetEnvCacheForTests();
 
     const req = new Request("http://test", {
       method: "POST",
@@ -97,6 +100,7 @@ describe("POST /api/account/credits/grant", () => {
   it("rejects invalid amounts", async () => {
     process.env.ENABLE_DEMO_FEATURES = "true";
     process.env.ENABLE_ACCOUNT_CREDIT_GRANT = "true";
+    resetEnvCacheForTests();
 
     const req = new Request("http://test", {
       method: "POST",

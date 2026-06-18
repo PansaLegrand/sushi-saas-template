@@ -1,5 +1,6 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { getRequiredEnv } from "@/lib/env";
 
 // Detect if running in Cloudflare Workers environment
 const isCloudflareWorker =
@@ -9,10 +10,7 @@ const isCloudflareWorker =
 let dbInstance: ReturnType<typeof drizzle> | null = null;
 
 export function db() {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) {
-    throw new Error("DATABASE_URL is not set");
-  }
+  const databaseUrl = getRequiredEnv("DATABASE_URL");
 
   // In Cloudflare Workers, create new connection each time
   if (isCloudflareWorker) {

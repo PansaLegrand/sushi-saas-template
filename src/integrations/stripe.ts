@@ -1,12 +1,12 @@
 import Stripe from "stripe";
+import { getRequiredEnv } from "@/lib/env";
 
 class StripeClient {
   private static instance: StripeClient;
   private _stripe: Stripe;
 
   private constructor() {
-    this._stripe = new Stripe(process.env.STRIPE_PRIVATE_KEY!, {
-    });
+    this._stripe = new Stripe(getRequiredEnv("STRIPE_PRIVATE_KEY"), {});
   }
 
   public static getInstance(): StripeClient {

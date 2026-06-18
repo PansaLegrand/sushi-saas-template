@@ -7,9 +7,10 @@ import {
 } from "@/models/user";
 import { AffiliateConfig } from "@/data/affiliate";
 import { getSnowId } from "@/lib/hash";
+import { getAppEnv } from "@/lib/env";
 
 function toShareUrl(code: string): string {
-  const base = process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000";
+  const base = getAppEnv().NEXT_PUBLIC_WEB_URL;
   return `${base}${AffiliateConfig.sharePath}/${code}`;
 }
 
@@ -54,4 +55,3 @@ export async function POST(req: Request) {
 
   return respData({ inviteCode: updated?.invite_code ?? code, shareUrl: toShareUrl(code) });
 }
-

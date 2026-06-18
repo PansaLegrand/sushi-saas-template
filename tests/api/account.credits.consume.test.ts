@@ -19,6 +19,7 @@
  * - Mocked summary after consume: `{ balance: 4, granted: 5, consumed: 1, ... }`
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { resetEnvCacheForTests } from "@/lib/env";
 
 // Mocks first: fake the current user and credit service
 vi.mock("@/services/user", () => ({
@@ -48,6 +49,7 @@ describe("POST /api/account/credits/consume", () => {
     vi.clearAllMocks();
     delete process.env.ENABLE_DEMO_FEATURES;
     delete process.env.ENABLE_CREDITS_PLAYGROUND;
+    resetEnvCacheForTests();
   });
 
   it("rejects requests when the credits playground is disabled", async () => {
@@ -67,6 +69,7 @@ describe("POST /api/account/credits/consume", () => {
   it("consumes credits and returns new balance", async () => {
     process.env.ENABLE_DEMO_FEATURES = "true";
     process.env.ENABLE_CREDITS_PLAYGROUND = "true";
+    resetEnvCacheForTests();
 
     const req = new Request("http://test", {
       method: "POST",
@@ -91,6 +94,7 @@ describe("POST /api/account/credits/consume", () => {
   it("errors for non-positive amount", async () => {
     process.env.ENABLE_DEMO_FEATURES = "true";
     process.env.ENABLE_CREDITS_PLAYGROUND = "true";
+    resetEnvCacheForTests();
 
     const req = new Request("http://test", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ credits: 0 }) });
     const res = await consumeCredits(req);

@@ -2,6 +2,8 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 async function importDemoFlags() {
   vi.resetModules();
+  const env = await import("@/lib/env");
+  env.resetEnvCacheForTests();
   return import("@/lib/demo-flags");
 }
 
@@ -13,6 +15,7 @@ describe("demo feature flags", () => {
     delete process.env.ENABLE_ACCOUNT_CREDIT_GRANT;
     delete process.env.RESERVATIONS_AUTO_SEED_DEMO;
     delete process.env.NEXT_PUBLIC_RESERVATIONS_AUTO_SEED_DEMO;
+    delete process.env.NEXT_PUBLIC_WEB_URL;
     vi.stubEnv("NODE_ENV", "test");
   });
 
