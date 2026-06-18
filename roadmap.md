@@ -21,6 +21,116 @@ Legend:
 - Docs/blog (MDX), Next.js 15, Drizzle migrations, health endpoint
 - Password reset: email link flow (completed)
 - Feedback v1: in-app modal (i18n), API submission, admin review page
+- Starter hardening v1:
+  - Account credit grants are disabled by default and require an explicit non-production demo flag.
+  - `.env.example` is committed and `.gitignore` keeps real env files out of git.
+  - ESLint is configured as a zero-warning local/CI gate.
+  - Better Auth secret handling is explicit, with production runtime protection.
+  - Vitest runs deterministically with server-only module shims.
+  - GitHub Actions CI runs install, lint, tests, and build.
+  - Husky hooks are executable and normal commits run the pre-commit build gate.
+
+---
+
+## 🧭 Coming Weeks Roadmap
+
+This is the execution backlog for turning the project from a feature-rich starter into a production-ready SaaS boilerplate. Keep the current working rhythm: fix one issue at a time, verify it, then commit it before moving to the next issue.
+
+### Definition of Done for Each Issue
+
+- Include schema + migration when the data model changes.
+- Keep API, service, model, and UI changes scoped to the issue.
+- Add or update tests for changed behavior; prefer deterministic mocks for external services.
+- Update `.env.example`, docs, and roadmap notes when config or setup changes.
+- Run the smallest useful validation, and run `pnpm lint`, `pnpm test:run`, and `pnpm build` for broad behavior changes.
+- Document manual checks for auth, billing, storage, reservations, and i18n changes.
+
+### Week 1 — Production Guardrails [P0]
+
+- [ ] Add typed env validation with clear startup errors for required production secrets.
+- [ ] Flag or hide internal demo pages and APIs (`credits-test`, mock task/video flows, demo reservation seeding) outside local/demo environments.
+- [ ] Add shared rate limiting for auth-adjacent, account, checkout, feedback, upload, and task routes.
+- [ ] Add origin/CSRF-style protection for sensitive POST routes that rely on browser cookies.
+- [ ] Review security headers and add a starter CSP strategy that works with Stripe, auth, analytics, and docs.
+- [ ] Replace remaining ad-hoc `console.log` calls in services/routes with structured logging.
+
+### Week 2 — Auth & Account Hardening [P0]
+
+- [ ] Email verification on signup and email change.
+- [ ] Account deletion and data export flow.
+- [ ] OAuth provider link/unlink in account settings.
+- [ ] Session/device management page with revoke action.
+- [ ] Optional 2FA with TOTP, backup codes, recovery flow, and admin-safe reset policy.
+- [ ] Account profile completeness pass: name, avatar, locale, timezone, marketing consent.
+
+### Week 3 — Billing & Entitlements [P0]
+
+- [ ] Add first-class subscription/entitlement tables instead of relying only on orders.
+- [ ] Expand Stripe webhook handling for subscription created/updated/deleted, invoice paid/failed, customer updated, and checkout completed.
+- [ ] Add webhook event idempotency storage and replay-safe processing.
+- [ ] Build customer billing page: current plan, renewal date, payment method, invoice history, cancel/reactivate.
+- [ ] Support plan upgrades/downgrades with clear proration behavior.
+- [ ] Add dunning states and failed-payment email/portal recovery links.
+
+### Week 4 — Organizations & Multi-Tenancy [P0]
+
+- [ ] Add organizations, memberships, invites, and org roles: owner/admin/member.
+- [ ] Add org switcher and account/team settings UI.
+- [ ] Scope user-owned data by org where appropriate: orders, credits, files, tasks, reservations, and admin views.
+- [ ] Sync seat count with subscription billing.
+- [ ] Add invite accept/decline/revoke flows with signed tokens.
+- [ ] Add tests for cross-org access denial.
+
+### Week 5 — Credits, Usage & Tasks v2 [P0/P1]
+
+- [ ] Add usage events and daily rollups for reporting, quotas, and alerts.
+- [ ] Make task credit consumption reservation-based, with refunds on provider failure.
+- [ ] Add idempotency keys for credit-consuming task creation.
+- [ ] Add low-balance notifications and optional auto top-up.
+- [ ] Add prepaid credit packs and expiration reminder emails.
+- [ ] Replace mock-first task provider behavior with a clean provider adapter contract and production-ready configuration.
+
+### Week 6 — File Storage & Upload Hardening [P0/P1]
+
+- [ ] Validate upload content type, size, extension, owner, and intended visibility server-side.
+- [ ] Add private-by-default signed download flow checks across API and UI.
+- [ ] Add CORS setup docs for S3/R2/MinIO and a storage smoke-test checklist.
+- [ ] Add image metadata, thumbnails, and cleanup job for abandoned uploads.
+- [ ] Add malware scanning hook or documented extension point.
+- [ ] Add org/user access tests for file listing, download, delete, and soft-delete behavior.
+
+### Week 7 — Admin, Audit & Observability [P1]
+
+- [ ] Add central audit log table and viewer for admin/user/security actions.
+- [ ] Add admin impersonation with explicit audit trail and UI warning state.
+- [ ] Add Sentry or equivalent error tracking.
+- [ ] Add request correlation IDs and structured logs for route handlers.
+- [ ] Add admin alerts for failed charges, task failures, suspicious rate-limit hits, and webhook failures.
+- [ ] Add exportable admin reports for users, orders, credits, tasks, reservations, and affiliates.
+
+### Week 8 — Testing, CI & Release Operations [P1]
+
+- [ ] Add Playwright E2E paths: signup, login, checkout, webhook simulation, credits, reservation, upload.
+- [ ] Add migration drift checks in CI.
+- [ ] Add seed/reset scripts for local demo data.
+- [ ] Add Dockerfile and docker-compose for app + Postgres + storage-compatible local dev.
+- [ ] Add preview/staging deployment docs.
+- [ ] Add backup/restore runbooks and a migration rollback policy.
+
+### Week 9+ — UX, Content, Legal & Growth [P2]
+
+- [ ] Add cookie consent and preference storage.
+- [ ] Add production-ready Terms, Privacy, imprint/contact, and data retention docs.
+- [ ] Complete accessibility pass: labels, focus, keyboard nav, contrast, and error messaging.
+- [ ] Add SEO pass: sitemap, robots, RSS, canonical/hreflang, OG images, per-locale metadata.
+- [ ] Add analytics dashboards for MRR, churn, revenue, signups, usage, reservations, and referrals.
+- [ ] Add support/help-center flows: FAQ search, ticket/contact integration, and optional chat provider.
+
+### Priority Backlog Summary
+
+- [P0] Production guardrails: typed env validation, demo gating, rate limiting, origin protection, auth verification, billing entitlements, webhook idempotency, organizations, credit/task idempotency.
+- [P1] Operational depth: storage hardening, audit logs, observability, admin safety, E2E coverage, migration checks, deployment docs.
+- [P2] Product polish: legal/consent, SEO, accessibility, analytics dashboards, support integrations, marketplace/catalog expansions.
 
 ---
 
