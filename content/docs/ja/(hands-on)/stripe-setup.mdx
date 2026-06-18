@@ -112,7 +112,7 @@ stripe trigger checkout_session_completed
 2) `/[locale]/pricing` でプランを選択。
 3) テストカード `4242 4242 4242 4242` で決済。
 4) Webhook が注文確定とクレジット付与を実行。
-5) `/[locale]/credits-test` で残高を確認。
+5) `POST /api/account/credits` で残高を確認します。ローカルの playground を使う場合は `ENABLE_DEMO_FEATURES=true` と `ENABLE_CREDITS_PLAYGROUND=true` を設定します。
 
 ---
 

@@ -147,7 +147,7 @@ Common gotcha: triggering `payment_intent.succeeded` will hit your webhook but i
 2) Visit `/[locale]/pricing` and click a plan.
 3) Complete the Stripe Checkout with test card `4242 4242 4242 4242`.
 4) Stripe redirects to the callback URL; the webhook finalizes your order and grants credits.
-5) Verify credits at `/[locale]/credits-test` or via `POST /api/account/credits`.
+5) Verify credits with `POST /api/account/credits`. For the local playground route, enable `ENABLE_DEMO_FEATURES=true` and `ENABLE_CREDITS_PLAYGROUND=true`.
 
 If you enable RMB/WeChat Pay, ensure those payment methods are active in your Stripe test account. Otherwise, start with USD + card.
 

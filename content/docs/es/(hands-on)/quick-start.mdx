@@ -207,9 +207,15 @@ NEXT_PUBLIC_GOOGLE_ADCODE=
 # =============================================================================
 # Demo Feature Flags
 # =============================================================================
-# Reservations demo (enabled by default)
+# Demo helpers are disabled by default and ignored in production.
+ENABLE_DEMO_FEATURES=false
+ENABLE_CREDITS_PLAYGROUND=false
+ENABLE_TEXT2VIDEO_MOCK=false
+TEXT2VIDEO_MOCK_URL=
+
 NEXT_PUBLIC_FEATURE_RESERVATIONS_ENABLED=true
-NEXT_PUBLIC_RESERVATIONS_AUTO_SEED_DEMO=true
+RESERVATIONS_AUTO_SEED_DEMO=false
+NEXT_PUBLIC_RESERVATIONS_AUTO_SEED_DEMO=false
 
 # =============================================================================
 # Logging

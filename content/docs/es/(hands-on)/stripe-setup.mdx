@@ -118,7 +118,7 @@ Nota: `payment_intent.succeeded` no se maneja por defecto. Usa el evento `checko
 2) Ve a `/[locale]/pricing` y elige un plan.
 3) Completa el pago con `4242 4242 4242 4242`.
 4) Stripe redirige al callback; el webhook confirma y otorga créditos.
-5) Verifica en `/[locale]/credits-test` o `POST /api/account/credits`.
+5) Verifica con `POST /api/account/credits`. Para usar el playground local, habilita `ENABLE_DEMO_FEATURES=true` y `ENABLE_CREDITS_PLAYGROUND=true`.
 
 ---
 

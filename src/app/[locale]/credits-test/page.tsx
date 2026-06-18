@@ -1,5 +1,7 @@
 import { getTranslations } from "next-intl/server";
+import { notFound } from "next/navigation";
 import { buildMetadata, defaultMetaFallbacks } from "@/lib/seo";
+import { isCreditsPlaygroundEnabled } from "@/lib/demo-flags";
 import CreditTesterPage from "./client-page";
 
 export async function generateMetadata({
@@ -29,6 +31,10 @@ export default async function CreditsTestPage({
 }: {
   params: Promise<{ locale: string }>;
 }) {
+  if (!isCreditsPlaygroundEnabled()) {
+    notFound();
+  }
+
   await params;
   return <CreditTesterPage />;
 }

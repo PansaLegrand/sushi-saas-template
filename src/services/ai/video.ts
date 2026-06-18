@@ -1,3 +1,5 @@
+import { isTextToVideoMockEnabled } from "@/lib/demo-flags";
+
 interface TextToVideoInput {
   prompt: string;
   seconds?: number;
@@ -13,6 +15,10 @@ interface TextToVideoResult {
 export async function generateTextToVideo(
   input: TextToVideoInput
 ): Promise<TextToVideoResult> {
+  if (!isTextToVideoMockEnabled()) {
+    throw new Error("text-to-video demo provider is disabled");
+  }
+
   const seconds = input.seconds ?? 8;
   const aspect = input.aspectRatio ?? "landscape";
 
@@ -29,4 +35,3 @@ export async function generateTextToVideo(
 }
 
 export type { TextToVideoInput, TextToVideoResult };
-

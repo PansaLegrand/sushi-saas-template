@@ -44,9 +44,30 @@ vi.mock("@/services/credit", () => ({
 import { POST as consumeCredits } from "@/app/api/account/credits/consume/route";
 
 describe("POST /api/account/credits/consume", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    delete process.env.ENABLE_DEMO_FEATURES;
+    delete process.env.ENABLE_CREDITS_PLAYGROUND;
+  });
+
+  it("rejects requests when the credits playground is disabled", async () => {
+    const req = new Request("http://test", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ credits: 1 }),
+    });
+
+    const res = await consumeCredits(req);
+    const credit = await import("@/services/credit");
+
+    expect(res.status).toBe(404);
+    expect(credit.decreaseCredits).not.toHaveBeenCalled();
+  });
 
   it("consumes credits and returns new balance", async () => {
+    process.env.ENABLE_DEMO_FEATURES = "true";
+    process.env.ENABLE_CREDITS_PLAYGROUND = "true";
+
     const req = new Request("http://test", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -68,6 +89,9 @@ describe("POST /api/account/credits/consume", () => {
   });
 
   it("errors for non-positive amount", async () => {
+    process.env.ENABLE_DEMO_FEATURES = "true";
+    process.env.ENABLE_CREDITS_PLAYGROUND = "true";
+
     const req = new Request("http://test", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ credits: 0 }) });
     const res = await consumeCredits(req);
     expect(res.status).toBe(400);

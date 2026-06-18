@@ -1,4 +1,5 @@
-import { respData, respErr, respNoAuth } from "@/lib/resp";
+import { isCreditsPlaygroundEnabled } from "@/lib/demo-flags";
+import { respData, respErr, respNoAuth, respNotFound } from "@/lib/resp";
 import {
   CreditsTransType,
   decreaseCredits,
@@ -11,6 +12,10 @@ interface ConsumeCreditsRequest {
 }
 
 export async function POST(req: Request) {
+  if (!isCreditsPlaygroundEnabled()) {
+    return respNotFound("not found");
+  }
+
   try {
     const userUuid = await getUserUuid(req);
     if (!userUuid) {

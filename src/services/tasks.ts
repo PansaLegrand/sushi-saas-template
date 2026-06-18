@@ -1,4 +1,5 @@
 import { getSnowId } from "@/lib/hash";
+import { isTextToVideoMockEnabled } from "@/lib/demo-flags";
 import { insertTask } from "@/models/task";
 import { CreditsTransType, decreaseCredits } from "@/services/credit";
 import { generateTextToVideo, type TextToVideoInput } from "@/services/ai/video";
@@ -34,6 +35,10 @@ export async function createTextToVideoTask(params: {
   const seconds = Number.isFinite(input.seconds as number) ? (input.seconds as number) : 8;
   const aspectRatio = input.aspectRatio ?? "landscape";
   const creditsUsed = calculateTextToVideoCost({ seconds, aspectRatio });
+
+  if (!isTextToVideoMockEnabled()) {
+    throw new Error("text-to-video demo provider is disabled");
+  }
 
   const transNo = await decreaseCredits({
     user_uuid: userUuid,

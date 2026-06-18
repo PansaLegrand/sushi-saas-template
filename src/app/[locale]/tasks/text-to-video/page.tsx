@@ -1,4 +1,6 @@
 import { getTranslations } from "next-intl/server";
+import { notFound } from "next/navigation";
+import { isTextToVideoMockEnabled } from "@/lib/demo-flags";
 import { buildMetadata, defaultMetaFallbacks } from "@/lib/seo";
 import TextToVideoClientPage from "./client-page";
 
@@ -28,6 +30,10 @@ export default async function TextToVideoPage({
 }: {
   params: Promise<{ locale: string }>;
 }) {
+  if (!isTextToVideoMockEnabled()) {
+    notFound();
+  }
+
   await params;
   return <TextToVideoClientPage />;
 }

@@ -4,15 +4,9 @@ import {
   increaseCredits,
   getUserCreditSummary,
 } from "@/services/credit";
+import { isAccountCreditGrantEnabled } from "@/lib/demo-flags";
 import { getUserUuid } from "@/services/user";
 import type { CreditGrantRequest } from "@/types/api";
-
-function isAccountCreditGrantEnabled() {
-  return (
-    process.env.NODE_ENV !== "production" &&
-    process.env.ENABLE_ACCOUNT_CREDIT_GRANT === "true"
-  );
-}
 
 export async function POST(req: Request) {
   if (!isAccountCreditGrantEnabled()) {

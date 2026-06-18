@@ -44,6 +44,7 @@ import { POST as grantCredits } from "@/app/api/account/credits/grant/route";
 describe("POST /api/account/credits/grant", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    delete process.env.ENABLE_DEMO_FEATURES;
     delete process.env.ENABLE_ACCOUNT_CREDIT_GRANT;
   });
 
@@ -64,6 +65,7 @@ describe("POST /api/account/credits/grant", () => {
   });
 
   it("grants credits and returns summary when demo grant is enabled", async () => {
+    process.env.ENABLE_DEMO_FEATURES = "true";
     process.env.ENABLE_ACCOUNT_CREDIT_GRANT = "true";
 
     const req = new Request("http://test", {
@@ -93,6 +95,7 @@ describe("POST /api/account/credits/grant", () => {
   });
 
   it("rejects invalid amounts", async () => {
+    process.env.ENABLE_DEMO_FEATURES = "true";
     process.env.ENABLE_ACCOUNT_CREDIT_GRANT = "true";
 
     const req = new Request("http://test", {

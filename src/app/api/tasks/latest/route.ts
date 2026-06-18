@@ -1,8 +1,13 @@
-import { respData, respErr, respNoAuth } from "@/lib/resp";
+import { isCreditsPlaygroundEnabled } from "@/lib/demo-flags";
+import { respData, respErr, respNoAuth, respNotFound } from "@/lib/resp";
 import { getTasksByUserUuid } from "@/models/task";
 import { getUserUuid } from "@/services/user";
 
 export async function GET(req: Request) {
+  if (!isCreditsPlaygroundEnabled()) {
+    return respNotFound("not found");
+  }
+
   try {
     const userUuid = await getUserUuid(req);
     if (!userUuid) return respNoAuth();
@@ -34,4 +39,3 @@ export async function GET(req: Request) {
     return respErr("get latest task failed", { status: 500 });
   }
 }
-

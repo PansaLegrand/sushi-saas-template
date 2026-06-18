@@ -1,9 +1,14 @@
-import { respData, respErr, respNoAuth } from "@/lib/resp";
+import { isTextToVideoMockEnabled } from "@/lib/demo-flags";
+import { respData, respErr, respNoAuth, respNotFound } from "@/lib/resp";
 import { getUserUuid } from "@/services/user";
 import { createTextToVideoTask } from "@/services/tasks";
 import type { CreateTextToVideoRequest, CreateTextToVideoResponse } from "@/types/task";
 
 export async function POST(req: Request) {
+  if (!isTextToVideoMockEnabled()) {
+    return respNotFound("not found");
+  }
+
   try {
     const userUuid = await getUserUuid(req);
     if (!userUuid) return respNoAuth();
