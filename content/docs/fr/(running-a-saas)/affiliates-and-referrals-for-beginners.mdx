@@ -102,7 +102,7 @@ Modifiables dans `src/data/affiliate.ts`.
 
 ### 5) Vues admin & versement
 
-- Page admin `/admin/affiliates` :
+- Page admin `/affiliates` :
   - Liste des parrainages, décompte inscriptions/paiements et totaux de récompenses.
   - Export CSV pour versements manuels.
 - Les retraits en ligne ne sont pas implémentés par défaut ; versement manuel.
@@ -149,7 +149,7 @@ Vous pouvez refléter une partie en variables d’environnement si vous voulez d
   - `src/app/[locale]/my-invites/page.tsx:1`
   - Composants : `src/components/affiliate/invite-link.tsx:1`, `src/components/affiliate/summary-cards.tsx:1`, `src/components/affiliate/affiliate-table.tsx:1`
 - Page admin : liste globale
-  - `src/app/(admin)/admin/affiliates/page.tsx:1`
+  - `apps/admin/app/(admin)/affiliates/page.tsx:1`
 - Initialisation client : appelle l’API d’attribution une fois par session après login/inscription
   - `src/providers/affiliate-init.tsx:1`
   - Inclus globalement via : `src/providers/theme.tsx:1`

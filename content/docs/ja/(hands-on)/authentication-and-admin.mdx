@@ -219,7 +219,7 @@ refresh token から自動的にアプリセッションを再作成すると、
 - `requireAdminRead()` -> `admin_ro` と `admin_rw` を許可
 - `requireAdminWrite()` -> `admin_rw` のみ許可
 
-管理画面レイアウトガード: `src/app/(admin)/layout.tsx`
+管理画面レイアウトガード: `apps/admin/app/(admin)/layout.tsx`
 
 ---
 
@@ -227,23 +227,16 @@ refresh token から自動的にアプリセッションを再作成すると、
 
 ### Admin ページ
 
-- ダッシュボード: `src/app/(admin)/admin/page.tsx`
-- ユーザー一覧: `src/app/(admin)/admin/users/page.tsx`
-- ユーザー詳細/クォータ/クレジット: `src/app/(admin)/admin/users/[uuid]/page.tsx`
-- 注文一覧/ステータス: `src/app/(admin)/admin/orders/page.tsx`
-- フィードバック: `src/app/(admin)/admin/feedbacks/page.tsx`
-- 予約: `src/app/(admin)/admin/reservations/page.tsx`
-- アフィリエイト: `src/app/(admin)/admin/affiliates/page.tsx`
+- ダッシュボード: `apps/admin/app/(admin)/page.tsx`
+- フィードバック: `apps/admin/app/(admin)/feedbacks/page.tsx`
+- 予約: `apps/admin/app/(admin)/reservations/page.tsx`
+- アフィリエイト: `apps/admin/app/(admin)/affiliates/page.tsx`
 
 ### Admin API ルート
 
-- `GET /api/admin/users` -> ユーザー一覧（ページング）
-- `GET /api/admin/users/[uuid]` -> ユーザー詳細 + 月次利用量 + クレジット概要
-- `PATCH /api/admin/users/[uuid]` -> `monthlyCreditsQuota` 更新
 - `GET /api/admin/users/[uuid]/credits` -> クレジット概要 + 台帳
 - `POST /api/admin/credits/grant` -> クレジット付与
-- `POST /api/admin/credits/adjust` -> クレジット増減調整
-- `GET /api/admin/orders` -> ステータスフィルタ付き注文一覧（`all|paid|created|deleted`）
+- `GET /api/admin/orders` -> ページング済みの支払い済み注文一覧
 
 ---
 

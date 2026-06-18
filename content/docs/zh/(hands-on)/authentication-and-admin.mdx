@@ -219,7 +219,7 @@ Google 登录**不要求必须是 Gmail 邮箱**。
 - `requireAdminRead()` -> 允许 `admin_ro` 与 `admin_rw`
 - `requireAdminWrite()` -> 仅允许 `admin_rw`
 
-Admin 布局守卫：`src/app/(admin)/layout.tsx`。
+Admin 布局守卫：`apps/admin/app/(admin)/layout.tsx`。
 
 ---
 
@@ -227,23 +227,16 @@ Admin 布局守卫：`src/app/(admin)/layout.tsx`。
 
 ### Admin 页面
 
-- 仪表盘：`src/app/(admin)/admin/page.tsx`
-- 用户列表：`src/app/(admin)/admin/users/page.tsx`
-- 用户详情/配额/积分：`src/app/(admin)/admin/users/[uuid]/page.tsx`
-- 订单列表/状态：`src/app/(admin)/admin/orders/page.tsx`
-- 反馈：`src/app/(admin)/admin/feedbacks/page.tsx`
-- 预约：`src/app/(admin)/admin/reservations/page.tsx`
-- 分销：`src/app/(admin)/admin/affiliates/page.tsx`
+- 仪表盘：`apps/admin/app/(admin)/page.tsx`
+- 反馈：`apps/admin/app/(admin)/feedbacks/page.tsx`
+- 预约：`apps/admin/app/(admin)/reservations/page.tsx`
+- 分销：`apps/admin/app/(admin)/affiliates/page.tsx`
 
 ### Admin API 路由
 
-- `GET /api/admin/users` -> 分页用户列表
-- `GET /api/admin/users/[uuid]` -> 用户详情 + 月度使用 + 积分汇总
-- `PATCH /api/admin/users/[uuid]` -> 更新 `monthlyCreditsQuota`
 - `GET /api/admin/users/[uuid]/credits` -> 积分汇总 + 台账
 - `POST /api/admin/credits/grant` -> 发放积分
-- `POST /api/admin/credits/adjust` -> 正负积分调整
-- `GET /api/admin/orders` -> 按状态过滤分页订单（`all|paid|created|deleted`）
+- `GET /api/admin/orders` -> 分页已支付订单
 
 ---
 

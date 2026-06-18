@@ -1,7 +1,7 @@
 import { getAdminContext } from "@/lib/authz";
 import { getUsers } from "@/models/user";
 import { getPaiedOrders } from "@/models/order";
-import GrantCreditsPanel from "@/components/admin/grant-credits";
+import GrantCreditsPanel from "@admin/components/grant-credits";
 import Link from "next/link";
 
 export default async function AdminHomePage() {
@@ -19,7 +19,7 @@ export default async function AdminHomePage() {
       <section className="rounded-lg border p-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-medium">Feedbacks</h2>
-          <Link href="/admin/feedbacks" className="text-sm underline">View all</Link>
+          <Link href="/feedbacks" className="text-sm underline">View all</Link>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">Read user feedback and improve your product.</p>
       </section>
@@ -27,9 +27,17 @@ export default async function AdminHomePage() {
       <section className="rounded-lg border p-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-medium">Reservations</h2>
-          <Link href="/admin/reservations" className="text-sm underline">View all</Link>
+          <Link href="/reservations" className="text-sm underline">View all</Link>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">Check upcoming and past appointments.</p>
+      </section>
+
+      <section className="rounded-lg border p-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-medium">Affiliates</h2>
+          <Link href="/affiliates" className="text-sm underline">View all</Link>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">Review attribution, paid referrals, and rewards.</p>
       </section>
 
       <section className="rounded-lg border p-4">

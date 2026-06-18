@@ -33,7 +33,7 @@ canonical: "https://www.sushi-templates.com/ja/blogs/affiliate-and-reward"
 - Stripe 連携（支払い後）: `src/services/stripe.ts`
 - ユーザーページ: `src/app/[locale]/my-invites/page.tsx`
   - コンポーネント: `invite-link.tsx`, `summary-cards.tsx`, `affiliate-table.tsx`
-- 管理ページ: `src/app/(admin)/admin/affiliates/page.tsx`
+- 管理ページ: `apps/admin/app/(admin)/affiliates/page.tsx`
 - クライアント初期化: `src/providers/affiliate-init.tsx`（`src/providers/theme.tsx` から読み込み）
 
 ---
@@ -43,7 +43,7 @@ canonical: "https://www.sushi-templates.com/ja/blogs/affiliate-and-reward"
 1) `/:locale/i/<inviteCode>` にアクセス → `ref` Cookie を30日間設定し、トップへリダイレクト。
 2) 登録／ログイン後 → `/api/affiliate/update-invite` を1回呼び出し、`invited_by` が未設定なら保存し、登録行を追加（デフォルトでは報酬0）。
 3) 決済成功（Stripe） → 固定／割合／ハイブリッドのいずれかで報酬を算出、`paid_order_no` で重複排除した行を追加。
-4) 画面 → `/[locale]/my-invites`（ユーザー）、`/admin/affiliates`（管理者）。
+4) 画面 → `/[locale]/my-invites`（ユーザー）、`/affiliates`（管理者）。
 
 ---
 

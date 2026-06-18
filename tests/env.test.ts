@@ -5,6 +5,7 @@ const ENV_KEYS = [
   "npm_lifecycle_event",
   "NEXT_PHASE",
   "NEXT_PUBLIC_WEB_URL",
+  "NEXT_PUBLIC_ADMIN_WEB_URL",
   "BETTER_AUTH_URL",
   "NEXT_PUBLIC_AUTH_BASE_URL",
   "DATABASE_URL",
@@ -145,7 +146,7 @@ describe("typed environment validation", () => {
 
   it("does not require production secrets during build", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("npm_lifecycle_event", "build");
+    vi.stubEnv("npm_lifecycle_event", "build:admin");
 
     const { validateAppEnv } = await loadEnvModule();
 

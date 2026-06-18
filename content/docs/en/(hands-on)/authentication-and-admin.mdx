@@ -220,7 +220,7 @@ Role checks are implemented in `src/lib/authz.ts`:
 - `requireAdminRead()` -> allows `admin_ro` and `admin_rw`
 - `requireAdminWrite()` -> allows `admin_rw`
 
-Admin layout guard: `src/app/(admin)/layout.tsx`.
+Admin layout guard: `apps/admin/app/(admin)/layout.tsx`.
 
 ---
 
@@ -228,23 +228,17 @@ Admin layout guard: `src/app/(admin)/layout.tsx`.
 
 ### Admin pages
 
-- Dashboard: `src/app/(admin)/admin/page.tsx`
-- Users list: `src/app/(admin)/admin/users/page.tsx`
-- User detail/quota/credits: `src/app/(admin)/admin/users/[uuid]/page.tsx`
-- Orders list/status view: `src/app/(admin)/admin/orders/page.tsx`
-- Feedbacks: `src/app/(admin)/admin/feedbacks/page.tsx`
-- Reservations: `src/app/(admin)/admin/reservations/page.tsx`
-- Affiliates: `src/app/(admin)/admin/affiliates/page.tsx`
+- Dashboard: `apps/admin/app/(admin)/page.tsx`
+- Feedbacks: `apps/admin/app/(admin)/feedbacks/page.tsx`
+- Reservations: `apps/admin/app/(admin)/reservations/page.tsx`
+- Affiliates: `apps/admin/app/(admin)/affiliates/page.tsx`
 
 ### Admin API routes
 
 - `GET /api/admin/users` -> paginated users list
-- `GET /api/admin/users/[uuid]` -> user detail + monthly usage + credits summary
-- `PATCH /api/admin/users/[uuid]` -> update `monthlyCreditsQuota`
 - `GET /api/admin/users/[uuid]/credits` -> credit summary + ledger
 - `POST /api/admin/credits/grant` -> grant credits
-- `POST /api/admin/credits/adjust` -> positive/negative credit adjustments
-- `GET /api/admin/orders` -> paginated orders with status filter (`all|paid|created|deleted`)
+- `GET /api/admin/orders` -> paginated paid orders
 
 ---
 

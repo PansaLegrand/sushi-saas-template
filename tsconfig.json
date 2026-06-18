@@ -12,6 +12,7 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
+    "baseUrl": ".",
     "plugins": [
       {
         "name": "next"
@@ -19,6 +20,7 @@
     ],
     "paths": {
       "@/.source": ["./.source/index.ts"],
+      "@admin/*": ["./apps/admin/*"],
       "@/*": ["./src/*"]
     },
     "target": "ES2017"

@@ -64,6 +64,7 @@ const RawEnvSchema = z.object({
   NEXT_PHASE: envString,
 
   NEXT_PUBLIC_WEB_URL: envUrl,
+  NEXT_PUBLIC_ADMIN_WEB_URL: envUrl,
   BETTER_AUTH_URL: envUrl,
   NEXT_PUBLIC_AUTH_BASE_URL: envUrl,
   NEXT_PUBLIC_APP_NAME: envString,
@@ -167,9 +168,12 @@ export class EnvValidationError extends Error {
 let cachedEnv: AppEnv | null = null;
 
 export function isProductionRuntime(): boolean {
+  const lifecycleEvent = process.env.npm_lifecycle_event ?? "";
+
   return (
     process.env.NODE_ENV === "production" &&
-    process.env.npm_lifecycle_event !== "build" &&
+    lifecycleEvent !== "build" &&
+    !lifecycleEvent.startsWith("build:") &&
     process.env.NEXT_PHASE !== "phase-production-build"
   );
 }

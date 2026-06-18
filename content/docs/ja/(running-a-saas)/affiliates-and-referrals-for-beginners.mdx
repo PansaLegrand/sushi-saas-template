@@ -102,7 +102,7 @@ canonical: "https://www.sushi-templates.com/ja/blogs/affiliate-and-reward"
 
 ### 5) 管理画面と支払い
 
-- 管理ページ `/admin/affiliates` では以下を一覧:
+- 管理ページ `/affiliates` では以下を一覧:
 - 招待者ごとの招待/有料件数と合計報酬。
 - CSV エクスポート（手動払い出し用）。
 - 既定ではオンライン出金機能は未実装。支払いは手動が前提です。
@@ -149,7 +149,7 @@ canonical: "https://www.sushi-templates.com/ja/blogs/affiliate-and-reward"
   - `src/app/[locale]/my-invites/page.tsx:1`
   - `src/components/affiliate/invite-link.tsx:1`, `summary-cards.tsx:1`, `affiliate-table.tsx:1`
 - 管理ページ: 全体一覧と集計
-  - `src/app/(admin)/admin/affiliates/page.tsx:1`
+  - `apps/admin/app/(admin)/affiliates/page.tsx:1`
 - クライアント初期化: ログイン/登録後に 1 度だけ帰属確定 API を呼ぶ
   - `src/providers/affiliate-init.tsx:1`
   - グローバル読込: `src/providers/theme.tsx:1`
@@ -172,7 +172,7 @@ canonical: "https://www.sushi-templates.com/ja/blogs/affiliate-and-reward"
 
 4) ユーザー/管理者が結果を確認
 - ユーザー: `/[locale]/my-invites` でリンク/集計/履歴。
-- 管理者: `/admin/affiliates` で全行/合計/CSV エクスポート。
+- 管理者: `/affiliates` で全行/合計/CSV エクスポート。
 
 ---
 

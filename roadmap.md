@@ -20,7 +20,7 @@ Legend:
 - [x] Reservations v1: availability, checkout, confirmation, admin/user views
 - [x] Affiliates v1: invite links, attribution, rewards, admin view
 - [x] Email via Resend: welcome, payment success/failure, reservation confirmed
-- [x] Admin area + role-guarded APIs
+- [x] Admin app boundary: admin UI and admin APIs run from `apps/admin`, separate from public web routes
 - [x] Docs/blog with MDX, Drizzle migrations, health endpoint
 - [x] Password reset email link flow
 - [x] Feedback modal, API submission, admin review page

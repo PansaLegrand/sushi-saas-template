@@ -33,7 +33,7 @@ Système d’affiliation prêt à l’emploi : liens d’invitation, cookie d�
 - Intégration Stripe (après paiement) : `src/services/stripe.ts`
 - Page utilisateur : `src/app/[locale]/my-invites/page.tsx`
   - Composants : `invite-link.tsx`, `summary-cards.tsx`, `affiliate-table.tsx`
-- Page admin : `src/app/(admin)/admin/affiliates/page.tsx`
+- Page admin : `apps/admin/app/(admin)/affiliates/page.tsx`
 - Hook client d’attribution : `src/providers/affiliate-init.tsx` (inclus via `src/providers/theme.tsx`)
 
 ---
@@ -43,7 +43,7 @@ Système d’affiliation prêt à l’emploi : liens d’invitation, cookie d�
 1) `/:locale/i/<inviteCode>` → cookie `ref` (30 jours) puis redirection.
 2) Après inscription/connexion → appel unique à `/api/affiliate/update-invite`; on renseigne `invited_by` si absent et on crée une ligne d’inscription (pas de paiement par défaut).
 3) Paiement Stripe → calcul de la commission (fixe/pourcentage/hybride) et insertion d’une ligne « completed » (dédoublonnée par `paid_order_no`).
-4) Vues → `/[locale]/my-invites` (utilisateur), `/admin/affiliates` (admin).
+4) Vues → `/[locale]/my-invites` (utilisateur), `/affiliates` (admin).
 
 ---
 

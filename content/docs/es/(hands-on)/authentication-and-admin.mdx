@@ -220,7 +220,7 @@ Los checks de rol están en `src/lib/authz.ts`:
 - `requireAdminRead()` -> permite `admin_ro` y `admin_rw`
 - `requireAdminWrite()` -> permite `admin_rw`
 
-Guard de layout admin: `src/app/(admin)/layout.tsx`.
+Guard de layout admin: `apps/admin/app/(admin)/layout.tsx`.
 
 ---
 
@@ -228,23 +228,17 @@ Guard de layout admin: `src/app/(admin)/layout.tsx`.
 
 ### Páginas admin
 
-- Dashboard: `src/app/(admin)/admin/page.tsx`
-- Lista de usuarios: `src/app/(admin)/admin/users/page.tsx`
-- Detalle usuario/cuota/créditos: `src/app/(admin)/admin/users/[uuid]/page.tsx`
-- Lista de pedidos/estado: `src/app/(admin)/admin/orders/page.tsx`
-- Feedbacks: `src/app/(admin)/admin/feedbacks/page.tsx`
-- Reservas: `src/app/(admin)/admin/reservations/page.tsx`
-- Afiliados: `src/app/(admin)/admin/affiliates/page.tsx`
+- Dashboard: `apps/admin/app/(admin)/page.tsx`
+- Feedbacks: `apps/admin/app/(admin)/feedbacks/page.tsx`
+- Reservas: `apps/admin/app/(admin)/reservations/page.tsx`
+- Afiliados: `apps/admin/app/(admin)/affiliates/page.tsx`
 
 ### Rutas API admin
 
 - `GET /api/admin/users` -> lista paginada de usuarios
-- `GET /api/admin/users/[uuid]` -> detalle usuario + uso mensual + resumen de créditos
-- `PATCH /api/admin/users/[uuid]` -> actualiza `monthlyCreditsQuota`
 - `GET /api/admin/users/[uuid]/credits` -> resumen de créditos + ledger
 - `POST /api/admin/credits/grant` -> otorga créditos
-- `POST /api/admin/credits/adjust` -> ajuste positivo/negativo de créditos
-- `GET /api/admin/orders` -> pedidos paginados con filtro de estado (`all|paid|created|deleted`)
+- `GET /api/admin/orders` -> pedidos pagados paginados
 
 ---
 

@@ -6,7 +6,7 @@ import { createFieldAttribute } from "better-auth/db";
 import { randomUUID } from "node:crypto";
 
 import { db } from "@/db";
-import { getAppEnv } from "@/lib/env";
+import { getAppEnv, isProductionRuntime } from "@/lib/env";
 import { sendResetPasswordEmail } from "@/services/email/send";
 import * as schema from "@/db/schema";
 
@@ -18,8 +18,7 @@ function getAuthSecret() {
     return secret;
   }
 
-  const isBuild = process.env.npm_lifecycle_event === "build";
-  if (process.env.NODE_ENV === "production" && !isBuild) {
+  if (isProductionRuntime()) {
     throw new Error("BETTER_AUTH_SECRET must be set in production");
   }
 
