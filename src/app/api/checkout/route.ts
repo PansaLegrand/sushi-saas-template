@@ -10,11 +10,15 @@ import { PricingItem } from "@/types/blocks/pricing";
 import { newStripeClient } from "@/integrations/stripe";
 import { Order } from "@/types/order";
 import { getAppEnv } from "@/lib/env";
+import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { getOrCreateCustomerIdForUser } from "@/services/stripe-customer";
 import { buildIntroDiscounts } from "@/services/stripe-promotions";
 import { logger as baseLogger, requestIdFromHeaders } from "@/lib/logger/server";
 
 export async function POST(req: Request) {
+  const limited = rateLimitOrThrow(req, "checkout");
+  if (limited) return limited;
+
   try {
     const request_id = requestIdFromHeaders(req.headers);
     const log = baseLogger.child({ request_id, route: "/api/checkout" });

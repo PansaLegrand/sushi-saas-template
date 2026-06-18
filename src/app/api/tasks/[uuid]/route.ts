@@ -1,8 +1,12 @@
 import { respData, respErr, respForbidden, respNoAuth, respNotFound } from "@/lib/resp";
+import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { findTaskByUuid } from "@/models/task";
 import { getUserUuid } from "@/services/user";
 
 export async function GET(req: Request, ctx: { params: Promise<{ uuid: string }> }) {
+  const limited = rateLimitOrThrow(req, "tasks");
+  if (limited) return limited;
+
   try {
     const userUuid = await getUserUuid(req);
     if (!userUuid) return respNoAuth();

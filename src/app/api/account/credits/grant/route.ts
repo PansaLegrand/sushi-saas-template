@@ -5,6 +5,7 @@ import {
   getUserCreditSummary,
 } from "@/services/credit";
 import { isAccountCreditGrantEnabled } from "@/lib/demo-flags";
+import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { getUserUuid } from "@/services/user";
 import type { CreditGrantRequest } from "@/types/api";
 
@@ -12,6 +13,9 @@ export async function POST(req: Request) {
   if (!isAccountCreditGrantEnabled()) {
     return respForbidden("account credit grant is disabled");
   }
+
+  const limited = rateLimitOrThrow(req, "credits");
+  if (limited) return limited;
 
   try {
     const userUuid = await getUserUuid(req);

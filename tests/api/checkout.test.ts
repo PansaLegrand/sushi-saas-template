@@ -17,6 +17,7 @@
  * - User: email user@test.dev
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { resetRateLimitForTests } from "@/lib/rate-limit";
 
 // Mocks first
 vi.mock("@/services/user", () => ({ getUserUuid: vi.fn().mockResolvedValue("u-test") }));
@@ -55,7 +56,10 @@ vi.mock("@/integrations/stripe", () => ({
 import { POST as checkout } from "@/app/api/checkout/route";
 
 describe("POST /api/checkout", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetRateLimitForTests();
+  });
 
   it("creates a session and returns checkout_url", async () => {
     const body = { product_id: "scale-monthly", currency: "usd", locale: "en" };

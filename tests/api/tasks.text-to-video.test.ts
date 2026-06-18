@@ -6,6 +6,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetEnvCacheForTests } from "@/lib/env";
+import { resetRateLimitForTests } from "@/lib/rate-limit";
 
 vi.mock("@/services/user", () => ({
   getUserUuid: vi.fn().mockResolvedValue("u-test"),
@@ -40,6 +41,7 @@ describe("POST /api/tasks/text-to-video", () => {
     delete process.env.ENABLE_DEMO_FEATURES;
     delete process.env.ENABLE_TEXT2VIDEO_MOCK;
     resetEnvCacheForTests();
+    resetRateLimitForTests();
   });
 
   it("rejects requests when the demo provider is disabled", async () => {

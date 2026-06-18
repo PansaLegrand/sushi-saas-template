@@ -20,6 +20,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { resetEnvCacheForTests } from "@/lib/env";
+import { resetRateLimitForTests } from "@/lib/rate-limit";
 
 // Mocks first: fake the current user and credit service
 vi.mock("@/services/user", () => ({
@@ -50,6 +51,7 @@ describe("POST /api/account/credits/consume", () => {
     delete process.env.ENABLE_DEMO_FEATURES;
     delete process.env.ENABLE_CREDITS_PLAYGROUND;
     resetEnvCacheForTests();
+    resetRateLimitForTests();
   });
 
   it("rejects requests when the credits playground is disabled", async () => {

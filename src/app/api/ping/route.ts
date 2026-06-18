@@ -5,12 +5,16 @@ import {
   decreaseCredits,
 } from "@/services/credit";
 import { getUserUuid } from "@/services/user";
+import { rateLimitOrThrow } from "@/lib/rate-limit";
 
 interface PingRequestBody {
   message?: string;
 }
 
 export async function POST(req: Request) {
+  const limited = rateLimitOrThrow(req, "credits");
+  if (limited) return limited;
+
   try {
     const userUuid = await getUserUuid(req);
     if (!userUuid) {

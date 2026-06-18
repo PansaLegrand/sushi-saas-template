@@ -4,8 +4,12 @@ import { findFileByUuid, updateFileByUuid } from "@/models/file";
 import { getStorageAdapter } from "@/services/storage";
 import type { CompleteUploadRequest } from "@/types/storage";
 import { notifySlackError } from "@/integrations/slack";
+import { rateLimitOrThrow } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
+  const limited = rateLimitOrThrow(req, "uploads");
+  if (limited) return limited;
+
   try {
     const userUuid = await getUserUuid(req);
     if (!userUuid) return respNoAuth();

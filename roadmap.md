@@ -42,7 +42,7 @@ Focus: fix the risky gaps that make the boilerplate safer to clone, configure, a
    - Fail clearly when required production secrets are missing.
    - Keep `.env.example` synced with the validation rules.
 
-3. [ ] [P0] Add basic API rate limiting
+3. [x] [P0] Add basic API rate limiting
    - Cover auth-adjacent routes, checkout, feedback, credits, uploads, and task creation.
 
 4. [ ] [P0] Add origin protection for sensitive POST routes

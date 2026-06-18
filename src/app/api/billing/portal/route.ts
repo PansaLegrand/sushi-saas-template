@@ -4,6 +4,7 @@ import { getUserUuid } from "@/services/user";
 import { findUserByUuid } from "@/models/user";
 import { getOrCreateCustomerIdForUser } from "@/services/stripe-customer";
 import { getAppEnv, getRequiredEnv } from "@/lib/env";
+import { rateLimitOrThrow } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,9 @@ function withLocaleReturnUrl(locale: string | null | undefined) {
 }
 
 export async function GET(req: NextRequest) {
+  const limited = rateLimitOrThrow(req, "checkout");
+  if (limited) return limited;
+
   try {
     const userUuid = await getUserUuid(req as any);
     if (!userUuid) return new Response("unauthorized", { status: 401 });
@@ -45,6 +49,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = rateLimitOrThrow(req, "checkout");
+  if (limited) return limited;
+
   try {
     const userUuid = await getUserUuid(req as any);
     if (!userUuid) return new Response("unauthorized", { status: 401 });

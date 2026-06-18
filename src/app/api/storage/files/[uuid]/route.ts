@@ -2,8 +2,12 @@ import { respData, respErr, respNoAuth } from "@/lib/resp";
 import { getUserUuid } from "@/services/user";
 import { findFileByUuid, softDeleteFile } from "@/models/file";
 import { getStorageAdapter } from "@/services/storage";
+import { rateLimitOrThrow } from "@/lib/rate-limit";
 
 export async function GET(req: Request, ctx: { params: Promise<{ uuid: string }> }) {
+  const limited = rateLimitOrThrow(req, "uploads");
+  if (limited) return limited;
+
   try {
     const userUuid = await getUserUuid(req);
     if (!userUuid) return respNoAuth();
@@ -52,6 +56,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ uuid: string }>
 }
 
 export async function DELETE(req: Request, ctx: { params: Promise<{ uuid: string }> }) {
+  const limited = rateLimitOrThrow(req, "uploads");
+  if (limited) return limited;
+
   try {
     const userUuid = await getUserUuid(req);
     if (!userUuid) return respNoAuth();

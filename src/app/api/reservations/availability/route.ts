@@ -1,10 +1,14 @@
 import { ReservationsConfig } from "@/features/reservations/config";
 import { getAvailabilityForDate } from "@/features/reservations/service";
+import { rateLimitOrThrow } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   if (!ReservationsConfig.enabled) {
     return new Response("not found", { status: 404 });
   }
+  const limited = rateLimitOrThrow(req, "checkout");
+  if (limited) return limited;
+
   try {
     const body = await req.json();
     const service_id = Number(body.service_id);
@@ -26,4 +30,3 @@ export async function POST(req: Request) {
     return new Response("error: " + e.message, { status: 500 });
   }
 }
-

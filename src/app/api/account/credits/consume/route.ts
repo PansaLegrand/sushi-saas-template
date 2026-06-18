@@ -1,5 +1,6 @@
 import { isCreditsPlaygroundEnabled } from "@/lib/demo-flags";
 import { respData, respErr, respNoAuth, respNotFound } from "@/lib/resp";
+import { rateLimitOrThrow } from "@/lib/rate-limit";
 import {
   CreditsTransType,
   decreaseCredits,
@@ -15,6 +16,9 @@ export async function POST(req: Request) {
   if (!isCreditsPlaygroundEnabled()) {
     return respNotFound("not found");
   }
+
+  const limited = rateLimitOrThrow(req, "credits");
+  if (limited) return limited;
 
   try {
     const userUuid = await getUserUuid(req);

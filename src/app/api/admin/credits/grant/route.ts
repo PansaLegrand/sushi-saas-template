@@ -1,4 +1,5 @@
 import { requireAdminWrite } from "@/lib/authz";
+import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { respData, respErr } from "@/lib/resp";
 import {
   CreditsTransType,
@@ -15,6 +16,9 @@ interface AdminGrantRequest {
 }
 
 export async function POST(req: Request) {
+  const limited = rateLimitOrThrow(req, "credits");
+  if (limited) return limited;
+
   const authz = await requireAdminWrite();
   if (authz instanceof Response) return authz;
 
@@ -54,4 +58,3 @@ export async function POST(req: Request) {
     return respErr("admin grant credits failed");
   }
 }
-

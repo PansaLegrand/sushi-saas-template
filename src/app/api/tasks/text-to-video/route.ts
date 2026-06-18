@@ -1,5 +1,6 @@
 import { isTextToVideoMockEnabled } from "@/lib/demo-flags";
 import { respData, respErr, respNoAuth, respNotFound } from "@/lib/resp";
+import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { getUserUuid } from "@/services/user";
 import { createTextToVideoTask } from "@/services/tasks";
 import type { CreateTextToVideoRequest, CreateTextToVideoResponse } from "@/types/task";
@@ -8,6 +9,9 @@ export async function POST(req: Request) {
   if (!isTextToVideoMockEnabled()) {
     return respNotFound("not found");
   }
+
+  const limited = rateLimitOrThrow(req, "tasks");
+  if (limited) return limited;
 
   try {
     const userUuid = await getUserUuid(req);

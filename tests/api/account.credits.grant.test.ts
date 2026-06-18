@@ -18,6 +18,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { resetEnvCacheForTests } from "@/lib/env";
+import { resetRateLimitForTests } from "@/lib/rate-limit";
 
 // Define mocks BEFORE importing the route under test
 vi.mock("@/services/user", () => ({
@@ -48,6 +49,7 @@ describe("POST /api/account/credits/grant", () => {
     delete process.env.ENABLE_DEMO_FEATURES;
     delete process.env.ENABLE_ACCOUNT_CREDIT_GRANT;
     resetEnvCacheForTests();
+    resetRateLimitForTests();
   });
 
   it("rejects requests by default", async () => {

@@ -1,11 +1,15 @@
 import { ReservationsConfig } from "@/features/reservations/config";
 import { createReservationAndCheckout } from "@/features/reservations/service";
 import { getUserUuid } from "@/services/user";
+import { rateLimitOrThrow } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   if (!ReservationsConfig.enabled) {
     return new Response("not found", { status: 404 });
   }
+  const limited = rateLimitOrThrow(req, "checkout");
+  if (limited) return limited;
+
   try {
     const user_uuid = await getUserUuid(req);
     if (!user_uuid) return new Response("unauthorized", { status: 401 });
@@ -39,4 +43,3 @@ export async function POST(req: Request) {
     return new Response("error: " + e.message, { status: 500 });
   }
 }
-

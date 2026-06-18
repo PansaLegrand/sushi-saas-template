@@ -2,8 +2,12 @@ import { respData, respErr, respNoAuth } from "@/lib/resp";
 import { getUserCreditSummary } from "@/services/credit";
 import { getUserUuid } from "@/services/user";
 import type { CreditQueryRequest } from "@/types/api";
+import { rateLimitOrThrow } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
+  const limited = rateLimitOrThrow(req, "credits");
+  if (limited) return limited;
+
   try {
     const userUuid = await getUserUuid(req);
     if (!userUuid) {
