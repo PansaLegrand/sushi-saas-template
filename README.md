@@ -55,10 +55,51 @@ A production‑ready Next.js starter with auth, billing, internationalization, c
 - Authentication & profiles (Better Auth)
 - Internationalization (next‑intl)
 - MDX content (Fumadocs)
-- Admin portal & roles
+- Separate admin app & DB-backed roles
 - Private file uploads (S3‑compatible)
 - Transactional emails (Resend)
 - Affiliates & referrals
+
+
+
+## Project Layout
+
+- `src/app` — public web app, localized routes, customer APIs, content, account flows.
+- `apps/admin` — independent admin app with its own routes, auth entrypoint, RBAC guard, and admin-only APIs.
+- `src/db`, `src/models`, `src/services` — shared database schema, product models, and service integrations.
+- `content/docs`, `messages`, `src/i18n` — docs/blog content and localization.
+
+
+
+## Run Locally
+
+```bash
+pnpm install
+pnpm dev
+```
+
+Public web runs at `http://localhost:3000`.
+
+Run the admin app separately:
+
+```bash
+pnpm dev:admin
+```
+
+Admin runs at `http://localhost:3001`. Set `NEXT_PUBLIC_ADMIN_WEB_URL=http://localhost:3001` in `.env` for local admin auth URLs.
+
+
+
+## Admin App
+
+The admin console is intentionally outside the public web app. Public routes do not expose `/admin` pages or `/api/admin/*`; those live under `apps/admin`.
+
+Admin access is controlled by `users.role`:
+
+- `admin_ro` can read admin data.
+- `admin_rw` can read admin data and perform write actions such as granting credits.
+
+The admin app currently includes dashboard, feedbacks, reservations, affiliates, users/orders APIs, user credit summaries, and credit grants. See `apps/admin/README.md` for deployment and operational notes.
 
 
 
