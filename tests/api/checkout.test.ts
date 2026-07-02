@@ -73,4 +73,25 @@ describe("POST /api/checkout", () => {
     expect(orderMod.insertOrder).toHaveBeenCalledTimes(1);
     expect(orderMod.updateOrderSession).toHaveBeenCalledTimes(1);
   });
+
+  it("rejects cross-site browser requests before side effects", async () => {
+    const body = { product_id: "scale-monthly", currency: "usd", locale: "en" };
+    const req = new Request("http://local/api/checkout", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "https://evil.example",
+      },
+      body: JSON.stringify(body),
+    });
+
+    const res = await checkout(req);
+    const payload = await res.json();
+    const orderMod = await import("@/models/order");
+
+    expect(res.status).toBe(403);
+    expect(payload.message).toBe("invalid origin");
+    expect(orderMod.insertOrder).not.toHaveBeenCalled();
+    expect(orderMod.updateOrderSession).not.toHaveBeenCalled();
+  });
 });

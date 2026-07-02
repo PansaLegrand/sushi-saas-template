@@ -1,8 +1,12 @@
+import { requireSameOrigin } from "@/lib/origin";
 import { respData, respErr, respNoAuth } from "@/lib/resp";
 import { getUserProfileByUuid, getUserUuid } from "@/services/user";
 import type { UserInfoRequest } from "@/types/api";
 
 export async function POST(req: Request) {
+  const invalidOrigin = requireSameOrigin(req);
+  if (invalidOrigin) return invalidOrigin;
+
   try {
     const userUuid = await getUserUuid(req);
     if (!userUuid) {

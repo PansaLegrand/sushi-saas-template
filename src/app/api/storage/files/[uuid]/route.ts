@@ -2,6 +2,7 @@ import { respData, respErr, respNoAuth } from "@/lib/resp";
 import { getUserUuid } from "@/services/user";
 import { findFileByUuid, softDeleteFile } from "@/models/file";
 import { getStorageAdapter } from "@/services/storage";
+import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 
 export async function GET(req: Request, ctx: { params: Promise<{ uuid: string }> }) {
@@ -56,6 +57,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ uuid: string }>
 }
 
 export async function DELETE(req: Request, ctx: { params: Promise<{ uuid: string }> }) {
+  const invalidOrigin = requireSameOrigin(req);
+  if (invalidOrigin) return invalidOrigin;
+
   const limited = rateLimitOrThrow(req, "uploads");
   if (limited) return limited;
 

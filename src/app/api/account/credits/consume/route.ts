@@ -1,4 +1,5 @@
 import { isCreditsPlaygroundEnabled } from "@/lib/demo-flags";
+import { requireSameOrigin } from "@/lib/origin";
 import { respData, respErr, respNoAuth, respNotFound } from "@/lib/resp";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import {
@@ -16,6 +17,9 @@ export async function POST(req: Request) {
   if (!isCreditsPlaygroundEnabled()) {
     return respNotFound("not found");
   }
+
+  const invalidOrigin = requireSameOrigin(req);
+  if (invalidOrigin) return invalidOrigin;
 
   const limited = rateLimitOrThrow(req, "credits");
   if (limited) return limited;

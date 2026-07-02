@@ -2,9 +2,13 @@ import { NextRequest } from "next/server";
 import { insertFeedback } from "@/models/feedback";
 import { getUserUuid } from "@/services/user";
 import { respData, respErr, respNoAuth } from "@/lib/resp";
+import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
+  const invalidOrigin = requireSameOrigin(req);
+  if (invalidOrigin) return invalidOrigin;
+
   const limited = rateLimitOrThrow(req, "feedback");
   if (limited) return limited;
 

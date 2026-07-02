@@ -1,4 +1,5 @@
 import { respData, respNoAuth, respOk } from "@/lib/resp";
+import { requireSameOrigin } from "@/lib/origin";
 import { getUserUuid } from "@/services/user";
 import {
   findUserByInviteCode,
@@ -37,6 +38,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const invalidOrigin = requireSameOrigin(req);
+  if (invalidOrigin) return invalidOrigin;
+
   const userUuid = await getUserUuid(req);
   if (!userUuid) return respNoAuth();
 

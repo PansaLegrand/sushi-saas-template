@@ -4,6 +4,7 @@ import { getUserUuid } from "@/services/user";
 import { findUserByUuid } from "@/models/user";
 import { getOrCreateCustomerIdForUser } from "@/services/stripe-customer";
 import { getAppEnv, getRequiredEnv } from "@/lib/env";
+import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -49,6 +50,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const invalidOrigin = requireSameOrigin(req);
+  if (invalidOrigin) return invalidOrigin;
+
   const limited = rateLimitOrThrow(req, "checkout");
   if (limited) return limited;
 

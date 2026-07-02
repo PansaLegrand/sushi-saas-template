@@ -45,7 +45,7 @@ Focus: fix the risky gaps that make the boilerplate safer to clone, configure, a
 3. [x] [P0] Add basic API rate limiting
    - Cover auth-adjacent routes, checkout, feedback, credits, uploads, and task creation.
 
-4. [ ] [P0] Add origin protection for sensitive POST routes
+4. [x] [P0] Add origin protection for sensitive POST routes
    - Protect cookie-authenticated mutations from cross-site form/script abuse.
 
 5. [x] [P0] Make Stripe webhook processing idempotent

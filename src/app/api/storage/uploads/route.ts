@@ -4,6 +4,7 @@ import { getSnowId } from "@/lib/hash";
 import { insertFile } from "@/models/file";
 import { getStorageAdapter } from "@/services/storage";
 import { getAppEnv } from "@/lib/env";
+import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import type { CreateUploadRequest, CreateUploadResponse } from "@/types/storage";
 import { logger as baseLogger, requestIdFromHeaders } from "@/lib/logger/server";
@@ -12,6 +13,9 @@ import { notifySlackError } from "@/integrations/slack";
 const DEFAULT_MAX_UPLOAD_MB = getAppEnv().STORAGE_MAX_UPLOAD_MB;
 
 export async function POST(req: Request) {
+  const invalidOrigin = requireSameOrigin(req);
+  if (invalidOrigin) return invalidOrigin;
+
   const limited = rateLimitOrThrow(req, "uploads");
   if (limited) return limited;
 

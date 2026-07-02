@@ -5,6 +5,7 @@ import {
   getUserCreditSummary,
 } from "@/services/credit";
 import { isAccountCreditGrantEnabled } from "@/lib/demo-flags";
+import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { getUserUuid } from "@/services/user";
 import type { CreditGrantRequest } from "@/types/api";
@@ -13,6 +14,9 @@ export async function POST(req: Request) {
   if (!isAccountCreditGrantEnabled()) {
     return respForbidden("account credit grant is disabled");
   }
+
+  const invalidOrigin = requireSameOrigin(req);
+  if (invalidOrigin) return invalidOrigin;
 
   const limited = rateLimitOrThrow(req, "credits");
   if (limited) return limited;

@@ -4,9 +4,13 @@ import { findFileByUuid, updateFileByUuid } from "@/models/file";
 import { getStorageAdapter } from "@/services/storage";
 import type { CompleteUploadRequest } from "@/types/storage";
 import { notifySlackError } from "@/integrations/slack";
+import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
+  const invalidOrigin = requireSameOrigin(req);
+  if (invalidOrigin) return invalidOrigin;
+
   const limited = rateLimitOrThrow(req, "uploads");
   if (limited) return limited;
 

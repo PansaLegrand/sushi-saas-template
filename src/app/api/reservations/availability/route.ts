@@ -1,11 +1,15 @@
 import { ReservationsConfig } from "@/features/reservations/config";
 import { getAvailabilityForDate } from "@/features/reservations/service";
+import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   if (!ReservationsConfig.enabled) {
     return new Response("not found", { status: 404 });
   }
+  const invalidOrigin = requireSameOrigin(req);
+  if (invalidOrigin) return invalidOrigin;
+
   const limited = rateLimitOrThrow(req, "checkout");
   if (limited) return limited;
 

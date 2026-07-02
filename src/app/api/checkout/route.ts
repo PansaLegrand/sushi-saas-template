@@ -10,12 +10,16 @@ import { PricingItem } from "@/types/blocks/pricing";
 import { newStripeClient } from "@/integrations/stripe";
 import { Order } from "@/types/order";
 import { getAppEnv } from "@/lib/env";
+import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { getOrCreateCustomerIdForUser } from "@/services/stripe-customer";
 import { buildIntroDiscounts } from "@/services/stripe-promotions";
 import { logger as baseLogger, requestIdFromHeaders } from "@/lib/logger/server";
 
 export async function POST(req: Request) {
+  const invalidOrigin = requireSameOrigin(req);
+  if (invalidOrigin) return invalidOrigin;
+
   const limited = rateLimitOrThrow(req, "checkout");
   if (limited) return limited;
 

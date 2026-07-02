@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { requireSameOrigin } from "@/lib/origin";
 import { respOk, respNoAuth } from "@/lib/resp";
 import { getUserUuid } from "@/services/user";
 import { findUserByUuid, updateUserInvitedBy } from "@/models/user";
@@ -7,6 +8,9 @@ import { AffiliateConfig, AffiliateRewardAmount, AffiliateRewardPercent, Affilia
 import { getIsoTimestr } from "@/lib/time";
 
 export async function POST(req: Request) {
+  const invalidOrigin = requireSameOrigin(req);
+  if (invalidOrigin) return invalidOrigin;
+
   const userUuid = await getUserUuid(req);
   if (!userUuid) {
     return respNoAuth();

@@ -1,4 +1,5 @@
 import { respData, respErr, respNoAuth } from "@/lib/resp";
+import { requireSameOrigin } from "@/lib/origin";
 import {
   CreditsAmount,
   CreditsTransType,
@@ -12,6 +13,9 @@ interface PingRequestBody {
 }
 
 export async function POST(req: Request) {
+  const invalidOrigin = requireSameOrigin(req);
+  if (invalidOrigin) return invalidOrigin;
+
   const limited = rateLimitOrThrow(req, "credits");
   if (limited) return limited;
 

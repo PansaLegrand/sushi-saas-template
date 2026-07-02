@@ -1,4 +1,5 @@
 import { isTextToVideoMockEnabled } from "@/lib/demo-flags";
+import { requireSameOrigin } from "@/lib/origin";
 import { respData, respErr, respNoAuth, respNotFound } from "@/lib/resp";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { getUserUuid } from "@/services/user";
@@ -9,6 +10,9 @@ export async function POST(req: Request) {
   if (!isTextToVideoMockEnabled()) {
     return respNotFound("not found");
   }
+
+  const invalidOrigin = requireSameOrigin(req);
+  if (invalidOrigin) return invalidOrigin;
 
   const limited = rateLimitOrThrow(req, "tasks");
   if (limited) return limited;
