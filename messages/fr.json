@@ -149,7 +149,9 @@
     "sending": "Envoi…",
     "updating": "Mise à jour…",
     "errorGeneric": "Une erreur s’est produite.",
-    "msgAccountCreated": "Compte créé avec succès. Redirection...",
+    "errorEmailNotVerified": "Veuillez vérifier votre e‑mail avant de vous connecter. Nous avons envoyé un nouveau lien de vérification.",
+    "msgAccountCreated": "Compte créé avec succès.",
+    "msgVerifyEmailSent": "Compte créé. Consultez votre e‑mail pour le vérifier avant de vous connecter.",
     "logout": "Se déconnecter"
   }
   ,

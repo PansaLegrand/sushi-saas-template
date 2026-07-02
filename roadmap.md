@@ -56,7 +56,7 @@ Focus: fix the risky gaps that make the boilerplate safer to clone, configure, a
    - Use idempotency keys for credit-consuming task creation.
    - Refund or restore credits when the task provider fails.
 
-7. [ ] [P1] Add email verification
+7. [x] [P1] Add email verification
    - Verify new signups and email changes before treating the account as fully trusted.
 
 8. [ ] [P1] Harden file uploads

@@ -149,7 +149,9 @@
     "sending": "送信中…",
     "updating": "更新中…",
     "errorGeneric": "問題が発生しました。",
-    "msgAccountCreated": "アカウントを作成しました。リダイレクト中...",
+    "errorEmailNotVerified": "ログインする前にメールアドレスを確認してください。新しい確認リンクを送信しました。",
+    "msgAccountCreated": "アカウントを作成しました。",
+    "msgVerifyEmailSent": "アカウントを作成しました。ログインする前にメールを確認して認証してください。",
     "logout": "ログアウト"
   }
   ,

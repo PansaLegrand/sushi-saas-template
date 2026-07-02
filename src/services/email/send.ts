@@ -41,7 +41,7 @@ export async function sendMail({ to, subject, html, text, from, attachments }: M
 
 export async function sendWelcomeEmail(to: string, name?: string) {
   const { default: WelcomeEmail } = await import("./templates/welcome");
-  const html = render(WelcomeEmail({ name }));
+  const html = await render(WelcomeEmail({ name }));
   return sendMail({ to, subject: "Welcome to our app!", html });
 }
 
@@ -50,7 +50,7 @@ export async function sendPaymentSuccessEmail(
   opts: { orderNo?: string; amount?: number | null; currency?: string | null } = {}
 ) {
   const { default: PaymentSuccess } = await import("./templates/payment-success");
-  const html = render(
+  const html = await render(
     PaymentSuccess({
       orderNo: opts.orderNo,
       amount: typeof opts.amount === "number" ? opts.amount : undefined,
@@ -65,7 +65,7 @@ export async function sendPaymentFailedEmail(
   opts: { invoiceNumber?: string | null; amount?: number | null; currency?: string | null; manageUrl?: string }
 ) {
   const { default: PaymentFailed } = await import("./templates/payment-failed");
-  const html = render(
+  const html = await render(
     PaymentFailed({
       invoiceNumber: opts.invoiceNumber ?? undefined,
       amount: typeof opts.amount === "number" ? opts.amount : undefined,
@@ -78,8 +78,19 @@ export async function sendPaymentFailedEmail(
 
 export async function sendResetPasswordEmail(to: string, url: string) {
   const { default: ResetPassword } = await import("./templates/reset-password");
-  const html = render(ResetPassword({ url }));
+  const html = await render(ResetPassword({ url }));
   return sendMail({ to, subject: "Reset your password", html, text: `Open this link to reset your password: ${url}` });
+}
+
+export async function sendVerifyEmail(to: string, url: string) {
+  const { default: VerifyEmail } = await import("./templates/verify-email");
+  const html = await render(VerifyEmail({ url }));
+  return sendMail({
+    to,
+    subject: "Verify your email",
+    html,
+    text: `Open this link to verify your email: ${url}`,
+  });
 }
 
 export async function sendReservationConfirmedEmail(
@@ -87,7 +98,7 @@ export async function sendReservationConfirmedEmail(
   opts: { reservationNo: string; serviceTitle?: string; startsAt?: string; timezone?: string; icsContent?: string; googleCalendarUrl?: string }
 ) {
   const { default: ReservationConfirmed } = await import("./templates/reservation-confirmed");
-  const html = render(
+  const html = await render(
     ReservationConfirmed({
       reservationNo: opts.reservationNo,
       serviceTitle: opts.serviceTitle,

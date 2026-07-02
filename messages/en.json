@@ -155,7 +155,9 @@
     "sending": "Sending…",
     "updating": "Updating…",
     "errorGeneric": "Something went wrong.",
-    "msgAccountCreated": "Account created successfully. Redirecting...",
+    "errorEmailNotVerified": "Please verify your email before logging in. We sent a new verification link.",
+    "msgAccountCreated": "Account created successfully.",
+    "msgVerifyEmailSent": "Account created. Check your email to verify your account before logging in.",
     "logout": "Log out"
   }
   ,

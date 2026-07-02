@@ -153,7 +153,9 @@
     "sending": "发送中…",
     "updating": "更新中…",
     "errorGeneric": "发生了错误。",
-    "msgAccountCreated": "账户创建成功，正在跳转...",
+    "errorEmailNotVerified": "请先验证邮箱再登录。我们已发送新的验证链接。",
+    "msgAccountCreated": "账户创建成功。",
+    "msgVerifyEmailSent": "账户已创建。请查看邮箱并完成验证后再登录。",
     "logout": "退出登录"
   }
   ,

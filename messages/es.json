@@ -149,7 +149,9 @@
     "sending": "Enviando…",
     "updating": "Actualizando…",
     "errorGeneric": "Algo salió mal.",
-    "msgAccountCreated": "Cuenta creada correctamente. Redirigiendo...",
+    "errorEmailNotVerified": "Verifica tu correo antes de iniciar sesión. Hemos enviado un nuevo enlace de verificación.",
+    "msgAccountCreated": "Cuenta creada correctamente.",
+    "msgVerifyEmailSent": "Cuenta creada. Revisa tu correo para verificarla antes de iniciar sesión.",
     "logout": "Cerrar sesión"
   }
   ,

@@ -25,6 +25,17 @@ const INITIAL_STATE: FormState = {
   name: "",
 };
 
+function getAuthErrorMessage(
+  message: string | undefined,
+  translate: (key: "errorEmailNotVerified" | "errorGeneric") => string
+) {
+  if (message === "Email not verified") {
+    return translate("errorEmailNotVerified");
+  }
+
+  return message ?? translate("errorGeneric");
+}
+
 export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
   const params = useParams<{ locale: string }>();
   const locale = params?.locale ?? "";
@@ -77,7 +88,7 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
         });
 
         if (error) {
-          setErrorMessage(error.message ?? t("errorGeneric"));
+          setErrorMessage(getAuthErrorMessage(error.message, t));
         } else {
           router.replace(buildPath());
         }
@@ -90,10 +101,12 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
         });
 
         if (error) {
-          setErrorMessage(error.message ?? t("errorGeneric"));
+          setErrorMessage(getAuthErrorMessage(error.message, t));
         } else {
-          setSuccessMessage(t("msgAccountCreated"));
-          router.replace(buildPath());
+          setSuccessMessage(t("msgVerifyEmailSent"));
+          setMode("signIn");
+          setForm((state) => ({ email: state.email, password: "", name: "" }));
+          router.replace(buildPath(AUTH_ROUTES.login));
         }
       }
     } catch (error) {

@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 
 import { db } from "@/db";
 import { getAppEnv, isProductionRuntime } from "@/lib/env";
-import { sendResetPasswordEmail } from "@/services/email/send";
+import { sendResetPasswordEmail, sendVerifyEmail } from "@/services/email/send";
 import * as schema from "@/db/schema";
 
 const database = db();
@@ -112,6 +112,7 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
+    requireEmailVerification: true,
     sendResetPassword: async ({ user, url }, _request) => {
       try {
         await sendResetPasswordEmail(user.email, url);
@@ -121,6 +122,19 @@ export const auth = betterAuth({
     },
     onPasswordReset: async ({ user }, _request) => {
       console.log(`Password reset completed for ${user.email}`);
+    },
+  },
+  emailVerification: {
+    sendOnSignUp: true,
+    sendOnSignIn: true,
+    autoSignInAfterVerification: true,
+    expiresIn: 60 * 60,
+    sendVerificationEmail: async ({ user, url }, _request) => {
+      try {
+        await sendVerifyEmail(user.email, url);
+      } catch (e) {
+        console.error("failed to send verification email", e);
+      }
     },
   },
   plugins: [nextCookies()],
