@@ -1,6 +1,6 @@
 import { tasks } from "@/db/schema";
 import { db } from "@/db";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 export type TaskStatus = "queued" | "running" | "succeeded" | "failed";
 
@@ -24,6 +24,20 @@ export async function insertTask(
   return row;
 }
 
+export async function insertTaskForIdempotencyKey(
+  data: typeof tasks.$inferInsert
+): Promise<typeof tasks.$inferSelect | undefined> {
+  const [row] = await db()
+    .insert(tasks)
+    .values(data)
+    .onConflictDoNothing({
+      target: [tasks.user_uuid, tasks.type, tasks.idempotency_key],
+    })
+    .returning();
+
+  return row;
+}
+
 export async function findTaskByUuid(
   uuid: string
 ): Promise<typeof tasks.$inferSelect | undefined> {
@@ -31,6 +45,29 @@ export async function findTaskByUuid(
     .select()
     .from(tasks)
     .where(eq(tasks.uuid, uuid))
+    .limit(1);
+  return row;
+}
+
+export async function findTaskByIdempotencyKey({
+  user_uuid,
+  type,
+  idempotency_key,
+}: {
+  user_uuid: string;
+  type: string;
+  idempotency_key: string;
+}): Promise<typeof tasks.$inferSelect | undefined> {
+  const [row] = await db()
+    .select()
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.user_uuid, user_uuid),
+        eq(tasks.type, type),
+        eq(tasks.idempotency_key, idempotency_key)
+      )
+    )
     .limit(1);
   return row;
 }
@@ -66,4 +103,3 @@ export async function updateTaskStatus(
     .returning();
   return row;
 }
-

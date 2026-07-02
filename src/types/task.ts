@@ -7,6 +7,7 @@ export interface TaskRecord {
   status: TaskStatus;
   creditsUsed: number;
   creditsTransNo?: string | null;
+  idempotencyKey?: string | null;
   userInput?: string | null;
   outputUrl?: string | null;
   outputJson?: string | null;
@@ -21,6 +22,7 @@ export interface CreateTextToVideoRequest {
   prompt: string;
   seconds?: number;
   aspectRatio?: string;
+  idempotencyKey?: string;
 }
 
 export interface CreateTextToVideoResponse {

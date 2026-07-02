@@ -26,6 +26,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ uuid: string }>
         status: task.status,
         creditsUsed: task.credits_used,
         creditsTransNo: task.credits_trans_no ?? undefined,
+        idempotencyKey: task.idempotency_key ?? undefined,
         userInput: task.user_input ?? undefined,
         outputUrl: task.output_url ?? undefined,
         outputJson: task.output_json ?? undefined,

@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { credits as creditsTable } from "@/db/schema";
 import {
   findCreditByOrderNo,
+  findCreditByTransNo,
   getUserValidCredits,
   insertCredit,
 } from "@/models/credit";
@@ -49,6 +50,11 @@ interface IncreaseCreditsParams {
   credits: number;
   expired_at?: string | Date | null;
   order_no?: string;
+}
+
+interface RefundCreditsParams {
+  user_uuid: string;
+  original_trans_no: string;
 }
 
 function toIsoString(value?: Date | null): string | null {
@@ -259,6 +265,56 @@ export async function increaseCredits({
     await insertCredit(newCredit);
   } catch (error) {
     console.error("increase credits failed", error);
+    throw error;
+  }
+}
+
+export async function refundCreditsForTransaction({
+  user_uuid,
+  original_trans_no,
+}: RefundCreditsParams): Promise<string> {
+  const original = await findCreditByTransNo(original_trans_no);
+  if (!original) {
+    throw new Error("original credit transaction not found");
+  }
+
+  if (original.user_uuid !== user_uuid) {
+    throw new Error("credit transaction does not belong to user");
+  }
+
+  if (original.credits >= 0) {
+    throw new Error("only consumed credits can be refunded");
+  }
+
+  const refundTransNo = `refund_${original_trans_no}`;
+  const existing = await findCreditByTransNo(refundTransNo);
+  if (existing) {
+    return existing.trans_no;
+  }
+
+  try {
+    const created = await insertCredit({
+      trans_no: refundTransNo,
+      created_at: new Date(getIsoTimestr()),
+      user_uuid,
+      trans_type: CreditsTransType.TaskAdjust,
+      credits: Math.abs(original.credits),
+      order_no: original.order_no,
+      expired_at: original.expired_at,
+    });
+
+    if (!created) {
+      throw new Error("failed to insert credit refund");
+    }
+
+    return created.trans_no;
+  } catch (error) {
+    const createdByRace = await findCreditByTransNo(refundTransNo);
+    if (createdByRace) {
+      return createdByRace.trans_no;
+    }
+
+    console.error("refund credits failed", error);
     throw error;
   }
 }

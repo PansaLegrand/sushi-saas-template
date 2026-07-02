@@ -79,6 +79,32 @@ describe("POST /api/tasks/text-to-video", () => {
     expect(tasks.createTextToVideoTask).toHaveBeenCalledWith({
       userUuid: "u-test",
       input: { prompt: "hello", seconds: 8, aspectRatio: "landscape" },
+      idempotencyKey: undefined,
+    });
+  });
+
+  it("passes an explicit idempotency key to the task service", async () => {
+    process.env.ENABLE_DEMO_FEATURES = "true";
+    process.env.ENABLE_TEXT2VIDEO_MOCK = "true";
+    resetEnvCacheForTests();
+
+    const req = new Request("http://test", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "idempotency-key": "idem-header-test",
+      },
+      body: JSON.stringify({ prompt: "hello", seconds: 8 }),
+    });
+
+    const res = await createTextToVideo(req);
+    const tasks = await import("@/services/tasks");
+
+    expect(res.status).toBe(200);
+    expect(tasks.createTextToVideoTask).toHaveBeenCalledWith({
+      userUuid: "u-test",
+      input: { prompt: "hello", seconds: 8, aspectRatio: "landscape" },
+      idempotencyKey: "idem-header-test",
     });
   });
 });

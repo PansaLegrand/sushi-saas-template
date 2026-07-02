@@ -34,10 +34,15 @@ export async function POST(req: Request) {
 
     const seconds = Math.max(1, Number(payload.seconds ?? 8));
     const aspectRatio = payload.aspectRatio ?? "landscape";
+    const idempotencyKey =
+      typeof payload.idempotencyKey === "string"
+        ? payload.idempotencyKey
+        : req.headers.get("idempotency-key") ?? undefined;
 
     const { task } = await createTextToVideoTask({
       userUuid,
       input: { prompt: payload.prompt, seconds, aspectRatio },
+      idempotencyKey,
     });
 
     const data: CreateTextToVideoResponse = {
@@ -48,6 +53,7 @@ export async function POST(req: Request) {
         status: task.status as any,
         creditsUsed: task.credits_used,
         creditsTransNo: task.credits_trans_no ?? undefined,
+        idempotencyKey: task.idempotency_key ?? undefined,
         userInput: task.user_input ?? undefined,
         outputUrl: task.output_url ?? undefined,
         outputJson: task.output_json ?? undefined,
@@ -64,6 +70,9 @@ export async function POST(req: Request) {
     const message = error instanceof Error ? error.message : "create task failed";
     if (message === "insufficient credits") {
       return respErr("insufficient credits");
+    }
+    if (message === "idempotency key too long") {
+      return respErr("idempotency key too long");
     }
     console.error("create text-to-video task failed", error);
     return respErr("create task failed", { status: 500 });

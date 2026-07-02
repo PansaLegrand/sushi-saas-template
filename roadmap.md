@@ -52,7 +52,7 @@ Focus: fix the risky gaps that make the boilerplate safer to clone, configure, a
    - Store processed Stripe event IDs.
    - Avoid duplicate orders, duplicate credits, and repeated side effects.
 
-6. [ ] [P0] Improve credit/task failure safety
+6. [x] [P0] Improve credit/task failure safety
    - Use idempotency keys for credit-consuming task creation.
    - Refund or restore credits when the task provider fails.
 

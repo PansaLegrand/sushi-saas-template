@@ -323,6 +323,7 @@ export const tasks = pgTable(
     status: varchar({ length: 32 }).notNull().default("queued"), // queued|running|succeeded|failed
     credits_used: integer().notNull().default(0),
     credits_trans_no: varchar({ length: 255 }),
+    idempotency_key: varchar({ length: 255 }),
 
     user_input: text(),
     output_url: varchar({ length: 1024 }),
@@ -339,5 +340,10 @@ export const tasks = pgTable(
     index("tasks_user_idx").on(table.user_uuid),
     index("tasks_status_idx").on(table.status),
     index("tasks_trans_idx").on(table.credits_trans_no),
+    uniqueIndex("tasks_idempotency_unique_idx").on(
+      table.user_uuid,
+      table.type,
+      table.idempotency_key
+    ),
   ]
 );

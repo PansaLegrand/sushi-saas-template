@@ -58,13 +58,22 @@ export default function TextToVideoClientPage() {
     setCreditsUsed(null);
 
     try {
+      const idempotencyKey =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
       const res = await fetch("/api/tasks/text-to-video", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+        },
         body: JSON.stringify({
           prompt,
           seconds: Number(seconds) || 8,
           aspectRatio: aspect,
+          idempotencyKey,
         }),
       });
 

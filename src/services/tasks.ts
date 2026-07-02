@@ -1,11 +1,20 @@
 import { getSnowId } from "@/lib/hash";
 import { isTextToVideoMockEnabled } from "@/lib/demo-flags";
-import { insertTask } from "@/models/task";
-import { CreditsTransType, decreaseCredits } from "@/services/credit";
+import {
+  findTaskByIdempotencyKey,
+  insertTaskForIdempotencyKey,
+  updateTaskStatus,
+} from "@/models/task";
+import {
+  CreditsTransType,
+  decreaseCredits,
+  refundCreditsForTransaction,
+} from "@/services/credit";
 import { generateTextToVideo, type TextToVideoInput } from "@/services/ai/video";
 import { TEXT2VIDEO_COST } from "@/data/tasks";
 
 export const TASK_TYPE_TEXT_TO_VIDEO = "text_to_video" as const;
+const MAX_IDEMPOTENCY_KEY_LENGTH = 255;
 
 export function calculateTextToVideoCost(params: {
   seconds: number;
@@ -27,6 +36,7 @@ export function calculateTextToVideoCost(params: {
 export async function createTextToVideoTask(params: {
   userUuid: string;
   input: TextToVideoInput;
+  idempotencyKey?: string;
 }): Promise<{
   task: typeof import("@/db/schema").tasks.$inferSelect;
 }> {
@@ -40,39 +50,98 @@ export async function createTextToVideoTask(params: {
     throw new Error("text-to-video demo provider is disabled");
   }
 
-  const transNo = await decreaseCredits({
-    user_uuid: userUuid,
-    trans_type: CreditsTransType.TaskTextToVideo,
-    credits: creditsUsed,
-  });
-
-  const result = await generateTextToVideo({
+  const normalizedInput = {
     prompt: input.prompt,
     seconds,
-    aspectRatio,
-  });
+    aspect_ratio: aspectRatio,
+  };
+  const idempotencyKey = params.idempotencyKey?.trim() || null;
+  if (idempotencyKey && idempotencyKey.length > MAX_IDEMPOTENCY_KEY_LENGTH) {
+    throw new Error("idempotency key too long");
+  }
 
   const now = new Date();
   const uuid = getSnowId();
 
-  const task = await insertTask({
+  const insertedTask = await insertTaskForIdempotencyKey({
     uuid,
     user_uuid: userUuid,
     type: TASK_TYPE_TEXT_TO_VIDEO,
-    status: "succeeded",
+    status: "running",
     credits_used: creditsUsed,
-    credits_trans_no: transNo,
-    user_input: JSON.stringify({ prompt: input.prompt, seconds, aspect_ratio: input.aspectRatio ?? "landscape" }),
-    output_url: result.outputUrl,
+    idempotency_key: idempotencyKey,
+    user_input: JSON.stringify(normalizedInput),
     created_at: now,
     updated_at: now,
     started_at: now,
-    completed_at: now,
   });
 
-  if (!task) {
-    throw new Error("failed to insert task");
+  if (!insertedTask) {
+    if (!idempotencyKey) {
+      throw new Error("failed to insert task");
+    }
+
+    const existingTask = await findTaskByIdempotencyKey({
+      user_uuid: userUuid,
+      type: TASK_TYPE_TEXT_TO_VIDEO,
+      idempotency_key: idempotencyKey,
+    });
+
+    if (!existingTask) {
+      throw new Error("failed to load idempotent task");
+    }
+
+    return { task: existingTask };
   }
 
-  return { task };
+  let transNo: string | undefined;
+  try {
+    transNo = await decreaseCredits({
+      user_uuid: userUuid,
+      trans_type: CreditsTransType.TaskTextToVideo,
+      credits: creditsUsed,
+    });
+
+    await updateTaskStatus(insertedTask.uuid, "running", {
+      credits_trans_no: transNo,
+    });
+
+    const result = await generateTextToVideo({
+      prompt: input.prompt,
+      seconds,
+      aspectRatio,
+    });
+
+    const task = await updateTaskStatus(insertedTask.uuid, "succeeded", {
+      output_url: result.outputUrl,
+      output_json: result.raw ? JSON.stringify(result.raw) : null,
+      completed_at: new Date(),
+    });
+
+    if (!task) {
+      throw new Error("failed to update task");
+    }
+
+    return { task };
+  } catch (error) {
+    if (transNo) {
+      try {
+        await refundCreditsForTransaction({
+          user_uuid: userUuid,
+          original_trans_no: transNo,
+        });
+      } catch (refundError) {
+        console.error("refund text-to-video credits failed", refundError);
+      }
+    }
+
+    const message = error instanceof Error ? error.message : "create task failed";
+    await updateTaskStatus(insertedTask.uuid, "failed", {
+      credits_trans_no: transNo,
+      error_message: message,
+      completed_at: new Date(),
+    });
+
+    throw error;
+  }
 }
