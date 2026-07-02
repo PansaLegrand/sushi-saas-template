@@ -1,7 +1,7 @@
 import Stripe from "stripe";
 import { handleCheckoutSession } from "@/services/stripe";
 import { sendPaymentSuccessEmail, sendPaymentFailedEmail, sendReservationConfirmedEmail } from "@/services/email/send";
-import { markReservationConfirmed, findReservationByNo, getServiceById } from "@/features/reservations/models";
+import { markReservationConfirmed, getServiceById } from "@/features/reservations/models";
 import { buildReservationICS } from "@/features/reservations/ics";
 import { buildGoogleCalendarUrl } from "@/features/reservations/google";
 import { ReservationsConfig } from "@/features/reservations/config";
@@ -14,6 +14,17 @@ import { updateAffiliateForOrder } from "@/services/affiliate";
 import { findUserByEmail } from "@/models/user";
 import { notifySlackEvent, notifySlackError } from "@/integrations/slack";
 import { getAppEnv, getRequiredEnv } from "@/lib/env";
+import {
+  claimStripeWebhookEvent,
+  markStripeWebhookEventCompleted,
+  markStripeWebhookEventFailed,
+} from "@/models/stripe-webhook-event";
+
+const IDEMPOTENT_STRIPE_EVENTS = new Set([
+  "checkout.session.completed",
+  "invoice.payment_succeeded",
+  "invoice.payment_failed",
+]);
 
 // Stripe sends webhook events via POST requests with a signed payload.
 // Configure Stripe CLI or dashboard to forward events to this endpoint:
@@ -41,7 +52,27 @@ export async function POST(req: Request) {
       return new Response("invalid signature", { status: 400 });
     }
 
-    switch (event.type) {
+    let claimedEvent = false;
+    if (IDEMPOTENT_STRIPE_EVENTS.has(event.type)) {
+      const claimStatus = await claimStripeWebhookEvent({
+        eventId: event.id,
+        eventType: event.type,
+        payload: rawBody,
+      });
+
+      if (claimStatus === "completed") {
+        return new Response("ok", { status: 200 });
+      }
+
+      if (claimStatus === "processing") {
+        return new Response("event already processing", { status: 409 });
+      }
+
+      claimedEvent = true;
+    }
+
+    try {
+      switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
         const stripe = new Stripe(getRequiredEnv("STRIPE_PRIVATE_KEY"));
@@ -119,131 +150,125 @@ export async function POST(req: Request) {
           break;
         }
 
-        try {
-          const stripe = new Stripe(getRequiredEnv("STRIPE_PRIVATE_KEY"));
+        const stripe = new Stripe(getRequiredEnv("STRIPE_PRIVATE_KEY"));
 
-          const subId = (invoice.subscription as string) || "";
-          if (!subId) break;
+        const subId = (invoice.subscription as string) || "";
+        if (!subId) break;
 
-          // Period boundaries from the first subscription line
-          const line = invoice.lines?.data?.find((l) => (l as any).type !== "invoiceitem") || invoice.lines?.data?.[0];
-          const periodStart = line?.period?.start ?? undefined;
-          const periodEnd = line?.period?.end ?? undefined;
-          const priceId = line?.price?.id ?? undefined;
-          const interval = line?.price?.recurring?.interval ?? undefined;
+        // Period boundaries from the first subscription line
+        const line = invoice.lines?.data?.find((l) => (l as any).type !== "invoiceitem") || invoice.lines?.data?.[0];
+        const periodStart = line?.period?.start ?? undefined;
+        const periodEnd = line?.period?.end ?? undefined;
+        const priceId = line?.price?.id ?? undefined;
+        const interval = line?.price?.recurring?.interval ?? undefined;
 
-          if (periodStart && (await findOrderBySubscriptionPeriod(subId, periodStart))) {
-            // Idempotency: we already created an order for this cycle
-            break;
-          }
-
-          // Resolve the plan from configured price IDs
-          function findPlanByPriceId(id?: string) {
-            if (!id) return undefined;
-            // Search across locales (price IDs should be the same per currency)
-            for (const loc of locales) {
-              const cfg = getPricingConfig(loc);
-              const item = cfg.items?.find((it: any) => it?.price_id === id || it?.cn_price_id === id);
-              if (item) return item as any;
-            }
-            // Fallback: try default locale
-            const en = getPricingConfig("en");
-            return en.items?.find((it: any) => it?.price_id === id || it?.cn_price_id === id) as any;
-          }
-
-          const plan = findPlanByPriceId(priceId);
-
-          // Resolve user identity
-          let userUuid = (invoice as any).metadata?.user_uuid as string | undefined;
-          let userEmail = invoice.customer_email || (invoice as any).customer_email || undefined;
-          // Try subscription metadata for uuid/email if missing
-          if (!userUuid || !userEmail) {
-            try {
-              const sub = await stripe.subscriptions.retrieve(subId, { expand: ["customer"] as any });
-              userUuid = (sub as any).metadata?.user_uuid ?? userUuid;
-              userEmail = (sub as any).metadata?.user_email ?? userEmail;
-              if (!userEmail && (sub.customer as any)?.email) {
-                userEmail = (sub.customer as any).email;
-              }
-            } catch (e) {
-              // continue with whatever we have
-            }
-          }
-
-          // Fallback: resolve uuid by email from DB
-          if (!userUuid && userEmail) {
-            const dbUser = await findUserByEmail(userEmail);
-            userUuid = dbUser?.uuid;
-          }
-          if (!userUuid) break; // cannot provision without user
-
-          // Compute expiry: use period end + 24h grace similar to checkout route
-          const graceMs = 24 * 60 * 60 * 1000;
-          const expiredAt = periodEnd ? new Date(periodEnd * 1000 + graceMs) : null;
-
-          const amount = typeof invoice.amount_paid === "number" ? invoice.amount_paid : 0;
-          const currency = (invoice.currency || "usd") as string;
-          const product_name = (plan?.product_name as string | undefined) ?? line?.price?.nickname ?? "Subscription";
-          const product_id = (plan?.product_id as string | undefined) ?? priceId ?? "subscription";
-          const credits = (plan?.credits as number | undefined) ?? 0;
-
-          const order_no = getSnowId();
-          const order = await insertOrder({
-            order_no,
-            created_at: new Date(),
-            user_uuid: userUuid,
-            user_email: userEmail || "",
-            amount,
-            interval: (interval as string) || "month",
-            expired_at: expiredAt,
-            status: OrderStatus.Paid,
-            credits,
-            currency,
-            product_id,
-            product_name,
-            valid_months: plan?.valid_months ?? (interval === "year" ? 12 : 1),
-            sub_id: subId,
-            sub_interval_count: line?.quantity ?? 1,
-            sub_cycle_anchor: undefined,
-            sub_period_end: periodEnd ?? undefined,
-            sub_period_start: periodStart ?? undefined,
-            sub_times: undefined,
-            paid_at: new Date(),
-            paid_email: userEmail || undefined,
-            paid_detail: JSON.stringify({ invoiceId: invoice.id }),
-          } as any);
-
-          if (credits && credits > 0) {
-            await increaseCredits({
-              user_uuid: userUuid,
-              trans_type: CreditsTransType.OrderPay,
-              credits,
-              expired_at: expiredAt ?? undefined,
-              order_no: order_no,
-            });
-          }
-
-          // Affiliate reward for renewal orders (optional; follows current model)
-          await updateAffiliateForOrder(order as any);
-          // Notify Slack for renewal success (best-effort)
-          notifySlackEvent("Subscription renewal succeeded", {
-            order_no,
-            user_uuid: userUuid,
-            email: userEmail,
-            amount: amount / 100,
-            currency,
-            product_id,
-            interval,
-          });
-        } catch (e) {
-          console.error("invoice.payment_succeeded handling failed", e);
-          // do not fail webhook; continue
+        if (periodStart && (await findOrderBySubscriptionPeriod(subId, periodStart))) {
+          // Idempotency: we already created an order for this cycle
+          break;
         }
+
+        // Resolve the plan from configured price IDs
+        function findPlanByPriceId(id?: string) {
+          if (!id) return undefined;
+          // Search across locales (price IDs should be the same per currency)
+          for (const loc of locales) {
+            const cfg = getPricingConfig(loc);
+            const item = cfg.items?.find((it: any) => it?.price_id === id || it?.cn_price_id === id);
+            if (item) return item as any;
+          }
+          // Fallback: try default locale
+          const en = getPricingConfig("en");
+          return en.items?.find((it: any) => it?.price_id === id || it?.cn_price_id === id) as any;
+        }
+
+        const plan = findPlanByPriceId(priceId);
+
+        // Resolve user identity
+        let userUuid = (invoice as any).metadata?.user_uuid as string | undefined;
+        let userEmail = invoice.customer_email || (invoice as any).customer_email || undefined;
+        // Try subscription metadata for uuid/email if missing
+        if (!userUuid || !userEmail) {
+          try {
+            const sub = await stripe.subscriptions.retrieve(subId, { expand: ["customer"] as any });
+            userUuid = (sub as any).metadata?.user_uuid ?? userUuid;
+            userEmail = (sub as any).metadata?.user_email ?? userEmail;
+            if (!userEmail && (sub.customer as any)?.email) {
+              userEmail = (sub.customer as any).email;
+            }
+          } catch (e) {
+            // continue with whatever we have
+          }
+        }
+
+        // Fallback: resolve uuid by email from DB
+        if (!userUuid && userEmail) {
+          const dbUser = await findUserByEmail(userEmail);
+          userUuid = dbUser?.uuid;
+        }
+        if (!userUuid) break; // cannot provision without user
+
+        // Compute expiry: use period end + 24h grace similar to checkout route
+        const graceMs = 24 * 60 * 60 * 1000;
+        const expiredAt = periodEnd ? new Date(periodEnd * 1000 + graceMs) : null;
+
+        const amount = typeof invoice.amount_paid === "number" ? invoice.amount_paid : 0;
+        const currency = (invoice.currency || "usd") as string;
+        const product_name = (plan?.product_name as string | undefined) ?? line?.price?.nickname ?? "Subscription";
+        const product_id = (plan?.product_id as string | undefined) ?? priceId ?? "subscription";
+        const credits = (plan?.credits as number | undefined) ?? 0;
+
+        const order_no = getSnowId();
+        const order = await insertOrder({
+          order_no,
+          created_at: new Date(),
+          user_uuid: userUuid,
+          user_email: userEmail || "",
+          amount,
+          interval: (interval as string) || "month",
+          expired_at: expiredAt,
+          status: OrderStatus.Paid,
+          credits,
+          currency,
+          product_id,
+          product_name,
+          valid_months: plan?.valid_months ?? (interval === "year" ? 12 : 1),
+          sub_id: subId,
+          sub_interval_count: line?.quantity ?? 1,
+          sub_cycle_anchor: undefined,
+          sub_period_end: periodEnd ?? undefined,
+          sub_period_start: periodStart ?? undefined,
+          sub_times: undefined,
+          paid_at: new Date(),
+          paid_email: userEmail || undefined,
+          paid_detail: JSON.stringify({ invoiceId: invoice.id }),
+        } as any);
+
+        if (credits && credits > 0) {
+          await increaseCredits({
+            user_uuid: userUuid,
+            trans_type: CreditsTransType.OrderPay,
+            credits,
+            expired_at: expiredAt ?? undefined,
+            order_no: order_no,
+          });
+        }
+
+        // Affiliate reward for renewal orders (optional; follows current model)
+        await updateAffiliateForOrder(order as any);
+        // Notify Slack for renewal success (best-effort)
+        notifySlackEvent("Subscription renewal succeeded", {
+          order_no,
+          user_uuid: userUuid,
+          email: userEmail,
+          amount: amount / 100,
+          currency,
+          product_id,
+          interval,
+        });
         break;
       }
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice;
-        const to = invoice.customer_email || (invoice.customer as string | null) || null;
         if (invoice.customer_email) {
           const amountDue = typeof invoice.amount_due === "number" ? invoice.amount_due / 100 : undefined;
           const manageUrlBase = getAppEnv().NEXT_PUBLIC_WEB_URL;
@@ -274,6 +299,16 @@ export async function POST(req: Request) {
       default:
         // Ignore other event types for now.
         break;
+      }
+
+      if (claimedEvent) {
+        await markStripeWebhookEventCompleted(event.id);
+      }
+    } catch (error) {
+      if (claimedEvent) {
+        await markStripeWebhookEventFailed(event.id, error);
+      }
+      throw error;
     }
 
     return new Response("ok", { status: 200 });

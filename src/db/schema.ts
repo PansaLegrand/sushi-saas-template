@@ -137,6 +137,27 @@ export const orders = pgTable("orders", {
   paid_detail: text(),
 });
 
+// Stripe webhook event idempotency
+export const stripeWebhookEvents = pgTable(
+  "stripe_webhook_events",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    event_id: varchar({ length: 255 }).notNull().unique(),
+    event_type: varchar({ length: 255 }).notNull(),
+    status: varchar({ length: 32 }).notNull().default("processing"),
+    attempts: integer().notNull().default(1),
+    payload: text(),
+    last_error: text(),
+    received_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    processed_at: timestamp({ withTimezone: true }),
+    updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("stripe_webhook_events_status_idx").on(table.status),
+    index("stripe_webhook_events_type_idx").on(table.event_type),
+  ]
+);
+
 // API Keys table
 export const apikeys = pgTable("apikeys", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),

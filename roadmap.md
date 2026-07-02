@@ -48,7 +48,7 @@ Focus: fix the risky gaps that make the boilerplate safer to clone, configure, a
 4. [ ] [P0] Add origin protection for sensitive POST routes
    - Protect cookie-authenticated mutations from cross-site form/script abuse.
 
-5. [ ] [P0] Make Stripe webhook processing idempotent
+5. [x] [P0] Make Stripe webhook processing idempotent
    - Store processed Stripe event IDs.
    - Avoid duplicate orders, duplicate credits, and repeated side effects.
 
