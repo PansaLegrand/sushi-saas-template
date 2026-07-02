@@ -178,15 +178,3 @@ export async function listUserReservationsWithService(user_uuid: string): Promis
     .where(eq(reservations.user_uuid, user_uuid));
   return rows.map((row: any) => ({ ...row.r, service: row.s }));
 }
-
-export async function listReservationsWithServiceAdmin(page: number = 1, limit: number = 50): Promise<Array<Reservation & { service: ReservationService }>> {
-  const offset = (page - 1) * limit;
-  const rows = await db()
-    .select({ r: reservations, s: reservationServices })
-    .from(reservations)
-    .leftJoin(reservationServices, eq(reservations.service_id, reservationServices.id))
-    .orderBy(reservations.start_at)
-    .limit(limit)
-    .offset(offset);
-  return rows.map((row: any) => ({ ...row.r, service: row.s }));
-}

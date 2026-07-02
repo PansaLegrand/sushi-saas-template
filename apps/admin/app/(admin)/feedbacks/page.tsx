@@ -1,15 +1,15 @@
-import { getAdminContext } from "@/lib/authz";
-import { getFeedbacks, getFeedbacksTotal } from "@/models/feedback";
+import { getAdminContext } from "@admin/lib/authz";
+import { countAdminFeedbacks, listAdminFeedbacks } from "@admin/lib/data";
 
 export default async function AdminFeedbacksPage() {
   const admin = await getAdminContext();
-  if (!admin || (admin.role !== "admin_ro" && admin.role !== "admin_rw")) {
+  if (!admin) {
     return null;
   }
 
   const [rows, total] = await Promise.all([
-    getFeedbacks(1, 100),
-    getFeedbacksTotal(),
+    listAdminFeedbacks(1, 100),
+    countAdminFeedbacks(),
   ]);
 
   return (
@@ -51,4 +51,3 @@ export default async function AdminFeedbacksPage() {
     </div>
   );
 }
-

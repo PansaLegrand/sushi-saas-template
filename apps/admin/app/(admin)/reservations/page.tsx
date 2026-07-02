@@ -1,10 +1,10 @@
-import { getAdminContext } from "@/lib/authz";
-import { listReservationsWithServiceAdmin } from "@/features/reservations/models";
+import { getAdminContext } from "@admin/lib/authz";
+import { listAdminReservationsWithService } from "@admin/lib/data";
 import { ReservationsConfig } from "@/features/reservations/config";
 
 export default async function AdminReservationsPage() {
   const admin = await getAdminContext();
-  if (!admin || (admin.role !== "admin_ro" && admin.role !== "admin_rw")) {
+  if (!admin) {
     // Layout guards, but keep a server check
     return null;
   }
@@ -17,7 +17,7 @@ export default async function AdminReservationsPage() {
     );
   }
 
-  const reservations = await listReservationsWithServiceAdmin(1, 50);
+  const reservations = await listAdminReservationsWithService(1, 50);
 
   return (
     <section className="rounded-lg border p-4">
@@ -54,4 +54,3 @@ export default async function AdminReservationsPage() {
     </section>
   );
 }
-

@@ -90,37 +90,3 @@ export async function findAffiliateByOrderNo(order_no: string) {
 
   return affiliate;
 }
-
-export async function getAllAffiliates(
-  page: number = 1,
-  limit: number = 50
-): Promise<(typeof affiliates.$inferSelect)[] | undefined> {
-  const offset = (page - 1) * limit;
-
-  const data = await db()
-    .select()
-    .from(affiliates)
-    .orderBy(desc(affiliates.created_at))
-    .limit(limit)
-    .offset(offset);
-
-  if (!data || data.length === 0) {
-    return undefined;
-  }
-
-  const user_uuids = Array.from(new Set(data.map((item) => item.user_uuid)));
-  const invited_by_uuids = Array.from(
-    new Set(data.map((item) => item.invited_by))
-  );
-
-  const users = await getUsersByUuids(user_uuids as string[]);
-  const invited_by_users = await getUsersByUuids(invited_by_uuids as string[]);
-
-  return data.map((item) => {
-    const user = users?.find((user) => user.uuid === item.user_uuid);
-    const invited_by = invited_by_users?.find(
-      (user) => user.uuid === item.invited_by
-    );
-    return { ...item, user, invited_by_user: invited_by };
-  });
-}

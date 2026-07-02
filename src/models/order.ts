@@ -181,27 +181,6 @@ export async function getOrdersByPaidEmail(
   return data;
 }
 
-export async function getPaiedOrders(
-  page: number,
-  limit: number
-): Promise<(typeof orders.$inferSelect)[] | undefined> {
-  const data = await db()
-    .select()
-    .from(orders)
-    .where(eq(orders.status, OrderStatus.Paid))
-    .orderBy(desc(orders.created_at))
-    .limit(limit)
-    .offset((page - 1) * limit);
-
-  return data;
-}
-
-export async function getPaidOrdersTotal(): Promise<number | undefined> {
-  const total = await db().$count(orders);
-
-  return total;
-}
-
 export async function getOrderCountByDate(
   startTime: string,
   status?: string

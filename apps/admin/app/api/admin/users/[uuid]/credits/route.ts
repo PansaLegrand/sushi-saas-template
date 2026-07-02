@@ -1,4 +1,4 @@
-import { requireAdminRead } from "@/lib/authz";
+import { requireAdminRead } from "@admin/lib/authz";
 import { respData, respErr } from "@/lib/resp";
 import { getUserCreditSummary } from "@/services/credit";
 

@@ -215,7 +215,7 @@ Les rôles sont pilotés par la base via `users.role` :
 - `admin_ro`
 - `admin_rw`
 
-Les checks de rôle sont dans `src/lib/authz.ts` :
+Les checks de rôle sont dans `apps/admin/lib/authz.ts` :
 
 - `requireAdminRead()` -> autorise `admin_ro` et `admin_rw`
 - `requireAdminWrite()` -> autorise `admin_rw`

@@ -1,12 +1,12 @@
-import { getAllAffiliates } from "@/models/affiliate";
-import { getAdminContext } from "@/lib/authz";
+import { getAdminContext } from "@admin/lib/authz";
+import { listAdminAffiliates } from "@admin/lib/data";
 
 export default async function AdminAffiliatesPage() {
   // Layout guards admin, this is a safety net.
   const admin = await getAdminContext();
   if (!admin) return null;
 
-  const rows = (await getAllAffiliates(1, 100)) ?? [];
+  const rows = (await listAdminAffiliates(1, 100)) ?? [];
 
   return (
     <div className="space-y-6">
@@ -49,4 +49,3 @@ export default async function AdminAffiliatesPage() {
     </div>
   );
 }
-

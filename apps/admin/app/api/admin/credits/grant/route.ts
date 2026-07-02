@@ -1,4 +1,5 @@
-import { requireAdminWrite } from "@/lib/authz";
+import { requireSameOrigin } from "@admin/lib/origin";
+import { requireAdminWrite } from "@admin/lib/authz";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { respData, respErr } from "@/lib/resp";
 import {
@@ -16,6 +17,9 @@ interface AdminGrantRequest {
 }
 
 export async function POST(req: Request) {
+  const invalidOrigin = requireSameOrigin(req);
+  if (invalidOrigin) return invalidOrigin;
+
   const limited = rateLimitOrThrow(req, "credits");
   if (limited) return limited;
 

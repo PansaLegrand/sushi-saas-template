@@ -215,7 +215,7 @@ Roles are DB-driven in `users.role`:
 - `admin_ro`
 - `admin_rw`
 
-Role checks are implemented in `src/lib/authz.ts`:
+Role checks are implemented in `apps/admin/lib/authz.ts`:
 
 - `requireAdminRead()` -> allows `admin_ro` and `admin_rw`
 - `requireAdminWrite()` -> allows `admin_rw`

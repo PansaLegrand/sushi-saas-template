@@ -1,6 +1,5 @@
-import { getAdminContext } from "@/lib/authz";
-import { getUsers } from "@/models/user";
-import { getPaiedOrders } from "@/models/order";
+import { getAdminContext } from "@admin/lib/authz";
+import { listAdminPaidOrders, listAdminUsers } from "@admin/lib/data";
 import GrantCreditsPanel from "@admin/components/grant-credits";
 import Link from "next/link";
 
@@ -10,8 +9,8 @@ export default async function AdminHomePage() {
   const canWrite = admin?.role === "admin_rw";
 
   const [users, orders] = await Promise.all([
-    getUsers(1, 20),
-    getPaiedOrders(1, 20),
+    listAdminUsers(1, 20),
+    listAdminPaidOrders(1, 20),
   ]);
 
   return (

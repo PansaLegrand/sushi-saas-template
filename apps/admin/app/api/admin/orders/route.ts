@@ -1,6 +1,6 @@
-import { requireAdminRead } from "@/lib/authz";
+import { requireAdminRead } from "@admin/lib/authz";
 import { respData, respErr } from "@/lib/resp";
-import { getPaiedOrders, getPaidOrdersTotal } from "@/models/order";
+import { countAdminPaidOrders, listAdminPaidOrders } from "@admin/lib/data";
 
 export async function GET(req: Request) {
   const authz = await requireAdminRead();
@@ -15,8 +15,8 @@ export async function GET(req: Request) {
     );
 
     const [rows, total] = await Promise.all([
-      getPaiedOrders(page, limit),
-      getPaidOrdersTotal(),
+      listAdminPaidOrders(page, limit),
+      countAdminPaidOrders(),
     ]);
 
     return respData({

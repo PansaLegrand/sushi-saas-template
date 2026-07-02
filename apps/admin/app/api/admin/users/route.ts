@@ -1,6 +1,6 @@
-import { requireAdminRead } from "@/lib/authz";
+import { requireAdminRead } from "@admin/lib/authz";
 import { respData, respErr } from "@/lib/resp";
-import { getUsers, getUsersTotal } from "@/models/user";
+import { countAdminUsers, listAdminUsers } from "@admin/lib/data";
 
 export async function GET(req: Request) {
   const authz = await requireAdminRead();
@@ -15,8 +15,8 @@ export async function GET(req: Request) {
     );
 
     const [rows, total] = await Promise.all([
-      getUsers(page, limit),
-      getUsersTotal(),
+      listAdminUsers(page, limit),
+      countAdminUsers(),
     ]);
 
     return respData({

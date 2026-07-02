@@ -214,7 +214,7 @@ refresh token から自動的にアプリセッションを再作成すると、
 - `admin_ro`
 - `admin_rw`
 
-ロールチェック実装: `src/lib/authz.ts`
+ロールチェック実装: `apps/admin/lib/authz.ts`
 
 - `requireAdminRead()` -> `admin_ro` と `admin_rw` を許可
 - `requireAdminWrite()` -> `admin_rw` のみ許可

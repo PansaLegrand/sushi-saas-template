@@ -214,7 +214,7 @@ Google 登录**不要求必须是 Gmail 邮箱**。
 - `admin_ro`
 - `admin_rw`
 
-角色校验在 `src/lib/authz.ts`：
+角色校验在 `apps/admin/lib/authz.ts`：
 
 - `requireAdminRead()` -> 允许 `admin_ro` 与 `admin_rw`
 - `requireAdminWrite()` -> 仅允许 `admin_rw`

@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SignOutButton } from "@admin/components/sign-out-button";
-import { getAdminContext } from "@/lib/authz";
+import { getAdminContext } from "@admin/lib/authz";
 
 export default async function AdminLayout({
   children,
@@ -10,7 +10,7 @@ export default async function AdminLayout({
   children: ReactNode;
 }) {
   const admin = await getAdminContext();
-  if (!admin || (admin.role !== "admin_ro" && admin.role !== "admin_rw")) {
+  if (!admin) {
     redirect("/login");
   }
 

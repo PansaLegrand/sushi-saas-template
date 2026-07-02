@@ -1,6 +1,6 @@
 import { users } from "@/db/schema";
 import { db } from "@/db";
-import { desc, eq, gte, inArray } from "drizzle-orm";
+import { eq, gte, inArray } from "drizzle-orm";
 
 export async function insertUser(
   data: typeof users.$inferInsert
@@ -32,22 +32,6 @@ export async function findUserByUuid(
     .limit(1);
 
   return user;
-}
-
-export async function getUsers(
-  page: number = 1,
-  limit: number = 50
-): Promise<(typeof users.$inferSelect)[] | undefined> {
-  const offset = (page - 1) * limit;
-
-  const data = await db()
-    .select()
-    .from(users)
-    .orderBy(desc(users.created_at))
-    .limit(limit)
-    .offset(offset);
-
-  return data;
 }
 
 export async function updateUserInviteCode(
@@ -108,12 +92,6 @@ export async function getUserUuidsByEmail(
     .where(eq(users.email, email));
 
   return data.map((user) => user.uuid);
-}
-
-export async function getUsersTotal(): Promise<number> {
-  const total = await db().$count(users);
-
-  return total;
 }
 
 export async function getUserCountByDate(

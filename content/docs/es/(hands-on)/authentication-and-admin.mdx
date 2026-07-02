@@ -215,7 +215,7 @@ Los roles vienen de DB en `users.role`:
 - `admin_ro`
 - `admin_rw`
 
-Los checks de rol están en `src/lib/authz.ts`:
+Los checks de rol están en `apps/admin/lib/authz.ts`:
 
 - `requireAdminRead()` -> permite `admin_ro` y `admin_rw`
 - `requireAdminWrite()` -> permite `admin_rw`
