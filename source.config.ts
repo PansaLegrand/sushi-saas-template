@@ -37,6 +37,8 @@ export const docs = defineDocs({
 export const blog = defineDocs({
   dir: "content/blog",
   docs: {
+    // .mdx only, so the directory's own README.md is not published as a post.
+    files: ["**/*.mdx"],
     schema: docsFrontmatterSchema,
   },
 });
