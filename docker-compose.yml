@@ -1,0 +1,33 @@
+# Local Postgres for development and the tests/db tier.
+#
+# Two databases on one server: sushi_dev for the app, sushi_test for the
+# database tests. They are separate because the test tier truncates tables on
+# every test — sharing one database would wipe your dev data on `pnpm test:db`.
+#
+#   docker compose up -d      (or: pnpm db:up)
+#
+# Data lives in a named volume, so `docker compose down` keeps it and
+# `docker compose down -v` throws it away.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sushi-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sushi
+      POSTGRES_PASSWORD: sushi
+      POSTGRES_DB: sushi_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - sushi-pgdata:/var/lib/postgresql/data
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/10-create-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sushi -d sushi_dev"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  sushi-pgdata:

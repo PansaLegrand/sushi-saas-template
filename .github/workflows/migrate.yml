@@ -1,0 +1,78 @@
+name: Migrate database
+
+# Deliberately manual. Migrations are not run automatically on deploy:
+#
+#   - A Vercel build runs for every preview and can run more than once per
+#     commit. Migrating from a build step means DDL fires on branches, in
+#     parallel, against production.
+#   - A build has no way to stop the deploy if the migration half-applies.
+#   - The safe order for a schema change is migrate → verify → ship code, and
+#     only a separate step can enforce that order.
+#
+# So: run this workflow, confirm it succeeded, then promote the deployment.
+# Follow expand/contract (see DEPLOYMENT.md) and the old code keeps working
+# against the new schema in between.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        default: production
+        type: choice
+        options:
+          - production
+          - staging
+      mode:
+        description: check (report pending only) or apply
+        required: true
+        default: check
+        type: choice
+        options:
+          - check
+          - apply
+
+concurrency:
+  group: migrate-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: ${{ inputs.mode }} → ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # Put required reviewers on this environment in repo settings to make an
+    # apply need a second pair of eyes. DATABASE_URL is an environment secret,
+    # so staging credentials can never be used against production.
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Report pending migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm db:check:prod
+
+      - name: Apply migrations
+        if: inputs.mode == 'apply'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm db:migrate:prod
