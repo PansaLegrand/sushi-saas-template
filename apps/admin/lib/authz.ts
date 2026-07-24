@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { findUserByEmail, findUserByUuid } from "@/models/user";
+import { findUserById, findUserByUuid } from "@/models/user";
 import { respForbidden, respNoAuth } from "@/lib/resp";
 
 export const ADMIN_RO = "admin_ro";
@@ -31,14 +31,23 @@ export async function getAdminContext(): Promise<AdminContext | null> {
   const { user } = result;
   const email = (user.email as string) || "";
   const userId = user.id as string;
-  let userUuid = ((user as any).uuid as string | undefined) ?? "";
+  const userUuid = ((user as any).uuid as string | undefined) ?? "";
 
-  let dbUser = userUuid ? await findUserByUuid(userUuid) : undefined;
-  if (!dbUser && email) {
-    dbUser = await findUserByEmail(email);
-  }
+  // Resolve the role strictly from identifiers that uniquely identify one row.
+  // `users.email` is only unique per signin_provider, so an email lookup can
+  // resolve a different account than the session's — never key authz on it.
+  const dbUser = userUuid
+    ? await findUserByUuid(userUuid)
+    : userId
+      ? await findUserById(userId)
+      : undefined;
 
   if (!dbUser || !isAdminRole(dbUser.role)) {
+    return null;
+  }
+
+  // Fail closed if the row we loaded is not the session's own account.
+  if (userId && dbUser.id !== userId) {
     return null;
   }
 

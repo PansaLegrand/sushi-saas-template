@@ -347,3 +347,39 @@ export const tasks = pgTable(
     ),
   ]
 );
+
+// Admin audit logs (append-only record of admin console actions)
+export const adminAuditLogs = pgTable(
+  "admin_audit_logs",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    uuid: varchar({ length: 255 }).notNull().unique(),
+
+    // Who acted. Email is denormalized so the trail survives user edits.
+    actor_uuid: varchar({ length: 255 }).notNull(),
+    actor_email: varchar({ length: 255 }).notNull().default(""),
+    actor_role: varchar({ length: 50 }).notNull().default(""),
+
+    // What happened, e.g. "credits.grant".
+    action: varchar({ length: 64 }).notNull(),
+    // What it happened to, e.g. "user" + the user uuid.
+    target_type: varchar({ length: 64 }).notNull().default(""),
+    target_uuid: varchar({ length: 255 }).notNull().default(""),
+
+    status: varchar({ length: 32 }).notNull().default("succeeded"), // succeeded|failed
+    note: text(),
+    metadata_json: text(),
+    error_message: text(),
+
+    ip_address: varchar({ length: 255 }),
+    user_agent: varchar({ length: 1024 }),
+
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("admin_audit_logs_actor_idx").on(table.actor_uuid),
+    index("admin_audit_logs_action_idx").on(table.action),
+    index("admin_audit_logs_target_idx").on(table.target_type, table.target_uuid),
+    index("admin_audit_logs_created_idx").on(table.created_at),
+  ]
+);

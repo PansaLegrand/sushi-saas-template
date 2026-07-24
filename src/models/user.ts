@@ -22,6 +22,18 @@ export async function findUserByEmail(
   return user;
 }
 
+export async function findUserById(
+  id: string
+): Promise<typeof users.$inferSelect | undefined> {
+  const [user] = await db()
+    .select()
+    .from(users)
+    .where(eq(users.id, id))
+    .limit(1);
+
+  return user;
+}
+
 export async function findUserByUuid(
   uuid: string
 ): Promise<typeof users.$inferSelect | undefined> {

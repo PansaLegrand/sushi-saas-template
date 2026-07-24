@@ -1,27 +1,17 @@
-import { respForbidden } from "@/lib/resp";
+import { getAppEnv } from "@/lib/env";
+import { requireSameOrigin as requireSameOriginShared } from "@/lib/origin";
 
-function normalizeOrigin(value: string | null | undefined) {
-  if (!value) return null;
-
-  try {
-    return new URL(value).origin;
-  } catch {
-    return null;
-  }
-}
-
+/**
+ * Same-origin guard for admin routes.
+ *
+ * Delegates to the shared implementation so this app cannot drift behind on
+ * hardening, but narrows the allowlist to the admin origin only: the public web
+ * app must never be able to drive admin mutations, and on an `admin.` subdomain
+ * it is same-site, so SameSite=Lax alone would not stop it.
+ */
 export function requireSameOrigin(req: Request): Response | null {
-  const expected = normalizeOrigin(req.url);
-  const origin = normalizeOrigin(req.headers.get("origin"));
-  const referer = normalizeOrigin(req.headers.get("referer"));
-
-  if (origin && origin !== expected) {
-    return respForbidden("invalid origin");
-  }
-
-  if (!origin && referer && referer !== expected) {
-    return respForbidden("invalid referer");
-  }
-
-  return null;
+  return requireSameOriginShared(req, {
+    includeWebUrl: false,
+    allowedOrigins: [getAppEnv().NEXT_PUBLIC_ADMIN_WEB_URL],
+  });
 }

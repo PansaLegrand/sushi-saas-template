@@ -50,6 +50,12 @@ interface IncreaseCreditsParams {
   credits: number;
   expired_at?: string | Date | null;
   order_no?: string;
+  /**
+   * Explicit ledger transaction number. Pass a deterministic value to make a
+   * grant idempotent: `trans_no` is unique, so a replay fails the insert
+   * instead of double-crediting. Defaults to a fresh id.
+   */
+  trans_no?: string;
 }
 
 interface RefundCreditsParams {
@@ -239,6 +245,7 @@ export async function increaseCredits({
   credits,
   expired_at,
   order_no,
+  trans_no,
 }: IncreaseCreditsParams): Promise<void> {
   if (credits <= 0) {
     throw new Error("credits must be greater than zero");
@@ -253,7 +260,7 @@ export async function increaseCredits({
         : null;
 
     const newCredit: typeof creditsTable.$inferInsert = {
-      trans_no: getSnowId(),
+      trans_no: trans_no ?? getSnowId(),
       created_at: new Date(getIsoTimestr()),
       user_uuid,
       trans_type,

@@ -11,11 +11,28 @@ import {
 import { OrderStatus } from "@/models/order";
 import { getUsersByUuids } from "@/models/user";
 
+// Explicit allowlist: a bare `select()` ships signin_ip, signin_openid,
+// stripe_customer_id, and invite_code to the browser for every user.
+const adminUserColumns = {
+  id: users.id,
+  uuid: users.uuid,
+  email: users.email,
+  nickname: users.nickname,
+  avatar_url: users.avatar_url,
+  locale: users.locale,
+  signin_provider: users.signin_provider,
+  email_verified: users.email_verified,
+  is_affiliate: users.is_affiliate,
+  role: users.role,
+  created_at: users.created_at,
+  updated_at: users.updated_at,
+};
+
 export async function listAdminUsers(page: number = 1, limit: number = 50) {
   const offset = (page - 1) * limit;
 
   return db()
-    .select()
+    .select(adminUserColumns)
     .from(users)
     .orderBy(desc(users.created_at))
     .limit(limit)

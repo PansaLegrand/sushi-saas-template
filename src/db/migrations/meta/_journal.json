@@ -55,6 +55,13 @@
       "when": 1782990994586,
       "tag": "0007_medical_toxin",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784882875117,
+      "tag": "0008_spooky_abomination",
+      "breakpoints": true
     }
   ]
 }

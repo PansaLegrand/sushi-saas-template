@@ -3,6 +3,7 @@ node_modules
 out
 .env*
 !.env.example
+.DS_Store
 .data/
 *.db
 .source/index.ts

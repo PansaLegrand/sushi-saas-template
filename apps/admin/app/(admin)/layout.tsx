@@ -36,6 +36,9 @@ export default async function AdminLayout({
           <Link href="/affiliates" className="text-muted-foreground hover:text-foreground">
             Affiliates
           </Link>
+          <Link href="/audit" className="text-muted-foreground hover:text-foreground">
+            Audit Log
+          </Link>
           <SignOutButton />
         </nav>
       </header>

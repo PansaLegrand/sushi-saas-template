@@ -1,13 +1,24 @@
 import { requireAdminRead } from "@admin/lib/authz";
-import { respData, respErr } from "@/lib/resp";
+import { respData, respErr, respNotFound } from "@/lib/resp";
+import { findUserByUuid } from "@/models/user";
 import { getUserCreditSummary } from "@/services/credit";
 
-export async function GET(_req: Request, { params }: any) {
+export async function GET(
+  _req: Request,
+  ctx: { params: Promise<{ uuid: string }> }
+) {
   const authz = await requireAdminRead();
   if (authz instanceof Response) return authz;
 
   try {
-    const { uuid } = params;
+    const { uuid } = await ctx.params;
+    if (!uuid) return respErr("uuid required");
+
+    // Without this check an unknown uuid yields a zeroed summary that reads
+    // like a real user holding no credits.
+    const user = await findUserByUuid(uuid);
+    if (!user) return respNotFound("user not found");
+
     const summary = await getUserCreditSummary(uuid, {
       includeLedger: true,
       ledgerLimit: 100,

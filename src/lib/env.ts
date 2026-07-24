@@ -104,6 +104,10 @@ const RawEnvSchema = z.object({
   S3_FORCE_PATH_STYLE: envBoolean(false),
   S3_USE_ACL: envBoolean(false),
 
+  // Upper bound on a single admin credit grant. Guards against a fat-fingered
+  // amount in the admin console.
+  ADMIN_MAX_CREDIT_GRANT: envPositiveInt(100000),
+
   ENABLE_DEMO_FEATURES: envBoolean(false),
   ENABLE_CREDITS_PLAYGROUND: envBoolean(false),
   ENABLE_TEXT2VIDEO_MOCK: envBoolean(false),

@@ -29,6 +29,7 @@ export default function GrantCreditsPanel({ canWrite }: Props) {
   const [userUuid, setUserUuid] = useState("");
   const [amount, setAmount] = useState("100");
   const [expiredAt, setExpiredAt] = useState("");
+  const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<CreditSummary | null>(null);
@@ -54,13 +55,14 @@ export default function GrantCreditsPanel({ canWrite }: Props) {
   const grant = useCallback(async () => {
     if (!canWrite) return;
     const credits = Number(amount);
-    if (!Number.isFinite(credits) || credits <= 0) {
-      setError("Credits must be a positive number");
+    if (!Number.isInteger(credits) || credits <= 0) {
+      setError("Credits must be a positive whole number");
       return;
     }
     setLoading(true);
     setError(null);
     try {
+      // One key per attempt: a retry of this request cannot double-credit.
       const res = await fetch(`/api/admin/credits/grant`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -68,17 +70,20 @@ export default function GrantCreditsPanel({ canWrite }: Props) {
           userUuid,
           credits,
           expiredAt: expiredAt || null,
+          idempotencyKey: crypto.randomUUID(),
+          note: note.trim() || undefined,
         }),
       });
       const payload = (await res.json()) as ApiResponse<any>;
       if (!res.ok || payload.code !== 0) throw new Error(payload.message || "Grant failed");
+      setNote("");
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Grant credits failed");
     } finally {
       setLoading(false);
     }
-  }, [userUuid, amount, expiredAt, canWrite, load]);
+  }, [userUuid, amount, expiredAt, note, canWrite, load]);
 
   return (
     <div className="space-y-4">
@@ -105,6 +110,13 @@ export default function GrantCreditsPanel({ canWrite }: Props) {
           onChange={(e) => setExpiredAt(e.currentTarget.value)}
         />
       </div>
+
+      <input
+        className="w-full rounded border px-3 py-2"
+        placeholder="Reason (recorded in the audit log)"
+        value={note}
+        onChange={(e) => setNote(e.currentTarget.value)}
+      />
 
       <div className="flex gap-3">
         <button
