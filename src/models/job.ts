@@ -60,17 +60,25 @@ export async function claimDueJobs(
   const now = new Date();
   const staleBefore = new Date(now.getTime() - staleLockMs);
 
+  // ISO strings with explicit casts, not Date objects. `db().execute()` sends a
+  // raw statement down postgres.js's unsafe path, which has no type handler for
+  // Date and throws "The 'string' argument must be of type string ... Received
+  // an instance of Date". Drizzle's query builder converts Dates for you; this
+  // template does not, so the conversion has to happen here.
+  const nowIso = now.toISOString();
+  const staleBeforeIso = staleBefore.toISOString();
+
   const rows = await db().execute(sql`
     update ${jobs}
     set status = 'running',
-        locked_at = ${now},
+        locked_at = ${nowIso}::timestamptz,
         attempts = ${jobs.attempts} + 1,
-        updated_at = ${now}
+        updated_at = ${nowIso}::timestamptz
     where ${jobs.id} in (
       select ${jobs.id} from ${jobs}
       where (
-        (${jobs.status} = 'pending' and ${jobs.run_at} <= ${now})
-        or (${jobs.status} = 'running' and ${jobs.locked_at} < ${staleBefore})
+        (${jobs.status} = 'pending' and ${jobs.run_at} <= ${nowIso}::timestamptz)
+        or (${jobs.status} = 'running' and ${jobs.locked_at} < ${staleBeforeIso}::timestamptz)
       )
       order by ${jobs.run_at} asc
       limit ${limit}
