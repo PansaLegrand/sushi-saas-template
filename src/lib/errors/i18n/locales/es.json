@@ -1,0 +1,48 @@
+{
+  "AUTH_REQUIRED": "Inicia sesión para continuar.",
+  "AUTH_FORBIDDEN": "No tienes permiso para hacer eso.",
+  "AUTH_EMAIL_NOT_VERIFIED": "Primero verifica tu dirección de correo electrónico.",
+  "AUTH_CAPTCHA_REQUIRED": "Completa la verificación.",
+  "AUTH_CAPTCHA_FAILED": "La verificación falló. Inténtalo de nuevo.",
+  "AUTH_ADMIN_READ_ONLY": "Tu cuenta de administrador es de solo lectura.",
+  "ACCOUNT_NOT_FOUND": "Cuenta no encontrada.",
+
+  "REQUEST_INVALID": "La solicitud no es válida.",
+  "REQUEST_MALFORMED_JSON": "El cuerpo de la solicitud no es un JSON válido.",
+  "REQUEST_VALIDATION_FAILED": "Algunos campos necesitan tu atención.",
+  "REQUEST_MISSING_FIELD": "Falta un campo obligatorio.",
+  "REQUEST_ORIGIN_REJECTED": "Esta solicitud proviene de un origen no reconocido.",
+  "REQUEST_RATE_LIMITED": "Demasiadas solicitudes. Espera un momento e inténtalo de nuevo.",
+  "RESOURCE_NOT_FOUND": "No encontrado.",
+
+  "CREDITS_INSUFFICIENT": "No tienes suficientes créditos para esto.",
+  "CREDITS_INVALID_AMOUNT": "La cantidad de créditos no es válida.",
+  "CREDITS_GRANT_LIMIT_EXCEEDED": "Eso supera el máximo permitido en una sola asignación.",
+  "CREDITS_GRANT_FAILED": "No se pudo completar la asignación de créditos.",
+  "CREDITS_TRANSACTION_NOT_FOUND": "No se encontró esa transacción de créditos.",
+
+  "ORDER_INVALID_PRODUCT": "Ese producto no está disponible.",
+  "ORDER_CREATE_FAILED": "No pudimos iniciar tu pedido. Inténtalo de nuevo.",
+  "PAYMENT_SESSION_FAILED": "El proveedor de pagos no está disponible. Inténtalo de nuevo en unos minutos.",
+  "PAYMENT_WEBHOOK_INVALID_SIGNATURE": "No se pudo verificar la firma del webhook.",
+
+  "STORAGE_FILE_NOT_FOUND": "No se encontró ese archivo.",
+  "STORAGE_OBJECT_MISSING": "El archivo almacenado no existe.",
+  "STORAGE_FILE_TOO_LARGE": "Ese archivo es demasiado grande.",
+  "STORAGE_SIZE_MISMATCH": "El archivo subido no coincide con el tamaño esperado.",
+  "STORAGE_UPLOAD_FAILED": "No se pudo completar la subida.",
+
+  "TASK_NOT_FOUND": "No se encontró esa tarea.",
+  "TASK_PROMPT_REQUIRED": "Introduce una instrucción.",
+  "TASK_CREATE_FAILED": "No se pudo crear la tarea. Inténtalo de nuevo.",
+  "TASK_PROVIDER_FAILED": "El servicio de generación falló. Inténtalo de nuevo.",
+
+  "RESERVATION_NOT_FOUND": "No se encontró esa reserva.",
+  "RESERVATION_SLOT_UNAVAILABLE": "Ese horario ya no está disponible.",
+  "RESERVATION_HOLD_EXPIRED": "Tu reserva temporal ha caducado. Elige otro horario.",
+  "RESERVATION_CANCEL_WINDOW_PASSED": "Esta reserva ya no se puede cancelar en línea.",
+
+  "FEATURE_DISABLED": "Esta función no está activada.",
+  "SERVICE_UNAVAILABLE": "El servicio no está disponible temporalmente. Inténtalo de nuevo en unos minutos.",
+  "SERVER_ERROR": "Algo salió mal por nuestra parte. Inténtalo de nuevo."
+}

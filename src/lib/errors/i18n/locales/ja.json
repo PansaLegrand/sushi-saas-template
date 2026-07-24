@@ -1,0 +1,48 @@
+{
+  "AUTH_REQUIRED": "続けるにはログインしてください。",
+  "AUTH_FORBIDDEN": "この操作を行う権限がありません。",
+  "AUTH_EMAIL_NOT_VERIFIED": "先にメールアドレスの確認を完了してください。",
+  "AUTH_CAPTCHA_REQUIRED": "認証チャレンジを完了してください。",
+  "AUTH_CAPTCHA_FAILED": "認証に失敗しました。もう一度お試しください。",
+  "AUTH_ADMIN_READ_ONLY": "この管理者アカウントは閲覧専用のため、書き込み操作はできません。",
+  "ACCOUNT_NOT_FOUND": "アカウントが見つかりません。",
+
+  "REQUEST_INVALID": "リクエストが不正です。",
+  "REQUEST_MALFORMED_JSON": "リクエスト本文が有効な JSON ではありません。",
+  "REQUEST_VALIDATION_FAILED": "入力内容にエラーがあります。ご確認ください。",
+  "REQUEST_MISSING_FIELD": "必須項目が入力されていません。",
+  "REQUEST_ORIGIN_REJECTED": "認識できない送信元からのリクエストです。",
+  "REQUEST_RATE_LIMITED": "リクエストが多すぎます。しばらくしてからお試しください。",
+  "RESOURCE_NOT_FOUND": "見つかりませんでした。",
+
+  "CREDITS_INSUFFICIENT": "クレジットが不足しています。",
+  "CREDITS_INVALID_AMOUNT": "クレジット数が不正です。",
+  "CREDITS_GRANT_LIMIT_EXCEEDED": "1 回の付与上限を超えています。",
+  "CREDITS_GRANT_FAILED": "クレジットの付与を完了できませんでした。",
+  "CREDITS_TRANSACTION_NOT_FOUND": "該当するクレジット取引が見つかりません。",
+
+  "ORDER_INVALID_PRODUCT": "この商品は現在ご利用いただけません。",
+  "ORDER_CREATE_FAILED": "注文を開始できませんでした。もう一度お試しください。",
+  "PAYMENT_SESSION_FAILED": "決済サービスに接続できません。しばらくしてからお試しください。",
+  "PAYMENT_WEBHOOK_INVALID_SIGNATURE": "Webhook の署名を検証できませんでした。",
+
+  "STORAGE_FILE_NOT_FOUND": "ファイルが見つかりません。",
+  "STORAGE_OBJECT_MISSING": "保存されているファイルが見つかりません。",
+  "STORAGE_FILE_TOO_LARGE": "ファイルサイズが大きすぎます。",
+  "STORAGE_SIZE_MISMATCH": "アップロードされたファイルのサイズが一致しません。",
+  "STORAGE_UPLOAD_FAILED": "アップロードを完了できませんでした。",
+
+  "TASK_NOT_FOUND": "タスクが見つかりません。",
+  "TASK_PROMPT_REQUIRED": "プロンプトを入力してください。",
+  "TASK_CREATE_FAILED": "タスクを作成できませんでした。もう一度お試しください。",
+  "TASK_PROVIDER_FAILED": "生成サービスの呼び出しに失敗しました。もう一度お試しください。",
+
+  "RESERVATION_NOT_FOUND": "予約が見つかりません。",
+  "RESERVATION_SLOT_UNAVAILABLE": "その時間帯はすでに埋まっています。",
+  "RESERVATION_HOLD_EXPIRED": "時間枠の仮押さえが期限切れになりました。もう一度お選びください。",
+  "RESERVATION_CANCEL_WINDOW_PASSED": "この予約はオンラインでのキャンセル期限を過ぎています。",
+
+  "FEATURE_DISABLED": "この機能は有効になっていません。",
+  "SERVICE_UNAVAILABLE": "サービスが一時的に利用できません。しばらくしてからお試しください。",
+  "SERVER_ERROR": "サーバー側で問題が発生しました。もう一度お試しください。"
+}

@@ -102,6 +102,7 @@ Three references worth reading before you build on this:
 | [docs/database.md](docs/database.md) | Schema reference, the invariants every table depends on, and the checklist for changing one |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | Local vs production environments, database hosting, how migrations ship |
 | [tests/README.md](tests/README.md) | The four test tiers and the rules for each |
+| [docs/errors.md](docs/errors.md) | Error catalog, the no-leak guarantee, and how errors get translated |
 
 
 

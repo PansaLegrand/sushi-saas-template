@@ -1,6 +1,7 @@
 import { getUserUuid } from "@/services/user";
 import { insertOrder, OrderStatus, updateOrderSession } from "@/models/order";
 import { respData, respErr, respNoAuth } from "@/lib/resp";
+import { respError } from "@/lib/errors/response";
 
 import Stripe from "stripe";
 import { findUserByUuid } from "@/models/user";
@@ -169,9 +170,15 @@ export async function POST(req: Request) {
       duration_ms: Date.now() - start,
     });
     return respData(result);
-  } catch (e: any) {
-    baseLogger.error({ event: "checkout.error", message: e?.message, name: e?.name });
-    return respErr("checkout failed: " + e.message, { status: 500 });
+  } catch (e) {
+    // Never interpolate e.message into the response: on this path it can carry
+    // Stripe API payloads and Drizzle query text. respError logs the real thing
+    // and sends only the catalog's public message.
+    return respError(e, {
+      log: baseLogger,
+      logFields: { event: "checkout.error" },
+      fallback: "PAYMENT_SESSION_FAILED",
+    });
   }
 }
 

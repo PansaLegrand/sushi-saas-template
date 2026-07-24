@@ -47,6 +47,9 @@ Notes:
  - The `files` table powers uploads; regenerate and migrate when touching storage schema.
   - The `tasks` table powers usage tracking; regenerate and migrate when touching task schema.
 
+## Error Handling
+**Read `docs/errors.md` before writing any error path.** Non-negotiables: server code throws `AppError` with a code from `src/lib/errors/catalog.ts`, never `new Error("...")`; every route `catch` ends in `respError(error, ...)`, never returning `error.message`; UI branches on `error_code`, never on message text; error copy lives in `src/lib/errors/i18n/locales/` (all five locales) and never in `messages/`. Adding a code without its five translations fails the test suite.
+
 ## Coding Style & Naming Conventions
 - TypeScript-first; prefer named exports and React Server Components unless client-only APIs force `"use client"`.
 - Compose UI with functional components, Tailwind utilities, and co-locate reusable pieces under `src/components`.

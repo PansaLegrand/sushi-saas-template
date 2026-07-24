@@ -1,6 +1,7 @@
 import { isTextToVideoMockEnabled } from "@/lib/demo-flags";
 import { requireSameOrigin } from "@/lib/origin";
 import { respData, respErr, respNoAuth, respNotFound } from "@/lib/resp";
+import { respError } from "@/lib/errors/response";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { getUserUuid } from "@/services/user";
 import { createTextToVideoTask } from "@/services/tasks";
@@ -67,14 +68,13 @@ export async function POST(req: Request) {
 
     return respData(data);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "create task failed";
-    if (message === "insufficient credits") {
-      return respErr("insufficient credits");
-    }
-    if (message === "idempotency key too long") {
-      return respErr("idempotency key too long");
-    }
-    console.error("create text-to-video task failed", error);
-    return respErr("create task failed", { status: 500 });
+    // toAppError maps known throws ("insufficient credits" -> CREDITS_INSUFFICIENT
+    // via the catalog's legacy aliases), so the branching on message text that
+    // used to live here is gone. Anything unrecognized becomes TASK_CREATE_FAILED
+    // with its real message going only to the log.
+    return respError(error, {
+      logFields: { event: "task.text_to_video.create_failed" },
+      fallback: "TASK_CREATE_FAILED",
+    });
   }
 }
