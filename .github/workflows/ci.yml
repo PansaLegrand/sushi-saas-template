@@ -16,12 +16,33 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
+    # Real Postgres for the database tier (tests/db). Those tests cover
+    # constraints and SKIP LOCKED behaviour that a mocked model layer cannot
+    # reach; without this service they skip and the coverage is silently lost.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sushi_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     env:
       NEXT_PUBLIC_WEB_URL: http://localhost:3000
       BETTER_AUTH_URL: http://localhost:3000
       NEXT_PUBLIC_AUTH_BASE_URL: http://localhost:3000
       BETTER_AUTH_SECRET: ci-better-auth-secret-change-me
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      # Separate from DATABASE_URL on purpose: the database tier truncates
+      # tables, so it must never inherit whatever the app is pointed at.
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sushi_test
       STRIPE_PRIVATE_KEY: sk_test_ci_placeholder
       STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
       STORAGE_BUCKET: ci-placeholder
@@ -52,8 +73,21 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Migrate test database
+        run: pnpm test:db:setup
+
+      # Coverage rather than a plain run: the thresholds in vitest.config.mts
+      # are the ratchet, and they only bite if CI measures them.
       - name: Test
-        run: pnpm test:run
+        run: pnpm test:cov
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 7
 
       - name: Build
         run: pnpm build

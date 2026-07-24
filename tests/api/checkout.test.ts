@@ -94,4 +94,26 @@ describe("POST /api/checkout", () => {
     expect(orderMod.insertOrder).not.toHaveBeenCalled();
     expect(orderMod.updateOrderSession).not.toHaveBeenCalled();
   });
+
+  it("rejects unauthenticated checkout requests before creating an order", async () => {
+    const userMod = await import("@/services/user");
+    vi.mocked(userMod.getUserUuid).mockResolvedValueOnce(null);
+
+    const body = { product_id: "scale-monthly", currency: "usd", locale: "en" };
+    const req = new Request("http://local/api/checkout", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    const res = await checkout(req);
+    const payload = await res.json();
+    const orderMod = await import("@/models/order");
+
+    expect(res.status).toBe(401);
+    expect(payload.code).toBe(-2);
+    expect(payload.message).toBe("no auth, please sign-in");
+    expect(orderMod.insertOrder).not.toHaveBeenCalled();
+    expect(orderMod.updateOrderSession).not.toHaveBeenCalled();
+  });
 });
