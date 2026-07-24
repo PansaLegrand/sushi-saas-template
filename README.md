@@ -76,7 +76,12 @@ A production‑ready Next.js starter with auth, billing, internationalization, c
 ## Run Locally
 
 ```bash
-pnpm install
+pnpm install && pnpm setup
+```
+
+`pnpm setup` writes `.env` with generated secrets, starts Postgres in Docker, and applies migrations. It never overwrites an existing `.env`, so it is safe to re-run. No Docker? It tells you what to set up by hand.
+
+```bash
 pnpm dev
 ```
 
@@ -89,6 +94,14 @@ pnpm dev:admin
 ```
 
 Admin runs at `http://localhost:3001`. Set `NEXT_PUBLIC_ADMIN_WEB_URL=http://localhost:3001` in `.env` for local admin auth URLs.
+
+Three references worth reading before you build on this:
+
+| Document | Covers |
+|---|---|
+| [docs/database.md](docs/database.md) | Schema reference, the invariants every table depends on, and the checklist for changing one |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | Local vs production environments, database hosting, how migrations ship |
+| [tests/README.md](tests/README.md) | The four test tiers and the rules for each |
 
 
 
