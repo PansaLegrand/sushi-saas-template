@@ -22,6 +22,16 @@ export async function findUserByEmail(
   return user;
 }
 
+export async function updateUserLastSignin(
+  uuid: string,
+  when: Date
+): Promise<void> {
+  await db()
+    .update(users)
+    .set({ last_signin_at: when })
+    .where(eq(users.uuid, uuid));
+}
+
 export async function findUserById(
   id: string
 ): Promise<typeof users.$inferSelect | undefined> {

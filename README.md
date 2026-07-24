@@ -115,6 +115,70 @@ It falls back to `NEXT_PUBLIC_WEB_URL`, then `http://localhost:3000`, and covers
 
 
 
+## Auth Events & Background Jobs
+
+### Auth events
+
+Every signup, sign-in, and email verification appends a row to `auth_events`
+(actor, provider, IP, user agent, timestamp). Sessions are deleted on sign-out
+and expiry, so they cannot answer "how often does this user sign in" — this
+table can. `users.last_signin_at` is denormalized for cheap last-seen queries,
+and `users.signin_provider` / `signin_type` / `signin_ip` are now populated at
+signup.
+
+Query helpers live in `src/models/auth-event.ts`:
+`countDistinctUsersByDay("signin", since)` for DAU, `countEventsByUser` for
+per-user sign-in frequency.
+
+### Background jobs
+
+Work that must survive the response goes through the `jobs` table rather than
+`queueMicrotask` or `setTimeout` — on serverless the instance can be frozen the
+moment a response is sent, silently dropping un-awaited work.
+
+```ts
+import { enqueueJob } from "@/services/jobs";
+
+await enqueueJob("welcome_email", { email, name }, {
+  dedupeKey: `welcome_email:${userUuid}`,  // optional; makes enqueueing idempotent
+  runAt: new Date(Date.now() + 60_000),    // optional; defaults to now
+});
+```
+
+Add a job type by extending `JobPayloads` in `src/services/jobs/types.ts` and
+adding its handler to `src/services/jobs/handlers.ts` — the map is typed, so a
+missing handler is a compile error. Handlers must be idempotent: a job can be
+retried after a partial failure.
+
+Failed jobs retry with exponential backoff (30s, doubling) up to
+`max_attempts`, then are marked `failed` and kept for inspection. Finished jobs
+are pruned after 14 days.
+
+### Cron
+
+`vercel.json` runs `/api/cron/jobs` every 5 minutes to drain the queue. The
+endpoint is guarded by `CRON_SECRET`, which Vercel sends as
+`Authorization: Bearer $CRON_SECRET` automatically once the variable is set on
+the project. **Set it** — in production the endpoint refuses to run without it,
+since cron URLs are public.
+
+```bash
+CRON_SECRET=$(openssl rand -hex 32)
+```
+
+Cron frequency is plan-dependent: Vercel Hobby allows one run per day, Pro
+allows minute-level. On Hobby, change the schedule to `0 0 * * *` or jobs will
+sit unprocessed. Note that a queued job waits until the next tick, so on the
+default 5-minute schedule a welcome email can be up to 5 minutes late.
+
+Run it by hand in development:
+
+```bash
+curl http://localhost:3000/api/cron/jobs
+```
+
+
+
 ## Bot Protection (Cloudflare Turnstile)
 
 Sign-in, sign-up, password reset, and verification-email endpoints are behind a Turnstile challenge, enforced server-side by the Better Auth captcha plugin. A request to any of them without a valid token is rejected before it reaches the database or the mail provider.

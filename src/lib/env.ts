@@ -85,6 +85,9 @@ const RawEnvSchema = z.object({
 
   // Cloudflare Turnstile. Protects sign-in, sign-up, and the password-reset and
   // verification email endpoints from automated abuse.
+  // Shared secret Vercel Cron sends as `Authorization: Bearer $CRON_SECRET`.
+  CRON_SECRET: envString,
+
   NEXT_PUBLIC_CAPTCHA_ENABLED: envBoolean(true),
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: envString,
   TURNSTILE_SECRET_KEY: envString,

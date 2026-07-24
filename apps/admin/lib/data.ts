@@ -25,6 +25,7 @@ const adminUserColumns = {
   is_affiliate: users.is_affiliate,
   role: users.role,
   created_at: users.created_at,
+  last_signin_at: users.last_signin_at,
   updated_at: users.updated_at,
 };
 

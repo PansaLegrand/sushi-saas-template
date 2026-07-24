@@ -33,6 +33,9 @@ export const users = pgTable(
     email_verified: boolean().notNull().default(false),
     // Role-based access control: "user" | "admin_ro" | "admin_rw"
     role: varchar({ length: 50 }).notNull().default("user"),
+    // Denormalized from auth_events so "when was this user last active" does
+    // not require scanning the event table.
+    last_signin_at: timestamp({ withTimezone: true }),
   },
   (table) => [
     uniqueIndex("email_provider_unique_idx").on(
@@ -345,6 +348,80 @@ export const tasks = pgTable(
       table.type,
       table.idempotency_key
     ),
+  ]
+);
+
+// Auth events (append-only record of signups, sign-ins, and account lifecycle)
+//
+// Sessions are deleted on sign-out and expiry, so they cannot answer "how often
+// does this user sign in". This table survives them.
+export const authEvents = pgTable(
+  "auth_events",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    uuid: varchar({ length: 255 }).notNull().unique(),
+
+    // user_uuid is the app-facing id; user_id is Better Auth's own primary key.
+    // Both are kept so events survive either lookup path.
+    user_uuid: varchar({ length: 255 }).notNull().default(""),
+    user_id: varchar({ length: 255 }).notNull().default(""),
+    email: varchar({ length: 255 }).notNull().default(""),
+
+    // signup | signin | email_verified
+    event: varchar({ length: 32 }).notNull(),
+    // credential | google | ...
+    provider: varchar({ length: 50 }).notNull().default(""),
+
+    ip_address: varchar({ length: 255 }),
+    user_agent: varchar({ length: 1024 }),
+    metadata_json: text(),
+
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("auth_events_user_idx").on(table.user_uuid),
+    index("auth_events_event_idx").on(table.event),
+    index("auth_events_created_idx").on(table.created_at),
+    index("auth_events_user_event_idx").on(table.user_uuid, table.event),
+  ]
+);
+
+// Background jobs (durable queue drained by the Vercel cron endpoint)
+//
+// Work scheduled with queueMicrotask/setTimeout is not guaranteed to run on
+// serverless: the instance can be frozen once the response is sent. Enqueueing
+// a row instead makes the work survive that.
+export const jobs = pgTable(
+  "jobs",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    uuid: varchar({ length: 255 }).notNull().unique(),
+
+    type: varchar({ length: 64 }).notNull(),
+    payload_json: text(),
+
+    // pending | running | succeeded | failed
+    status: varchar({ length: 32 }).notNull().default("pending"),
+    attempts: integer().notNull().default(0),
+    max_attempts: integer().notNull().default(5),
+
+    // Earliest time this job may run. Also used for retry backoff.
+    run_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    // Set while a runner holds the job; lets a stuck job be reclaimed.
+    locked_at: timestamp({ withTimezone: true }),
+
+    // Optional caller-supplied key that makes enqueueing idempotent.
+    dedupe_key: varchar({ length: 255 }),
+
+    last_error: text(),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    completed_at: timestamp({ withTimezone: true }),
+  },
+  (table) => [
+    index("jobs_status_run_at_idx").on(table.status, table.run_at),
+    index("jobs_type_idx").on(table.type),
+    uniqueIndex("jobs_dedupe_key_unique_idx").on(table.dedupe_key),
   ]
 );
 

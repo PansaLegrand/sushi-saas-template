@@ -49,6 +49,7 @@ export default async function AdminHomePage() {
                 <th className="py-2 pr-4">UUID</th>
                 <th className="py-2 pr-4">Role</th>
                 <th className="py-2 pr-4">Created</th>
+                <th className="py-2 pr-4">Last Sign-in</th>
               </tr>
             </thead>
             <tbody>
@@ -59,6 +60,9 @@ export default async function AdminHomePage() {
                   <td className="py-2 pr-4">{(u as any).role ?? "user"}</td>
                   <td className="py-2 pr-4">
                     {u.created_at ? u.created_at.toISOString() : "—"}
+                  </td>
+                  <td className="py-2 pr-4">
+                    {u.last_signin_at ? u.last_signin_at.toISOString() : "—"}
                   </td>
                 </tr>
               ))}

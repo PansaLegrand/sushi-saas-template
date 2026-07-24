@@ -9,6 +9,14 @@ import { randomUUID } from "node:crypto";
 import { db } from "@/db";
 import { CAPTCHA_PROTECTED_ENDPOINTS } from "@/lib/captcha";
 import { getAppEnv, isProductionRuntime } from "@/lib/env";
+import { findUserById } from "@/models/user";
+import {
+  describeAuthRequest,
+  recordAuthEvent,
+  touchLastSignin,
+} from "@/services/auth-events";
+import { CreditsAmount } from "@/services/credit";
+import { enqueueJobSafe } from "@/services/jobs";
 import { sendResetPasswordEmail, sendVerifyEmail } from "@/services/email/send";
 import * as schema from "@/db/schema";
 
@@ -167,6 +175,29 @@ export const auth = betterAuth({
         console.error("failed to send verification email", e);
       }
     },
+    afterEmailVerification: async (user, request) => {
+      const info = describeAuthRequest({ request, path: "/verify-email" });
+      const userUuid = (user as any).uuid as string | undefined;
+
+      await recordAuthEvent({
+        event: "email_verified",
+        userUuid,
+        userId: user.id,
+        email: user.email,
+        info,
+      });
+
+      // Signup credits are granted here rather than on user creation: an
+      // unverified address costs an attacker nothing, so granting earlier
+      // would pay out for every throwaway signup.
+      if (userUuid && CreditsAmount.NewUserGet > 0) {
+        await enqueueJobSafe(
+          "new_user_credits",
+          { userUuid, credits: CreditsAmount.NewUserGet },
+          { dedupeKey: `new_user_credits:${userUuid}` }
+        );
+      }
+    },
   },
   // Captcha first: its onRequest hook must reject before any handler runs.
   plugins: [...captchaPlugins, nextCookies()],
@@ -181,31 +212,78 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
-        before: async (data) => {
+        before: async (data, context) => {
+          const info = describeAuthRequest(context);
+
           return {
             data: {
               ...data,
               uuid: data.uuid ?? randomUUID(),
+              // Provenance, written at insert time. These columns previously
+              // stayed null forever, which also left the
+              // (email, signin_provider) unique index unenforced.
+              signin_provider: data.signin_provider ?? info.provider,
+              signin_type: data.signin_type ?? (info.provider ? "oauth" : ""),
+              signin_ip: data.signin_ip ?? info.ip ?? "",
             },
           };
         },
-        after: async (created) => {
-          try {
-            const email = (created as any).email as string | undefined;
-            const name = (created as any).nickname as string | undefined;
-            if (email) {
-              queueMicrotask(() => {
-                import("@/services/email/send").then((m) =>
-                  m
-                    .sendWelcomeEmail(email, name)
-                    .catch((e) => console.error("welcome email failed", e))
-                );
-              });
-            }
-          } catch (e) {
-            console.error("failed to dispatch welcome email", e);
+        after: async (created, context) => {
+          const info = describeAuthRequest(context);
+          const email = (created as any).email as string | undefined;
+          const name = (created as any).nickname as string | undefined;
+          const userUuid = (created as any).uuid as string | undefined;
+
+          await recordAuthEvent({
+            event: "signup",
+            userUuid,
+            userId: (created as any).id as string | undefined,
+            email,
+            info,
+          });
+
+          // Queued rather than sent inline: work not awaited by the response
+          // can be dropped when a serverless instance freezes, and the job
+          // table gives us retries and a record of the outcome.
+          if (email) {
+            await enqueueJobSafe(
+              "welcome_email",
+              { email, name, userUuid },
+              { dedupeKey: `welcome_email:${userUuid ?? email}` }
+            );
           }
-          // Do not block or modify result; just side-effect
+        },
+      },
+    },
+    session: {
+      create: {
+        after: async (session, context) => {
+          // Fires once per sign-in, including OAuth. This is what makes
+          // sign-in frequency answerable — session rows are deleted on
+          // sign-out and expiry, so they cannot serve as a log.
+          const info = describeAuthRequest(context);
+          const userId = (session as any).userId as string | undefined;
+          if (!userId) return;
+
+          const user = await findUserById(userId).catch(() => undefined);
+          if (!user) return;
+
+          await Promise.all([
+            recordAuthEvent({
+              event: "signin",
+              userUuid: user.uuid,
+              userId,
+              email: user.email ?? "",
+              info: {
+                ...info,
+                // The session row already carries what Better Auth resolved.
+                ip: ((session as any).ipAddress as string) || info.ip,
+                userAgent:
+                  ((session as any).userAgent as string) || info.userAgent,
+              },
+            }),
+            touchLastSignin(user.uuid),
+          ]);
         },
       },
     },

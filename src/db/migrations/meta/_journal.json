@@ -62,6 +62,13 @@
       "when": 1784882875117,
       "tag": "0008_spooky_abomination",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784900772065,
+      "tag": "0009_bored_fixer",
+      "breakpoints": true
     }
   ]
 }
