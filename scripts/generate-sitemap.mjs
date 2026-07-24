@@ -2,11 +2,19 @@ import fs from 'fs';
 import path from 'path';
 
 const ROOT = process.cwd();
-const CONTENT_ROOT = path.join(ROOT, 'content', 'docs');
 const PUBLIC_SITEMAP = path.join(ROOT, 'public', 'sitemap.xml');
 
-// Use a fixed canonical base URL; do not rely on env.
-const rawBase = 'https://www.sushi-templates.com';
+// The two content collections and the route each is served under.
+const COLLECTIONS = [
+  { root: path.join(ROOT, 'content', 'docs'), routeSegment: 'docs' },
+  { root: path.join(ROOT, 'content', 'blog'), routeSegment: 'blogs' },
+];
+
+// Canonical base URL for whoever deploys this. Override per deployment.
+const rawBase =
+  process.env.SITEMAP_BASE_URL ||
+  process.env.NEXT_PUBLIC_WEB_URL ||
+  'http://localhost:3000';
 const BASE_URL = rawBase.replace(/\/$/, '');
 
 function getMtimeIso(filePath) {
@@ -19,16 +27,18 @@ function getMtimeIso(filePath) {
 }
 
 function listLocales() {
-  if (!fs.existsSync(CONTENT_ROOT)) return [];
-  return fs
-    .readdirSync(CONTENT_ROOT, { withFileTypes: true })
-    .filter((d) => d.isDirectory())
-    .map((d) => d.name)
-    .sort();
+  const locales = new Set();
+  for (const { root } of COLLECTIONS) {
+    if (!fs.existsSync(root)) continue;
+    for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+      if (entry.isDirectory()) locales.add(entry.name);
+    }
+  }
+  return [...locales].sort();
 }
 
-function collectDocsForLocale(locale) {
-  const dir = path.join(CONTENT_ROOT, locale);
+function collectDocsForLocale(locale, contentRoot, routeSegment) {
+  const dir = path.join(contentRoot, locale);
   if (!fs.existsSync(dir)) return [];
   const urls = [];
 
@@ -46,7 +56,7 @@ function collectDocsForLocale(locale) {
         const nameNoExt = filename.replace(/\.(md|mdx)$/i, '');
         const parts = [...filtered, nameNoExt];
         const slug = parts.map((p) => encodeURIComponent(p)).join('/');
-        const loc = `${BASE_URL}/${locale}/blogs/${slug}`;
+        const loc = `${BASE_URL}/${locale}/${routeSegment}/${slug}`;
         urls.push({ loc, lastmod: getMtimeIso(fp) });
       }
     }
@@ -74,7 +84,7 @@ function buildXml(urls) {
 function main() {
   const locales = listLocales();
   if (locales.length === 0) {
-    console.error('No locales found under content/docs');
+    console.error('No locales found under content/docs or content/blog');
   }
 
   const urls = [];
@@ -85,8 +95,10 @@ function main() {
       loc: localeIndexLoc,
       lastmod: getMtimeIso(path.join(ROOT, 'src', 'app', locale, 'page.tsx')),
     });
-    // Docs/blogs for the locale
-    urls.push(...collectDocsForLocale(locale));
+    // Both content collections for the locale
+    for (const { root, routeSegment } of COLLECTIONS) {
+      urls.push(...collectDocsForLocale(locale, root, routeSegment));
+    }
   }
 
   // De-duplicate and sort

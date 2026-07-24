@@ -1,4 +1,4 @@
-import { blogSource as source } from "@/lib/source";
+import { source } from "@/lib/source";
 import { locales as supportedLocales } from "@/i18n/locale";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
@@ -11,7 +11,7 @@ export async function generateMetadata(props: { params: Promise<Params> }) {
   const { locale } = await props.params;
   const lang = (locale && supportedLocales.includes(locale as any) ? locale : "en") as string;
   const tMeta = await getTranslations();
-  const tBlogs = await getTranslations("blogs");
+  const tBlogs = await getTranslations("docs");
   const keywords =
     typeof (tMeta as any).raw === "function"
       ? (tMeta as any).raw("metadata.keywords")
@@ -19,17 +19,17 @@ export async function generateMetadata(props: { params: Promise<Params> }) {
 
   return buildMetadata({
     locale: lang,
-    path: "/blogs",
-    title: `Blog | ${tMeta("metadata.title") || defaultMetaFallbacks.title}`,
+    path: "/docs",
+    title: `Docs | ${tMeta("metadata.title") || defaultMetaFallbacks.title}`,
     description: tBlogs("intro") || tMeta("metadata.description") || defaultMetaFallbacks.description,
     keywords,
   });
 }
 
-export default async function BlogsIndexPage(props: { params: Promise<Params> }) {
+export default async function DocsIndexPage(props: { params: Promise<Params> }) {
   const { locale } = await props.params;
   const lang = (locale && supportedLocales.includes(locale as any) ? locale : "en") as string;
-  const t = await getTranslations("blogs");
+  const t = await getTranslations("docs");
 
   // Build the order based on the sidebar tree (from _meta.json),
   // falling back to date order for any pages not listed.

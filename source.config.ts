@@ -22,8 +22,20 @@ const docsFrontmatterSchema = frontmatterSchema.extend({
   noindex: z.boolean().optional(),
 });
 
+// Template documentation. Ships with the starter kit and describes how to use
+// it. Served at /docs.
 export const docs = defineDocs({
   dir: "content/docs",
+  docs: {
+    schema: docsFrontmatterSchema,
+  },
+});
+
+// Marketing and editorial content for whoever deploys this. Served at /blogs.
+// A clean template checkout has an empty content/blog, and the route renders an
+// empty index rather than failing.
+export const blog = defineDocs({
+  dir: "content/blog",
   docs: {
     schema: docsFrontmatterSchema,
   },

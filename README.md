@@ -67,7 +67,9 @@ A production‑ready Next.js starter with auth, billing, internationalization, c
 - `src/app` — public web app, localized routes, customer APIs, content, account flows.
 - `apps/admin` — independent admin app with its own routes, auth entrypoint, RBAC guard, and admin-only APIs.
 - `src/db`, `src/models`, `src/services` — shared database schema, product models, and service integrations.
-- `content/docs`, `messages`, `src/i18n` — docs/blog content and localization.
+- `content/docs` — template documentation, served at `/docs`. Ships with the kit.
+- `content/blog` — site content, served at `/blogs`. Yours, not the template's; safe to empty.
+- `messages`, `src/i18n` — translation catalogs and localization.
 
 
 
@@ -87,6 +89,29 @@ pnpm dev:admin
 ```
 
 Admin runs at `http://localhost:3001`. Set `NEXT_PUBLIC_ADMIN_WEB_URL=http://localhost:3001` in `.env` for local admin auth URLs.
+
+
+
+## Content: Template Docs vs. Your Site
+
+There are two independent Fumadocs collections, so the kit's documentation and the deploying site's marketing content never mix:
+
+| Collection | Route | Owner |
+|---|---|---|
+| `content/docs` | `/docs` | The template. Hands-on guides for setting up and extending the kit. |
+| `content/blog` | `/blogs` | You. Articles, SEO pages, announcements. |
+
+`content/blog` is optional — empty it and `/blogs` renders an empty index instead of breaking. That is the supported way to strip the previous owner's content from a fresh clone.
+
+Also site-specific, and worth replacing when you deploy your own: the `landing` and `metadata` namespaces in `messages/*.json` (hero copy, features, **showcase URLs**, footer), `src/data/pricing.ts`, `public/imgs`, and `public/robots.txt`.
+
+Regenerate the sitemap for your own domain:
+
+```bash
+SITEMAP_BASE_URL=https://your-domain.com pnpm gen:sitemap
+```
+
+It falls back to `NEXT_PUBLIC_WEB_URL`, then `http://localhost:3000`, and covers both collections.
 
 
 

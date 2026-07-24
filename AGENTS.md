@@ -2,7 +2,9 @@
 
 ## Project Structure & Module Organization
 - `src/app`: Next.js App Router with localized `[locale]` routes, API handlers under `api/`, and global layouts.
-- `src/i18n`, `messages/`, `content/docs/`: Locale config, translation catalogs, and Fumadocs MDX; keep locales aligned across all three.
+- `src/i18n`, `messages/`: Locale config and translation catalogs; keep locales aligned.
+- `content/docs/`: Template documentation (Fumadocs MDX), served at `/docs`. Part of the kit — update it when you change how the kit works.
+- `content/blog/`: Site-owned marketing content, served at `/blogs`. Not part of the template; never add kit documentation here, and expect it to be empty in a clean checkout.
 - `src/lib`, `src/services`, `src/models`: Shared utilities, external integrations, and domain types reused by pages and APIs.
 - `src/services/storage`: S3‑compatible storage adapter (S3/R2/MinIO) and helpers.
 - `src/models/file.ts`: File CRUD for the `files` table.

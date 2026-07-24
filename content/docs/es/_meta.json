@@ -1,11 +1,8 @@
 {
-  "title": "Blog",
+  "title": "Documentación",
   "root": true,
   "defaultOpen": true,
   "pages": [
-    "about",
-    "(pre-requisite-knowledge)",
-    "(hands-on)",
-    "(running-a-saas)"
+    "(hands-on)"
   ]
 }

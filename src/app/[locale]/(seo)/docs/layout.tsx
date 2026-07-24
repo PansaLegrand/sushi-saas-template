@@ -1,9 +1,9 @@
-import { blogSource as source } from "@/lib/source";
+import { source } from "@/lib/source";
 import { locales as supportedLocales, localeNames } from "@/i18n/locale";
 import { RootProvider } from "fumadocs-ui/provider";
 import { DocsLayout } from "fumadocs-ui/layouts/notebook";
 import "fumadocs-ui/css/style.css";
-export default async function BlogsLayout({
+export default async function DocsCollectionLayout({
   children,
   params,
 }: Readonly<{ children: React.ReactNode; params: Promise<{ locale?: string }> }>) {

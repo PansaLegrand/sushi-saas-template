@@ -1,4 +1,4 @@
-import { blogSource as source } from "@/lib/source";
+import { source } from "@/lib/source";
 import type { Metadata } from "next";
 import { locales as supportedLocales } from "@/i18n/locale";
 import { baseUrlFallback } from "@/lib/seo";
@@ -13,7 +13,7 @@ import { notFound } from "next/navigation";
 import { createRelativeLink } from "fumadocs-ui/mdx";
 import { getMDXComponents } from "@/mdx-components";
 
-export default async function DocsContentPage(props: {
+export default async function DocsArticlePage(props: {
   params: Promise<{ slug?: string[]; locale?: string }>;
 }) {
   const params = await props.params;
@@ -41,7 +41,7 @@ export default async function DocsContentPage(props: {
   const fm: any = page.data;
   const canonicalUrl =
     normalizeCanonical(fm.canonical as string | undefined) ??
-    `${base}/${params.locale ?? "en"}/blogs/${slugPath}`;
+    `${base}/${params.locale ?? "en"}/docs/${slugPath}`;
   const authors = Array.isArray(fm.authors)
     ? fm.authors
     : fm.author
@@ -52,7 +52,7 @@ export default async function DocsContentPage(props: {
   const image = fm.image as string | undefined;
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "BlogPosting",
+    "@type": "TechArticle",
     headline: page.data.title,
     description: page.data.description,
     datePublished: fm.publishedAt,
@@ -74,7 +74,7 @@ export default async function DocsContentPage(props: {
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
       <Script
-        id="blog-jsonld"
+        id="docs-jsonld"
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
@@ -119,7 +119,7 @@ export async function generateMetadata(props: {
 
   const canonical =
     normalizeCanonical(fm.canonical as string | undefined) ??
-    `${base}/${params.locale ?? "en"}/blogs/${slugPath}`;
+    `${base}/${params.locale ?? "en"}/docs/${slugPath}`;
 
   const keywords: string[] | undefined = Array.isArray(fm.keywords)
     ? fm.keywords
@@ -145,7 +145,7 @@ export async function generateMetadata(props: {
   for (const loc of supportedLocales) {
     const localized = source.getPage(params.slug, loc);
     if (localized) {
-      languages[loc] = `${base}/${loc}/blogs/${slugPath}`;
+      languages[loc] = `${base}/${loc}/docs/${slugPath}`;
     }
   }
 
