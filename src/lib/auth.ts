@@ -1,11 +1,13 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
+import { captcha } from "better-auth/plugins";
 import { createFieldAttribute } from "better-auth/db";
 
 import { randomUUID } from "node:crypto";
 
 import { db } from "@/db";
+import { CAPTCHA_PROTECTED_ENDPOINTS } from "@/lib/captcha";
 import { getAppEnv, isProductionRuntime } from "@/lib/env";
 import { sendResetPasswordEmail, sendVerifyEmail } from "@/services/email/send";
 import * as schema from "@/db/schema";
@@ -40,6 +42,35 @@ const socialProviders = (() => {
     } as const;
   }
   return {} as const;
+})();
+
+/**
+ * Turnstile challenge on the credential and mail-sending endpoints.
+ *
+ * Registered only when a secret key is present. `validateAppEnv()` makes the
+ * key mandatory in production unless `NEXT_PUBLIC_CAPTCHA_ENABLED=false`, so a
+ * production deployment cannot silently end up with no bot protection.
+ */
+const captchaPlugins = (() => {
+  const env = getAppEnv();
+  const secretKey = env.TURNSTILE_SECRET_KEY;
+
+  if (!env.NEXT_PUBLIC_CAPTCHA_ENABLED || !secretKey) {
+    if (isProductionRuntime() && !env.NEXT_PUBLIC_CAPTCHA_ENABLED) {
+      console.warn(
+        "captcha is disabled: auth endpoints have no bot protection"
+      );
+    }
+    return [];
+  }
+
+  return [
+    captcha({
+      provider: "cloudflare-turnstile",
+      secretKey,
+      endpoints: [...CAPTCHA_PROTECTED_ENDPOINTS],
+    }),
+  ];
 })();
 
 export const auth = betterAuth({
@@ -137,7 +168,8 @@ export const auth = betterAuth({
       }
     },
   },
-  plugins: [nextCookies()],
+  // Captcha first: its onRequest hook must reject before any handler runs.
+  plugins: [...captchaPlugins, nextCookies()],
   telemetry: {
     enabled: false,
   },

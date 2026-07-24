@@ -152,6 +152,8 @@
     "errorEmailNotVerified": "Veuillez vérifier votre e‑mail avant de vous connecter. Nous avons envoyé un nouveau lien de vérification.",
     "msgAccountCreated": "Compte créé avec succès.",
     "msgVerifyEmailSent": "Compte créé. Consultez votre e‑mail pour le vérifier avant de vous connecter.",
+    "captchaRequired": "Veuillez compléter la vérification de sécurité.",
+    "captchaFailed": "La vérification a échoué. Veuillez réessayer.",
     "logout": "Se déconnecter"
   }
   ,

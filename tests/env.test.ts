@@ -29,6 +29,9 @@ const ENV_KEYS = [
   "STORAGE_ENDPOINT",
   "S3_ENDPOINT",
   "LOG_LEVEL",
+  "NEXT_PUBLIC_CAPTCHA_ENABLED",
+  "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
+  "TURNSTILE_SECRET_KEY",
 ];
 
 async function loadEnvModule() {
@@ -52,6 +55,8 @@ function setProductionEnv() {
   vi.stubEnv("STORAGE_BUCKET", "bucket");
   vi.stubEnv("STORAGE_ACCESS_KEY", "access");
   vi.stubEnv("STORAGE_SECRET_KEY", "secret");
+  vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "site-key");
+  vi.stubEnv("TURNSTILE_SECRET_KEY", "secret-key");
 }
 
 describe("typed environment validation", () => {
@@ -133,6 +138,38 @@ describe("typed environment validation", () => {
     expect(env.STORAGE_BUCKET).toBe("alias-bucket");
     expect(env.STORAGE_ACCESS_KEY).toBe("alias-access");
     expect(env.STORAGE_SECRET_KEY).toBe("alias-secret");
+  });
+
+  it("requires turnstile keys in production by default", async () => {
+    setProductionEnv();
+    delete process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+    delete process.env.TURNSTILE_SECRET_KEY;
+
+    const { EnvValidationError, validateAppEnv } = await loadEnvModule();
+
+    expect(() => validateAppEnv()).toThrow(EnvValidationError);
+    try {
+      validateAppEnv();
+    } catch (error) {
+      expect((error as any).issues).toEqual(
+        expect.arrayContaining([
+          "TURNSTILE_SECRET_KEY",
+          "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
+        ])
+      );
+    }
+  });
+
+  it("allows an explicit captcha opt-out in production", async () => {
+    setProductionEnv();
+    delete process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+    delete process.env.TURNSTILE_SECRET_KEY;
+    vi.stubEnv("NEXT_PUBLIC_CAPTCHA_ENABLED", "false");
+
+    const { validateAppEnv } = await loadEnvModule();
+    const env = validateAppEnv();
+
+    expect(env.NEXT_PUBLIC_CAPTCHA_ENABLED).toBe(false);
   });
 
   it("validates URL-shaped env vars", async () => {

@@ -152,6 +152,8 @@
     "errorEmailNotVerified": "ログインする前にメールアドレスを確認してください。新しい確認リンクを送信しました。",
     "msgAccountCreated": "アカウントを作成しました。",
     "msgVerifyEmailSent": "アカウントを作成しました。ログインする前にメールを確認して認証してください。",
+    "captchaRequired": "認証チャレンジを完了してください。",
+    "captchaFailed": "認証に失敗しました。もう一度お試しください。",
     "logout": "ログアウト"
   }
   ,

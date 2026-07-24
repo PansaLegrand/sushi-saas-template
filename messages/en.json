@@ -158,6 +158,8 @@
     "errorEmailNotVerified": "Please verify your email before logging in. We sent a new verification link.",
     "msgAccountCreated": "Account created successfully.",
     "msgVerifyEmailSent": "Account created. Check your email to verify your account before logging in.",
+    "captchaRequired": "Please complete the verification challenge.",
+    "captchaFailed": "Verification failed. Please try again.",
     "logout": "Log out"
   }
   ,

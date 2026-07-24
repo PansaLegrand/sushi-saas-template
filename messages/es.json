@@ -152,6 +152,8 @@
     "errorEmailNotVerified": "Verifica tu correo antes de iniciar sesión. Hemos enviado un nuevo enlace de verificación.",
     "msgAccountCreated": "Cuenta creada correctamente.",
     "msgVerifyEmailSent": "Cuenta creada. Revisa tu correo para verificarla antes de iniciar sesión.",
+    "captchaRequired": "Completa la verificación de seguridad.",
+    "captchaFailed": "La verificación falló. Inténtalo de nuevo.",
     "logout": "Cerrar sesión"
   }
   ,

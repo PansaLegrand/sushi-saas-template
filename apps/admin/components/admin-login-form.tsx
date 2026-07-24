@@ -1,8 +1,14 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "@admin/lib/auth-client";
+import { captchaHeaders } from "@/lib/captcha";
+import {
+  Turnstile,
+  canSubmitWithCaptcha,
+  type TurnstileHandle,
+} from "@/components/auth/turnstile";
 
 export function AdminLoginForm() {
   const router = useRouter();
@@ -10,10 +16,20 @@ export function AdminLoginForm() {
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setSubmitting] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileHandle>(null);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setErrorMessage(null);
+
+    // Admin sign-in uses the same /sign-in/email endpoint as the public app, so
+    // the same challenge applies here.
+    if (!canSubmitWithCaptcha(captchaToken)) {
+      setErrorMessage("Please complete the verification challenge.");
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -21,6 +37,7 @@ export function AdminLoginForm() {
         email,
         password,
         callbackURL: "/",
+        fetchOptions: { headers: captchaHeaders(captchaToken) },
       });
 
       if (error) {
@@ -33,6 +50,7 @@ export function AdminLoginForm() {
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Unable to sign in");
     } finally {
+      turnstileRef.current?.reset();
       setSubmitting(false);
     }
   };
@@ -61,6 +79,13 @@ export function AdminLoginForm() {
           required
         />
       </label>
+      <Turnstile
+        ref={turnstileRef}
+        onToken={setCaptchaToken}
+        onError={() => setErrorMessage("Verification failed. Please try again.")}
+        className="flex justify-center"
+      />
+
       {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
       <button
         className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"

@@ -1,11 +1,17 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 import { signIn, signUp, useSession } from "@/lib/auth-client";
 import { AUTH_ROUTES } from "@/data/auth";
+import { captchaHeaders } from "@/lib/captcha";
+import {
+  Turnstile,
+  canSubmitWithCaptcha,
+  type TurnstileHandle,
+} from "@/components/auth/turnstile";
 
 type AuthMode = "signIn" | "signUp";
 
@@ -25,12 +31,27 @@ const INITIAL_STATE: FormState = {
   name: "",
 };
 
+type AuthErrorKey =
+  | "errorEmailNotVerified"
+  | "errorGeneric"
+  | "captchaRequired"
+  | "captchaFailed";
+
 function getAuthErrorMessage(
   message: string | undefined,
-  translate: (key: "errorEmailNotVerified" | "errorGeneric") => string
+  translate: (key: AuthErrorKey) => string
 ) {
   if (message === "Email not verified") {
     return translate("errorEmailNotVerified");
+  }
+
+  // Messages emitted by the Better Auth captcha plugin.
+  if (message === "Missing CAPTCHA response") {
+    return translate("captchaRequired");
+  }
+
+  if (message === "Captcha verification failed") {
+    return translate("captchaFailed");
   }
 
   return message ?? translate("errorGeneric");
@@ -48,6 +69,8 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
   const [isSubmitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileHandle>(null);
 
   useEffect(() => {
     setMode(initialMode);
@@ -77,7 +100,14 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
     event.preventDefault();
     setErrorMessage(null);
     setSuccessMessage(null);
+
+    if (!canSubmitWithCaptcha(captchaToken)) {
+      setErrorMessage(t("captchaRequired"));
+      return;
+    }
+
     setSubmitting(true);
+    const fetchOptions = { headers: captchaHeaders(captchaToken) };
 
     try {
       if (mode === "signIn") {
@@ -85,6 +115,7 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
           email: form.email,
           password: form.password,
           callbackURL: buildPath(),
+          fetchOptions,
         });
 
         if (error) {
@@ -98,6 +129,7 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
           password: form.password,
           name: form.name || form.email,
           callbackURL: buildPath(),
+          fetchOptions,
         });
 
         if (error) {
@@ -112,6 +144,9 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : t("errorGeneric"));
     } finally {
+      // Turnstile tokens are single-use, so a new challenge is needed whether
+      // this attempt succeeded or failed.
+      turnstileRef.current?.reset();
       setSubmitting(false);
     }
   };
@@ -236,6 +271,13 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
               </div>
             )}
           </div>
+
+          <Turnstile
+            ref={turnstileRef}
+            onToken={setCaptchaToken}
+            onError={() => setErrorMessage(t("captchaFailed"))}
+            className="flex justify-center"
+          />
 
           {errorMessage && (
             <p role="alert" className="text-sm text-destructive">

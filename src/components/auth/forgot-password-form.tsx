@@ -1,11 +1,17 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 import { authClient } from "@/lib/auth-client";
 import { AUTH_ROUTES, withLocale, absoluteWithLocale } from "@/data/auth";
+import { captchaHeaders } from "@/lib/captcha";
+import {
+  Turnstile,
+  canSubmitWithCaptcha,
+  type TurnstileHandle,
+} from "@/components/auth/turnstile";
 
 export default function ForgotPasswordForm() {
   const t = useTranslations("auth");
@@ -17,15 +23,27 @@ export default function ForgotPasswordForm() {
   const [isSubmitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileHandle>(null);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setSubmitting(true);
     setMessage(null);
     setError(null);
+
+    if (!canSubmitWithCaptcha(captchaToken)) {
+      setError(t("captchaRequired"));
+      return;
+    }
+
+    setSubmitting(true);
     try {
       const redirectTo = absoluteWithLocale(locale, AUTH_ROUTES.resetPassword);
-      const { error } = await authClient.requestPasswordReset({ email, redirectTo });
+      const { error } = await authClient.requestPasswordReset({
+        email,
+        redirectTo,
+        fetchOptions: { headers: captchaHeaders(captchaToken) },
+      });
       if (error) {
         setError(error.message ?? t("errorGeneric"));
       } else {
@@ -34,6 +52,8 @@ export default function ForgotPasswordForm() {
     } catch (err) {
       setError(err instanceof Error ? err.message : t("errorGeneric"));
     } finally {
+      // Single-use token: force a fresh challenge for any retry.
+      turnstileRef.current?.reset();
       setSubmitting(false);
     }
   };
@@ -61,6 +81,13 @@ export default function ForgotPasswordForm() {
               disabled={isSubmitting}
             />
           </div>
+          <Turnstile
+            ref={turnstileRef}
+            onToken={setCaptchaToken}
+            onError={() => setError(t("captchaFailed"))}
+            className="flex justify-center"
+          />
+
           {message && <p className="text-sm text-emerald-500">{message}</p>}
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <button

@@ -79,6 +79,12 @@ const RawEnvSchema = z.object({
   GOOGLE_CLIENT_ID: envString,
   GOOGLE_CLIENT_SECRET: envString,
 
+  // Cloudflare Turnstile. Protects sign-in, sign-up, and the password-reset and
+  // verification email endpoints from automated abuse.
+  NEXT_PUBLIC_CAPTCHA_ENABLED: envBoolean(true),
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: envString,
+  TURNSTILE_SECRET_KEY: envString,
+
   RESEND_API_KEY: envString,
   EMAIL_FROM: envString,
 
@@ -237,6 +243,17 @@ function getMissingProductionEnv(raw: RawEnv, env: AppEnv): string[] {
   requireRaw(raw.STRIPE_WEBHOOK_SECRET, "STRIPE_WEBHOOK_SECRET");
   requireRaw(raw.RESEND_API_KEY, "RESEND_API_KEY");
   requireRaw(raw.EMAIL_FROM, "EMAIL_FROM");
+  // Fail closed: a captcha that silently is not running is the exact failure
+  // mode that gets an auth system botted. Set NEXT_PUBLIC_CAPTCHA_ENABLED=false
+  // to opt out deliberately.
+  if (env.NEXT_PUBLIC_CAPTCHA_ENABLED) {
+    requireRaw(raw.TURNSTILE_SECRET_KEY, "TURNSTILE_SECRET_KEY");
+    requireRaw(
+      raw.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
+      "NEXT_PUBLIC_TURNSTILE_SITE_KEY"
+    );
+  }
+
   requireResolved(env.STORAGE_BUCKET, "STORAGE_BUCKET (or S3_BUCKET)");
   requireResolved(env.STORAGE_ACCESS_KEY, "STORAGE_ACCESS_KEY (or S3_ACCESS_KEY_ID)");
   requireResolved(env.STORAGE_SECRET_KEY, "STORAGE_SECRET_KEY (or S3_SECRET_ACCESS_KEY)");

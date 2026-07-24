@@ -90,6 +90,25 @@ Admin runs at `http://localhost:3001`. Set `NEXT_PUBLIC_ADMIN_WEB_URL=http://loc
 
 
 
+## Bot Protection (Cloudflare Turnstile)
+
+Sign-in, sign-up, password reset, and verification-email endpoints are behind a Turnstile challenge, enforced server-side by the Better Auth captcha plugin. A request to any of them without a valid token is rejected before it reaches the database or the mail provider.
+
+Set both keys in `.env`:
+
+```bash
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=your-site-key
+TURNSTILE_SECRET_KEY=your-secret-key
+```
+
+For local development, Cloudflare publishes test keys that always pass: site `1x00000000000000000000AA`, secret `1x0000000000000000000000000000000AA`. (Swap the secret for `2x0000000000000000000000000000000AA` to test the rejection path.)
+
+**Both keys are required in production.** Startup fails with a clear error if they're missing, so a deployment cannot silently end up with no bot protection. To run without a challenge deliberately, set `NEXT_PUBLIC_CAPTCHA_ENABLED=false`.
+
+The protected endpoint list lives in `src/lib/captcha.ts`. The admin login form is challenged too, since it uses the same `/sign-in/email` endpoint.
+
+
+
 ## Admin App
 
 The admin console is intentionally outside the public web app. Public routes do not expose `/admin` pages or `/api/admin/*`; those live under `apps/admin`.
