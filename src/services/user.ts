@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { findUserByEmail, findUserByUuid } from "@/models/user";
+import { findUserById, findUserByUuid } from "@/models/user";
 import type { CreditSummary } from "@/types/credit";
 import type { UserProfile } from "@/types/user";
 
@@ -30,8 +30,9 @@ export async function getUserUuid(req: Request): Promise<string | null> {
     return betterAuthUser.uuid;
   }
 
-  // Fallback: resolve the UUID via email if the session payload lacked the field.
-  const dbUser = await findUserByEmail(betterAuthUser.email);
+  // Better Auth's user id uniquely identifies the account. Email can be shared
+  // across providers, so it must not be used as an authorization key.
+  const dbUser = await findUserById(betterAuthUser.id);
   return dbUser?.uuid ?? null;
 }
 

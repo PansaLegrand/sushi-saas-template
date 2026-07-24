@@ -1,6 +1,6 @@
 import { getUserUuid } from "@/services/user";
 import { insertOrder, OrderStatus, updateOrderSession } from "@/models/order";
-import { respData, respErr } from "@/lib/resp";
+import { respData, respErr, respNoAuth } from "@/lib/resp";
 
 import Stripe from "stripe";
 import { findUserByUuid } from "@/models/user";
@@ -91,7 +91,7 @@ export async function POST(req: Request) {
     // get signed user
     const user_uuid = await getUserUuid(req);
     if (!user_uuid) {
-      return respErr("no auth, please sign-in");
+      return respNoAuth("no auth, please sign-in");
     }
 
     const user = await findUserByUuid(user_uuid);
