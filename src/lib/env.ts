@@ -33,7 +33,9 @@ function envBoolean(defaultValue: boolean) {
         return value;
       }
 
-      const normalized = value.toLowerCase();
+      // Trim before comparing: values pasted into a hosting dashboard commonly
+      // carry a trailing space or newline, and failing on that is unhelpful.
+      const normalized = value.trim().toLowerCase();
       if (TRUE_VALUES.has(normalized)) {
         return true;
       }
@@ -44,7 +46,9 @@ function envBoolean(defaultValue: boolean) {
 
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Expected a boolean env value: true/false, 1/0, yes/no, or on/off",
+        message: `Expected a boolean env value: true/false, 1/0, yes/no, or on/off. Received ${JSON.stringify(
+          value.length > 40 ? `${value.slice(0, 40)}…` : value
+        )}`,
       });
       return z.NEVER;
     });

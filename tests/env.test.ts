@@ -172,6 +172,34 @@ describe("typed environment validation", () => {
     expect(env.NEXT_PUBLIC_CAPTCHA_ENABLED).toBe(false);
   });
 
+  it("tolerates whitespace around boolean env values", async () => {
+    // Hosting dashboards routinely store a pasted value with a trailing
+    // space or newline; that must not fail the build.
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("NEXT_PUBLIC_CAPTCHA_ENABLED", " false\n");
+    vi.stubEnv("ENABLE_DEMO_FEATURES", "  TRUE  ");
+
+    const { validateAppEnv } = await loadEnvModule();
+    const env = validateAppEnv();
+
+    expect(env.NEXT_PUBLIC_CAPTCHA_ENABLED).toBe(false);
+    expect(env.ENABLE_DEMO_FEATURES).toBe(true);
+  });
+
+  it("names the offending value when a boolean env var is unparseable", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("NEXT_PUBLIC_CAPTCHA_ENABLED", "enabled");
+
+    const { EnvValidationError, validateAppEnv } = await loadEnvModule();
+
+    expect(() => validateAppEnv()).toThrow(EnvValidationError);
+    try {
+      validateAppEnv();
+    } catch (error) {
+      expect((error as Error).message).toContain('Received "enabled"');
+    }
+  });
+
   it("validates URL-shaped env vars", async () => {
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("NEXT_PUBLIC_WEB_URL", "not a url");
