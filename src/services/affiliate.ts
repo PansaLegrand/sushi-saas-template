@@ -7,7 +7,7 @@ import {
   AffiliateRewardPercent,
   AffiliateStatus,
   CommissionMode,
-} from "@/data/affiliate";
+} from "@/config/affiliate";
 import { getIsoTimestr } from "@/lib/time";
 
 function computeReward(amountMinor: number): {

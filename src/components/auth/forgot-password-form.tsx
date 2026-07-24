@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 import { authClient } from "@/lib/auth-client";
-import { AUTH_ROUTES, withLocale, absoluteWithLocale } from "@/data/auth";
+import { AUTH_ROUTES, withLocale, absoluteWithLocale } from "@/config/auth";
 import { captchaHeaders } from "@/lib/captcha";
 import {
   Turnstile,

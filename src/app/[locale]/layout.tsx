@@ -3,7 +3,7 @@ import {
   getTranslations,
   setRequestLocale,
 } from "next-intl/server";
-import { AppContextProvider } from "@/contexts/app";
+import { AppContextProvider } from "@/providers/app-context";
 import { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { ThemeProvider } from "@/providers/theme";

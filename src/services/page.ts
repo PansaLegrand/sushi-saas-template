@@ -1,6 +1,6 @@
 import { Pricing } from "@/types/blocks/pricing";
 import { unstable_cache } from "next/cache";
-import { getPricingConfig } from "@/data/pricing";
+import { getPricingConfig } from "@/config/pricing";
 
 type PricingPagePayload = {
   pricing?: Pricing;

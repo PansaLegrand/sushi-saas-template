@@ -68,7 +68,7 @@ Malgré ces étapes, le processus est automatisé et ne prend que quelques secon
 
 ## Endpoints
 
-- `/api/checkout` (POST) : valide le plan (`src/data/pricing.ts`), crée la session, enregistre une `order` `created`.
+- `/api/checkout` (POST) : valide le plan (`src/config/pricing.ts`), crée la session, enregistre une `order` `created`.
 - `/api/pay/callback/stripe` (GET) : redirection post‑Stripe ; ne finalise plus la commande.
 - `/api/pay/webhook/stripe` (POST) : vérifie la signature et traite `checkout.session.completed` pour marquer `paid` et créditer.
 
@@ -138,7 +138,7 @@ Astuce : démarrez avec le guide officiel — https://docs.stripe.com/get-start
 
 ## Détails d’implémentation
 
-- Plans : `src/data/pricing.ts`.
+- Plans : `src/config/pricing.ts`.
 - `handleCheckoutSession` gère paiement unique et abonnement (PaymentIntent via `latest_invoice`).
 
 ---
@@ -180,7 +180,7 @@ NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY_CNY=price_...
 Comportement avec/sans IDs de Prix
 
 - Si un plan d’abonnement possède un Price ID, Checkout l’utilise directement.
-- Sinon, Checkout crée la session avec `price_data` inline depuis `src/data/pricing.ts` (repli sûr).
+- Sinon, Checkout crée la session avec `price_data` inline depuis `src/config/pricing.ts` (repli sûr).
 
 ---
 

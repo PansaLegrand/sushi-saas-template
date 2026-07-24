@@ -77,7 +77,7 @@ While specifics vary by provider and platform, the general flow is:
 ## Endpoints
 
 - `/api/checkout` (POST):
-  - Validates the selected plan against `src/data/pricing.ts`.
+  - Validates the selected plan against `src/config/pricing.ts`.
   - Creates a Stripe Checkout session (inline price data; no Stripe Products required).
   - Inserts an `orders` row with status `created` and returns `checkout_url`.
 
@@ -176,7 +176,7 @@ Tip: Start with the official guide — https://docs.stripe.com/get-started
 
 ## Implementation Details
 
-- Plans live in `src/data/pricing.ts`. Values are typed (`Pricing`), shared by the pricing page and `/api/checkout`.
+- Plans live in `src/config/pricing.ts`. Values are typed (`Pricing`), shared by the pricing page and `/api/checkout`.
 - Orders are stored in `orders`; credit movements in `credits`.
 - The webhook verifies signatures using the raw request body and `STRIPE_WEBHOOK_SECRET`.
 - `handleCheckoutSession` supports both one-time and subscription checkouts:
@@ -222,7 +222,7 @@ NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY_CNY=price_...
 Behavior with/without Price IDs
 
 - If a Price ID is set for a subscription plan, Checkout uses it directly.
-- If not, Checkout creates the session with inline `price_data` using amounts from `src/data/pricing.ts` (safe fallback).
+- If not, Checkout creates the session with inline `price_data` using amounts from `src/config/pricing.ts` (safe fallback).
 
 ---
 

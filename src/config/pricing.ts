@@ -1,5 +1,5 @@
 import type { Pricing } from "@/types/blocks/pricing";
-import { FREE_TRIAL_DAYS, INTRO_BASE_USD_CENTS, INTRO_FIRST_MONTH_USD_CENTS } from "@/data/billing";
+import { FREE_TRIAL_DAYS, INTRO_BASE_USD_CENTS, INTRO_FIRST_MONTH_USD_CENTS } from "@/config/billing";
 
 const sharedMonthlyPlans = [
   // Demo: Starter plan with trial and intro options

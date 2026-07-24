@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 import { authClient } from "@/lib/auth-client";
-import { AUTH_ROUTES, withLocale } from "@/data/auth";
+import { AUTH_ROUTES, withLocale } from "@/config/auth";
 
 export default function ResetPasswordForm() {
   const t = useTranslations("auth");

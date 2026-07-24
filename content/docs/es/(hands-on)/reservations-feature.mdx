@@ -43,7 +43,7 @@ EMAIL_FROM="Tu App <no-reply@tu-dominio.com>"
 NEXT_PUBLIC_WEB_URL="http://localhost:3000"
 ```
 
-Ajusta horarios, retención y zona horaria en `src/data/reservations.ts`.
+Ajusta horarios, retención y zona horaria en `src/config/reservations.ts`.
 
 2) Base de datos
 
@@ -68,7 +68,7 @@ Abre `/es/reserve` para probar.
 
 ## Personalización
 
-- Zona horaria base: edita `baseTimeZone` en `src/data/reservations.ts` (p.ej., `Europe/Madrid`).
+- Zona horaria base: edita `baseTimeZone` en `src/config/reservations.ts` (p.ej., `Europe/Madrid`).
 - Depósito vs prepago: `deposit_amount` y `require_deposit` por servicio.
 - Márgenes: `buffer_before_min`, `buffer_after_min`.
 - Calendario: enlace de Google sin OAuth; para sincronización del proveedor, usa OAuth y la API de Calendar.

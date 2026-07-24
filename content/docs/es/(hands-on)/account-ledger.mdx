@@ -81,7 +81,7 @@ Caducidad
 - `src/services/credit.ts#getUserCredits` — snapshot ligero para gating: `{ left_credits, is_pro, is_recharged }`.
 - `src/services/credit.ts#decreaseCredits` — agrega fila negativa; lanza error si faltan créditos.
 - `src/services/credit.ts#increaseCredits` — agrega fila positiva; usado por Stripe y otorgamientos.
-- `src/services/stripe.ts#handleCheckoutSession` — convierte una sesión pagada en estado del pedido + fila de crédito.
+- `src/services/stripe/checkout-session.ts#handleCheckoutSession` — convierte una sesión pagada en estado del pedido + fila de crédito.
 - `src/services/tasks.ts#createTextToVideoTask` — descuenta créditos y crea una fila `tasks` que referencia ese gasto.
 
 Endpoints HTTP

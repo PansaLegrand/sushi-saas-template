@@ -117,7 +117,7 @@ There are two independent Fumadocs collections, so the kit's documentation and t
 
 `content/blog` is optional — empty it and `/blogs` renders an empty index instead of breaking. That is the supported way to strip the previous owner's content from a fresh clone.
 
-Also site-specific, and worth replacing when you deploy your own: the `landing` and `metadata` namespaces in `messages/*.json` (hero copy, features, **showcase URLs**, footer), `src/data/pricing.ts`, `public/imgs`, and `public/robots.txt`.
+Also site-specific, and worth replacing when you deploy your own: the `landing` and `metadata` namespaces in `messages/*.json` (hero copy, features, **showcase URLs**, footer), `src/config/pricing.ts`, `public/imgs`, and `public/robots.txt`.
 
 Regenerate the sitemap for your own domain:
 

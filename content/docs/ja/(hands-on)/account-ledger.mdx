@@ -81,7 +81,7 @@ canonical: "https://www.sushi-templates.com/ja/blogs/account-ledger"
 - `src/services/credit.ts#getUserCredits` — 機能制御用の軽量スナップショット `{ left_credits, is_pro, is_recharged }`。
 - `src/services/credit.ts#decreaseCredits` — マイナス行を追加。残高不足なら例外。
 - `src/services/credit.ts#increaseCredits` — プラス行を追加。Stripe や付与で使用。
-- `src/services/stripe.ts#handleCheckoutSession` — 支払い完了を注文更新＋クレジット付与に変換。
+- `src/services/stripe/checkout-session.ts#handleCheckoutSession` — 支払い完了を注文更新＋クレジット付与に変換。
 - `src/services/tasks.ts#createTextToVideoTask` — クレジットを引き落とし、その `trans_no` を参照する `tasks` 行を作成。
 
 HTTP エンドポイント

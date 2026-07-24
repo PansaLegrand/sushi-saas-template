@@ -11,7 +11,7 @@ import {
   refundCreditsForTransaction,
 } from "@/services/credit";
 import { generateTextToVideo, type TextToVideoInput } from "@/services/ai/video";
-import { TEXT2VIDEO_COST } from "@/data/tasks";
+import { TEXT2VIDEO_COST } from "@/config/tasks";
 
 export const TASK_TYPE_TEXT_TO_VIDEO = "text_to_video" as const;
 const MAX_IDEMPOTENCY_KEY_LENGTH = 255;

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import Stripe from "stripe";
 import { getUserUuid } from "@/services/user";
 import { findUserByUuid } from "@/models/user";
-import { getOrCreateCustomerIdForUser } from "@/services/stripe-customer";
+import { getOrCreateCustomerIdForUser } from "@/services/stripe";
 import { getAppEnv, getRequiredEnv } from "@/lib/env";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";

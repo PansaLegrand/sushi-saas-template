@@ -81,7 +81,7 @@ canonical: "https://www.sushi-templates.com/zh/blogs/account-ledger"
 - `src/services/credit.ts#getUserCredits` — 适合功能开关的轻量快照 `{ left_credits, is_pro, is_recharged }`。
 - `src/services/credit.ts#decreaseCredits` — 追加负数行；余额不足会抛错。
 - `src/services/credit.ts#increaseCredits` — 追加正数行；用于 Stripe 入账与系统赠送。
-- `src/services/stripe.ts#handleCheckoutSession` — 把“支付成功”转成订单状态 + 积分入账。
+- `src/services/stripe/checkout-session.ts#handleCheckoutSession` — 把“支付成功”转成订单状态 + 积分入账。
 - `src/services/tasks.ts#createTextToVideoTask` — 扣减积分，并创建引用该消费 `trans_no` 的 `tasks` 行。
 
 HTTP 接口

@@ -4,7 +4,7 @@ import { respOk, respNoAuth } from "@/lib/resp";
 import { getUserUuid } from "@/services/user";
 import { findUserByUuid, updateUserInvitedBy } from "@/models/user";
 import { insertAffiliate } from "@/models/affiliate";
-import { AffiliateConfig, AffiliateRewardAmount, AffiliateRewardPercent, AffiliateStatus } from "@/data/affiliate";
+import { AffiliateConfig, AffiliateRewardAmount, AffiliateRewardPercent, AffiliateStatus } from "@/config/affiliate";
 import { getIsoTimestr } from "@/lib/time";
 
 export async function POST(req: Request) {

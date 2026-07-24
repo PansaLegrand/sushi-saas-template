@@ -68,7 +68,7 @@ Aun con varios pasos, todo ocurre de forma automática en segundos.
 
 ## Endpoints
 
-- `/api/checkout` (POST): valida el plan en `src/data/pricing.ts`, crea la sesión y guarda un `order` con estado `created`.
+- `/api/checkout` (POST): valida el plan en `src/config/pricing.ts`, crea la sesión y guarda un `order` con estado `created`.
 - `/api/pay/callback/stripe` (GET): usado por la redirección de Stripe; ahora solo redirige a éxito/fracaso.
 - `/api/pay/webhook/stripe` (POST): verifica la firma y maneja `checkout.session.completed` para marcar pagado y otorgar créditos.
 
@@ -145,7 +145,7 @@ Consejo: empieza por la guía oficial — https://docs.stripe.com/get-started
 
 ## Detalles
 
-- Planes en `src/data/pricing.ts` (tipados y compartidos).
+- Planes en `src/config/pricing.ts` (tipados y compartidos).
 - `handleCheckoutSession` soporta pagos únicos y suscripciones (busca el PaymentIntent en la factura más reciente para suscripciones).
 
 ---
@@ -187,7 +187,7 @@ NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY_CNY=price_...
 Comportamiento con/sin IDs de Precio
 
 - Si un plan de suscripción tiene Price ID, Checkout lo usa directamente.
-- Si no, Checkout crea la sesión con `price_data` inline usando los importes de `src/data/pricing.ts` (fallback seguro).
+- Si no, Checkout crea la sesión con `price_data` inline usando los importes de `src/config/pricing.ts` (fallback seguro).
 
 ---
 

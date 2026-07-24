@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 import { signOut } from "@/lib/auth-client";
-import { AUTH_ROUTES, withLocale } from "@/data/auth";
+import { AUTH_ROUTES, withLocale } from "@/config/auth";
 
 export default function LogoutButton() {
   const t = useTranslations("auth");

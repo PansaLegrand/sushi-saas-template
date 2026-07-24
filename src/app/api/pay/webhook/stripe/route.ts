@@ -5,7 +5,7 @@ import { markReservationConfirmed, getServiceById } from "@/features/reservation
 import { buildReservationICS } from "@/features/reservations/ics";
 import { buildGoogleCalendarUrl } from "@/features/reservations/google";
 import { ReservationsConfig } from "@/features/reservations/config";
-import { getPricingConfig } from "@/data/pricing";
+import { getPricingConfig } from "@/config/pricing";
 import { locales } from "@/i18n/locale";
 import { getSnowId } from "@/lib/hash";
 import { insertOrder, OrderStatus, findOrderBySubscriptionPeriod } from "@/models/order";

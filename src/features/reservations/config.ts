@@ -1,4 +1,4 @@
-import { ReservationsData } from "@/data/reservations";
+import { ReservationsData } from "@/config/reservations";
 import { isReservationDemoAutoSeedEnabled } from "@/lib/demo-flags";
 
 export const ReservationsConfig = {

@@ -1,10 +1,10 @@
-import { db } from "@/db";
-import { credits as creditsTable } from "@/db/schema";
 import {
+  type CreditRow,
   findCreditByOrderNo,
   findCreditByTransNo,
   getUserValidCredits,
   insertCredit,
+  listAllCreditsByUserUuid,
 } from "@/models/credit";
 import { getFirstPaidOrderByUserUuid } from "@/models/order";
 import { getSnowId } from "@/lib/hash";
@@ -12,7 +12,6 @@ import { getIsoTimestr } from "@/lib/time";
 import type { Order } from "@/types/order";
 import type { CreditLedgerEntry, CreditSummary } from "@/types/credit";
 import type { UserCredits } from "@/types/user";
-import { desc, eq } from "drizzle-orm";
 
 const DEFAULT_LEDGER_LIMIT = 50;
 const EXPIRING_WINDOW_DAYS = 14;
@@ -67,7 +66,7 @@ function toIsoString(value?: Date | null): string | null {
   return value ? value.toISOString() : null;
 }
 
-function buildLedgerEntry(row: typeof creditsTable.$inferSelect): CreditLedgerEntry {
+function buildLedgerEntry(row: CreditRow): CreditLedgerEntry {
   return {
     transNo: row.trans_no,
     transType: row.trans_type,
@@ -78,7 +77,7 @@ function buildLedgerEntry(row: typeof creditsTable.$inferSelect): CreditLedgerEn
   };
 }
 
-function isExpiredGrant(row: typeof creditsTable.$inferSelect, now: Date): boolean {
+function isExpiredGrant(row: CreditRow, now: Date): boolean {
   return (
     row.credits > 0 &&
     !!row.expired_at &&
@@ -86,7 +85,7 @@ function isExpiredGrant(row: typeof creditsTable.$inferSelect, now: Date): boole
   );
 }
 
-function willExpireSoon(row: typeof creditsTable.$inferSelect, now: Date): boolean {
+function willExpireSoon(row: CreditRow, now: Date): boolean {
   if (row.credits <= 0 || !row.expired_at) {
     return false;
   }
@@ -101,12 +100,7 @@ export async function getUserCreditSummary(
   userUuid: string,
   options: CreditSummaryOptions = {}
 ): Promise<CreditSummary> {
-  const client = db();
-  const rows = await client
-    .select()
-    .from(creditsTable)
-    .where(eq(creditsTable.user_uuid, userUuid))
-    .orderBy(desc(creditsTable.created_at));
+  const rows = await listAllCreditsByUserUuid(userUuid);
 
   const now = new Date();
   const summary: CreditSummary = {
@@ -218,7 +212,7 @@ export async function decreaseCredits({
       throw new Error("insufficient credits");
     }
 
-    const newCredit: typeof creditsTable.$inferInsert = {
+    const newCredit: Parameters<typeof insertCredit>[0] = {
       trans_no: getSnowId(),
       created_at: new Date(getIsoTimestr()),
       expired_at: sourceExpiry,
@@ -259,7 +253,7 @@ export async function increaseCredits({
         ? new Date(expired_at)
         : null;
 
-    const newCredit: typeof creditsTable.$inferInsert = {
+    const newCredit: Parameters<typeof insertCredit>[0] = {
       trans_no: trans_no ?? getSnowId(),
       created_at: new Date(getIsoTimestr()),
       user_uuid,

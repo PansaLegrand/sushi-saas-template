@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { findUserByInviteCode } from "@/models/user";
-import { AffiliateConfig } from "@/data/affiliate";
+import { AffiliateConfig } from "@/config/affiliate";
 import { getAppEnv } from "@/lib/env";
 
 export async function GET(_req: Request, ctx: any) {

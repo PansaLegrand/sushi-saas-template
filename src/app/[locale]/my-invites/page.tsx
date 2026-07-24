@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { auth } from "@/lib/auth";
 import { getAppEnv } from "@/lib/env";
-import { AffiliateConfig } from "@/data/affiliate";
+import { AffiliateConfig } from "@/config/affiliate";
 import { findUserByEmail, findUserByUuid } from "@/models/user";
 import { buildMetadata, defaultMetaFallbacks } from "@/lib/seo";
 import { getAffiliateSummary, getAffiliatesByUserUuid } from "@/models/affiliate";

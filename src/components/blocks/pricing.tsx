@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import Icon from "@/components/icon";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { useAppContext } from "@/contexts/app";
+import { useAppContext } from "@/providers/app-context";
 import { useLocale } from "next-intl";
 
 export default function Pricing({ pricing }: { pricing: PricingType }) {

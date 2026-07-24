@@ -68,7 +68,7 @@ canonical: "https://www.sushi-templates.com/zh/blogs/stripe-setup"
 
 ## 接口说明
 
-- `/api/checkout` (POST)：校验 `src/data/pricing.ts` 的计划，创建 Checkout 会话，保存订单 `created`。
+- `/api/checkout` (POST)：校验 `src/config/pricing.ts` 的计划，创建 Checkout 会话，保存订单 `created`。
 - `/api/pay/callback/stripe` (GET)：Stripe 成功页的跳转目标；不再做入账逻辑。
 - `/api/pay/webhook/stripe` (POST)：校验签名，处理 `checkout.session.completed`，完成入账与积分增加。
 
@@ -141,7 +141,7 @@ stripe trigger checkout_session_completed
 
 ## 实现细节
 
-- 套餐定义：`src/data/pricing.ts`（强类型、前后端共用）。
+- 套餐定义：`src/config/pricing.ts`（强类型、前后端共用）。
 - `handleCheckoutSession` 同时支持一次性与订阅（订阅场景从最新账单获取 PaymentIntent）。
 - 可扩展处理 `invoice.payment_succeeded` 实现订阅续费时自动充值积分。
 
@@ -184,7 +184,7 @@ NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY_CNY=price_...
 有/无价格 ID 的行为
 
 - 若订阅计划配置了 Price ID，Checkout 将直接引用该 `price_...`。
-- 若未配置，Checkout 会使用 `src/data/pricing.ts` 的金额通过内联 `price_data` 创建会话（安全回退）。
+- 若未配置，Checkout 会使用 `src/config/pricing.ts` 的金额通过内联 `price_data` 创建会话（安全回退）。
 
 ---
 

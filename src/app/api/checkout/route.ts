@@ -13,8 +13,7 @@ import { Order } from "@/types/order";
 import { getAppEnv } from "@/lib/env";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
-import { getOrCreateCustomerIdForUser } from "@/services/stripe-customer";
-import { buildIntroDiscounts } from "@/services/stripe-promotions";
+import { buildIntroDiscounts, getOrCreateCustomerIdForUser } from "@/services/stripe";
 import { logger as baseLogger, requestIdFromHeaders } from "@/lib/logger/server";
 
 export async function POST(req: Request) {

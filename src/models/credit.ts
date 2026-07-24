@@ -2,6 +2,9 @@ import { credits } from "@/db/schema";
 import { db } from "@/db";
 import { desc, eq, and, gte, asc, isNull, or } from "drizzle-orm";
 
+/** A ledger row. Exported so services can type over rows without importing the schema. */
+export type CreditRow = typeof credits.$inferSelect;
+
 export async function insertCredit(
   data: typeof credits.$inferInsert
 ): Promise<typeof credits.$inferSelect | undefined> {
@@ -59,6 +62,24 @@ export async function getUserValidCredits(
   return data;
 }
 
+/**
+ * Every ledger row for a user, newest first, unpaginated.
+ *
+ * Balance is the sum of the whole ledger, so anything computing it must see all
+ * rows — `getCreditsByUserUuid` caps at 50 and would silently under-report for
+ * an active account.
+ */
+export async function listAllCreditsByUserUuid(
+  user_uuid: string
+): Promise<CreditRow[]> {
+  return db()
+    .select()
+    .from(credits)
+    .where(eq(credits.user_uuid, user_uuid))
+    .orderBy(desc(credits.created_at));
+}
+
+/** Paginated view for the ledger UI. Do not use for balance arithmetic. */
 export async function getCreditsByUserUuid(
   user_uuid: string,
   page: number = 1,

@@ -55,7 +55,7 @@ NEXT_PUBLIC_WEB_URL="http://localhost:3000"
 
 Then adjust business hours, hold minutes, horizon, and base timezone in code at:
 
-`src/data/reservations.ts`
+`src/config/reservations.ts`
 
 2) Database
 
@@ -78,7 +78,7 @@ stripe listen --forward-to localhost:3000/api/pay/webhook/stripe
 pnpm dev
 ```
 
-Visit `/en/reserve` to try the flow. A demo service is auto‑seeded by default. Tweak hours/timezone in `src/data/reservations.ts`.
+Visit `/en/reserve` to try the flow. A demo service is auto‑seeded by default. Tweak hours/timezone in `src/config/reservations.ts`.
 
 ## Usage
 
@@ -90,7 +90,7 @@ Visit `/en/reserve` to try the flow. A demo service is auto‑seeded by default.
 
 ## Customization
 
-- Base timezone: edit `baseTimeZone` in `src/data/reservations.ts` (e.g., `Europe/Paris`). Availability uses this tz; the UI displays in the user’s local tz.
+- Base timezone: edit `baseTimeZone` in `src/config/reservations.ts` (e.g., `Europe/Paris`). Availability uses this tz; the UI displays in the user’s local tz.
 - Deposit vs full prepay: configure `deposit_amount` and `require_deposit` per service.
 - Buffers: `buffer_before_min`, `buffer_after_min` to avoid back‑to‑back scheduling.
 - Cancellation: tune `cancellation_window_hours` and surface your policy in the UI/email.

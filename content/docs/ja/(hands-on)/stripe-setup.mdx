@@ -68,7 +68,7 @@ canonical: "https://www.sushi-templates.com/ja/blogs/stripe-setup"
 
 ## エンドポイント
 
-- `/api/checkout` (POST): `src/data/pricing.ts` を元に検証し、Checkout セッションを作成、注文を `created` で保存。
+- `/api/checkout` (POST): `src/config/pricing.ts` を元に検証し、Checkout セッションを作成、注文を `created` で保存。
 - `/api/pay/callback/stripe` (GET): Stripe からのリダイレクト用。最終処理は行いません。
 - `/api/pay/webhook/stripe` (POST): 署名検証後、`checkout.session.completed` を処理して付与。
 
@@ -139,7 +139,7 @@ stripe trigger checkout_session_completed
 
 ## 実装メモ
 
-- プラン: `src/data/pricing.ts` に定義（型安全）。
+- プラン: `src/config/pricing.ts` に定義（型安全）。
 - `handleCheckoutSession` は一括・サブスク両対応（サブスクは最新請求書から PaymentIntent を取得）。
 
 ## 請求とサブスクリプション
@@ -218,7 +218,7 @@ NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY_CNY=price_...
 価格 ID の有無による動作
 
 - サブスクプランに Price ID があれば、Checkout はそれを直接使用します。
-- 無い場合は、`src/data/pricing.ts` の金額でインライン `price_data` を使ってセッションを作成します（安全なフォールバック）。
+- 無い場合は、`src/config/pricing.ts` の金額でインライン `price_data` を使ってセッションを作成します（安全なフォールバック）。
 
 ---
 

@@ -81,7 +81,7 @@ Expiry
 - `src/services/credit.ts#getUserCredits` — lightweight snapshot for gating: `{ left_credits, is_pro, is_recharged }`.
 - `src/services/credit.ts#decreaseCredits` — appends a negative ledger row; throws on insufficient credits.
 - `src/services/credit.ts#increaseCredits` — appends a positive ledger row; used by Stripe and grants.
-- `src/services/stripe.ts#handleCheckoutSession` — turns a paid session into an order status + grant row.
+- `src/services/stripe/checkout-session.ts#handleCheckoutSession` — turns a paid session into an order status + grant row.
 - `src/services/tasks.ts#createTextToVideoTask` — decrements credits, then inserts a `tasks` row referencing that spend.
 
 HTTP endpoints

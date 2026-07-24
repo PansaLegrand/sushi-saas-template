@@ -81,7 +81,7 @@ Expiration
 - `src/services/credit.ts#getUserCredits` — état léger pour le gating : `{ left_credits, is_pro, is_recharged }`.
 - `src/services/credit.ts#decreaseCredits` — ajoute une ligne négative; lève une erreur si solde insuffisant.
 - `src/services/credit.ts#increaseCredits` — ajoute une ligne positive; utilisé par Stripe et les attributions.
-- `src/services/stripe.ts#handleCheckoutSession` — transforme une session payée en mise à jour d’`orders` + ligne de crédit.
+- `src/services/stripe/checkout-session.ts#handleCheckoutSession` — transforme une session payée en mise à jour d’`orders` + ligne de crédit.
 - `src/services/tasks.ts#createTextToVideoTask` — décrémente les crédits, puis insère une ligne `tasks` qui référence cette dépense.
 
 Endpoints HTTP

@@ -6,7 +6,7 @@ import {
   findUserByUuid,
   updateUserInviteCode,
 } from "@/models/user";
-import { AffiliateConfig } from "@/data/affiliate";
+import { AffiliateConfig } from "@/config/affiliate";
 import { getSnowId } from "@/lib/hash";
 import { getAppEnv } from "@/lib/env";
 

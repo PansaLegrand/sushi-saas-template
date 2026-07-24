@@ -43,7 +43,7 @@ EMAIL_FROM="Your App <no-reply@your-domain.com>"
 NEXT_PUBLIC_WEB_URL="http://localhost:3000"
 ```
 
-营业时间、持有时长与基准时区请在 `src/data/reservations.ts` 中调整。
+营业时间、持有时长与基准时区请在 `src/config/reservations.ts` 中调整。
 
 2）数据库
 
@@ -68,7 +68,7 @@ pnpm dev
 
 ## 自定义
 
-- 基准时区：在 `src/data/reservations.ts` 的 `baseTimeZone` 修改（如 `Asia/Shanghai`）。
+- 基准时区：在 `src/config/reservations.ts` 的 `baseTimeZone` 修改（如 `Asia/Shanghai`）。
 - 订金/全额：按服务配置 `deposit_amount` 与 `require_deposit`。
 - 缓冲：`buffer_before_min`、`buffer_after_min`。
 - 日历：Google 链接无需 OAuth；如需服务提供方日历自动同步，请接入 OAuth 与 Calendar API。
