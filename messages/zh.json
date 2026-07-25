@@ -28,14 +28,38 @@
     "features": {
       "title": "核心能力",
       "items": [
-        { "title": "现代开源栈", "description": "Next.js 15、TypeScript、Tailwind —— 生产就绪的起步模版。" },
-        { "title": "认证与 RBAC（Better Auth）", "description": "邮箱 + Google 登录，安全会话与角色校验，基于 Drizzle。" },
-        { "title": "全球化 i18n", "description": "本地化路由与文案，轻松支持多语言。" },
-        { "title": "Stripe 计费 + 积分", "description": "Checkout、订阅，以及灵活的积分台账以支持按量计费。" },
-        { "title": "预约模块", "description": "可用时段、订金/全额支付、确认邮件与日历邀请。" },
-        { "title": "推广与返佣", "description": "邀请链接、归因注册、可配置奖励，助力增长。" },
-        { "title": "管理面板", "description": "按角色管理用户、订单、积分、预约与推广。" },
-        { "title": "文档与 MDX", "description": "内置 MDX + Fumadocs 文档/博客与完善的 SEO。" }
+        {
+          "title": "现代开源栈",
+          "description": "Next.js 15、TypeScript、Tailwind —— 生产就绪的起步模版。"
+        },
+        {
+          "title": "认证与 RBAC（Better Auth）",
+          "description": "邮箱 + Google 登录，安全会话与角色校验，基于 Drizzle。"
+        },
+        {
+          "title": "全球化 i18n",
+          "description": "本地化路由与文案，轻松支持多语言。"
+        },
+        {
+          "title": "Stripe 计费 + 积分",
+          "description": "Checkout、订阅，以及灵活的积分台账以支持按量计费。"
+        },
+        {
+          "title": "预约模块",
+          "description": "可用时段、订金/全额支付、确认邮件与日历邀请。"
+        },
+        {
+          "title": "推广与返佣",
+          "description": "邀请链接、归因注册、可配置奖励，助力增长。"
+        },
+        {
+          "title": "管理面板",
+          "description": "按角色管理用户、订单、积分、预约与推广。"
+        },
+        {
+          "title": "文档与 MDX",
+          "description": "内置 MDX + Fumadocs 文档/博客与完善的 SEO。"
+        }
       ]
     },
     "showcases": {
@@ -56,25 +80,48 @@
     "stack": {
       "title": "技术栈",
       "items": [
-        { "name": "Next.js 15", "description": "App Router 与服务端组件" },
-        { "name": "Tailwind CSS", "description": "原子化实用类样式" },
-        { "name": "Better Auth", "description": "认证与会话" },
-        { "name": "Drizzle ORM", "description": "类型安全的 SQL 与迁移" }
+        {
+          "name": "Next.js 15",
+          "description": "App Router 与服务端组件"
+        },
+        {
+          "name": "Tailwind CSS",
+          "description": "原子化实用类样式"
+        },
+        {
+          "name": "Better Auth",
+          "description": "认证与会话"
+        },
+        {
+          "name": "Drizzle ORM",
+          "description": "类型安全的 SQL 与迁移"
+        }
       ]
     },
     "about": {
       "title": "什么是 Sushi Templates？",
       "intro": "Sushi Templates 是一个可直接上线的 SaaS 起步套件，提供完整且安全的代码库，让创始人用数小时而非数月就能开始销售。",
       "points": [
-        { "title": "一个早晨就能上线", "description": "预置认证、计费、积分、文档/博客和落地页，跳过样板代码更快交付。" },
-        { "title": "完整现代技术栈", "description": "Next.js 15 App Router、TypeScript、Tailwind、Better Auth、Drizzle、Stripe、存储和 i18n 已经全部打通。" },
-        { "title": "默认安全", "description": "会话安全、角色校验、受保护的 API、带签名 URL 的私有存储，以及用环境变量管理的机密，不硬编码密钥。" },
-        { "title": "成长就绪", "description": "按量积分、任务跟踪、SEO 友好的博客/文档和管理界面，帮助你安心迭代。" }
+        {
+          "title": "一个早晨就能上线",
+          "description": "预置认证、计费、积分、文档/博客和落地页，跳过样板代码更快交付。"
+        },
+        {
+          "title": "完整现代技术栈",
+          "description": "Next.js 15 App Router、TypeScript、Tailwind、Better Auth、Drizzle、Stripe、存储和 i18n 已经全部打通。"
+        },
+        {
+          "title": "默认安全",
+          "description": "会话安全、角色校验、受保护的 API、带签名 URL 的私有存储，以及用环境变量管理的机密，不硬编码密钥。"
+        },
+        {
+          "title": "成长就绪",
+          "description": "按量积分、任务跟踪、SEO 友好的博客/文档和管理界面，帮助你安心迭代。"
+        }
       ]
     },
     "footer": "基于 Next.js 15、Tailwind CSS 与 Better Auth 构建。"
-  }
-  ,
+  },
   "tasks": {
     "textToVideo": {
       "title": "文本生成视频",
@@ -105,19 +152,16 @@
       "linkLogin": "登录",
       "or": "或"
     }
-  }
-  ,
+  },
   "docs": {
     "title": "文档",
     "intro": "上手指南：如何配置和扩展这个启动模板。",
     "back": "返回首页"
-  }
-  ,
+  },
   "blogs": {
     "title": "博客",
     "intro": "最新指南与更新，帮助你更快上线。"
-  }
-  ,
+  },
   "reservation": {
     "title": "预约服务",
     "subtitle": "选择服务、选择时间，并支付少量订金以确认。"
@@ -159,8 +203,7 @@
     "captchaRequired": "请完成人机验证。",
     "captchaFailed": "验证失败，请重试。",
     "logout": "退出登录"
-  }
-  ,
+  },
   "feedback": {
     "buttonLabel": "提交反馈",
     "modalTitle": "分享你的反馈",
@@ -174,8 +217,7 @@
     "errorTooShort": "请至少输入 3 个字符。",
     "submitSuccess": "感谢你的反馈！",
     "submitError": "反馈发送失败"
-  }
-  ,
+  },
   "storage": {
     "uploadLabel": "上传文件",
     "hintPrivate": "默认私有。单个文件最大 {mb} MB。",
@@ -189,5 +231,14 @@
       "done": "完成",
       "error": "错误"
     }
+  },
+  "errors": {
+    "title": "出错了",
+    "description": "该页面无法显示。你可以重试，或返回首页。",
+    "retry": "重试",
+    "home": "返回首页",
+    "notFoundTitle": "页面不存在",
+    "notFoundDescription": "你访问的页面不存在或已被移动。",
+    "digest": "参考编号"
   }
 }

@@ -5,6 +5,10 @@
   "AUTH_CAPTCHA_REQUIRED": "请完成人机验证。",
   "AUTH_CAPTCHA_FAILED": "验证未通过，请重试。",
   "AUTH_ADMIN_READ_ONLY": "你的管理员账号为只读，无法执行写操作。",
+  "AUTH_INVALID_CREDENTIALS": "邮箱或密码不正确。",
+  "AUTH_USER_ALREADY_EXISTS": "该邮箱已注册。",
+  "AUTH_INVALID_TOKEN": "此链接无效或已过期，请重新获取。",
+  "AUTH_PASSWORD_TOO_SHORT": "密码长度不足。",
   "ACCOUNT_NOT_FOUND": "未找到该账户。",
 
   "REQUEST_INVALID": "请求无效。",
@@ -46,5 +50,6 @@
 
   "FEATURE_DISABLED": "该功能未开启。",
   "SERVICE_UNAVAILABLE": "服务暂时不可用，请稍后重试。",
-  "SERVER_ERROR": "服务器出错了，请稍后重试。"
+  "SERVER_ERROR": "服务器出错了，请稍后重试。",
+  "NETWORK_UNAVAILABLE": "无法连接服务器，请检查网络后重试。"
 }

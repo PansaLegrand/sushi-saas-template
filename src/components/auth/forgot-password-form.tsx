@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { authClient } from "@/lib/auth-client";
 import { AUTH_ROUTES, withLocale, absoluteWithLocale } from "@/config/auth";
 import { captchaHeaders } from "@/lib/captcha";
+import { resolveAuthError } from "@/lib/errors/auth-client";
 import {
   Turnstile,
   canSubmitWithCaptcha,
@@ -45,12 +46,12 @@ export default function ForgotPasswordForm() {
         fetchOptions: { headers: captchaHeaders(captchaToken) },
       });
       if (error) {
-        setError(error.message ?? t("errorGeneric"));
+        setError(resolveAuthError(error, locale));
       } else {
         setMessage(t("msgResetSent"));
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("errorGeneric"));
+    } catch {
+      setError(resolveAuthError(null, locale));
     } finally {
       // Single-use token: force a fresh challenge for any retry.
       turnstileRef.current?.reset();

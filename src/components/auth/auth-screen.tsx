@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { signIn, signUp, useSession } from "@/lib/auth-client";
 import { AUTH_ROUTES } from "@/config/auth";
 import { captchaHeaders } from "@/lib/captcha";
+import { resolveAuthError } from "@/lib/errors/auth-client";
 import {
   Turnstile,
   canSubmitWithCaptcha,
@@ -31,31 +32,6 @@ const INITIAL_STATE: FormState = {
   name: "",
 };
 
-type AuthErrorKey =
-  | "errorEmailNotVerified"
-  | "errorGeneric"
-  | "captchaRequired"
-  | "captchaFailed";
-
-function getAuthErrorMessage(
-  message: string | undefined,
-  translate: (key: AuthErrorKey) => string
-) {
-  if (message === "Email not verified") {
-    return translate("errorEmailNotVerified");
-  }
-
-  // Messages emitted by the Better Auth captcha plugin.
-  if (message === "Missing CAPTCHA response") {
-    return translate("captchaRequired");
-  }
-
-  if (message === "Captcha verification failed") {
-    return translate("captchaFailed");
-  }
-
-  return message ?? translate("errorGeneric");
-}
 
 export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
   const params = useParams<{ locale: string }>();
@@ -119,7 +95,7 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
         });
 
         if (error) {
-          setErrorMessage(getAuthErrorMessage(error.message, t));
+          setErrorMessage(resolveAuthError(error, locale));
         } else {
           router.replace(buildPath());
         }
@@ -133,7 +109,7 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
         });
 
         if (error) {
-          setErrorMessage(getAuthErrorMessage(error.message, t));
+          setErrorMessage(resolveAuthError(error, locale));
         } else {
           setSuccessMessage(t("msgVerifyEmailSent"));
           setMode("signIn");
@@ -141,8 +117,8 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
           router.replace(buildPath(AUTH_ROUTES.login));
         }
       }
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : t("errorGeneric"));
+    } catch {
+      setErrorMessage(resolveAuthError(null, locale));
     } finally {
       // Turnstile tokens are single-use, so a new challenge is needed whether
       // this attempt succeeded or failed.

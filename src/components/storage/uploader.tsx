@@ -2,9 +2,12 @@
 
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
-import { useTranslations } from "next-intl";
-import { Button } from "@/components/ui/button";
+import { useLocale, useTranslations } from "next-intl";
 import { UploadCloud } from "lucide-react";
+
+import { completeUpload, createUpload } from "@/api/storage";
+import { Button } from "@/components/ui/button";
+import { resolveErrorMessage } from "@/lib/errors/client";
 
 type UploadItem = {
   id: string;
@@ -47,39 +50,7 @@ export function Uploader() {
   const [isDragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const t = useTranslations("storage");
-
-  async function createUpload(file: File) {
-    const res = await fetch("/api/storage/uploads", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ filename: file.name, contentType: file.type || "application/octet-stream", size: file.size }),
-    });
-    const json = await res.json().catch(() => null as any);
-    if (!res.ok || !json || json.code !== 0) {
-      const msg = (json && json.message) || t("errorCreate");
-      throw new Error(msg);
-    }
-    return json.data as {
-      fileUuid: string;
-      uploadUrl: string;
-      method: "PUT";
-      headers?: Record<string, string>;
-    };
-  }
-
-  async function completeUpload(fileUuid: string) {
-    const res = await fetch("/api/storage/uploads/complete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fileUuid }),
-    });
-    const json = await res.json().catch(() => null as any);
-    if (!res.ok || !json || json.code !== 0) {
-      const msg = (json && json.message) || t("errorComplete");
-      throw new Error(msg);
-    }
-    return json.data as any;
-  }
+  const locale = useLocale();
 
   const queueFiles = useCallback((files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -92,7 +63,11 @@ export function Uploader() {
     (async () => {
       for (const f of Array.from(files)) {
         try {
-          const created = await createUpload(f);
+          const created = await createUpload({
+            filename: f.name,
+            contentType: f.type || "application/octet-stream",
+            size: f.size,
+          });
           setItems((prev) =>
             prev.map((it) => (it.name === f.name && it.status === "pending" ? { ...it, id: created.fileUuid, status: "uploading" } : it))
           );
@@ -101,7 +76,9 @@ export function Uploader() {
             setItems((prev) => prev.map((it) => (it.id === created.fileUuid ? { ...it, progress: pct } : it)));
           });
 
-          if (!res.ok) throw new Error(`upload failed: ${res.status}`);
+          // The PUT goes straight to object storage, not through our API, so
+          // there is no envelope to read — only the status tells us anything.
+          if (!res.ok) throw new Error("STORAGE_UPLOAD_FAILED");
           setItems((prev) => prev.map((it) => (it.id === created.fileUuid ? { ...it, status: "verifying", progress: 100 } : it)));
           await completeUpload(created.fileUuid);
           setItems((prev) => prev.map((it) => (it.id === created.fileUuid ? { ...it, status: "done" } : it)));
@@ -110,9 +87,9 @@ export function Uploader() {
           if (typeof window !== "undefined") {
             window.dispatchEvent(new Event("files:refresh"));
           }
-        } catch (err: any) {
-          console.error(err);
-          toast.error(err?.message || t("errorUpload"));
+        } catch (error) {
+          console.error(error);
+          toast.error(resolveErrorMessage(error, locale, "STORAGE_UPLOAD_FAILED"));
           setItems((prev) =>
             prev.map((it) =>
               it.name === f.name && (it.status === "pending" || it.status === "uploading" || it.status === "verifying")
@@ -123,7 +100,7 @@ export function Uploader() {
         }
       }
     })();
-  }, [t]);
+  }, [t, locale]);
 
   const onSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     queueFiles(e.target.files);

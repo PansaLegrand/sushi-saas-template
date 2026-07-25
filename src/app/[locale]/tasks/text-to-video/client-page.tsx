@@ -1,24 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ErrorBanner } from "@/components/errors/error-banner";
-import { useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
+import { useLocale, useTranslations } from "next-intl";
 
-interface CreateTaskResponse {
-  task: {
-    uuid: string;
-    status: string;
-    creditsUsed: number;
-    userInput?: string | null;
-    outputUrl?: string | null;
-    createdAt: string;
-    creditsTransNo?: string | null;
-  };
-}
+import { getCreditSummary } from "@/api/credits";
+import { createTextToVideoTask, getTask } from "@/api/tasks";
+import { ErrorBanner } from "@/components/errors/error-banner";
+import { Link } from "@/i18n/navigation";
+import { isClientApiError, resolveErrorMessage } from "@/lib/errors/client";
 
 export default function TextToVideoClientPage() {
   const t = useTranslations("tasks.textToVideo");
+  const locale = useLocale();
   const [prompt, setPrompt] = useState<string>("");
   const [seconds, setSeconds] = useState<string>("8");
   const [aspect, setAspect] = useState<string>("landscape");
@@ -36,14 +29,8 @@ export default function TextToVideoClientPage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/account/credits", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ includeLedger: false, includeExpiring: false }),
-        });
-        const payload = (await res.json()) as { code: number };
-        if (!res.ok || payload.code !== 0) setIsAuthed(false);
-        else setIsAuthed(true);
+        await getCreditSummary({ includeLedger: false, includeExpiring: false });
+        setIsAuthed(true);
       } catch {
         setIsAuthed(false);
       }
@@ -58,80 +45,51 @@ export default function TextToVideoClientPage() {
     setCreditsUsed(null);
 
     try {
-      const idempotencyKey =
-        typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-      const res = await fetch("/api/tasks/text-to-video", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": idempotencyKey,
-        },
-        body: JSON.stringify({
-          prompt,
-          seconds: Number(seconds) || 8,
-          aspectRatio: aspect,
-          idempotencyKey,
-        }),
+      const data = await createTextToVideoTask({
+        prompt,
+        seconds: Number(seconds) || 8,
+        aspectRatio: aspect,
       });
 
-      const payload = (await res.json()) as {
-        code: number;
-        message: string;
-        data?: CreateTaskResponse;
-      };
-
-      if (payload.code === -2 || res.status === 401) {
-        setIsAuthed(false);
-        throw new Error(t("errorNotSignedIn"));
-      }
-
-      if (!res.ok || payload.code !== 0 || !payload.data) {
-        throw new Error(payload?.message || "Request failed");
-      }
-
-      setOutputUrl(payload.data.task.outputUrl ?? null);
-      setTaskUuid(payload.data.task.uuid);
-      setCreditsUsed(payload.data.task.creditsUsed);
+      setOutputUrl(data.task.outputUrl ?? null);
+      setTaskUuid(data.task.uuid);
+      setCreditsUsed(data.task.creditsUsed);
     } catch (error) {
-      let msg = error instanceof Error ? error.message : t("errorGeneric");
-      if (typeof msg === "string" && msg.toLowerCase().includes("insufficient credits")) {
-        msg = t("insufficientCredits");
+      // Two failures get feature-specific copy from `messages/`; everything else
+      // resolves through the catalog. Both branches read the stable code rather
+      // than sniffing the message text, which used to mean a copy edit on the
+      // server silently disabled the "insufficient credits" case here.
+      if (isClientApiError(error) && error.code === "AUTH_REQUIRED") {
+        setIsAuthed(false);
+        setErrorMessage(t("errorNotSignedIn"));
+      } else if (isClientApiError(error) && error.code === "CREDITS_INSUFFICIENT") {
+        setErrorMessage(t("insufficientCredits"));
+      } else {
+        setErrorMessage(resolveErrorMessage(error, locale, "TASK_CREATE_FAILED"));
       }
-      setErrorMessage(msg);
     } finally {
       setIsSubmitting(false);
     }
-  }, [prompt, seconds, aspect, t]);
+  }, [prompt, seconds, aspect, t, locale]);
 
   const refreshTask = useCallback(async () => {
     if (!taskUuid) return;
     setIsRefreshing(true);
     setErrorMessage(null);
     try {
-      const res = await fetch(`/api/tasks/${taskUuid}`);
-      const payload = (await res.json()) as {
-        code: number;
-        message: string;
-        data?: { task: { status: string; outputUrl?: string | null } };
-      };
-      if (payload.code === -2 || res.status === 401) {
+      const data = await getTask(taskUuid);
+      setOutputUrl(data.task.outputUrl ?? null);
+    } catch (error) {
+      if (isClientApiError(error) && error.code === "AUTH_REQUIRED") {
         setIsAuthed(false);
-        throw new Error(t("errorNotSignedIn"));
+        setErrorMessage(t("errorNotSignedIn"));
+      } else {
+        setErrorMessage(resolveErrorMessage(error, locale));
       }
-      if (!res.ok || payload.code !== 0 || !payload.data) {
-        throw new Error(payload?.message || t("errorGeneric"));
-      }
-      setOutputUrl(payload.data.task.outputUrl ?? null);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : t("errorGeneric");
-      setErrorMessage(msg);
     } finally {
       setIsRefreshing(false);
     }
-  }, [taskUuid, t]);
+  }, [taskUuid, t, locale]);
 
   return (
     <main className="container mx-auto flex max-w-3xl flex-1 flex-col gap-6 px-6 py-12">

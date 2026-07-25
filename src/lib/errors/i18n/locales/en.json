@@ -5,6 +5,10 @@
   "AUTH_CAPTCHA_REQUIRED": "Please complete the verification challenge.",
   "AUTH_CAPTCHA_FAILED": "Verification failed. Please try again.",
   "AUTH_ADMIN_READ_ONLY": "Your admin account cannot perform write actions.",
+  "AUTH_INVALID_CREDENTIALS": "That email and password do not match.",
+  "AUTH_USER_ALREADY_EXISTS": "An account with that email already exists.",
+  "AUTH_INVALID_TOKEN": "This link is invalid or has expired. Request a new one.",
+  "AUTH_PASSWORD_TOO_SHORT": "That password is too short.",
   "ACCOUNT_NOT_FOUND": "Account not found.",
 
   "REQUEST_INVALID": "The request is invalid.",
@@ -46,5 +50,6 @@
 
   "FEATURE_DISABLED": "This feature is not enabled.",
   "SERVICE_UNAVAILABLE": "The service is temporarily unavailable. Please try again shortly.",
-  "SERVER_ERROR": "Something went wrong on our end. Please try again."
+  "SERVER_ERROR": "Something went wrong on our end. Please try again.",
+  "NETWORK_UNAVAILABLE": "Could not reach the server. Check your connection and try again."
 }

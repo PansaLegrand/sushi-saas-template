@@ -5,6 +5,10 @@
   "AUTH_CAPTCHA_REQUIRED": "Veuillez compléter la vérification.",
   "AUTH_CAPTCHA_FAILED": "La vérification a échoué. Veuillez réessayer.",
   "AUTH_ADMIN_READ_ONLY": "Votre compte administrateur est en lecture seule.",
+  "AUTH_INVALID_CREDENTIALS": "Cet e-mail et ce mot de passe ne correspondent pas.",
+  "AUTH_USER_ALREADY_EXISTS": "Un compte existe déjà avec cet e-mail.",
+  "AUTH_INVALID_TOKEN": "Ce lien est invalide ou a expiré. Demandez-en un nouveau.",
+  "AUTH_PASSWORD_TOO_SHORT": "Ce mot de passe est trop court.",
   "ACCOUNT_NOT_FOUND": "Compte introuvable.",
 
   "REQUEST_INVALID": "La requête n'est pas valide.",
@@ -46,5 +50,6 @@
 
   "FEATURE_DISABLED": "Cette fonctionnalité n'est pas activée.",
   "SERVICE_UNAVAILABLE": "Le service est temporairement indisponible. Veuillez réessayer sous peu.",
-  "SERVER_ERROR": "Une erreur est survenue de notre côté. Veuillez réessayer."
+  "SERVER_ERROR": "Une erreur est survenue de notre côté. Veuillez réessayer.",
+  "NETWORK_UNAVAILABLE": "Impossible de joindre le serveur. Vérifiez votre connexion et réessayez."
 }

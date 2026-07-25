@@ -5,6 +5,10 @@
   "AUTH_CAPTCHA_REQUIRED": "認証チャレンジを完了してください。",
   "AUTH_CAPTCHA_FAILED": "認証に失敗しました。もう一度お試しください。",
   "AUTH_ADMIN_READ_ONLY": "この管理者アカウントは閲覧専用のため、書き込み操作はできません。",
+  "AUTH_INVALID_CREDENTIALS": "メールアドレスまたはパスワードが正しくありません。",
+  "AUTH_USER_ALREADY_EXISTS": "このメールアドレスのアカウントは既に存在します。",
+  "AUTH_INVALID_TOKEN": "このリンクは無効か、有効期限が切れています。再度お試しください。",
+  "AUTH_PASSWORD_TOO_SHORT": "パスワードが短すぎます。",
   "ACCOUNT_NOT_FOUND": "アカウントが見つかりません。",
 
   "REQUEST_INVALID": "リクエストが不正です。",
@@ -46,5 +50,6 @@
 
   "FEATURE_DISABLED": "この機能は有効になっていません。",
   "SERVICE_UNAVAILABLE": "サービスが一時的に利用できません。しばらくしてからお試しください。",
-  "SERVER_ERROR": "サーバー側で問題が発生しました。もう一度お試しください。"
+  "SERVER_ERROR": "サーバー側で問題が発生しました。もう一度お試しください。",
+  "NETWORK_UNAVAILABLE": "サーバーに接続できませんでした。通信環境を確認して、もう一度お試しください。"
 }

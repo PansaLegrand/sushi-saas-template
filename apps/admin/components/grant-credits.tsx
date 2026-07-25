@@ -1,28 +1,15 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import type { ApiResponse } from "@/types/api";
+
+import { getUserCredits, grantCredits } from "@admin/lib/api";
+import { Input } from "@/components/ui/input";
+import { StatCard } from "@/components/ui/card";
+import { resolveErrorMessage } from "@/lib/errors/client";
+import type { CreditSummary } from "@/types/credit";
 
 interface Props {
   canWrite: boolean;
-}
-
-interface CreditLedgerEntry {
-  transNo: string;
-  transType: string;
-  credits: number;
-  createdAt: string;
-  orderNo?: string | null;
-  expiredAt?: string | null;
-}
-
-interface CreditSummary {
-  balance: number;
-  granted: number;
-  consumed: number;
-  expired: number;
-  expiringSoon?: any[];
-  ledger: CreditLedgerEntry[];
 }
 
 export default function GrantCreditsPanel({ canWrite }: Props) {
@@ -41,12 +28,9 @@ export default function GrantCreditsPanel({ canWrite }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/users/${encodeURIComponent(userUuid)}/credits`);
-      const payload = (await res.json()) as ApiResponse<CreditSummary>;
-      if (!res.ok || payload.code !== 0) throw new Error(payload.message || "Failed");
-      setSummary(payload.data ?? null);
+      setSummary(await getUserCredits(userUuid));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load");
+      setError(resolveErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -62,24 +46,16 @@ export default function GrantCreditsPanel({ canWrite }: Props) {
     setLoading(true);
     setError(null);
     try {
-      // One key per attempt: a retry of this request cannot double-credit.
-      const res = await fetch(`/api/admin/credits/grant`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userUuid,
-          credits,
-          expiredAt: expiredAt || null,
-          idempotencyKey: crypto.randomUUID(),
-          note: note.trim() || undefined,
-        }),
+      await grantCredits({
+        userUuid,
+        credits,
+        expiredAt: expiredAt || null,
+        note: note.trim() || undefined,
       });
-      const payload = (await res.json()) as ApiResponse<any>;
-      if (!res.ok || payload.code !== 0) throw new Error(payload.message || "Grant failed");
       setNote("");
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Grant credits failed");
+      setError(resolveErrorMessage(e, null, "CREDITS_GRANT_FAILED"));
     } finally {
       setLoading(false);
     }
@@ -88,31 +64,30 @@ export default function GrantCreditsPanel({ canWrite }: Props) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <input
-          className="rounded border px-3 py-2"
+        <Input
+          aria-label="User UUID"
           placeholder="User UUID"
           value={userUuid}
           onChange={(e) => setUserUuid(e.currentTarget.value)}
         />
-        <input
-          className="rounded border px-3 py-2"
+        <Input
+          aria-label="Credits"
           type="number"
           min={1}
           placeholder="Credits"
           value={amount}
           onChange={(e) => setAmount(e.currentTarget.value)}
         />
-        <input
-          className="rounded border px-3 py-2"
+        <Input
+          aria-label="Expires (optional)"
           type="datetime-local"
-          placeholder="Expires (optional)"
           value={expiredAt}
           onChange={(e) => setExpiredAt(e.currentTarget.value)}
         />
       </div>
 
-      <input
-        className="w-full rounded border px-3 py-2"
+      <Input
+        aria-label="Reason"
         placeholder="Reason (recorded in the audit log)"
         value={note}
         onChange={(e) => setNote(e.currentTarget.value)}
@@ -136,15 +111,19 @@ export default function GrantCreditsPanel({ canWrite }: Props) {
         </button>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
 
       {summary && (
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="Balance" value={summary.balance} />
-            <Stat label="Granted" value={summary.granted} />
-            <Stat label="Consumed" value={summary.consumed} />
-            <Stat label="Expired" value={summary.expired} />
+            <StatCard label="Balance" value={summary.balance} />
+            <StatCard label="Granted" value={summary.granted} />
+            <StatCard label="Consumed" value={summary.consumed} />
+            <StatCard label="Expired" value={summary.expired} />
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -174,15 +153,6 @@ export default function GrantCreditsPanel({ canWrite }: Props) {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-md border p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-lg font-semibold">{value}</p>
     </div>
   );
 }

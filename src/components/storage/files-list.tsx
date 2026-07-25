@@ -1,9 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Download, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Download, FileIcon, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useLocale } from "next-intl";
+
+import { deleteFile, getDownloadUrl, listFiles } from "@/api/storage";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
+import { resolveErrorMessage } from "@/lib/errors/client";
 import type { FileObject } from "@/types/storage";
 
 function fmtSize(n: number): string {
@@ -19,6 +25,7 @@ function fmtSize(n: number): string {
 }
 
 export default function FilesList() {
+  const locale = useLocale();
   const [items, setItems] = useState<FileObject[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -26,19 +33,14 @@ export default function FilesList() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/storage/files");
-      const json = await res.json().catch(() => null as any);
-      if (!res.ok || !json || json.code !== 0) {
-        const msg = (json && json.message) || "Failed to load files";
-        throw new Error(msg);
-      }
-      setItems(json.data?.items || []);
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to load files");
+      const data = await listFiles();
+      setItems(data?.items ?? []);
+    } catch (error) {
+      toast.error(resolveErrorMessage(error, locale));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [locale]);
 
   useEffect(() => {
     load();
@@ -47,62 +49,73 @@ export default function FilesList() {
     return () => window.removeEventListener("files:refresh", onRefresh);
   }, [load]);
 
-  const hasItems = useMemo(() => items && items.length > 0, [items]);
-
-  const onDownload = useCallback(async (uuid: string) => {
-    setBusyId(uuid);
-    try {
-      const res = await fetch(`/api/storage/files/${uuid}?download=1`);
-      const json = await res.json().catch(() => null as any);
-      if (!res.ok || !json || json.code !== 0) {
-        const msg = (json && json.message) || "Failed to get download URL";
-        throw new Error(msg);
+  const onDownload = useCallback(
+    async (uuid: string) => {
+      setBusyId(uuid);
+      try {
+        const { downloadUrl } = await getDownloadUrl(uuid);
+        // A 200 with no URL is a server bug, not something the user can act on.
+        // The catalogued code keeps the message translated and non-technical.
+        if (!downloadUrl) throw new Error("STORAGE_OBJECT_MISSING");
+        window.open(downloadUrl, "_blank");
+      } catch (error) {
+        toast.error(resolveErrorMessage(error, locale));
+      } finally {
+        setBusyId(null);
       }
-      const url: string | undefined = json.data?.downloadUrl;
-      if (!url) throw new Error("No download URL");
-      window.open(url, "_blank");
-    } catch (e: any) {
-      toast.error(e?.message || "Download failed");
-    } finally {
-      setBusyId(null);
-    }
-  }, []);
+    },
+    [locale]
+  );
 
-  const onDelete = useCallback(async (uuid: string) => {
-    const ok = window.confirm("Delete this file? This cannot be undone.");
-    if (!ok) return;
-    setBusyId(uuid);
-    try {
-      const res = await fetch(`/api/storage/files/${uuid}`, { method: "DELETE" });
-      const json = await res.json().catch(() => null as any);
-      if (!res.ok || !json || json.code !== 0) {
-        const msg = (json && json.message) || "Delete failed";
-        throw new Error(msg);
+  const onDelete = useCallback(
+    async (uuid: string) => {
+      const ok = window.confirm("Delete this file? This cannot be undone.");
+      if (!ok) return;
+      setBusyId(uuid);
+      try {
+        await deleteFile(uuid);
+        setItems((prev) => prev.filter((it) => it.uuid !== uuid));
+        toast.success("Deleted");
+      } catch (error) {
+        toast.error(resolveErrorMessage(error, locale));
+      } finally {
+        setBusyId(null);
       }
-      setItems((prev) => prev.filter((it) => it.uuid !== uuid));
-      toast.success("Deleted");
-    } catch (e: any) {
-      toast.error(e?.message || "Delete failed");
-    } finally {
-      setBusyId(null);
-    }
-  }, []);
+    },
+    [locale]
+  );
 
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-medium">Your Files</h3>
+
       {loading ? (
-        <div className="rounded border p-4 text-sm text-muted-foreground">Loading…</div>
-      ) : !hasItems ? (
-        <div className="rounded border p-6 text-center text-sm text-muted-foreground">No files yet.</div>
+        <div className="space-y-2" aria-busy="true" aria-live="polite">
+          <span className="sr-only">Loading files…</span>
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-16 w-full" />
+          ))}
+        </div>
+      ) : items.length === 0 ? (
+        <EmptyState
+          icon={<FileIcon className="h-6 w-6" />}
+          title="No files yet"
+          description="Files you upload will appear here."
+        />
       ) : (
         <ul className="divide-y rounded border">
           {items.map((f) => (
-            <li key={f.uuid} className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <li
+              key={f.uuid}
+              className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between"
+            >
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">{f.original_filename || f.key}</div>
+                <div className="truncate text-sm font-medium">
+                  {f.original_filename || f.key}
+                </div>
                 <div className="mt-0.5 text-xs text-muted-foreground">
-                  {fmtSize(f.size)} • {new Date(f.created_at as any).toLocaleString()} • {f.status}
+                  {fmtSize(f.size)} • {new Date(f.created_at as any).toLocaleString()} •{" "}
+                  {f.status}
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">

@@ -28,14 +28,38 @@
     "features": {
       "title": "What’s inside",
       "items": [
-        { "title": "Modern, open‑source stack", "description": "Next.js 15, TypeScript, Tailwind — a production‑ready boilerplate to launch faster." },
-        { "title": "Auth & RBAC (Better Auth)", "description": "Email + Google sign‑in, secure sessions, and role checks with Drizzle." },
-        { "title": "Global i18n", "description": "Localized routes and messages so you can serve multiple languages easily." },
-        { "title": "Stripe billing + Credits", "description": "Checkout, subscriptions, and a flexible credits ledger for usage‑based models." },
-        { "title": "Reservations module", "description": "Bookings with availability, deposits or full payment, confirmations, and calendar invites." },
-        { "title": "Affiliate referrals", "description": "Invite links, tracked signups, and configurable rewards to fuel growth." },
-        { "title": "Admin panel", "description": "Manage users, orders, credits, reservations, and affiliates with role‑based access." },
-        { "title": "Docs & MDX", "description": "Built‑in docs/blog using MDX + Fumadocs with solid SEO metadata." }
+        {
+          "title": "Modern, open‑source stack",
+          "description": "Next.js 15, TypeScript, Tailwind — a production‑ready boilerplate to launch faster."
+        },
+        {
+          "title": "Auth & RBAC (Better Auth)",
+          "description": "Email + Google sign‑in, secure sessions, and role checks with Drizzle."
+        },
+        {
+          "title": "Global i18n",
+          "description": "Localized routes and messages so you can serve multiple languages easily."
+        },
+        {
+          "title": "Stripe billing + Credits",
+          "description": "Checkout, subscriptions, and a flexible credits ledger for usage‑based models."
+        },
+        {
+          "title": "Reservations module",
+          "description": "Bookings with availability, deposits or full payment, confirmations, and calendar invites."
+        },
+        {
+          "title": "Affiliate referrals",
+          "description": "Invite links, tracked signups, and configurable rewards to fuel growth."
+        },
+        {
+          "title": "Admin panel",
+          "description": "Manage users, orders, credits, reservations, and affiliates with role‑based access."
+        },
+        {
+          "title": "Docs & MDX",
+          "description": "Built‑in docs/blog using MDX + Fumadocs with solid SEO metadata."
+        }
       ]
     },
     "showcases": {
@@ -56,25 +80,48 @@
     "stack": {
       "title": "Tech stack",
       "items": [
-        { "name": "Next.js 15", "description": "App Router, React Server Components" },
-        { "name": "Tailwind CSS", "description": "Utility-first styling" },
-        { "name": "Better Auth", "description": "Authentication & sessions" },
-        { "name": "Drizzle ORM", "description": "Type-safe SQL and migrations" }
+        {
+          "name": "Next.js 15",
+          "description": "App Router, React Server Components"
+        },
+        {
+          "name": "Tailwind CSS",
+          "description": "Utility-first styling"
+        },
+        {
+          "name": "Better Auth",
+          "description": "Authentication & sessions"
+        },
+        {
+          "name": "Drizzle ORM",
+          "description": "Type-safe SQL and migrations"
+        }
       ]
     },
     "about": {
       "title": "What is Sushi Templates?",
       "intro": "Sushi Templates is a launch-ready SaaS starter that gives founders a complete, secure codebase so you can start selling in hours instead of months.",
       "points": [
-        { "title": "Launch in a morning", "description": "Prebuilt auth, billing, credits, docs/blog, and landing so you skip boilerplate and ship faster." },
-        { "title": "Complete, modern stack", "description": "Next.js 15 App Router, TypeScript, Tailwind, Better Auth, Drizzle, Stripe, storage, and i18n all wired together." },
-        { "title": "Secure by default", "description": "Session security, role checks, guarded APIs, private storage with presigned URLs, and environment-driven secrets—no hardcoded keys." },
-        { "title": "Ready to grow", "description": "Usage-based credits, task tracking, SEO-friendly blog/docs, and admin screens so you can iterate with confidence." }
+        {
+          "title": "Launch in a morning",
+          "description": "Prebuilt auth, billing, credits, docs/blog, and landing so you skip boilerplate and ship faster."
+        },
+        {
+          "title": "Complete, modern stack",
+          "description": "Next.js 15 App Router, TypeScript, Tailwind, Better Auth, Drizzle, Stripe, storage, and i18n all wired together."
+        },
+        {
+          "title": "Secure by default",
+          "description": "Session security, role checks, guarded APIs, private storage with presigned URLs, and environment-driven secrets—no hardcoded keys."
+        },
+        {
+          "title": "Ready to grow",
+          "description": "Usage-based credits, task tracking, SEO-friendly blog/docs, and admin screens so you can iterate with confidence."
+        }
       ]
     },
     "footer": "Crafted in Next.js 15 with Tailwind CSS and Better Auth."
-  }
-  ,
+  },
   "tasks": {
     "textToVideo": {
       "title": "Text to Video",
@@ -105,21 +152,16 @@
       "linkLogin": "Log in",
       "or": "or"
     }
-  }
-  ,
+  },
   "docs": {
     "title": "Documentation",
     "intro": "Hands-on guides for setting up and extending this starter kit.",
     "back": "Back to home"
-  }
-  
-  ,
+  },
   "blogs": {
     "title": "Blog",
     "intro": "Latest guides and updates to help you ship faster."
-  }
-  
-  ,
+  },
   "reservation": {
     "title": "Reserve a service",
     "subtitle": "Pick a service, choose a time, and confirm with a small deposit."
@@ -161,8 +203,7 @@
     "captchaRequired": "Please complete the verification challenge.",
     "captchaFailed": "Verification failed. Please try again.",
     "logout": "Log out"
-  }
-  ,
+  },
   "feedback": {
     "buttonLabel": "Send Feedback",
     "modalTitle": "Share Your Feedback",
@@ -176,8 +217,7 @@
     "errorTooShort": "Please enter at least 3 characters.",
     "submitSuccess": "Thanks for your feedback!",
     "submitError": "Failed to send feedback"
-  }
-  ,
+  },
   "storage": {
     "uploadLabel": "Upload files",
     "hintPrivate": "Private by default. Max size {mb} MB each.",
@@ -191,5 +231,14 @@
       "done": "done",
       "error": "error"
     }
+  },
+  "errors": {
+    "title": "Something went wrong",
+    "description": "This page could not be displayed. You can try again, or head back to the home page.",
+    "retry": "Try again",
+    "home": "Go home",
+    "notFoundTitle": "Page not found",
+    "notFoundDescription": "The page you are looking for does not exist or has moved.",
+    "digest": "Reference"
   }
 }

@@ -13,7 +13,7 @@ a pure function wastes everyone's time.
 
 ---
 
-## The four tiers
+## The five tiers
 
 Each tier has a fixed location, a fixed budget, and — most importantly — a rule
 about what it is **allowed to mock**. Mocking discipline is what keeps tiers from
@@ -24,6 +24,7 @@ collapsing into each other.
 | **Unit** | `tests/unit/` | nothing | import routes or models | < 5 ms |
 | **Route** | `tests/api/` | `@/services/*`, `@/models/*`, external SDKs | mock `@/lib/*` guards | < 50 ms |
 | **Service** | `tests/services/` | `@/models/*`, external SDKs | mock the module under test | < 50 ms |
+| **Component** | `tests/components/` | `fetch` | mock the component under test | < 100 ms |
 | **Database** | `tests/db/` | nothing | run without a real Postgres | opt-in |
 
 ### Unit — `tests/unit/`
@@ -54,6 +55,24 @@ does not exist in production.
 Orchestration logic — the code between a route and the database. Mocks
 `@/models/*` and SDKs, never the module under test. This is where retry
 behaviour, credit arithmetic, and job dispatch get their fast coverage.
+
+### Component — `tests/components/`
+
+Runs in jsdom with Testing Library, as its own Vitest project — the `mocked`
+project only collects `.ts`, so a `.tsx` file here can never be pulled into a
+Node environment with no `document`. Files are `*.test.tsx`; `setup.ts` installs
+jest-dom matchers and the DOM APIs Radix needs that jsdom lacks
+(`ResizeObserver`, pointer capture).
+
+What belongs here is **behaviour a user could notice and a type checker could
+not**: that a dialog traps focus and closes on Escape, that a label is actually
+associated with its input, that a failed request renders catalogued copy instead
+of the server's English. `stubGlobal("fetch", …)` is the only mock this tier
+needs — mocking the component under test defeats the purpose.
+
+What does not belong here: snapshot tests of markup, assertions that a prop was
+passed through, or anything that would fail on a purely visual change. Those
+break on every refactor and prove nothing.
 
 ### Database — `tests/db/`
 

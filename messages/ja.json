@@ -5,7 +5,10 @@
     "keywords": "saas テンプレート, next.js, better auth"
   },
   "landing": {
-    "nav": { "label": "Sushi SaaS", "blogs": "ブログ" },
+    "nav": {
+      "label": "Sushi SaaS",
+      "blogs": "ブログ"
+    },
     "hero": {
       "title": "朝のうちにあなたのスタートアップを出荷するお手伝いをします。",
       "subtitle": "丁寧に整えた土台とテンプレートで、あなたのアイデアを昼前に動くプロダクトへ。",
@@ -25,14 +28,38 @@
     "features": {
       "title": "主な内容",
       "items": [
-        { "title": "モダンなOSSスタック", "description": "Next.js 15 / TypeScript / Tailwind — すぐに出荷できる土台。" },
-        { "title": "認証とRBAC（Better Auth）", "description": "メール + Google サインイン、セッション、ロールチェックを Drizzle と共に。" },
-        { "title": "グローバル i18n", "description": "ローカライズされたルートとメッセージで多言語提供を容易に。" },
-        { "title": "Stripe 課金 + クレジット", "description": "チェックアウト、サブスク、柔軟なクレジット元帳で従量課金も対応。" },
-        { "title": "予約モジュール", "description": "空き状況、前払いや全額決済、確認メール、カレンダー招待まで。" },
-        { "title": "アフィリエイト/紹介", "description": "招待リンク、計測されたサインアップ、設定可能な報酬で成長を後押し。" },
-        { "title": "管理画面", "description": "ユーザー/注文/クレジット/予約/アフィリエイトをロールで管理。" },
-        { "title": "Docs と MDX", "description": "MDX + Fumadocs による内蔵ドキュメント/ブログと適切な SEO。" }
+        {
+          "title": "モダンなOSSスタック",
+          "description": "Next.js 15 / TypeScript / Tailwind — すぐに出荷できる土台。"
+        },
+        {
+          "title": "認証とRBAC（Better Auth）",
+          "description": "メール + Google サインイン、セッション、ロールチェックを Drizzle と共に。"
+        },
+        {
+          "title": "グローバル i18n",
+          "description": "ローカライズされたルートとメッセージで多言語提供を容易に。"
+        },
+        {
+          "title": "Stripe 課金 + クレジット",
+          "description": "チェックアウト、サブスク、柔軟なクレジット元帳で従量課金も対応。"
+        },
+        {
+          "title": "予約モジュール",
+          "description": "空き状況、前払いや全額決済、確認メール、カレンダー招待まで。"
+        },
+        {
+          "title": "アフィリエイト/紹介",
+          "description": "招待リンク、計測されたサインアップ、設定可能な報酬で成長を後押し。"
+        },
+        {
+          "title": "管理画面",
+          "description": "ユーザー/注文/クレジット/予約/アフィリエイトをロールで管理。"
+        },
+        {
+          "title": "Docs と MDX",
+          "description": "MDX + Fumadocs による内蔵ドキュメント/ブログと適切な SEO。"
+        }
       ]
     },
     "showcases": {
@@ -53,20 +80,44 @@
     "stack": {
       "title": "使用技術",
       "items": [
-        { "name": "Next.js 15", "description": "App Router とサーバーコンポーネント" },
-        { "name": "Tailwind CSS", "description": "ユーティリティファーストなスタイル" },
-        { "name": "Better Auth", "description": "認証とセッション" },
-        { "name": "Drizzle ORM", "description": "型安全な SQL とマイグレーション" }
+        {
+          "name": "Next.js 15",
+          "description": "App Router とサーバーコンポーネント"
+        },
+        {
+          "name": "Tailwind CSS",
+          "description": "ユーティリティファーストなスタイル"
+        },
+        {
+          "name": "Better Auth",
+          "description": "認証とセッション"
+        },
+        {
+          "name": "Drizzle ORM",
+          "description": "型安全な SQL とマイグレーション"
+        }
       ]
     },
     "about": {
       "title": "Sushi Templates とは？",
       "intro": "Sushi Templates は、創業者が数か月ではなく数時間で販売を始められるよう、完全で安全なコードベースを提供するローンチ済みの SaaS スターターです。",
       "points": [
-        { "title": "朝のうちにリリース", "description": "認証、課金、クレジット、ドキュメント/ブログ、LP をあらかじめ実装し、ボイラープレートを飛ばしてすぐに出荷できます。" },
-        { "title": "最新のフルスタック", "description": "Next.js 15 App Router、TypeScript、Tailwind、Better Auth、Drizzle、Stripe、ストレージ、i18n が最初から結線済み。" },
-        { "title": "デフォルトでセキュア", "description": "セッションの安全性、ロールチェック、保護された API、署名付き URL のプライベートストレージ、環境変数で管理するシークレットを備えています。" },
-        { "title": "成長に備えた構成", "description": "従量クレジット、タスクトラッキング、SEO に強いブログ/ドキュメント、管理画面で安心して反復できます。" }
+        {
+          "title": "朝のうちにリリース",
+          "description": "認証、課金、クレジット、ドキュメント/ブログ、LP をあらかじめ実装し、ボイラープレートを飛ばしてすぐに出荷できます。"
+        },
+        {
+          "title": "最新のフルスタック",
+          "description": "Next.js 15 App Router、TypeScript、Tailwind、Better Auth、Drizzle、Stripe、ストレージ、i18n が最初から結線済み。"
+        },
+        {
+          "title": "デフォルトでセキュア",
+          "description": "セッションの安全性、ロールチェック、保護された API、署名付き URL のプライベートストレージ、環境変数で管理するシークレットを備えています。"
+        },
+        {
+          "title": "成長に備えた構成",
+          "description": "従量クレジット、タスクトラッキング、SEO に強いブログ/ドキュメント、管理画面で安心して反復できます。"
+        }
       ]
     },
     "footer": "Next.js 15、Tailwind CSS、Better Auth で構築。"
@@ -75,8 +126,7 @@
     "title": "ドキュメント",
     "intro": "このスターターキットのセットアップと拡張のための実践ガイド。",
     "back": "ホームに戻る"
-  }
-  ,
+  },
   "tasks": {
     "textToVideo": {
       "title": "テキストから動画",
@@ -107,13 +157,11 @@
       "linkLogin": "ログイン",
       "or": "または"
     }
-  }
-  ,
+  },
   "blogs": {
     "title": "ブログ",
     "intro": "最新のガイドとアップデートで開発を加速。"
-  }
-  ,
+  },
   "reservation": {
     "title": "サービスの予約",
     "subtitle": "サービスを選び、時間を選択して、小さな前払いで確定します。"
@@ -155,8 +203,7 @@
     "captchaRequired": "認証チャレンジを完了してください。",
     "captchaFailed": "認証に失敗しました。もう一度お試しください。",
     "logout": "ログアウト"
-  }
-  ,
+  },
   "feedback": {
     "buttonLabel": "フィードバックを送信",
     "modalTitle": "フィードバックをお聞かせください",
@@ -170,8 +217,7 @@
     "errorTooShort": "3文字以上入力してください。",
     "submitSuccess": "フィードバックありがとうございます！",
     "submitError": "フィードバックの送信に失敗しました"
-  }
-  ,
+  },
   "storage": {
     "uploadLabel": "ファイルをアップロード",
     "hintPrivate": "既定で非公開。各ファイルの最大サイズは {mb} MB です。",
@@ -185,5 +231,14 @@
       "done": "完了",
       "error": "エラー"
     }
+  },
+  "errors": {
+    "title": "問題が発生しました",
+    "description": "このページを表示できませんでした。再試行するか、ホームに戻ってください。",
+    "retry": "再試行",
+    "home": "ホームへ戻る",
+    "notFoundTitle": "ページが見つかりません",
+    "notFoundDescription": "お探しのページは存在しないか、移動されました。",
+    "digest": "参照番号"
   }
 }

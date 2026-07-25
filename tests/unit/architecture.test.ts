@@ -37,6 +37,17 @@ const FILES = sourceFiles(SRC).map((file) => ({
   body: readFileSync(file, "utf8"),
 }));
 
+/**
+ * Drop comments before pattern-matching source.
+ *
+ * Rules that look for a construct rather than an import have to, or a comment
+ * explaining why the construct is banned trips the rule that bans it — which is
+ * exactly what happened to `src/app/[locale]/error.tsx`.
+ */
+function stripComments(body: string): string {
+  return body.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+}
+
 function importsModule(body: string, specifier: string): boolean {
   // Matches `from "@/db"` and `from "@/db/schema"`, but not `from "@/db-utils"`.
   return new RegExp(`from ["']${specifier}(/[^"']*)?["']`).test(body);
@@ -133,6 +144,88 @@ describe("layering", () => {
     ).map(({ path }) => path);
 
     expect(offenders).toEqual([]);
+  });
+
+  it("keeps the browser API layer free of server code", () => {
+    // src/api/ runs in the browser. Importing a service pulls the whole server
+    // dependency chain — db driver, secrets, `server-only` — into the client
+    // bundle, and in the best case the build fails loudly instead of quietly
+    // shipping a connection string.
+    const offenders: string[] = [];
+
+    for (const { path, body } of FILES) {
+      if (!path.startsWith("src/api/")) continue;
+
+      for (const specifier of ["@/services", "@/models", "@/db", "@/app"]) {
+        if (importsModule(body, specifier)) {
+          offenders.push(`${path} imports ${specifier}`);
+        }
+      }
+    }
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("routes every browser API call through the client", () => {
+    // A raw `fetch` in a component is how the `payload.message` pattern comes
+    // back: it has to hand-roll envelope unwrapping and error handling, and the
+    // hand-rolled version is what leaked untranslated server text to users.
+    // Endpoint wrappers belong in src/api/, which calls src/lib/api/client.ts.
+    const ALLOWED = new Set([
+      // The one legitimate caller: it owns the fetch primitive.
+      "src/lib/api/client.ts",
+      // Uploads PUT directly to object storage over XHR for progress events,
+      // and that response has no envelope to unwrap.
+      "src/components/storage/uploader.tsx",
+    ]);
+
+    const offenders = FILES.filter(
+      ({ path, body }) =>
+        (path.startsWith("src/components/") || path.startsWith("src/app/[locale]/")) &&
+        !ALLOWED.has(path) &&
+        /\bfetch\s*\(/.test(stripComments(body))
+    ).map(({ path }) => path);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("never renders a raw error message", () => {
+    // The no-leak guarantee, enforced. UI code resolves failures through the
+    // catalog (`resolveErrorMessage` / `resolveAuthError`); reading `.message`
+    // off a caught error puts backend or library English on screen, in whatever
+    // locale the user is not using.
+    const offenders: string[] = [];
+
+    for (const { path, body } of FILES) {
+      const isUi =
+        path.startsWith("src/components/") ||
+        (path.startsWith("src/app/") && !path.startsWith("src/app/api/"));
+      if (!isUi) continue;
+
+      // `error_message` is a task table column, not an exception, and \b keeps
+      // it from matching.
+      if (/\b(?:err|error|e)\??\.message\b/.test(stripComments(body))) {
+        offenders.push(path);
+      }
+    }
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("gives every route segment an error boundary", () => {
+    // Without these, a throw during render reaches Next's default screen, which
+    // in production is an untranslated "Application error" with no way back.
+    for (const file of [
+      "src/app/global-error.tsx",
+      // Both not-found files are required and cover different cases: the root
+      // one catches URLs that match no route, the nested one catches an
+      // explicit `notFound()` from a localized page.
+      "src/app/not-found.tsx",
+      "src/app/[locale]/error.tsx",
+      "src/app/[locale]/not-found.tsx",
+    ]) {
+      expect(FILES.some(({ path }) => path === file), `missing ${file}`).toBe(true);
+    }
   });
 });
 

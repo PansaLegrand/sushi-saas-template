@@ -1,44 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useLocale } from "next-intl";
+
+import { consumeCredits as requestConsume, getCreditSummary } from "@/api/credits";
+import { getLatestTask, type TaskRecord } from "@/api/tasks";
 import { ErrorBanner } from "@/components/errors/error-banner";
+import { resolveErrorMessage } from "@/lib/errors/client";
 import type { CreditSummary } from "@/types/credit";
-import type { ApiResponse } from "@/types/api";
 
 const LEDGER_LIMIT = 5;
 const DEFAULT_CONSUME_AMOUNT = 5;
 
-interface LatestTaskRecord {
-  uuid: string;
-  type: string;
-  status: string;
-  creditsUsed: number;
-  createdAt: string;
-  outputUrl?: string | null;
-}
-
-interface ConsumeResponse {
-  balance: number;
-}
-
 export default function CreditTesterPage() {
+  const locale = useLocale();
   const [summary, setSummary] = useState<CreditSummary | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isConsuming, setIsConsuming] = useState<boolean>(false);
-  const [latestTask, setLatestTask] = useState<LatestTaskRecord | null>(null);
-
-  // Helper that unwraps API responses and throws when the call fails.
-  const unwrap = useCallback(async <T,>(res: Response): Promise<T> => {
-    const payload = (await res.json()) as ApiResponse<T>;
-
-    if (!res.ok || payload.code !== 0 || payload.data === undefined) {
-      const label = payload?.message ?? "Request failed";
-      throw new Error(label);
-    }
-
-    return payload.data;
-  }, []);
+  const [latestTask, setLatestTask] = useState<TaskRecord | null>(null);
 
   // Loads the latest credit summary so we can display balance and ledger data.
   const fetchSummary = useCallback(async () => {
@@ -46,40 +26,27 @@ export default function CreditTesterPage() {
     setErrorMessage(null);
 
     try {
-      const response = await fetch("/api/account/credits", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      setSummary(
+        await getCreditSummary({
           includeLedger: true,
           ledgerLimit: LEDGER_LIMIT,
           includeExpiring: true,
-        }),
-      });
-
-      const data = await unwrap<CreditSummary>(response);
-      setSummary(data);
+        })
+      );
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unable to load credits";
-      setErrorMessage(message);
+      setErrorMessage(resolveErrorMessage(error, locale));
       setSummary(null);
     } finally {
       setIsLoading(false);
     }
-  }, [unwrap]);
+  }, [locale]);
 
   const fetchLatestTask = useCallback(async () => {
     try {
-      const response = await fetch("/api/tasks/latest", { method: "GET" });
-      const payload = (await response.json()) as ApiResponse<{ task: LatestTaskRecord | null }>;
-      if (!response.ok || payload.code !== 0) {
-        throw new Error(payload?.message ?? "Unable to load latest task");
-      }
-      setLatestTask(payload.data?.task ?? null);
+      const data = await getLatestTask();
+      setLatestTask(data?.task ?? null);
     } catch {
-      // Don’t block the page on task errors; just clear the latest task section
+      // Don't block the page on task errors; just clear the latest task section
       setLatestTask(null);
     }
   }, []);
@@ -90,25 +57,15 @@ export default function CreditTesterPage() {
     setErrorMessage(null);
 
     try {
-      const response = await fetch("/api/account/credits/consume", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ credits: DEFAULT_CONSUME_AMOUNT }),
-      });
-
-      await unwrap<ConsumeResponse>(response);
+      await requestConsume(DEFAULT_CONSUME_AMOUNT);
       await fetchSummary();
       await fetchLatestTask();
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unable to consume credits";
-      setErrorMessage(message);
+      setErrorMessage(resolveErrorMessage(error, locale));
     } finally {
       setIsConsuming(false);
     }
-  }, [fetchSummary, fetchLatestTask, unwrap]);
+  }, [fetchSummary, fetchLatestTask, locale]);
 
   useEffect(() => {
     void fetchSummary();

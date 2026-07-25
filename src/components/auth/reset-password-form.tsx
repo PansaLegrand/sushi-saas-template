@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 
 import { authClient } from "@/lib/auth-client";
 import { AUTH_ROUTES, withLocale } from "@/config/auth";
+import { resolveAuthError } from "@/lib/errors/auth-client";
 
 export default function ResetPasswordForm() {
   const t = useTranslations("auth");
@@ -39,13 +40,13 @@ export default function ResetPasswordForm() {
       }
       const { error } = await authClient.resetPassword({ newPassword: password, token });
       if (error) {
-        setError(error.message ?? t("errorGeneric"));
+        setError(resolveAuthError(error, locale));
       } else {
         setMessage(t("msgResetDone"));
         setTimeout(() => router.replace(withLocale(locale, AUTH_ROUTES.login)), 800);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("errorGeneric"));
+    } catch {
+      setError(resolveAuthError(null, locale));
     } finally {
       setSubmitting(false);
     }

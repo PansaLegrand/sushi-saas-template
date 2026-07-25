@@ -1,8 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Copy } from "lucide-react";
+import { toast } from "sonner";
+import { useLocale } from "next-intl";
+
+import { ensureInviteCode as requestInviteCode } from "@/api/affiliate";
+import { Button } from "@/components/ui/button";
+import { resolveErrorMessage } from "@/lib/errors/client";
 
 interface Props {
   initialInviteCode?: string;
@@ -20,28 +25,34 @@ export default function InviteLink({ initialInviteCode, initialShareUrl }: Props
   const [copied, setCopied] = useState(false);
 
   const disabled = useMemo(() => busy, [busy]);
+  const locale = useLocale();
 
-  async function ensureInviteCode(regen = false) {
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/affiliate/invite-code${regen ? "?regen=1" : ""}`, {
-        method: "POST",
-      });
-      if (!res.ok) return;
-      const json = await res.json();
-      const data = json?.data ?? {};
-      setInviteCode(data.inviteCode);
-      setShareUrl(data.shareUrl);
-    } finally {
-      setBusy(false);
-    }
-  }
+  const ensureInviteCode = useCallback(
+    async (regenerate = false) => {
+      setBusy(true);
+      try {
+        const data = await requestInviteCode({ regenerate });
+        setInviteCode(data?.inviteCode);
+        setShareUrl(data?.shareUrl);
+      } catch (error) {
+        // Previously swallowed on any non-OK response, which left the label
+        // stuck on "Generating..." with no indication anything had failed.
+        toast.error(resolveErrorMessage(error, locale));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [locale]
+  );
 
   useEffect(() => {
     if (!inviteCode) {
       // Generate on first mount if missing
-      ensureInviteCode(false);
+      void ensureInviteCode(false);
     }
+    // Runs once: regenerating on every ensureInviteCode identity change would
+    // issue a fresh code each render pass.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function copy() {
@@ -62,7 +73,7 @@ export default function InviteLink({ initialInviteCode, initialShareUrl }: Props
         <Button size="sm" variant="secondary" onClick={copy} disabled={!shareUrl}>
           <Copy className="mr-1 h-4 w-4" /> {copied ? "Copied" : "Copy"}
         </Button>
-        <Button size="sm" variant="outline" onClick={() => ensureInviteCode(true)} disabled={disabled}>
+        <Button size="sm" variant="outline" onClick={() => void ensureInviteCode(true)} disabled={disabled}>
           {busy ? "Working..." : "Regenerate"}
         </Button>
       </div>

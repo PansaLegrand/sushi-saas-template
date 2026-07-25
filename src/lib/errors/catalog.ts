@@ -60,6 +60,37 @@ export const ERROR_CATALOG = {
     statusCode: 403,
     defaultMessage: "Your admin account cannot perform write actions.",
   },
+  /**
+   * The next four exist so the sign-in forms never render Better Auth's own
+   * English strings. Its client returns `{ code, message }`; the codes below are
+   * listed as aliases so `normalizeErrorCode` maps either one, and anything it
+   * does not recognise falls through to SERVER_ERROR rather than reaching a user.
+   */
+  AUTH_INVALID_CREDENTIALS: {
+    statusCode: 401,
+    defaultMessage: "That email and password do not match.",
+    legacyCodes: ["INVALID_EMAIL_OR_PASSWORD", "Invalid email or password"],
+  },
+  AUTH_USER_ALREADY_EXISTS: {
+    statusCode: 409,
+    defaultMessage: "An account with that email already exists.",
+    legacyCodes: ["USER_ALREADY_EXISTS", "User already exists"],
+  },
+  AUTH_INVALID_TOKEN: {
+    statusCode: 400,
+    defaultMessage: "This link is invalid or has expired. Request a new one.",
+    legacyCodes: [
+      "INVALID_TOKEN",
+      "invalid token",
+      "TOKEN_EXPIRED",
+      "Invalid or expired token",
+    ],
+  },
+  AUTH_PASSWORD_TOO_SHORT: {
+    statusCode: 400,
+    defaultMessage: "That password is too short.",
+    legacyCodes: ["PASSWORD_TOO_SHORT", "Password too short"],
+  },
   ACCOUNT_NOT_FOUND: {
     statusCode: 404,
     defaultMessage: "Account not found.",
@@ -231,6 +262,17 @@ export const ERROR_CATALOG = {
     statusCode: 500,
     defaultMessage: "Something went wrong on our end. Please try again.",
     legacyCodes: ["INTERNAL_ERROR"],
+  },
+  /**
+   * Client-only: the request never reached us. Offline, DNS failure, a blocked
+   * origin, or a navigation that aborted the fetch. It has a status for
+   * completeness, but no route will ever return it — the browser raises it, and
+   * telling the user "something went wrong on our end" would be a lie that sends
+   * them to support instead of to their wifi.
+   */
+  NETWORK_UNAVAILABLE: {
+    statusCode: 503,
+    defaultMessage: "Could not reach the server. Check your connection and try again.",
   },
 } as const satisfies Record<string, ErrorCatalogEntry>;
 

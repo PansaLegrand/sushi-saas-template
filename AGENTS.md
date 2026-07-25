@@ -25,8 +25,9 @@ Two rules make this real:
 
 | Directory | Holds | Rule |
 | --- | --- | --- |
+| `api/` | Browser-side calls to this app's own API, one module per domain | Client-only. Never imports `services/`, `models/`, `db/`, or `app/` |
 | `app/` | App Router routes, `[locale]` pages, `api/` handlers | No business logic; call a service |
-| `components/` | Shared React components, grouped by domain (`auth/`, `storage/`, `blocks/`, `ui/`) | Presentational; no `db()`, no model imports |
+| `components/` | Shared React components, grouped by domain (`auth/`, `storage/`, `blocks/`, `ui/`) | Presentational; no `db()`, no model imports, no raw `fetch` |
 | `config/` | Product configuration: pricing plans, billing amounts, auth route map, reservation settings | Constants and env-derived flags only — no I/O, and never imports a service or model |
 | `db/` | Drizzle schema, migrations, connection factory | Read `docs/database.md` before changing the schema |
 | `i18n/` | Locale config and message loading (catalogs live in `messages/`) | Keep all five locales aligned |
@@ -59,7 +60,42 @@ one allowlisted exception is `src/lib/auth.ts`, which must hand the db instance
 to Better Auth's Drizzle adapter.
 
 The admin app keeps its own data layer at `apps/admin/lib/data.ts` by design —
-see `apps/admin/README.md`.
+see `apps/admin/README.md`. Its browser-side calls live in `apps/admin/lib/api.ts`
+for the same reason: nothing in `src/` should be able to reach an admin endpoint.
+
+### The frontend rules
+
+Data reaches the browser two ways, and mixing them is the mistake to avoid.
+
+```
+Server Component  ──▶ src/services/**        (direct call, no HTTP)
+Client Component  ──▶ src/api/**  ──▶  src/lib/api/client.ts  ──▶  /api/**
+```
+
+1. **Server Components call services directly.** Never fetch your own API from a
+   Server Component — it turns a zero-latency in-process call into an HTTP round
+   trip against your own server, and it is the easiest way to make a fast page
+   slow without noticing.
+2. **Client Components never call `fetch` directly.** Add an endpoint wrapper to
+   `src/api/` instead. A raw `fetch` has to hand-roll envelope unwrapping and
+   error handling, and the hand-rolled version is how untranslated server text
+   used to end up on screen. The two allowlisted exceptions are
+   `src/lib/api/client.ts`, which owns the primitive, and the uploader, which
+   PUTs to object storage over XHR for progress events.
+3. **Never render `error.message`.** Resolve failures through the catalog —
+   `resolveErrorMessage` for API errors, `resolveAuthError` for Better Auth. Both
+   map an unrecognized failure to a generic message rather than passing it
+   through, which is the same no-leak rule the server follows.
+4. **Every route segment has an error boundary.** `src/app/global-error.tsx`,
+   `src/app/[locale]/error.tsx`, and `src/app/[locale]/not-found.tsx` must exist.
+   Without them a throw during render reaches Next's default screen, which in
+   production is an untranslated "Application error" with no way back.
+5. **Reach for `src/components/ui/` before hand-styling.** `Dialog` (Radix — do
+   not hand-roll a modal), `Field`, `Input`, `Textarea`, `Select`, `Alert`,
+   `Card`, `Skeleton`, `EmptyState`. Add a primitive on the third duplicate, not
+   the first.
+
+All five are enforced by `tests/unit/architecture.test.ts`.
 
 ### Tasks & Credits (Usage‑based features)
 - Schema: `tasks` table in `src/db/schema.ts` holds generic task records (type, status, credits_used, user_input, output_url/json, error_message). Indexes by `user_uuid` and `status`.
@@ -102,7 +138,7 @@ Notes:
 
 ## Coding Style & Naming Conventions
 - TypeScript-first; prefer named exports and React Server Components unless client-only APIs force `"use client"`.
-- Compose UI with functional components, Tailwind utilities, and co-locate reusable pieces under `src/components`.
+- Compose UI with functional components, Tailwind utilities, and co-locate reusable pieces under `src/components`. Check `src/components/ui/` for an existing primitive first — see "The frontend rules" above.
 - Files stay kebab-case (`auth-screen.tsx`); colocate feature helpers and avoid deep relative imports—use `@/` alias instead.
 - Run `pnpm lint` before pushing; enable ESLint and Tailwind IntelliSense in your editor for consistent output.
  - Storage adapters: do not hardcode provider specifics in routes; extend `StorageAdapter` and select via `getStorageAdapter()`.

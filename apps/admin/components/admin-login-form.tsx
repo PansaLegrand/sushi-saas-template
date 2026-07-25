@@ -4,6 +4,7 @@ import { FormEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "@admin/lib/auth-client";
 import { captchaHeaders } from "@/lib/captcha";
+import { resolveAuthError } from "@/lib/errors/auth-client";
 import {
   Turnstile,
   canSubmitWithCaptcha,
@@ -41,14 +42,14 @@ export function AdminLoginForm() {
       });
 
       if (error) {
-        setErrorMessage(error.message ?? "Unable to sign in");
+        setErrorMessage(resolveAuthError(error));
         return;
       }
 
       router.replace("/");
       router.refresh();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Unable to sign in");
+    } catch {
+      setErrorMessage(resolveAuthError(null));
     } finally {
       turnstileRef.current?.reset();
       setSubmitting(false);

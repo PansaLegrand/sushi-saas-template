@@ -5,6 +5,10 @@
   "AUTH_CAPTCHA_REQUIRED": "Completa la verificación.",
   "AUTH_CAPTCHA_FAILED": "La verificación falló. Inténtalo de nuevo.",
   "AUTH_ADMIN_READ_ONLY": "Tu cuenta de administrador es de solo lectura.",
+  "AUTH_INVALID_CREDENTIALS": "Ese correo y esa contraseña no coinciden.",
+  "AUTH_USER_ALREADY_EXISTS": "Ya existe una cuenta con ese correo.",
+  "AUTH_INVALID_TOKEN": "Este enlace no es válido o ha caducado. Solicita uno nuevo.",
+  "AUTH_PASSWORD_TOO_SHORT": "Esa contraseña es demasiado corta.",
   "ACCOUNT_NOT_FOUND": "Cuenta no encontrada.",
 
   "REQUEST_INVALID": "La solicitud no es válida.",
@@ -46,5 +50,6 @@
 
   "FEATURE_DISABLED": "Esta función no está activada.",
   "SERVICE_UNAVAILABLE": "El servicio no está disponible temporalmente. Inténtalo de nuevo en unos minutos.",
-  "SERVER_ERROR": "Algo salió mal por nuestra parte. Inténtalo de nuevo."
+  "SERVER_ERROR": "Algo salió mal por nuestra parte. Inténtalo de nuevo.",
+  "NETWORK_UNAVAILABLE": "No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo."
 }

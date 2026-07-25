@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useAppContext } from "@/providers/app-context";
 import { useLocale } from "next-intl";
+import { createCheckout } from "@/api/checkout";
+import { isClientApiError, resolveErrorMessage } from "@/lib/errors/client";
 
 export default function Pricing({ pricing }: { pricing: PricingType }) {
   const locale = useLocale();
@@ -38,39 +40,21 @@ export default function Pricing({ pricing }: { pricing: PricingType }) {
       setIsLoading(true);
       setProductId(item.product_id);
 
-      const response = await fetch("/api/checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(params),
-      });
+      const data = await createCheckout(params);
 
-      if (response.status === 401) {
-        setIsLoading(false);
-        setProductId(null);
+      if (!data?.checkout_url) throw new Error("PAYMENT_SESSION_FAILED");
 
+      window.location.href = data.checkout_url;
+    } catch (error) {
+      // Branching on the code, not on message text: an unauthenticated user
+      // gets the sign-in modal rather than a toast they cannot act on.
+      if (isClientApiError(error) && error.code === "AUTH_REQUIRED") {
         setShowSignModal(true);
         return;
       }
 
-      const { code, message, data } = await response.json();
-      if (code !== 0) {
-        toast.error(message);
-        return;
-      }
-
-      const { checkout_url } = data;
-      if (!checkout_url) {
-        toast.error("checkout failed");
-        return;
-      }
-
-      window.location.href = checkout_url;
-    } catch (e) {
-      console.log("checkout failed: ", e);
-
-      toast.error("checkout failed");
+      console.error("checkout failed: ", error);
+      toast.error(resolveErrorMessage(error, locale, "PAYMENT_SESSION_FAILED"));
     } finally {
       setIsLoading(false);
       setProductId(null);

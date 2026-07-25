@@ -44,8 +44,25 @@ export default defineConfig({
         extends: true,
         test: {
           name: "mocked",
+          // `.ts` only, so the component tier's `.tsx` files cannot be pulled
+          // into a Node environment where `document` does not exist.
           include: ["tests/**/*.test.ts"],
-          exclude: ["tests/db/**"],
+          exclude: ["tests/db/**", "tests/components/**"],
+        },
+      },
+      {
+        extends: true,
+        // The root tsconfig sets `jsx: "preserve"` because Next does its own
+        // JSX compilation. Vitest transforms with esbuild, which honours that
+        // and emits raw JSX the runner cannot execute. Overriding it here is
+        // enough — `@vitejs/plugin-react` would also work but exists mainly for
+        // Fast Refresh, which no test needs.
+        esbuild: { jsx: "automatic", jsxImportSource: "react" },
+        test: {
+          name: "components",
+          environment: "jsdom",
+          include: ["tests/components/**/*.test.tsx"],
+          setupFiles: ["tests/components/setup.ts"],
         },
       },
       {
