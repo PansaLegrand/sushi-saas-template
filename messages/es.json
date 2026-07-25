@@ -6,24 +6,19 @@
   },
   "landing": {
     "nav": {
-      "label": "Sushi SaaS",
-      "blogs": "Blog"
+      "docs": "Documentación",
+      "blogs": "Blog",
+      "github": "GitHub"
     },
     "hero": {
-      "title": "Te ayudo a lanzar tu startup en una mañana.",
-      "subtitle": "Un punto de partida pulido, contigo, y plantillas para convertir tu idea en un producto en línea antes del mediodía.",
-      "badge": "La comunidad nos quiere — 30+ estrellas en GitHub",
-      "ctaPrimary": "Reserva una mañana",
-      "ctaSecondary": "Ver casos",
-      "ctaGitHub": "Ver en GitHub",
-      "ctaDiscord": "Unirse a Discord",
-      "ctaX": "Seguir en X"
+      "title": "Un starter de SaaS en Next.js listo para producción.",
+      "subtitle": "Autenticación, pagos, créditos, almacenamiento, i18n, panel de administración y documentación: conectados, bien organizados en capas y cubiertos por tests. Empieza por tu producto, no por la infraestructura.",
+      "ctaPrimary": "Leer la documentación",
+      "ctaSecondary": "Ver en GitHub"
     },
-    "reserveModal": {
-      "title": "Reservas disponibles muy pronto",
-      "desc": "Las reservas se abrirán en unos días. Mientras tanto, escríbeme y te guardo un hueco.",
-      "close": "Cerrar",
-      "emailCta": "Escríbeme"
+    "about": {
+      "title": "Qué incluye",
+      "intro": "Las piezas que todo SaaS necesita y que nadie disfruta construir: autenticación con roles, facturación con Stripe y un libro mayor de créditos, subida privada de archivos, correo transaccional, una consola de administración independiente y rutas localizadas en cinco idiomas. Una sola arquitectura, documentada y garantizada por tests."
     },
     "features": {
       "title": "Qué incluye",
@@ -62,21 +57,6 @@
         }
       ]
     },
-    "showcases": {
-      "title": "Casos de uso",
-      "items": [
-        {
-          "name": "DojoClip",
-          "url": "https://dojoclip.com",
-          "description": "Editor de video en el navegador dedicado a subtítulos multilingües y traducción de video."
-        },
-        {
-          "name": "Sushi Templates",
-          "url": "https://sushi-templates.com",
-          "description": "Plantillas Next.js de alto nivel para lanzar más rápido."
-        }
-      ]
-    },
     "stack": {
       "title": "Stack tecnológico",
       "items": [
@@ -98,27 +78,8 @@
         }
       ]
     },
-    "about": {
-      "title": "¿Qué es Sushi Templates?",
-      "intro": "Sushi Templates es un starter SaaS listo para lanzar que ofrece a los fundadores una base de código completa y segura para empezar a vender en horas, no meses.",
-      "points": [
-        {
-          "title": "Lanza en una mañana",
-          "description": "Auth, facturación, créditos, docs/blog y landing preconstruidos para saltarte el boilerplate y enviar más rápido."
-        },
-        {
-          "title": "Stack moderno y completo",
-          "description": "Next.js 15 App Router, TypeScript, Tailwind, Better Auth, Drizzle, Stripe, storage e i18n ya conectados."
-        },
-        {
-          "title": "Seguro por defecto",
-          "description": "Sesiones protegidas, comprobaciones de rol, APIs resguardadas, almacenamiento privado con URLs prefirmadas y secretos desde el entorno."
-        },
-        {
-          "title": "Listo para crecer",
-          "description": "Créditos por uso, seguimiento de tareas, blog/docs con SEO y pantallas admin para iterar con confianza."
-        }
-      ]
+    "showcases": {
+      "title": "Hecho con esto"
     },
     "footer": "Hecho con Next.js 15, Tailwind CSS y Better Auth."
   },

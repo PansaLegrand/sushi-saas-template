@@ -67,6 +67,21 @@ const RawEnvSchema = z.object({
   npm_lifecycle_event: envString,
   NEXT_PHASE: envString,
 
+  /**
+   * What this deployment is.
+   *
+   * `app` (default) is the SaaS starter kit: auth, billing, storage, the whole
+   * surface, and every credential that implies.
+   *
+   * `site` is the project's own marketing and documentation site — a landing
+   * page and `/docs`, nothing a visitor can sign into. It reads no database, so
+   * the requirements below are dropped and it deploys with no Postgres, no
+   * Stripe keys, and no auth secret. Anyone cloning the kit wants `app`.
+   */
+  NEXT_PUBLIC_SITE_MODE: z
+    .preprocess(emptyToUndefined, z.enum(["app", "site"]).optional())
+    .default("app"),
+
   NEXT_PUBLIC_WEB_URL: envUrl,
   NEXT_PUBLIC_ADMIN_WEB_URL: envUrl,
   BETTER_AUTH_URL: envUrl,
@@ -246,6 +261,15 @@ function getMissingProductionEnv(raw: RawEnv, env: AppEnv): string[] {
   };
 
   requireRaw(raw.NEXT_PUBLIC_WEB_URL, "NEXT_PUBLIC_WEB_URL");
+
+  // A `site` deployment serves a landing page and MDX docs. It has no sign-in,
+  // reads no database, and takes no payments — so demanding a Postgres URL and
+  // a Stripe key to render documentation would be theatre. Everything below
+  // this line belongs to the `app` surface.
+  if (raw.NEXT_PUBLIC_SITE_MODE === "site") {
+    return missing;
+  }
+
   requireRaw(raw.BETTER_AUTH_URL, "BETTER_AUTH_URL");
   requireRaw(raw.NEXT_PUBLIC_AUTH_BASE_URL, "NEXT_PUBLIC_AUTH_BASE_URL");
   requireRaw(raw.DATABASE_URL, "DATABASE_URL");

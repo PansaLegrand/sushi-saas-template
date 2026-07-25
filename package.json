@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "pnpm dev:web",
     "dev:web": "fumadocs-mdx && cross-env NODE_NO_WARNINGS=1 next dev --turbopack",
+    "dev:site": "fumadocs-mdx && cross-env NODE_NO_WARNINGS=1 NEXT_PUBLIC_SITE_MODE=site next dev --turbopack -p 3002",
     "dev:webpack": "pnpm dev:web:webpack",
     "dev:web:webpack": "fumadocs-mdx && cross-env NODE_NO_WARNINGS=1 next dev",
     "dev:admin": "cross-env NODE_NO_WARNINGS=1 next dev apps/admin --turbopack -p 3001",
@@ -14,6 +15,7 @@
     "build": "pnpm build:web && pnpm build:admin",
     "build:web": "next build",
     "build:admin": "next build apps/admin",
+    "build:site": "cross-env NEXT_PUBLIC_SITE_MODE=site next build",
     "start": "pnpm start:web",
     "start:web": "NODE_NO_WARNINGS=1 next start",
     "start:admin": "NODE_NO_WARNINGS=1 next start apps/admin -p 3001",

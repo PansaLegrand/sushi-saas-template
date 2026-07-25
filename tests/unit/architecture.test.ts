@@ -229,6 +229,38 @@ describe("layering", () => {
   });
 });
 
+describe("site content", () => {
+  // The kit and the project's own website are one repo but must not be one
+  // thing. Site identity belongs in src/config/site.ts; anything else that
+  // hardcodes it ships to everyone who clones the template — which is how the
+  // landing page came to contain a personal email address and a GitHub star
+  // count that was already out of date.
+  const SITE_ISLAND = "src/config/site.ts";
+
+  it("keeps contact addresses out of source", () => {
+    const offenders = FILES.filter(
+      ({ path, body }) =>
+        path !== SITE_ISLAND &&
+        /[\w.+-]+@(?!example\.(?:com|org)\b)[\w-]+\.[a-z]{2,}/i.test(stripComments(body))
+    ).map(({ path }) => path);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("keeps the project's own URLs out of source", () => {
+    // A clone should never link back to this project's repo, Discord, or socials.
+    const offenders = FILES.filter(
+      ({ path, body }) =>
+        path !== SITE_ISLAND &&
+        /(github\.com\/[\w-]+\/[\w.-]+|discord\.gg\/|x\.com\/|twitter\.com\/)/i.test(
+          stripComments(body)
+        )
+    ).map(({ path }) => path);
+
+    expect(offenders).toEqual([]);
+  });
+});
+
 describe("conventions", () => {
   it("has no src/features directory", () => {
     // The repo settled on horizontal layers. features/reservations was the lone

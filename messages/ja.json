@@ -6,24 +6,19 @@
   },
   "landing": {
     "nav": {
-      "label": "Sushi SaaS",
-      "blogs": "ブログ"
+      "docs": "ドキュメント",
+      "blogs": "ブログ",
+      "github": "GitHub"
     },
     "hero": {
-      "title": "朝のうちにあなたのスタートアップを出荷するお手伝いをします。",
-      "subtitle": "丁寧に整えた土台とテンプレートで、あなたのアイデアを昼前に動くプロダクトへ。",
-      "badge": "コミュニティに愛されています — GitHub 30+ Stars",
-      "ctaPrimary": "朝の枠を予約",
-      "ctaSecondary": "導入事例を見る",
-      "ctaGitHub": "GitHub を見る",
-      "ctaDiscord": "Discord に参加",
-      "ctaX": "X でフォロー"
+      "title": "本番運用できる Next.js の SaaS スターター。",
+      "subtitle": "認証、決済、クレジット、ストレージ、多言語対応、管理画面、ドキュメントまで接続済み。意図をもって階層化し、テストで担保しています。基盤ではなくプロダクトから始めましょう。",
+      "ctaPrimary": "ドキュメントを読む",
+      "ctaSecondary": "GitHub で見る"
     },
-    "reserveModal": {
-      "title": "予約はまもなく開始",
-      "desc": "数日中に予約を開始します。それまでの間はメールでご連絡ください。私が直接日程を調整します。",
-      "close": "閉じる",
-      "emailCta": "メールする"
+    "about": {
+      "title": "含まれるもの",
+      "intro": "どの SaaS にも必要で、誰も作りたくない部分をまとめました。ロール付きの認証、クレジット台帳を備えた Stripe 課金、非公開ファイルのアップロード、トランザクションメール、独立した管理コンソール、そして 5 言語のローカライズされたルーティング。全体を通じて単一のアーキテクチャで、ドキュメント化され、テストで強制されています。"
     },
     "features": {
       "title": "主な内容",
@@ -62,21 +57,6 @@
         }
       ]
     },
-    "showcases": {
-      "title": "導入事例",
-      "items": [
-        {
-          "name": "DojoClip",
-          "url": "https://dojoclip.com",
-          "description": "多言語字幕・動画翻訳に特化したブラウザベースの動画編集ツール。"
-        },
-        {
-          "name": "Sushi Templates",
-          "url": "https://sushi-templates.com",
-          "description": "素早いローンチを助ける上質な Next.js テンプレート。"
-        }
-      ]
-    },
     "stack": {
       "title": "使用技術",
       "items": [
@@ -98,27 +78,8 @@
         }
       ]
     },
-    "about": {
-      "title": "Sushi Templates とは？",
-      "intro": "Sushi Templates は、創業者が数か月ではなく数時間で販売を始められるよう、完全で安全なコードベースを提供するローンチ済みの SaaS スターターです。",
-      "points": [
-        {
-          "title": "朝のうちにリリース",
-          "description": "認証、課金、クレジット、ドキュメント/ブログ、LP をあらかじめ実装し、ボイラープレートを飛ばしてすぐに出荷できます。"
-        },
-        {
-          "title": "最新のフルスタック",
-          "description": "Next.js 15 App Router、TypeScript、Tailwind、Better Auth、Drizzle、Stripe、ストレージ、i18n が最初から結線済み。"
-        },
-        {
-          "title": "デフォルトでセキュア",
-          "description": "セッションの安全性、ロールチェック、保護された API、署名付き URL のプライベートストレージ、環境変数で管理するシークレットを備えています。"
-        },
-        {
-          "title": "成長に備えた構成",
-          "description": "従量クレジット、タスクトラッキング、SEO に強いブログ/ドキュメント、管理画面で安心して反復できます。"
-        }
-      ]
+    "showcases": {
+      "title": "採用事例"
     },
     "footer": "Next.js 15、Tailwind CSS、Better Auth で構築。"
   },

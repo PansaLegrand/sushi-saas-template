@@ -26,6 +26,7 @@ Two rules make this real:
 | Directory | Holds | Rule |
 | --- | --- | --- |
 | `api/` | Browser-side calls to this app's own API, one module per domain | Client-only. Never imports `services/`, `models/`, `db/`, or `app/` |
+| `config/site.ts` | **The site island** — brand, links, contact, showcases | The only file allowed to hold site-specific content |
 | `app/` | App Router routes, `[locale]` pages, `api/` handlers | No business logic; call a service |
 | `components/` | Shared React components, grouped by domain (`auth/`, `storage/`, `blocks/`, `ui/`) | Presentational; no `db()`, no model imports, no raw `fetch` |
 | `config/` | Product configuration: pricing plans, billing amounts, auth route map, reservation settings | Constants and env-derived flags only — no I/O, and never imports a service or model |
@@ -62,6 +63,35 @@ to Better Auth's Drizzle adapter.
 The admin app keeps its own data layer at `apps/admin/lib/data.ts` by design —
 see `apps/admin/README.md`. Its browser-side calls live in `apps/admin/lib/api.ts`
 for the same reason: nothing in `src/` should be able to reach an admin endpoint.
+
+### The kit and the website are one repo, not one thing
+
+This repo is the starter kit. It also deploys the project's own marketing and
+documentation site. Those are different products and must not bleed into each
+other — the landing page once hardcoded a personal email address, a GitHub star
+count, and a consulting offer, all of which shipped to everyone who cloned it.
+
+`NEXT_PUBLIC_SITE_MODE` picks which one a deployment is:
+
+| | `app` (default) | `site` |
+| --- | --- | --- |
+| Serves | The whole SaaS surface | Landing, `/docs`, `/blogs`, `/api/health` |
+| Sign-in | Yes | No — every other route 404s |
+| Needs | Postgres, auth secret, Stripe, Resend, storage | `NEXT_PUBLIC_WEB_URL` and nothing else |
+
+Two rules keep the split honest:
+
+1. **Site-specific content lives only in `src/config/site.ts`.** Brand, repo URL,
+   contact address, showcases. Defaults are neutral and a clean checkout has no
+   one else's identity in it. Translated copy stays in `messages/*.json` under
+   `landing.*` and should describe the kit factually, not the person selling it.
+2. **`site` mode is gated in `middleware.ts`, not in pages.** One allowlist of
+   path segments, so a route added later is blocked by default rather than
+   blocked only if whoever adds it remembers. Pages must not scatter
+   `notFound()` checks for this.
+
+`tests/unit/architecture.test.ts` fails the build if an email address or a
+project URL appears anywhere outside the island.
 
 ### The frontend rules
 

@@ -32,6 +32,7 @@ const ENV_KEYS = [
   "NEXT_PUBLIC_CAPTCHA_ENABLED",
   "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
   "TURNSTILE_SECRET_KEY",
+  "NEXT_PUBLIC_SITE_MODE",
 ];
 
 async function loadEnvModule() {
@@ -102,6 +103,48 @@ describe("typed environment validation", () => {
           "STRIPE_PRIVATE_KEY",
           "STORAGE_BUCKET (or S3_BUCKET)",
         ])
+      );
+    }
+  });
+
+  it("needs nothing but a URL in site mode", async () => {
+    // The headline claim of `site` mode: the marketing and docs deployment runs
+    // with no Postgres, no auth secret, and no payment keys. If this test ever
+    // fails, the site can no longer be deployed without provisioning a database
+    // it never reads.
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_SITE_MODE", "site");
+    vi.stubEnv("NEXT_PUBLIC_WEB_URL", "https://example.com");
+
+    const { validateAppEnv } = await loadEnvModule();
+    const env = validateAppEnv();
+
+    expect(env.NEXT_PUBLIC_SITE_MODE).toBe("site");
+  });
+
+  it("still demands a URL in site mode", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_SITE_MODE", "site");
+
+    const { EnvValidationError, validateAppEnv } = await loadEnvModule();
+
+    expect(() => validateAppEnv()).toThrow(EnvValidationError);
+  });
+
+  it("defaults to app mode, which keeps every requirement", async () => {
+    // A deployment that forgets to set the variable must get the strict
+    // contract, not the permissive one.
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_WEB_URL", "https://example.com");
+
+    const { validateAppEnv } = await loadEnvModule();
+
+    try {
+      validateAppEnv();
+      throw new Error("expected validation to fail");
+    } catch (error) {
+      expect((error as any).issues).toEqual(
+        expect.arrayContaining(["DATABASE_URL", "STRIPE_PRIVATE_KEY"])
       );
     }
   });
