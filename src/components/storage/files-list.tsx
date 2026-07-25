@@ -7,6 +7,15 @@ import { useLocale } from "next-intl";
 
 import { deleteFile, getDownloadUrl, listFiles } from "@/api/storage";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { resolveErrorMessage } from "@/lib/errors/client";
@@ -29,6 +38,7 @@ export default function FilesList() {
   const [items, setItems] = useState<FileObject[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [fileToDelete, setFileToDelete] = useState<FileObject | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -67,14 +77,16 @@ export default function FilesList() {
     [locale]
   );
 
-  const onDelete = useCallback(
-    async (uuid: string) => {
-      const ok = window.confirm("Delete this file? This cannot be undone.");
-      if (!ok) return;
+  const onConfirmDelete = useCallback(
+    async () => {
+      const uuid = fileToDelete?.uuid;
+      if (!uuid) return;
+
       setBusyId(uuid);
       try {
         await deleteFile(uuid);
         setItems((prev) => prev.filter((it) => it.uuid !== uuid));
+        setFileToDelete(null);
         toast.success("Deleted");
       } catch (error) {
         toast.error(resolveErrorMessage(error, locale));
@@ -82,7 +94,7 @@ export default function FilesList() {
         setBusyId(null);
       }
     },
-    [locale]
+    [fileToDelete?.uuid, locale]
   );
 
   return (
@@ -130,7 +142,7 @@ export default function FilesList() {
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={() => onDelete(f.uuid)}
+                  onClick={() => setFileToDelete(f)}
                   disabled={busyId === f.uuid}
                 >
                   <Trash2 className="mr-1 h-4 w-4" /> Delete
@@ -140,6 +152,40 @@ export default function FilesList() {
           ))}
         </ul>
       )}
+
+      <Dialog
+        open={!!fileToDelete}
+        onOpenChange={(open) => {
+          if (!open && !busyId) setFileToDelete(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete file?</DialogTitle>
+            <DialogDescription>
+              This will remove{" "}
+              <span className="font-medium text-foreground">
+                {fileToDelete?.original_filename || fileToDelete?.key || "this file"}
+              </span>
+              . This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="secondary" disabled={!!busyId}>
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              onClick={onConfirmDelete}
+              disabled={!!busyId}
+            >
+              <Trash2 className="mr-1 h-4 w-4" /> Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

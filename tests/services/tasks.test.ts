@@ -139,7 +139,10 @@ describe("createTextToVideoTask", () => {
         input: { prompt: "hello", seconds: 8, aspectRatio: "landscape" },
         idempotencyKey: "idem-1",
       })
-    ).rejects.toThrow("provider down");
+    ).rejects.toMatchObject({
+      code: "TASK_PROVIDER_FAILED",
+      message: "provider down",
+    });
 
     expect(mocks.refundCreditsForTransaction).toHaveBeenCalledWith({
       user_uuid: "u-test",
@@ -150,8 +153,24 @@ describe("createTextToVideoTask", () => {
       "failed",
       expect.objectContaining({
         credits_trans_no: "credit-trans-1",
-        error_message: "provider down",
+        error_message: "TASK_PROVIDER_FAILED",
       })
     );
+  });
+
+  it("rejects overlong idempotency keys before inserting a task", async () => {
+    await expect(
+      createTextToVideoTask({
+        userUuid: "u-test",
+        input: { prompt: "hello", seconds: 8, aspectRatio: "landscape" },
+        idempotencyKey: "x".repeat(256),
+      })
+    ).rejects.toMatchObject({
+      code: "REQUEST_INVALID",
+      details: { field: "idempotencyKey", max: 255 },
+    });
+
+    expect(mocks.insertTaskForIdempotencyKey).not.toHaveBeenCalled();
+    expect(mocks.decreaseCredits).not.toHaveBeenCalled();
   });
 });

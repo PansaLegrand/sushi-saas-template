@@ -1,4 +1,6 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
+
 import Stripe from "stripe";
 import { getUserUuid } from "@/services/user";
 import { findUserByUuid } from "@/models/user";
@@ -8,8 +10,13 @@ import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { respData } from "@/lib/resp";
 import { respCode, respError } from "@/lib/errors/response";
+import { parseJsonBody } from "@/lib/http/request";
 
 export const runtime = "nodejs";
+
+const BillingPortalSchema = z.object({
+  locale: z.string().trim().optional(),
+});
 
 function withLocaleReturnUrl(locale: string | null | undefined) {
   const base = getAppEnv().NEXT_PUBLIC_WEB_URL;
@@ -66,7 +73,9 @@ export async function POST(req: NextRequest) {
     const user = await findUserByUuid(userUuid);
     if (!user?.email) return respCode("ACCOUNT_NOT_FOUND");
 
-    const body = await req.json().catch(() => ({}));
+    const body = await parseJsonBody(req, BillingPortalSchema, {
+      defaultValue: {},
+    });
     const locale = body?.locale ?? user.locale ?? "en";
     const return_url = withLocaleReturnUrl(locale);
 

@@ -12,6 +12,7 @@ import {
 } from "@/services/credit";
 import { generateTextToVideo, type TextToVideoInput } from "@/services/ai/video";
 import { TEXT2VIDEO_COST } from "@/config/tasks";
+import { AppError, toAppError } from "@/lib/errors/app-error";
 
 export const TASK_TYPE_TEXT_TO_VIDEO = "text_to_video" as const;
 const MAX_IDEMPOTENCY_KEY_LENGTH = 255;
@@ -47,7 +48,9 @@ export async function createTextToVideoTask(params: {
   const creditsUsed = calculateTextToVideoCost({ seconds, aspectRatio });
 
   if (!isTextToVideoMockEnabled()) {
-    throw new Error("text-to-video demo provider is disabled");
+    throw new AppError("FEATURE_DISABLED", {
+      message: "text-to-video demo provider is disabled",
+    });
   }
 
   const normalizedInput = {
@@ -57,7 +60,10 @@ export async function createTextToVideoTask(params: {
   };
   const idempotencyKey = params.idempotencyKey?.trim() || null;
   if (idempotencyKey && idempotencyKey.length > MAX_IDEMPOTENCY_KEY_LENGTH) {
-    throw new Error("idempotency key too long");
+    throw new AppError("REQUEST_INVALID", {
+      message: `idempotency key too long: ${idempotencyKey.length}`,
+      details: { field: "idempotencyKey", max: MAX_IDEMPOTENCY_KEY_LENGTH },
+    });
   }
 
   const now = new Date();
@@ -78,7 +84,9 @@ export async function createTextToVideoTask(params: {
 
   if (!insertedTask) {
     if (!idempotencyKey) {
-      throw new Error("failed to insert task");
+      throw new AppError("TASK_CREATE_FAILED", {
+        message: "failed to insert task without idempotency key",
+      });
     }
 
     const existingTask = await findTaskByIdempotencyKey({
@@ -88,7 +96,9 @@ export async function createTextToVideoTask(params: {
     });
 
     if (!existingTask) {
-      throw new Error("failed to load idempotent task");
+      throw new AppError("TASK_CREATE_FAILED", {
+        message: "failed to load idempotent task after insert conflict",
+      });
     }
 
     return { task: existingTask };
@@ -119,11 +129,15 @@ export async function createTextToVideoTask(params: {
     });
 
     if (!task) {
-      throw new Error("failed to update task");
+      throw new AppError("TASK_CREATE_FAILED", {
+        message: `failed to mark task ${insertedTask.uuid} as succeeded`,
+      });
     }
 
     return { task };
   } catch (error) {
+    const appError = toAppError(error, "TASK_PROVIDER_FAILED");
+
     if (transNo) {
       try {
         await refundCreditsForTransaction({
@@ -135,13 +149,12 @@ export async function createTextToVideoTask(params: {
       }
     }
 
-    const message = error instanceof Error ? error.message : "create task failed";
     await updateTaskStatus(insertedTask.uuid, "failed", {
       credits_trans_no: transNo,
-      error_message: message,
+      error_message: appError.code,
       completed_at: new Date(),
     });
 
-    throw error;
+    throw appError;
   }
 }

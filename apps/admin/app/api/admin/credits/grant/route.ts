@@ -1,11 +1,15 @@
 import { createHash } from "node:crypto";
 
+import { z } from "zod";
+
 import { requireSameOrigin } from "@admin/lib/origin";
 import { requireAdminWrite } from "@admin/lib/authz";
 import { writeAdminAuditLog } from "@admin/lib/audit";
 import { getAppEnv } from "@/lib/env";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
-import { respData, respErr, respNotFound } from "@/lib/resp";
+import { respData } from "@/lib/resp";
+import { respCode, respError } from "@/lib/errors/response";
+import { parseJsonBody } from "@/lib/http/request";
 import { findCreditByTransNo } from "@/models/credit";
 import { findUserByUuid } from "@/models/user";
 import {
@@ -16,7 +20,7 @@ import {
 
 interface AdminGrantRequest {
   userUuid: string;
-  credits: number;
+  credits: string | number;
   expiredAt?: string | Date | null;
   /**
    * Client-generated key, one per grant attempt. Retries reuse it so the grant
@@ -25,6 +29,14 @@ interface AdminGrantRequest {
   idempotencyKey: string;
   note?: string;
 }
+
+const AdminGrantSchema = z.object({
+  userUuid: z.string().trim().min(1),
+  credits: z.union([z.string(), z.number()]),
+  expiredAt: z.string().trim().optional(),
+  idempotencyKey: z.string().trim().min(1),
+  note: z.string().trim().optional(),
+});
 
 /**
  * Deterministic ledger id for a grant attempt. `credits.trans_no` is unique, so
@@ -65,33 +77,37 @@ export async function POST(req: Request) {
 
   let payload: AdminGrantRequest | null = null;
   try {
-    payload = (await req.json()) as AdminGrantRequest;
-  } catch {
-    return respErr("invalid params");
+    payload = await parseJsonBody(req, AdminGrantSchema);
+  } catch (error) {
+    return respError(error, {
+      logFields: { event: "admin.credits.grant_invalid" },
+      fallback: "REQUEST_VALIDATION_FAILED",
+    });
   }
 
-  const userUuid = payload?.userUuid;
-  if (!userUuid) return respErr("userUuid required");
-
-  const idempotencyKey = payload?.idempotencyKey;
-  if (!idempotencyKey || typeof idempotencyKey !== "string") {
-    return respErr("idempotencyKey required");
-  }
-
+  const userUuid = payload.userUuid;
+  const idempotencyKey = payload.idempotencyKey;
   const credits = Number(payload.credits);
+
   if (!Number.isInteger(credits) || credits <= 0) {
-    return respErr("credits must be a positive integer");
+    return respCode("CREDITS_INVALID_AMOUNT");
   }
 
   const maxGrant = getAppEnv().ADMIN_MAX_CREDIT_GRANT;
   if (credits > maxGrant) {
-    return respErr(`credits must not exceed ${maxGrant}`);
+    return respCode("CREDITS_GRANT_LIMIT_EXCEEDED", {
+      details: { max: maxGrant },
+    });
   }
 
   let expiredAt: Date | null = null;
   if (payload.expiredAt) {
     const parsed = new Date(payload.expiredAt);
-    if (Number.isNaN(parsed.getTime())) return respErr("invalid expiredAt");
+    if (Number.isNaN(parsed.getTime())) {
+      return respCode("REQUEST_VALIDATION_FAILED", {
+        details: { field: "expiredAt" },
+      });
+    }
     expiredAt = parsed;
   }
 
@@ -99,7 +115,7 @@ export async function POST(req: Request) {
 
   try {
     const target = await findUserByUuid(userUuid);
-    if (!target) return respNotFound("user not found");
+    if (!target) return respCode("ACCOUNT_NOT_FOUND");
 
     // Fast path for a retry we have already applied.
     let replayed = Boolean(await findCreditByTransNo(transNo));
@@ -169,6 +185,9 @@ export async function POST(req: Request) {
       request: req,
     });
 
-    return respErr("admin grant credits failed");
+    return respError(e, {
+      logFields: { event: "admin.credits.grant_failed" },
+      fallback: "CREDITS_GRANT_FAILED",
+    });
   }
 }

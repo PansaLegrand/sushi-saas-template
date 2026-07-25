@@ -1,4 +1,8 @@
-import { respData, respErr, respForbidden, respNoAuth } from "@/lib/resp";
+import { z } from "zod";
+
+import { respData, respForbidden, respNoAuth } from "@/lib/resp";
+import { respCode, respError } from "@/lib/errors/response";
+import { parseJsonBody } from "@/lib/http/request";
 import {
   CreditsTransType,
   increaseCredits,
@@ -8,7 +12,13 @@ import { isAccountCreditGrantEnabled } from "@/lib/demo-flags";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { getUserUuid } from "@/services/user";
-import type { CreditGrantRequest } from "@/types/api";
+
+const CreditGrantSchema = z.object({
+  credits: z.unknown(),
+  orderNo: z.string().optional(),
+  expiredAt: z.string().optional(),
+  ledgerLimit: z.coerce.number().int().positive().max(500).optional(),
+});
 
 export async function POST(req: Request) {
   if (!isAccountCreditGrantEnabled()) {
@@ -27,18 +37,11 @@ export async function POST(req: Request) {
       return respNoAuth();
     }
 
-    let payload: CreditGrantRequest = { credits: 0 };
-
-    try {
-      payload = (await req.json()) as CreditGrantRequest;
-    } catch (error) {
-      return respErr("invalid params");
-    }
-
+    const payload = await parseJsonBody(req, CreditGrantSchema);
     const credits = Number(payload.credits);
 
     if (!Number.isFinite(credits) || credits <= 0) {
-      return respErr("credits must be a positive number");
+      return respCode("CREDITS_INVALID_AMOUNT");
     }
 
     await increaseCredits({
@@ -56,7 +59,9 @@ export async function POST(req: Request) {
 
     return respData(summary);
   } catch (error) {
-    console.error("grant credits failed", error);
-    return respErr("grant credits failed", { status: 500 });
+    return respError(error, {
+      logFields: { event: "credits.grant_failed" },
+      fallback: "CREDITS_GRANT_FAILED",
+    });
   }
 }

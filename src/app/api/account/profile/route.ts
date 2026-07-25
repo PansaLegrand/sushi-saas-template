@@ -1,7 +1,15 @@
+import { z } from "zod";
+
 import { requireSameOrigin } from "@/lib/origin";
-import { respData, respErr, respNoAuth } from "@/lib/resp";
+import { respData, respNoAuth } from "@/lib/resp";
+import { respCode, respError } from "@/lib/errors/response";
+import { parseJsonBody } from "@/lib/http/request";
 import { getUserProfileByUuid, getUserUuid } from "@/services/user";
-import type { UserInfoRequest } from "@/types/api";
+
+const UserInfoSchema = z.object({
+  includeCreditLedger: z.boolean().optional(),
+  creditLedgerLimit: z.coerce.number().int().positive().max(500).optional(),
+});
 
 export async function POST(req: Request) {
   const invalidOrigin = requireSameOrigin(req);
@@ -13,13 +21,9 @@ export async function POST(req: Request) {
       return respNoAuth();
     }
 
-    let payload: UserInfoRequest = {};
-    try {
-      payload = (await req.json()) as UserInfoRequest;
-    } catch (error) {
-      // Absorb JSON parse errors so empty bodies fall back to defaults.
-      payload = {};
-    }
+    const payload = await parseJsonBody(req, UserInfoSchema, {
+      defaultValue: {},
+    });
 
     const profile = await getUserProfileByUuid(userUuid, {
       includeLedger: payload.includeCreditLedger,
@@ -27,12 +31,14 @@ export async function POST(req: Request) {
     });
 
     if (!profile) {
-      return respErr("user not exist", { status: 404 });
+      return respCode("ACCOUNT_NOT_FOUND");
     }
 
     return respData(profile);
   } catch (error) {
-    console.error("get user info failed", error);
-    return respErr("get user info failed", { status: 500 });
+    return respError(error, {
+      logFields: { event: "account.profile_failed" },
+      fallback: "SERVER_ERROR",
+    });
   }
 }

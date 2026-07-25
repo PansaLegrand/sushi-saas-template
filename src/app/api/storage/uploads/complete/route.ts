@@ -1,11 +1,19 @@
-import { respData, respErr, respNoAuth } from "@/lib/resp";
+import { z } from "zod";
+
+import { respData, respNoAuth } from "@/lib/resp";
+import { respCode, respError } from "@/lib/errors/response";
+import { toAppError } from "@/lib/errors/app-error";
+import { parseJsonBody } from "@/lib/http/request";
 import { getUserUuid } from "@/services/user";
 import { findFileByUuid, updateFileByUuid } from "@/models/file";
 import { getStorageAdapter } from "@/services/storage";
-import type { CompleteUploadRequest } from "@/types/storage";
 import { notifySlackError } from "@/integrations/slack";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
+
+const CompleteUploadSchema = z.object({
+  fileUuid: z.string().trim().min(1),
+});
 
 export async function POST(req: Request) {
   const invalidOrigin = requireSameOrigin(req);
@@ -18,19 +26,11 @@ export async function POST(req: Request) {
     const userUuid = await getUserUuid(req);
     if (!userUuid) return respNoAuth();
 
-    let payload: CompleteUploadRequest;
-    try {
-      payload = (await req.json()) as CompleteUploadRequest;
-    } catch {
-      return respErr("invalid json");
-    }
-
-    const { fileUuid } = payload;
-    if (!fileUuid) return respErr("missing fileUuid");
+    const { fileUuid } = await parseJsonBody(req, CompleteUploadSchema);
 
     const file = await findFileByUuid(fileUuid);
     if (!file || file.user_uuid !== userUuid) {
-      return respErr("file not found", { status: 404 });
+      return respCode("STORAGE_FILE_NOT_FOUND");
     }
 
     if (file.status === "active") {
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
     const storage = getStorageAdapter();
     const head = await storage.headObject({ bucket: file.bucket, key: file.key });
     if (!head) {
-      return respErr("object not found in storage", { status: 404 });
+      return respCode("STORAGE_OBJECT_MISSING");
     }
 
     // Basic size match validation
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
         storage_class: head.storageClass ?? null,
         status: "failed",
       });
-      return respErr("uploaded size mismatch");
+      return respCode("STORAGE_SIZE_MISMATCH");
     }
 
     const updated = await updateFileByUuid(file.uuid, {
@@ -68,8 +68,13 @@ export async function POST(req: Request) {
 
     return respData({ ok: true, file: updated ?? file });
   } catch (error) {
-    console.error("complete upload failed", error);
-    notifySlackError("Storage: complete upload failed", error);
-    return respErr("complete upload failed", { status: 500 });
+    const appError = toAppError(error, "STORAGE_UPLOAD_FAILED");
+    if (appError.statusCode >= 500) {
+      notifySlackError("Storage: complete upload failed", error);
+    }
+    return respError(appError, {
+      logFields: { event: "storage.upload_complete_failed" },
+      fallback: "STORAGE_UPLOAD_FAILED",
+    });
   }
 }

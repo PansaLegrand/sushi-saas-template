@@ -1,7 +1,10 @@
+import { z } from "zod";
+
 import { isCreditsPlaygroundEnabled } from "@/lib/demo-flags";
 import { requireSameOrigin } from "@/lib/origin";
-import { respData, respErr, respNoAuth, respNotFound } from "@/lib/resp";
-import { respError } from "@/lib/errors/response";
+import { respData, respNoAuth } from "@/lib/resp";
+import { respCode, respError } from "@/lib/errors/response";
+import { parseJsonBody } from "@/lib/http/request";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import {
   CreditsTransType,
@@ -10,13 +13,13 @@ import {
 } from "@/services/credit";
 import { getUserUuid } from "@/services/user";
 
-interface ConsumeCreditsRequest {
-  credits?: number;
-}
+const ConsumeCreditsSchema = z.object({
+  credits: z.unknown().optional(),
+});
 
 export async function POST(req: Request) {
   if (!isCreditsPlaygroundEnabled()) {
-    return respNotFound("not found");
+    return respCode("RESOURCE_NOT_FOUND");
   }
 
   const invalidOrigin = requireSameOrigin(req);
@@ -31,18 +34,14 @@ export async function POST(req: Request) {
       return respNoAuth();
     }
 
-    let payload: ConsumeCreditsRequest = {};
-    try {
-      payload = (await req.json()) as ConsumeCreditsRequest;
-    } catch (error) {
-      // Empty bodies fall back to defaults so we swallow parse errors.
-      payload = {};
-    }
+    const payload = await parseJsonBody(req, ConsumeCreditsSchema, {
+      defaultValue: {},
+    });
 
-    const credits = payload.credits ?? 1;
+    const credits = Number(payload.credits ?? 1);
 
     if (!Number.isFinite(credits) || credits <= 0) {
-      return respErr("credits must be a positive number");
+      return respCode("CREDITS_INVALID_AMOUNT");
     }
 
     await decreaseCredits({

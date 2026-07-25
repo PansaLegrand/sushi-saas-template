@@ -1,5 +1,8 @@
-import { respData, respErr, respNoAuth } from "@/lib/resp";
+import { z } from "zod";
+
+import { respData, respNoAuth } from "@/lib/resp";
 import { respError } from "@/lib/errors/response";
+import { parseJsonBody } from "@/lib/http/request";
 import { requireSameOrigin } from "@/lib/origin";
 import {
   CreditsAmount,
@@ -9,9 +12,9 @@ import {
 import { getUserUuid } from "@/services/user";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 
-interface PingRequestBody {
-  message?: string;
-}
+const PingSchema = z.object({
+  message: z.string().trim().min(1),
+});
 
 export async function POST(req: Request) {
   const invalidOrigin = requireSameOrigin(req);
@@ -26,16 +29,7 @@ export async function POST(req: Request) {
       return respNoAuth();
     }
 
-    let payload: PingRequestBody;
-    try {
-      payload = (await req.json()) as PingRequestBody;
-    } catch (error) {
-      return respErr("invalid params");
-    }
-
-    if (!payload.message) {
-      return respErr("invalid params");
-    }
+    const payload = await parseJsonBody(req, PingSchema);
 
     await decreaseCredits({
       user_uuid: userUuid,

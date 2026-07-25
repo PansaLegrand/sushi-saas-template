@@ -1,7 +1,10 @@
+import { z } from "zod";
+
 import { getUserUuid } from "@/services/user";
 import { insertOrder, OrderStatus, updateOrderSession } from "@/models/order";
-import { respData, respErr, respNoAuth } from "@/lib/resp";
-import { respError } from "@/lib/errors/response";
+import { respData, respNoAuth } from "@/lib/resp";
+import { respCode, respError } from "@/lib/errors/response";
+import { parseJsonBody } from "@/lib/http/request";
 
 import Stripe from "stripe";
 import { findUserByUuid } from "@/models/user";
@@ -16,6 +19,12 @@ import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { buildIntroDiscounts, getOrCreateCustomerIdForUser } from "@/services/stripe";
 import { logger as baseLogger, requestIdFromHeaders } from "@/lib/logger/server";
 
+const CheckoutSchema = z.object({
+  product_id: z.string().trim().optional(),
+  currency: z.string().trim().optional(),
+  locale: z.string().trim().optional(),
+});
+
 export async function POST(req: Request) {
   const invalidOrigin = requireSameOrigin(req);
   if (invalidOrigin) return invalidOrigin;
@@ -27,7 +36,10 @@ export async function POST(req: Request) {
     const request_id = requestIdFromHeaders(req.headers);
     const log = baseLogger.child({ request_id, route: "/api/checkout" });
     const start = Date.now();
-    let { product_id, currency, locale } = await req.json();
+    const body = await parseJsonBody(req, CheckoutSchema);
+    const product_id = body.product_id;
+    let currency = body.currency;
+    const locale = body.locale || "en";
 
     const env = getAppEnv();
     let cancel_url = `${env.NEXT_PUBLIC_PAY_CANCEL_URL || env.NEXT_PUBLIC_WEB_URL}`;
@@ -35,15 +47,16 @@ export async function POST(req: Request) {
       // relative url
       cancel_url = `${env.NEXT_PUBLIC_WEB_URL}/${locale}${cancel_url}`;
     }
-
     if (!product_id) {
-      return respErr("invalid params");
+      return respCode("REQUEST_MISSING_FIELD", {
+        details: { field: "product_id" },
+      });
     }
 
     // validate checkout params
     const page = await getPricingPage(locale);
     if (!page || !page.pricing || !page.pricing.items) {
-      return respErr("invalid pricing table");
+      return respCode("ORDER_INVALID_PRODUCT");
     }
 
     const item = page.pricing.items.find(
@@ -51,7 +64,7 @@ export async function POST(req: Request) {
     );
 
     if (!item || !item.amount || !item.interval || !item.currency) {
-      return respErr("invalid checkout params");
+      return respCode("ORDER_INVALID_PRODUCT");
     }
 
     let { amount, interval, valid_months, credits, product_name } = item;
@@ -60,20 +73,20 @@ export async function POST(req: Request) {
     const intro_months = (item as any).intro_months as number | undefined;
 
     if (!["year", "month", "one-time"].includes(interval)) {
-      return respErr("invalid interval");
+      return respCode("ORDER_INVALID_PRODUCT");
     }
 
     if (interval === "year" && valid_months !== 12) {
-      return respErr("invalid valid_months");
+      return respCode("ORDER_INVALID_PRODUCT");
     }
 
     if (interval === "month" && valid_months !== 1) {
-      return respErr("invalid valid_months");
+      return respCode("ORDER_INVALID_PRODUCT");
     }
 
     if (currency === "cny") {
       if (!item.cn_amount) {
-        return respErr("invalid checkout params: cn_amount");
+        return respCode("ORDER_INVALID_PRODUCT");
       }
       amount = item.cn_amount;
     } else {
@@ -97,7 +110,7 @@ export async function POST(req: Request) {
     const user = await findUserByUuid(user_uuid);
     const user_email = user?.email;
     if (!user_email) {
-      return respErr("invalid user");
+      return respCode("ACCOUNT_NOT_FOUND");
     }
 
     // generate order_no

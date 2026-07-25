@@ -1,15 +1,25 @@
+import { z } from "zod";
+
 import { isTextToVideoMockEnabled } from "@/lib/demo-flags";
 import { requireSameOrigin } from "@/lib/origin";
-import { respData, respErr, respNoAuth, respNotFound } from "@/lib/resp";
-import { respError } from "@/lib/errors/response";
+import { respData, respNoAuth } from "@/lib/resp";
+import { respCode, respError } from "@/lib/errors/response";
+import { parseJsonBody } from "@/lib/http/request";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { getUserUuid } from "@/services/user";
 import { createTextToVideoTask } from "@/services/tasks";
-import type { CreateTextToVideoRequest, CreateTextToVideoResponse } from "@/types/task";
+import type { CreateTextToVideoResponse } from "@/types/task";
+
+const TextToVideoSchema = z.object({
+  prompt: z.string().trim().optional(),
+  seconds: z.coerce.number().positive().optional(),
+  aspectRatio: z.enum(["landscape", "portrait", "square"]).optional(),
+  idempotencyKey: z.string().optional(),
+});
 
 export async function POST(req: Request) {
   if (!isTextToVideoMockEnabled()) {
-    return respNotFound("not found");
+    return respCode("RESOURCE_NOT_FOUND");
   }
 
   const invalidOrigin = requireSameOrigin(req);
@@ -22,15 +32,12 @@ export async function POST(req: Request) {
     const userUuid = await getUserUuid(req);
     if (!userUuid) return respNoAuth();
 
-    let payload: CreateTextToVideoRequest | undefined;
-    try {
-      payload = (await req.json()) as CreateTextToVideoRequest;
-    } catch (e) {
-      return respErr("invalid params");
-    }
+    const payload = await parseJsonBody(req, TextToVideoSchema);
 
-    if (!payload?.prompt || typeof payload.prompt !== "string") {
-      return respErr("prompt is required");
+    if (!payload.prompt) {
+      return respCode("TASK_PROMPT_REQUIRED", {
+        details: { field: "prompt" },
+      });
     }
 
     const seconds = Math.max(1, Number(payload.seconds ?? 8));

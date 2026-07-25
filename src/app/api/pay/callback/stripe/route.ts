@@ -10,14 +10,10 @@ export async function GET(req: Request) {
   const env = getAppEnv();
   let redirectUrl = "";
 
-  try {
-    if (!session_id || !order_no) {
-      throw new Error("invalid params");
-    }
-
+  if (session_id && order_no) {
     redirectUrl = env.NEXT_PUBLIC_PAY_SUCCESS_URL || "/";
-  } catch (e) {
-    console.log("handle stripe callback failed: ", e);
+  } else {
+    console.warn("handle stripe callback failed: invalid params");
     redirectUrl = env.NEXT_PUBLIC_PAY_FAIL_URL || "/";
   }
 

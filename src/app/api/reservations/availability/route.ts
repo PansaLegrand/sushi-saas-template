@@ -1,9 +1,18 @@
+import { z } from "zod";
+
 import { ReservationsConfig } from "@/config/reservations";
 import { getAvailabilityForDate } from "@/services/reservations";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { respData } from "@/lib/resp";
 import { respCode, respError } from "@/lib/errors/response";
+import { parseJsonBody } from "@/lib/http/request";
+
+const AvailabilitySchema = z.object({
+  service_id: z.coerce.number().int().positive(),
+  date: z.string().trim().min(1),
+  timezone: z.string().trim().min(1),
+});
 
 export async function POST(req: Request) {
   if (!ReservationsConfig.enabled) {
@@ -16,23 +25,12 @@ export async function POST(req: Request) {
   if (limited) return limited;
 
   try {
-    const body = await req.json().catch(() => null);
-    if (!body) {
-      return respCode("REQUEST_MALFORMED_JSON");
-    }
-
-    const service_id = Number(body.service_id);
-    const date: string = body.date; // YYYY-MM-DD
-    const timezone: string = body.timezone;
-
-    if (!service_id || !date || !timezone) {
-      return respCode("REQUEST_MISSING_FIELD");
-    }
+    const body = await parseJsonBody(req, AvailabilitySchema);
 
     const slots = await getAvailabilityForDate({
-      service_id,
-      dateISO: date,
-      timezone,
+      service_id: body.service_id,
+      dateISO: body.date,
+      timezone: body.timezone,
     });
 
     return respData({ slots });

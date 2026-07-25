@@ -18,6 +18,7 @@ import {
   markStripeWebhookEventCompleted,
   markStripeWebhookEventFailed,
 } from "@/models/stripe-webhook-event";
+import { respCode } from "@/lib/errors/response";
 
 const IDEMPOTENT_STRIPE_EVENTS = new Set([
   "checkout.session.completed",
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
   try {
     const signature = req.headers.get("stripe-signature");
     if (!signature) {
-      return new Response("missing signature", { status: 400 });
+      return respCode("PAYMENT_WEBHOOK_INVALID_SIGNATURE");
     }
 
     const secret = getRequiredEnv("STRIPE_WEBHOOK_SECRET");
@@ -48,7 +49,7 @@ export async function POST(req: Request) {
       event = Stripe.webhooks.constructEvent(rawBody, signature, secret);
     } catch (err) {
       console.warn("invalid stripe signature", err);
-      return new Response("invalid signature", { status: 400 });
+      return respCode("PAYMENT_WEBHOOK_INVALID_SIGNATURE");
     }
 
     let claimedEvent = false;

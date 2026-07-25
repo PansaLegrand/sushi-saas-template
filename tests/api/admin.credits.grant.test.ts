@@ -120,7 +120,10 @@ describe("POST /api/admin/credits/grant", () => {
     const payload = await res.json();
     const credit = await import("@/services/credit");
 
-    expect(payload.message).toBe("idempotencyKey required");
+    expect(payload.error_code).toBe("REQUEST_VALIDATION_FAILED");
+    expect(payload.details.fields).toContainEqual(
+      expect.objectContaining({ field: "idempotencyKey" })
+    );
     expect(credit.increaseCredits).not.toHaveBeenCalled();
   });
 
@@ -128,7 +131,7 @@ describe("POST /api/admin/credits/grant", () => {
     for (const credits of [0, -5, 1.5]) {
       const res = await grantCredits(buildRequest({ ...validBody, credits }));
       const payload = await res.json();
-      expect(payload.message).toBe("credits must be a positive integer");
+      expect(payload.error_code).toBe("CREDITS_INVALID_AMOUNT");
     }
 
     const credit = await import("@/services/credit");
@@ -143,7 +146,8 @@ describe("POST /api/admin/credits/grant", () => {
     const payload = await res.json();
     const credit = await import("@/services/credit");
 
-    expect(payload.message).toBe("credits must not exceed 500");
+    expect(payload.error_code).toBe("CREDITS_GRANT_LIMIT_EXCEEDED");
+    expect(payload.details).toEqual({ max: 500 });
     expect(credit.increaseCredits).not.toHaveBeenCalled();
   });
 

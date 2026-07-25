@@ -1,9 +1,18 @@
-import { respData, respErr, respNoAuth } from "@/lib/resp";
+import { z } from "zod";
+
+import { respData, respNoAuth } from "@/lib/resp";
+import { respError } from "@/lib/errors/response";
+import { parseJsonBody } from "@/lib/http/request";
 import { requireSameOrigin } from "@/lib/origin";
 import { getUserCreditSummary } from "@/services/credit";
 import { getUserUuid } from "@/services/user";
-import type { CreditQueryRequest } from "@/types/api";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
+
+const CreditQuerySchema = z.object({
+  includeLedger: z.boolean().optional(),
+  ledgerLimit: z.coerce.number().int().positive().max(500).optional(),
+  includeExpiring: z.boolean().optional(),
+});
 
 export async function POST(req: Request) {
   const invalidOrigin = requireSameOrigin(req);
@@ -18,13 +27,9 @@ export async function POST(req: Request) {
       return respNoAuth();
     }
 
-    let payload: CreditQueryRequest = {};
-    try {
-      payload = (await req.json()) as CreditQueryRequest;
-    } catch (error) {
-      // Absorb JSON parse errors so empty bodies fall back to defaults.
-      payload = {};
-    }
+    const payload = await parseJsonBody(req, CreditQuerySchema, {
+      defaultValue: {},
+    });
 
     const summary = await getUserCreditSummary(userUuid, {
       includeLedger: payload.includeLedger,
@@ -34,7 +39,9 @@ export async function POST(req: Request) {
 
     return respData(summary);
   } catch (error) {
-    console.error("get user credits failed", error);
-    return respErr("get user credits failed", { status: 500 });
+    return respError(error, {
+      logFields: { event: "account.credits_failed" },
+      fallback: "SERVER_ERROR",
+    });
   }
 }

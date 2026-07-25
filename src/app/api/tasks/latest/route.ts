@@ -1,11 +1,12 @@
 import { isCreditsPlaygroundEnabled } from "@/lib/demo-flags";
-import { respData, respErr, respNoAuth, respNotFound } from "@/lib/resp";
+import { respData, respNoAuth } from "@/lib/resp";
+import { respCode, respError } from "@/lib/errors/response";
 import { getTasksByUserUuid } from "@/models/task";
 import { getUserUuid } from "@/services/user";
 
 export async function GET(req: Request) {
   if (!isCreditsPlaygroundEnabled()) {
-    return respNotFound("not found");
+    return respCode("RESOURCE_NOT_FOUND");
   }
 
   try {
@@ -37,7 +38,9 @@ export async function GET(req: Request) {
         : null,
     });
   } catch (error) {
-    console.error("get latest task failed", error);
-    return respErr("get latest task failed", { status: 500 });
+    return respError(error, {
+      logFields: { event: "task.latest_failed" },
+      fallback: "SERVER_ERROR",
+    });
   }
 }

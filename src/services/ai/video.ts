@@ -1,4 +1,5 @@
 import { isTextToVideoMockEnabled } from "@/lib/demo-flags";
+import { AppError } from "@/lib/errors/app-error";
 
 interface TextToVideoInput {
   prompt: string;
@@ -16,7 +17,9 @@ export async function generateTextToVideo(
   input: TextToVideoInput
 ): Promise<TextToVideoResult> {
   if (!isTextToVideoMockEnabled()) {
-    throw new Error("text-to-video demo provider is disabled");
+    throw new AppError("FEATURE_DISABLED", {
+      message: "text-to-video demo provider is disabled",
+    });
   }
 
   const seconds = input.seconds ?? 8;

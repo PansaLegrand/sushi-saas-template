@@ -1,4 +1,5 @@
-import { respData, respErr, respNoAuth } from "@/lib/resp";
+import { respData, respNoAuth } from "@/lib/resp";
+import { respCode, respError } from "@/lib/errors/response";
 import { getUserUuid } from "@/services/user";
 import { findFileByUuid, softDeleteFile } from "@/models/file";
 import { getStorageAdapter } from "@/services/storage";
@@ -16,7 +17,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ uuid: string }>
     const { uuid } = await ctx.params;
     const file = await findFileByUuid(uuid);
     if (!file || file.user_uuid !== userUuid) {
-      return respErr("file not found", { status: 404 });
+      return respCode("STORAGE_FILE_NOT_FOUND");
     }
 
     const url = new URL(req.url);
@@ -51,8 +52,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ uuid: string }>
 
     return respData({ file, downloadUrl });
   } catch (error) {
-    console.error("get file failed", error);
-    return respErr("get file failed", { status: 500 });
+    return respError(error, {
+      logFields: { event: "storage.file_get_failed" },
+      fallback: "SERVER_ERROR",
+    });
   }
 }
 
@@ -70,7 +73,7 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ uuid: string
     const { uuid } = await ctx.params;
     const file = await findFileByUuid(uuid);
     if (!file || file.user_uuid !== userUuid) {
-      return respErr("file not found", { status: 404 });
+      return respCode("STORAGE_FILE_NOT_FOUND");
     }
 
     const storage = getStorageAdapter();
@@ -84,7 +87,9 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ uuid: string
     const deleted = await softDeleteFile(file.uuid);
     return respData({ ok: true, file: deleted ?? file });
   } catch (error) {
-    console.error("delete file failed", error);
-    return respErr("delete file failed", { status: 500 });
+    return respError(error, {
+      logFields: { event: "storage.file_delete_failed" },
+      fallback: "STORAGE_UPLOAD_FAILED",
+    });
   }
 }

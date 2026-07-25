@@ -1,4 +1,9 @@
-import { respData, respErr, respNoAuth } from "@/lib/resp";
+import { z } from "zod";
+
+import { respData, respNoAuth } from "@/lib/resp";
+import { respCode, respError } from "@/lib/errors/response";
+import { toAppError } from "@/lib/errors/app-error";
+import { parseJsonBody } from "@/lib/http/request";
 import { getUserUuid } from "@/services/user";
 import { getSnowId } from "@/lib/hash";
 import { insertFile } from "@/models/file";
@@ -11,6 +16,19 @@ import { logger as baseLogger, requestIdFromHeaders } from "@/lib/logger/server"
 import { notifySlackError } from "@/integrations/slack";
 
 const DEFAULT_MAX_UPLOAD_MB = getAppEnv().STORAGE_MAX_UPLOAD_MB;
+
+const CreateUploadSchema = z.object({
+  filename: z.string().trim().optional(),
+  name: z.string().trim().optional(),
+  contentType: z.string().trim().optional(),
+  type: z.string().trim().optional(),
+  mimeType: z.string().trim().optional(),
+  mime: z.string().trim().optional(),
+  size: z.coerce.number().positive().optional(),
+  checksumSha256: z.string().trim().optional(),
+  visibility: z.enum(["public", "private", "org"]).optional(),
+  metadata: z.record(z.string()).optional(),
+});
 
 export async function POST(req: Request) {
   const invalidOrigin = requireSameOrigin(req);
@@ -33,15 +51,15 @@ export async function POST(req: Request) {
     let parsedFrom: "json" | "form" | "unknown" = "unknown";
 
     if (contentTypeHeader.includes("application/json")) {
-      try {
-        payload = (await req.json()) as any;
-        parsedFrom = "json";
-      } catch {
-        // fall through to try formData
-      }
+      payload = await parseJsonBody(req, CreateUploadSchema);
+      parsedFrom = "json";
     }
 
-    if (!payload || Object.keys(payload).length === 0 || contentTypeHeader.includes("multipart/form-data")) {
+    if (
+      contentTypeHeader.includes("multipart/form-data") ||
+      (!contentTypeHeader.includes("application/json") &&
+        (!payload || Object.keys(payload).length === 0))
+    ) {
       try {
         const form = await req.formData();
         const file = form.get("file");
@@ -88,12 +106,16 @@ export async function POST(req: Request) {
     if (!filename || !contentType || !size || Number(size) <= 0) {
       // Keep message consistent but add hint for developers
       baseLogger.warn({ event: "storage.presign.create.invalid", parsedFrom, filename, contentType, size });
-      return respErr("missing filename/contentType/size");
+      return respCode("REQUEST_MISSING_FIELD", {
+        details: { fields: ["filename", "contentType", "size"] },
+      });
     }
 
     const maxBytes = DEFAULT_MAX_UPLOAD_MB * 1024 * 1024;
     if (size > maxBytes) {
-      return respErr(`file too large (>${DEFAULT_MAX_UPLOAD_MB}MB)`);
+      return respCode("STORAGE_FILE_TOO_LARGE", {
+        details: { maxBytes },
+      });
     }
 
     const storage = getStorageAdapter();
@@ -145,8 +167,14 @@ export async function POST(req: Request) {
     });
     return respData(res);
   } catch (error) {
-    baseLogger.error({ event: "storage.presign.create.error", error_name: (error as any)?.name, error_message: (error as any)?.message });
-    notifySlackError("Storage: create upload failed", error, { route: "/api/storage/uploads", request_id: requestIdFromHeaders(req.headers) });
-    return respErr("create upload failed", { status: 500 });
+    const appError = toAppError(error, "STORAGE_UPLOAD_FAILED");
+    if (appError.statusCode >= 500) {
+      baseLogger.error({ event: "storage.presign.create.error", error_name: (error as any)?.name, error_message: (error as any)?.message });
+      notifySlackError("Storage: create upload failed", error, { route: "/api/storage/uploads", request_id: requestIdFromHeaders(req.headers) });
+    }
+    return respError(appError, {
+      logFields: { event: "storage.presign.create_failed" },
+      fallback: "STORAGE_UPLOAD_FAILED",
+    });
   }
 }

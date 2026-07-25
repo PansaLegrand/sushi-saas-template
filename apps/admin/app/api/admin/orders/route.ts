@@ -1,5 +1,6 @@
 import { requireAdminRead } from "@admin/lib/authz";
-import { respData, respErr } from "@/lib/resp";
+import { respData } from "@/lib/resp";
+import { respError } from "@/lib/errors/response";
 import { countAdminPaidOrders, listAdminPaidOrders } from "@admin/lib/data";
 
 export async function GET(req: Request) {
@@ -26,7 +27,9 @@ export async function GET(req: Request) {
       total: total ?? 0,
     });
   } catch (e) {
-    console.error("admin list orders failed", e);
-    return respErr("admin list orders failed", { status: 500 });
+    return respError(e, {
+      logFields: { event: "admin.orders_list_failed" },
+      fallback: "SERVER_ERROR",
+    });
   }
 }

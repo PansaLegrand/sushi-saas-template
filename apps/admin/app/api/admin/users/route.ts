@@ -1,5 +1,6 @@
 import { requireAdminRead } from "@admin/lib/authz";
-import { respData, respErr } from "@/lib/resp";
+import { respData } from "@/lib/resp";
+import { respError } from "@/lib/errors/response";
 import { countAdminUsers, listAdminUsers } from "@admin/lib/data";
 
 export async function GET(req: Request) {
@@ -26,7 +27,9 @@ export async function GET(req: Request) {
       total,
     });
   } catch (e) {
-    console.error("admin list users failed", e);
-    return respErr("admin list users failed", { status: 500 });
+    return respError(e, {
+      logFields: { event: "admin.users_list_failed" },
+      fallback: "SERVER_ERROR",
+    });
   }
 }

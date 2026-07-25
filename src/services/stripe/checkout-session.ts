@@ -6,6 +6,7 @@ import {
 } from "@/models/order";
 import { increaseCredits, CreditsTransType } from "@/services/credit";
 import { updateAffiliateForOrder } from "@/services/affiliate";
+import { AppError } from "@/lib/errors/app-error";
 
 export async function handleCheckoutSession(
   stripe: Stripe,
@@ -13,12 +14,17 @@ export async function handleCheckoutSession(
 ) {
   const order_no = session.metadata?.order_no;
   if (!order_no) {
-    throw new Error("invalid order_no");
+    throw new AppError("REQUEST_MISSING_FIELD", {
+      message: "stripe checkout session missing metadata.order_no",
+      details: { field: "order_no" },
+    });
   }
 
   const order = await findOrderByOrderNo(order_no);
   if (!order) {
-    throw new Error("order not found");
+    throw new AppError("RESOURCE_NOT_FOUND", {
+      message: `order not found for checkout session: ${order_no}`,
+    });
   }
 
   if (order.status === "paid") {

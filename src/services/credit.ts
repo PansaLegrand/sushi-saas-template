@@ -226,7 +226,9 @@ export async function increaseCredits({
   trans_no,
 }: IncreaseCreditsParams): Promise<void> {
   if (credits <= 0) {
-    throw new Error("credits must be greater than zero");
+    throw new AppError("CREDITS_INVALID_AMOUNT", {
+      message: `credits must be greater than zero: ${credits}`,
+    });
   }
 
   try {
@@ -260,15 +262,21 @@ export async function refundCreditsForTransaction({
 }: RefundCreditsParams): Promise<string> {
   const original = await findCreditByTransNo(original_trans_no);
   if (!original) {
-    throw new Error("original credit transaction not found");
+    throw new AppError("CREDITS_TRANSACTION_NOT_FOUND", {
+      message: `original credit transaction not found: ${original_trans_no}`,
+    });
   }
 
   if (original.user_uuid !== user_uuid) {
-    throw new Error("credit transaction does not belong to user");
+    throw new AppError("CREDITS_TRANSACTION_NOT_FOUND", {
+      message: `credit transaction ${original_trans_no} does not belong to user ${user_uuid}`,
+    });
   }
 
   if (original.credits >= 0) {
-    throw new Error("only consumed credits can be refunded");
+    throw new AppError("CREDITS_INVALID_AMOUNT", {
+      message: `only consumed credits can be refunded: ${original_trans_no}`,
+    });
   }
 
   const refundTransNo = `refund_${original_trans_no}`;
@@ -289,7 +297,9 @@ export async function refundCreditsForTransaction({
     });
 
     if (!created) {
-      throw new Error("failed to insert credit refund");
+      throw new AppError("CREDITS_GRANT_FAILED", {
+        message: `failed to insert credit refund for ${original_trans_no}`,
+      });
     }
 
     return created.trans_no;

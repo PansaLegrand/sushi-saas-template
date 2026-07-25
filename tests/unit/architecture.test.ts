@@ -14,6 +14,7 @@ import { join, relative, resolve } from "node:path";
 
 const ROOT = resolve(__dirname, "../..");
 const SRC = join(ROOT, "src");
+const ADMIN_API = join(ROOT, "apps/admin/app/api");
 
 function sourceFiles(dir: string): string[] {
   const out: string[] = [];
@@ -33,6 +34,14 @@ function sourceFiles(dir: string): string[] {
 }
 
 const FILES = sourceFiles(SRC).map((file) => ({
+  path: relative(ROOT, file),
+  body: readFileSync(file, "utf8"),
+}));
+
+const API_ROUTE_FILES = [
+  ...sourceFiles(join(SRC, "app/api")),
+  ...sourceFiles(ADMIN_API),
+].map((file) => ({
   path: relative(ROOT, file),
   body: readFileSync(file, "utf8"),
 }));
@@ -226,6 +235,29 @@ describe("layering", () => {
     ]) {
       expect(FILES.some(({ path }) => path === file), `missing ${file}`).toBe(true);
     }
+  });
+
+  it("keeps API route failures on the catalogued error boundary", () => {
+    // Route code should return respCode(...) for known failures and respError(...)
+    // for exceptions. respErr(...) is the old escape hatch that sends ad-hoc
+    // English over the wire and leaves clients branching on message text.
+    const offenders = API_ROUTE_FILES.filter(({ body }) =>
+      /\brespErr\s*\(/.test(stripComments(body))
+    ).map(({ path }) => path);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("parses JSON API request bodies through zod schemas", () => {
+    // Direct req.json() casts were the source of drift: each route decided for
+    // itself whether malformed JSON was empty input, invalid params, or a server
+    // failure. JSON routes should use parseJsonBody(...). Non-JSON routes can
+    // still read text/formData directly, e.g. Stripe webhooks and uploads.
+    const offenders = API_ROUTE_FILES.filter(({ body }) =>
+      /\b(?:req|request)\.json\s*\(/.test(stripComments(body))
+    ).map(({ path }) => path);
+
+    expect(offenders).toEqual([]);
   });
 });
 

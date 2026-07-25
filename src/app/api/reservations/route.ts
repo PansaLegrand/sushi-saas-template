@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { ReservationsConfig } from "@/config/reservations";
 import { createReservationAndCheckout } from "@/services/reservations";
 import { getUserUuid } from "@/services/user";
@@ -5,6 +7,17 @@ import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { respData, respNoAuth } from "@/lib/resp";
 import { respCode, respError } from "@/lib/errors/response";
+import { parseJsonBody } from "@/lib/http/request";
+
+const CreateReservationSchema = z.object({
+  service_id: z.coerce.number().int().positive(),
+  start_at: z.string().trim().min(1),
+  timezone: z.string().trim().min(1),
+  contact_email: z.string().trim().optional(),
+  contact_phone: z.string().trim().optional(),
+  notes: z.string().trim().optional(),
+  locale: z.string().trim().default("en"),
+});
 
 export async function POST(req: Request) {
   if (!ReservationsConfig.enabled) {
@@ -20,32 +33,17 @@ export async function POST(req: Request) {
     const user_uuid = await getUserUuid(req);
     if (!user_uuid) return respNoAuth();
 
-    const body = await req.json().catch(() => null);
-    if (!body) {
-      return respCode("REQUEST_MALFORMED_JSON");
-    }
-
-    const service_id = Number(body.service_id);
-    const start_at = String(body.start_at);
-    const timezone = String(body.timezone);
-    const contact_email = body.contact_email ? String(body.contact_email) : undefined;
-    const contact_phone = body.contact_phone ? String(body.contact_phone) : undefined;
-    const notes = body.notes ? String(body.notes) : undefined;
-    const locale = String(body.locale || "en");
-
-    if (!service_id || !start_at || !timezone) {
-      return respCode("REQUEST_MISSING_FIELD");
-    }
+    const body = await parseJsonBody(req, CreateReservationSchema);
 
     const result = await createReservationAndCheckout({
-      locale,
+      locale: body.locale,
       user_uuid,
-      service_id,
-      start_at,
-      timezone,
-      contact_email,
-      contact_phone,
-      notes,
+      service_id: body.service_id,
+      start_at: body.start_at,
+      timezone: body.timezone,
+      contact_email: body.contact_email,
+      contact_phone: body.contact_phone,
+      notes: body.notes,
     });
 
     return respData(result);

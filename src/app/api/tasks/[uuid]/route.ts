@@ -1,4 +1,5 @@
-import { respData, respErr, respForbidden, respNoAuth, respNotFound } from "@/lib/resp";
+import { respData, respNoAuth } from "@/lib/resp";
+import { respCode, respError } from "@/lib/errors/response";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { findTaskByUuid } from "@/models/task";
 import { getUserUuid } from "@/services/user";
@@ -12,11 +13,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ uuid: string }>
     if (!userUuid) return respNoAuth();
 
     const { uuid } = await ctx.params;
-    if (!uuid) return respErr("invalid params");
+    if (!uuid) return respCode("REQUEST_MISSING_FIELD", {
+      details: { field: "uuid" },
+    });
 
     const task = await findTaskByUuid(uuid);
-    if (!task) return respNotFound("task not found");
-    if (task.user_uuid !== userUuid) return respForbidden();
+    if (!task) return respCode("TASK_NOT_FOUND");
+    if (task.user_uuid !== userUuid) return respCode("AUTH_FORBIDDEN");
 
     return respData({
       task: {
@@ -38,7 +41,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ uuid: string }>
       },
     });
   } catch (error) {
-    console.error("get task failed", error);
-    return respErr("get task failed", { status: 500 });
+    return respError(error, {
+      logFields: { event: "task.get_failed" },
+      fallback: "SERVER_ERROR",
+    });
   }
 }

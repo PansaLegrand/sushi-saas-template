@@ -1,4 +1,5 @@
-import { respData, respErr, respNoAuth } from "@/lib/resp";
+import { respData, respNoAuth } from "@/lib/resp";
+import { respError } from "@/lib/errors/response";
 import { getUserUuid } from "@/services/user";
 import { listFilesByUser } from "@/models/file";
 
@@ -14,7 +15,9 @@ export async function GET(req: Request) {
     const rows = await listFilesByUser(userUuid, Math.max(page, 1), Math.max(limit, 1));
     return respData({ items: rows });
   } catch (error) {
-    console.error("list files failed", error);
-    return respErr("list files failed", { status: 500 });
+    return respError(error, {
+      logFields: { event: "storage.files_list_failed" },
+      fallback: "SERVER_ERROR",
+    });
   }
 }

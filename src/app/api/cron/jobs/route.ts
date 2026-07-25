@@ -1,5 +1,6 @@
 import { requireCronAuth } from "@/lib/cron";
-import { respData, respErr } from "@/lib/resp";
+import { respData } from "@/lib/resp";
+import { respError } from "@/lib/errors/response";
 import { countJobsByStatus } from "@/models/job";
 import { pruneFinishedJobs, runDueJobs } from "@/services/jobs";
 
@@ -36,7 +37,9 @@ export async function GET(req: Request) {
       durationMs: Date.now() - startedAt,
     });
   } catch (e) {
-    console.error("cron.jobs failed", e);
-    return respErr("cron jobs run failed", { status: 500 });
+    return respError(e, {
+      logFields: { event: "cron.jobs_failed" },
+      fallback: "SERVER_ERROR",
+    });
   }
 }
