@@ -1,9 +1,9 @@
 import Stripe from "stripe";
 import { handleCheckoutSession } from "@/services/stripe";
-import { markReservationConfirmed, getServiceById } from "@/features/reservations/models";
-import { buildReservationICS } from "@/features/reservations/ics";
-import { buildGoogleCalendarUrl } from "@/features/reservations/google";
-import { ReservationsConfig } from "@/features/reservations/config";
+import { markReservationConfirmed, getServiceById } from "@/models/reservation";
+import { buildReservationICS } from "@/services/reservations/ics";
+import { buildGoogleCalendarUrl } from "@/services/reservations/google";
+import { ReservationsConfig } from "@/config/reservations";
 import { getPricingConfig } from "@/config/pricing";
 import { locales } from "@/i18n/locale";
 import { getSnowId } from "@/lib/hash";

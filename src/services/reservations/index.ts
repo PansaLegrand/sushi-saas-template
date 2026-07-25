@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { ReservationsConfig } from "./config";
+import { ReservationsConfig } from "@/config/reservations";
 import {
   ensureDemoService,
   getServiceById,
@@ -8,7 +8,7 @@ import {
   attachOrderToReservation,
   type Reservation,
   type ReservationService,
-} from "./models";
+} from "@/models/reservation";
 import { newStripeClient } from "@/integrations/stripe";
 import { getSnowId } from "@/lib/hash";
 import { getAppEnv } from "@/lib/env";

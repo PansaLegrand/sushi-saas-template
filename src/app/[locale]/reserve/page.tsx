@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { buildMetadata, defaultMetaFallbacks } from "@/lib/seo";
-import { ensureDemoService, listActiveServices, findReservationByNo, getServiceById } from "@/features/reservations/models";
-import { buildGoogleCalendarUrl } from "@/features/reservations/google";
-import { ReservationsConfig } from "@/features/reservations/config";
-import ReservationWidget from "@/features/reservations/components/reservation-widget";
+import { ensureDemoService, listActiveServices, findReservationByNo, getServiceById } from "@/models/reservation";
+import { buildGoogleCalendarUrl } from "@/services/reservations/google";
+import { ReservationsConfig } from "@/config/reservations";
+import ReservationWidget from "@/components/reservations/reservation-widget";
 
 export async function generateMetadata({
   params,

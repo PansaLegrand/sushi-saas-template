@@ -1,5 +1,5 @@
-import { ReservationsConfig } from "@/features/reservations/config";
-import { getAvailabilityForDate } from "@/features/reservations/service";
+import { ReservationsConfig } from "@/config/reservations";
+import { getAvailabilityForDate } from "@/services/reservations";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { respData } from "@/lib/resp";

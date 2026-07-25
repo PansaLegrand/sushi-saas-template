@@ -39,24 +39,24 @@ vi.mock("@/services/email/send", () => ({
   sendReservationConfirmedEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("@/features/reservations/config", () => ({
+vi.mock("@/config/reservations", () => ({
   ReservationsConfig: {
     enabled: false,
     baseTimeZone: "UTC",
   },
 }));
 
-vi.mock("@/features/reservations/models", () => ({
+vi.mock("@/models/reservation", () => ({
   markReservationConfirmed: vi.fn(),
   findReservationByNo: vi.fn(),
   getServiceById: vi.fn(),
 }));
 
-vi.mock("@/features/reservations/ics", () => ({
+vi.mock("@/services/reservations/ics", () => ({
   buildReservationICS: vi.fn(),
 }));
 
-vi.mock("@/features/reservations/google", () => ({
+vi.mock("@/services/reservations/google", () => ({
   buildGoogleCalendarUrl: vi.fn(),
 }));
 

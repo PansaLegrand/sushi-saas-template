@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { buildMetadata, defaultMetaFallbacks } from "@/lib/seo";
-import ReserveModalButton from "@/components/reserve-modal-button";
+import ReserveModalButton from "@/components/reservations/reserve-modal-button";
 
 export async function generateMetadata({
   params,

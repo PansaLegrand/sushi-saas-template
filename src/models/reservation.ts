@@ -6,7 +6,7 @@ import {
   orders,
 } from "@/db/schema";
 import { getSnowId } from "@/lib/hash";
-import { ReservationsConfig } from "@/features/reservations/config";
+import { ReservationsConfig } from "@/config/reservations";
 
 export type ReservationService = typeof reservationServices.$inferSelect;
 export type Reservation = typeof reservations.$inferSelect;

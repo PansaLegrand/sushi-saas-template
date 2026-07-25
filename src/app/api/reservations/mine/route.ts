@@ -1,5 +1,5 @@
-import { listUserReservationsWithService } from "@/features/reservations/models";
-import { ReservationsConfig } from "@/features/reservations/config";
+import { listUserReservationsWithService } from "@/models/reservation";
+import { ReservationsConfig } from "@/config/reservations";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 

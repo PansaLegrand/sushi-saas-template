@@ -2,10 +2,10 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { auth } from "@/lib/auth";
-import { listUserReservationsWithService } from "@/features/reservations/models";
-import { ReservationsConfig } from "@/features/reservations/config";
+import { listUserReservationsWithService } from "@/models/reservation";
+import { ReservationsConfig } from "@/config/reservations";
 import { buildMetadata, defaultMetaFallbacks } from "@/lib/seo";
-import { buildGoogleCalendarUrl } from "@/features/reservations/google";
+import { buildGoogleCalendarUrl } from "@/services/reservations/google";
 import { findUserByEmail } from "@/models/user";
 
 export async function generateMetadata({

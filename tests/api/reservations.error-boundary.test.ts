@@ -15,13 +15,13 @@ const mocks = vi.hoisted(() => ({
   getUserUuid: vi.fn(),
 }));
 
-vi.mock("@/features/reservations/config", () => ({
+vi.mock("@/config/reservations", () => ({
   ReservationsConfig: {
     enabled: true,
   },
 }));
 
-vi.mock("@/features/reservations/service", () => ({
+vi.mock("@/services/reservations", () => ({
   createReservationAndCheckout: mocks.createReservationAndCheckout,
 }));
 

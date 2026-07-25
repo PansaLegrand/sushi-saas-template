@@ -1,5 +1,5 @@
-import { ReservationsConfig } from "@/features/reservations/config";
-import { ensureDemoService, listActiveServices } from "@/features/reservations/models";
+import { ReservationsConfig } from "@/config/reservations";
+import { ensureDemoService, listActiveServices } from "@/models/reservation";
 
 export async function GET() {
   if (!ReservationsConfig.enabled) {

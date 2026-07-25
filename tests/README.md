@@ -33,6 +33,12 @@ verification, cron auth. No `vi.mock` should appear in this directory. If a
 function needs a mock to be tested, it is not a unit — move it down a tier or
 extract the pure part.
 
+`architecture.test.ts` also lives here. It reads the source tree as text and
+fails the build when a layer boundary is crossed — a file outside `models/`
+importing `@/db`, a model importing a service, `lib/` growing domain knowledge, a
+`src/features/` directory reappearing. Documentation describing an architecture
+decays; this does not. When it fails it names the offending file path.
+
 ### Route — `tests/api/`
 
 Exercises an App Router handler by calling it with a real `Request`. Mocks the

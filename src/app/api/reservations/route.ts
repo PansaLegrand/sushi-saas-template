@@ -1,5 +1,5 @@
-import { ReservationsConfig } from "@/features/reservations/config";
-import { createReservationAndCheckout } from "@/features/reservations/service";
+import { ReservationsConfig } from "@/config/reservations";
+import { createReservationAndCheckout } from "@/services/reservations";
 import { getUserUuid } from "@/services/user";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";

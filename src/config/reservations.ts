@@ -1,3 +1,5 @@
+import { isReservationDemoAutoSeedEnabled } from "@/lib/demo-flags";
+
 // Centralized configuration for the Reservations demo feature.
 // Keep these values in code so the feature remains portable and easy to tweak.
 
@@ -21,3 +23,20 @@ export const ReservationsData = {
 
 export type ReservationsDataType = typeof ReservationsData;
 
+
+// Runtime feature configuration. Combines the static values above with the two
+// env switches that gate the feature, so callers have a single import rather
+// than reaching for `process.env` themselves.
+export const ReservationsConfig = {
+  // Toggle the entire feature on/off (kept as env for easy disabling)
+  enabled:
+    (process.env.NEXT_PUBLIC_FEATURE_RESERVATIONS_ENABLED ?? "true").toLowerCase() ===
+    "true",
+  // Auto-seed a demo service if none exist (env-controlled convenience)
+  autoSeedDemo: isReservationDemoAutoSeedEnabled(),
+  // Code-level settings
+  holdMinutes: ReservationsData.holdMinutes,
+  horizonDays: ReservationsData.horizonDays,
+  baseTimeZone: ReservationsData.baseTimeZone,
+  businessHours: ReservationsData.businessHours,
+};

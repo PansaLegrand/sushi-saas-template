@@ -1,6 +1,6 @@
 import { getAdminContext } from "@admin/lib/authz";
 import { listAdminReservationsWithService } from "@admin/lib/data";
-import { ReservationsConfig } from "@/features/reservations/config";
+import { ReservationsConfig } from "@/config/reservations";
 
 export default async function AdminReservationsPage() {
   const admin = await getAdminContext();
