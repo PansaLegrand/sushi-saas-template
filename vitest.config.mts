@@ -109,13 +109,14 @@ export default defineConfig({
       // never lower one to make a red build green — that is the signal working.
       // Calibrated against a fresh clone with no test database — the floor
       // every contributor can meet without installing Postgres. Measured there:
-      // 26.15 / 42.4 / 64.09. A run with TEST_DATABASE_URL set (CI always) comes
-      // in around 34.5 / 56 / 66; that is headroom, not a reason to relax these.
+      // 33.78 / 52.12 / 70.52. A run with TEST_DATABASE_URL set (CI always)
+      // comes in around 42.4 / 61.8 / 71.5; that is headroom, not a reason to
+      // relax these.
       thresholds: {
-        lines: 25,
-        functions: 41,
-        branches: 62,
-        statements: 25,
+        lines: 33,
+        functions: 51,
+        branches: 69,
+        statements: 33,
       },
     },
   },

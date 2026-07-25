@@ -6,6 +6,9 @@ import { respData, respNoAuth } from "@/lib/resp";
 import { respCode, respError } from "@/lib/errors/response";
 import { parseJsonBody } from "@/lib/http/request";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
+import { startOfUtcMonth } from "@/lib/time";
+import { countTasksByUserSince } from "@/models/task";
+import { enforceLimit, requireEntitlement } from "@/services/entitlements";
 import { getUserUuid } from "@/services/user";
 import { createTextToVideoTask } from "@/services/tasks";
 import type { CreateTextToVideoResponse } from "@/types/task";
@@ -31,6 +34,16 @@ export async function POST(req: Request) {
   try {
     const userUuid = await getUserUuid(req);
     if (!userUuid) return respNoAuth();
+
+    // Plan gate before anything is parsed or spent. Two checks, because they
+    // fail for different reasons and the user needs to be told which: the
+    // first means "your plan never included this", the second means "it does,
+    // and you have used this month's allowance".
+    await requireEntitlement(userUuid, "tasks.text_to_video");
+    await enforceLimit(userUuid, "tasks.perMonth", {
+      current: await countTasksByUserSince(userUuid, startOfUtcMonth()),
+      adding: 1,
+    });
 
     const payload = await parseJsonBody(req, TextToVideoSchema);
 

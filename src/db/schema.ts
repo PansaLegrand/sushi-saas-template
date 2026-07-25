@@ -460,3 +460,74 @@ export const adminAuditLogs = pgTable(
     index("admin_audit_logs_created_idx").on(table.created_at),
   ]
 );
+
+// Subscriptions: what a user is entitled to right now.
+//
+// This table and `orders` answer different questions and must not be merged.
+// `orders` is the immutable financial log — what was paid, when, for what, and
+// it is never rewritten after the fact. This table is the *current state* of
+// the billing relationship, rewritten in place every time Stripe tells us it
+// changed. Trying to answer "is this user on a paid plan" from `orders` means
+// scanning for the newest row whose `expired_at` has not passed, which gets
+// slower as the log grows and gets the answer wrong the moment someone cancels
+// mid-period.
+//
+// One row per subscription, not per user: a user can hold a comped row and a
+// paid row at once, and the entitlement service resolves them by plan rank.
+export const subscriptions = pgTable(
+  "subscriptions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    uuid: varchar({ length: 255 }).notNull().unique(),
+
+    user_uuid: varchar({ length: 255 }).notNull(),
+
+    // Null for a comped subscription granted from the admin console. Postgres
+    // allows many NULLs under a unique index, so manual rows do not collide.
+    stripe_subscription_id: varchar({ length: 255 }),
+    stripe_customer_id: varchar({ length: 255 }),
+    stripe_price_id: varchar({ length: 255 }),
+
+    // Resolved from the price at write time rather than at read time. Storing
+    // it means a price ID later removed from the catalog does not silently
+    // demote a paying customer — see docs/plans.md.
+    tier: varchar({ length: 50 }).notNull(),
+
+    // Stripe's own vocabulary: trialing | active | past_due | canceled |
+    // incomplete | incomplete_expired | unpaid | paused. Kept verbatim so the
+    // column can be compared against a Stripe dashboard without a mapping.
+    status: varchar({ length: 32 }).notNull(),
+
+    // stripe | manual. Manual rows are comped accounts, granted by an admin.
+    source: varchar({ length: 32 }).notNull().default("stripe"),
+
+    current_period_start: timestamp({ withTimezone: true }),
+    current_period_end: timestamp({ withTimezone: true }),
+    trial_end: timestamp({ withTimezone: true }),
+    cancel_at_period_end: boolean().notNull().default(false),
+    ended_at: timestamp({ withTimezone: true }),
+
+    // When Stripe emitted the event this row was last written from.
+    //
+    // Webhooks arrive out of order. Without this, a `customer.subscription.
+    // updated` delayed by a retry can land after the `deleted` that followed
+    // it and resurrect a cancelled subscription. Every write compares against
+    // this column and drops the older event.
+    stripe_event_at: timestamp({ withTimezone: true }),
+
+    // Why a manual subscription exists. Empty for Stripe rows.
+    note: text(),
+
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("subscriptions_stripe_id_unique_idx").on(
+      table.stripe_subscription_id
+    ),
+    // The read path: "everything currently live for this user", on every
+    // entitlement check.
+    index("subscriptions_user_status_idx").on(table.user_uuid, table.status),
+    index("subscriptions_customer_idx").on(table.stripe_customer_id),
+  ]
+);

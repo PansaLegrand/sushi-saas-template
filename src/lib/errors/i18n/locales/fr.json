@@ -30,6 +30,9 @@
   "PAYMENT_SESSION_FAILED": "Le prestataire de paiement est indisponible. Veuillez réessayer sous peu.",
   "PAYMENT_WEBHOOK_INVALID_SIGNATURE": "La signature du webhook n'a pas pu être vérifiée.",
 
+  "PLAN_UPGRADE_REQUIRED": "Votre formule n'inclut pas cette fonctionnalité.",
+  "PLAN_LIMIT_EXCEEDED": "Vous avez atteint la limite de votre formule.",
+
   "STORAGE_FILE_NOT_FOUND": "Ce fichier est introuvable.",
   "STORAGE_OBJECT_MISSING": "Le fichier stocké est manquant.",
   "STORAGE_FILE_TOO_LARGE": "Ce fichier est trop volumineux.",

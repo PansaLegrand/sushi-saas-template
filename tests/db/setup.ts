@@ -74,7 +74,13 @@ if (rawUrl) {
 export const describeDb = describe.skipIf(!hasTestDatabase);
 
 /** Tables the database tier writes to. Truncated between tests. */
-const MANAGED_TABLES = ["credits", "jobs", "orders", "users"] as const;
+const MANAGED_TABLES = [
+  "credits",
+  "jobs",
+  "orders",
+  "subscriptions",
+  "users",
+] as const;
 
 /**
  * Truncate managed tables and reset identity sequences.

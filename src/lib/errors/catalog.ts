@@ -177,6 +177,21 @@ export const ERROR_CATALOG = {
     defaultMessage: "The webhook signature could not be verified.",
   },
 
+  // --------------------------------------------------------------- plans
+  // Both are 403, not 402. Payment Required is for a request that becomes
+  // valid once money changes hands within the same exchange; these are
+  // authorization failures whose remedy happens elsewhere. 403 also means an
+  // existing client that only knows the generic statuses still does something
+  // sensible with them.
+  PLAN_UPGRADE_REQUIRED: {
+    statusCode: 403,
+    defaultMessage: "Your plan does not include this feature.",
+  },
+  PLAN_LIMIT_EXCEEDED: {
+    statusCode: 403,
+    defaultMessage: "You have reached the limit for your plan.",
+  },
+
   // ------------------------------------------------------------- storage
   STORAGE_FILE_NOT_FOUND: {
     statusCode: 404,

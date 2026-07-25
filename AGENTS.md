@@ -29,7 +29,7 @@ Two rules make this real:
 | `config/site.ts` | **The site island** — brand, links, contact, showcases | The only file allowed to hold site-specific content |
 | `app/` | App Router routes, `[locale]` pages, `api/` handlers | No business logic; call a service |
 | `components/` | Shared React components, grouped by domain (`auth/`, `storage/`, `blocks/`, `ui/`) | Presentational; no `db()`, no model imports, no raw `fetch` |
-| `config/` | Product configuration: pricing plans, billing amounts, auth route map, reservation settings | Constants and env-derived flags only — no I/O, and never imports a service or model |
+| `config/` | Product configuration: the plan catalog, pricing, billing amounts, auth route map, reservation settings | Constants and env-derived flags only — no I/O, and never imports a service or model. `config/plans.ts` is further confined: only `services/entitlements.ts` may import it |
 | `db/` | Drizzle schema, migrations, connection factory | Read `docs/database.md` before changing the schema |
 | `i18n/` | Locale config and message loading (catalogs live in `messages/`) | Keep all five locales aligned |
 | `integrations/` | External SDK client construction only (Stripe, Slack) | Clients, not logic — the logic goes in `services/` |
@@ -59,6 +59,15 @@ upper one, when `lib/` grows domain knowledge, when a component reaches for a
 query, when a filename is not kebab-case, or when `src/features/` reappears. The
 one allowlisted exception is `src/lib/auth.ts`, which must hand the db instance
 to Better Auth's Drizzle adapter.
+
+### Authorization is a capability, never a tier name
+
+Plan gating goes through one door. Ask `can(...)`, `requireEntitlement(...)`, or
+`enforceLimit(...)` from `src/services/entitlements.ts`; never import
+`@/config/plans` and never write `tier === "max"`. Both are enforced by the
+architecture test, and the reason is that the alternative — tier comparisons
+spread across routes and components — makes adding a tier a grep you will not
+finish. See `docs/plans.md`.
 
 The admin app keeps its own data layer at `apps/admin/lib/data.ts` by design —
 see `apps/admin/README.md`. Its browser-side calls live in `apps/admin/lib/api.ts`

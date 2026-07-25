@@ -10,6 +10,7 @@ import { getSnowId } from "@/lib/hash";
 import { insertOrder, OrderStatus, findOrderBySubscriptionPeriod } from "@/models/order";
 import { increaseCredits, CreditsTransType } from "@/services/credit";
 import { updateAffiliateForOrder } from "@/services/affiliate";
+import { syncStripeSubscription } from "@/services/subscriptions";
 import { getUserUuidsByEmail } from "@/models/user";
 import { enqueueJob } from "@/services/jobs";
 import { getAppEnv, getRequiredEnv } from "@/lib/env";
@@ -24,6 +25,14 @@ const IDEMPOTENT_STRIPE_EVENTS = new Set([
   "checkout.session.completed",
   "invoice.payment_succeeded",
   "invoice.payment_failed",
+  // Subscription state changes are claimed too. Redelivery of one of these is
+  // harmless on its own — the upsert is idempotent — but claiming keeps the
+  // processed-event table a complete record of what we acted on.
+  "customer.subscription.created",
+  "customer.subscription.updated",
+  "customer.subscription.deleted",
+  "charge.refunded",
+  "charge.dispute.created",
 ]);
 
 // Stripe sends webhook events via POST requests with a signed payload.
@@ -77,6 +86,27 @@ export async function POST(req: Request) {
         const session = event.data.object as Stripe.Checkout.Session;
         const stripe = new Stripe(getRequiredEnv("STRIPE_PRIVATE_KEY"));
         await handleCheckoutSession(stripe, session);
+
+        // Entitle the user now rather than when `customer.subscription.created`
+        // happens to arrive. The two events are not ordered, and the one the
+        // user is waiting on is this one: they have just been redirected back
+        // from Checkout and expect the feature they paid for to be there.
+        // Applying both is safe — the upsert keeps whichever event is newer.
+        if (session.mode === "subscription" && session.subscription) {
+          const subscriptionId =
+            typeof session.subscription === "string"
+              ? session.subscription
+              : session.subscription.id;
+
+          try {
+            const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+            await syncStripeSubscription(subscription, new Date(event.created * 1000));
+          } catch (e) {
+            // Non-fatal: `customer.subscription.created` still carries the same
+            // object, so a failure here costs latency, not entitlement.
+            console.warn("failed to sync subscription from checkout session", e);
+          }
+        }
         // If this checkout was for a reservation, confirm it now
         if (ReservationsConfig.enabled && session.metadata?.type === "reservation") {
           const reservationNo = session.metadata?.reservation_no;
@@ -317,12 +347,52 @@ export async function POST(req: Request) {
         }
         break;
       }
-      // You can extend handling for renewals:
-      // case "invoice.payment_succeeded": {
-      //   const invoice = event.data.object as Stripe.Invoice;
-      //   // Map subscription renewals to your order/credit logic if desired.
-      //   break;
-      // }
+      // The subscription lifecycle. One handler for all three events, because
+      // Stripe sends the full subscription object with each of them and we
+      // copy it wholesale rather than computing transitions ourselves — a
+      // cancellation is just an object whose status is now "canceled".
+      //
+      // This is what makes cancelling, downgrading, pausing, and a card
+      // failing all reach the database. Without it, a user who cancels in the
+      // billing portal keeps their tier until their order row expires, which
+      // is to say: for the rest of the period they already paid for, and then
+      // silently forever if the order had no expiry.
+      case "customer.subscription.created":
+      case "customer.subscription.updated":
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object as Stripe.Subscription;
+        await syncStripeSubscription(subscription, new Date(event.created * 1000));
+        break;
+      }
+
+      // Money coming back out. Neither is auto-reversed: refunding credits a
+      // user has already spent, or clawing back a tier mid-dispute, are
+      // decisions with enough product judgement in them that this kit raises
+      // the alert and leaves the call to a human. What it must not do is stay
+      // silent, which is what happens when the event is not handled at all.
+      case "charge.refunded":
+      case "charge.dispute.created": {
+        const charge = event.data.object as Stripe.Charge | Stripe.Dispute;
+        await enqueueJob(
+          "slack_error",
+          {
+            title:
+              event.type === "charge.refunded"
+                ? "Charge refunded — review credits and access"
+                : "Chargeback opened — review credits and access",
+            context: {
+              event_type: event.type,
+              charge_id: "charge" in charge ? String(charge.charge) : charge.id,
+              amount:
+                typeof charge.amount === "number" ? charge.amount / 100 : undefined,
+              currency: charge.currency,
+            },
+          },
+          { dedupeKey: `slack_error:${event.id}:${event.type}` }
+        );
+        break;
+      }
+
       default:
         // Ignore other event types for now.
         break;

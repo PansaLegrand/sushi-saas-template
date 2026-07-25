@@ -3,6 +3,12 @@
  *
  * The route is a demo/mock provider surface. It must be disabled by default so
  * production clones do not expose credit-consuming playground behavior.
+ *
+ * It is also the worked example of a plan gate: generating video costs a
+ * provider call, so it is entitled to Plus and above and metered per month.
+ * The subscription *model* is mocked rather than the entitlement service, so
+ * these tests exercise the real resolution rules — a route that forgot to call
+ * `requireEntitlement` would still fail here.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetEnvCacheForTests } from "@/lib/env";
@@ -11,6 +17,47 @@ import { resetRateLimitForTests } from "@/lib/rate-limit";
 vi.mock("@/services/user", () => ({
   getUserUuid: vi.fn().mockResolvedValue("u-test"),
 }));
+
+const listSubscriptionsByUserUuid = vi.fn();
+const countTasksByUserSince = vi.fn();
+
+vi.mock("@/models/subscription", async () => {
+  const actual = await vi.importActual<typeof import("@/models/subscription")>(
+    "@/models/subscription"
+  );
+  return {
+    ...actual,
+    listSubscriptionsByUserUuid: (...args: unknown[]) =>
+      listSubscriptionsByUserUuid(...args),
+  };
+});
+
+vi.mock("@/models/task", () => ({
+  countTasksByUserSince: (...args: unknown[]) => countTasksByUserSince(...args),
+}));
+
+/** An active subscription row on `tier`, enough for the entitlement service. */
+function subscriptionOn(tier: string) {
+  const now = new Date();
+  return {
+    uuid: `sub-${tier}`,
+    user_uuid: "u-test",
+    tier,
+    status: "active",
+    source: "stripe",
+    current_period_end: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+    cancel_at_period_end: false,
+    ended_at: null,
+    updated_at: now,
+  };
+}
+
+/** Enables the demo provider these tests need. */
+function enableDemoProvider() {
+  process.env.ENABLE_DEMO_FEATURES = "true";
+  process.env.ENABLE_TEXT2VIDEO_MOCK = "true";
+  resetEnvCacheForTests();
+}
 
 vi.mock("@/services/tasks", () => ({
   createTextToVideoTask: vi.fn().mockResolvedValue({
@@ -42,6 +89,10 @@ describe("POST /api/tasks/text-to-video", () => {
     delete process.env.ENABLE_TEXT2VIDEO_MOCK;
     resetEnvCacheForTests();
     resetRateLimitForTests();
+    // Entitled and under quota unless a test says otherwise, so the cases
+    // below stay about the behaviour they are named for.
+    listSubscriptionsByUserUuid.mockResolvedValue([subscriptionOn("plus")]);
+    countTasksByUserSince.mockResolvedValue(0);
   });
 
   it("rejects requests when the demo provider is disabled", async () => {
@@ -106,5 +157,63 @@ describe("POST /api/tasks/text-to-video", () => {
       input: { prompt: "hello", seconds: 8, aspectRatio: "landscape" },
       idempotencyKey: "idem-header-test",
     });
+  });
+
+  it("refuses a free account and names the tier that would work", async () => {
+    enableDemoProvider();
+    listSubscriptionsByUserUuid.mockResolvedValue([]);
+
+    const req = new Request("http://test", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ prompt: "hello" }),
+    });
+
+    const res = await createTextToVideo(req);
+    const payload = await res.json();
+    const tasks = await import("@/services/tasks");
+
+    expect(res.status).toBe(403);
+    expect(payload.error_code).toBe("PLAN_UPGRADE_REQUIRED");
+    expect(payload.details).toMatchObject({ tier: "free", requiredTier: "plus" });
+    // The gate runs before anything is created or spent.
+    expect(tasks.createTextToVideoTask).not.toHaveBeenCalled();
+  });
+
+  it("refuses an entitled account that has used its monthly allowance", async () => {
+    enableDemoProvider();
+    countTasksByUserSince.mockResolvedValue(50); // Plus allows 50 per month.
+
+    const req = new Request("http://test", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ prompt: "hello" }),
+    });
+
+    const res = await createTextToVideo(req);
+    const payload = await res.json();
+    const tasks = await import("@/services/tasks");
+
+    expect(res.status).toBe(403);
+    // A different code from the one above on purpose: "upgrade to use this" and
+    // "you have used this month's allowance" need different copy and different
+    // buttons.
+    expect(payload.error_code).toBe("PLAN_LIMIT_EXCEEDED");
+    expect(payload.details).toMatchObject({ limit: "tasks.perMonth", max: 50 });
+    expect(tasks.createTextToVideoTask).not.toHaveBeenCalled();
+  });
+
+  it("lets an unlimited tier past the quota check", async () => {
+    enableDemoProvider();
+    listSubscriptionsByUserUuid.mockResolvedValue([subscriptionOn("max")]);
+    countTasksByUserSince.mockResolvedValue(10_000);
+
+    const req = new Request("http://test", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ prompt: "hello" }),
+    });
+
+    expect((await createTextToVideo(req)).status).toBe(200);
   });
 });

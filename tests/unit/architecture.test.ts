@@ -145,6 +145,44 @@ describe("layering", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("confines the plan catalog to the entitlement service", () => {
+    // The single door. Authorization is expressed as `can(...)` and
+    // `enforceLimit(...)`, never as a tier comparison, and this rule is what
+    // keeps it that way — the version of this system where forty call sites
+    // read the catalog directly works fine until you add a tier between two
+    // existing ones, and then it is a grep you will not finish.
+    //
+    // The service re-exports what other layers legitimately need
+    // (`tierForPriceId` for the Stripe webhook, `describePlans` for billing UI).
+    const ALLOWED = new Set(["src/config/plans.ts", "src/services/entitlements.ts"]);
+
+    const offenders = FILES.filter(
+      ({ path, body }) => !ALLOWED.has(path) && importsModule(body, "@/config/plans")
+    ).map(({ path }) => path);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("never branches on a tier name", () => {
+    // The other half of the rule above: `PlanSnapshot["tier"]` is a string
+    // union, so a component can compare against a literal without importing
+    // anything. That is the leak this catches.
+    //
+    // Add a tier to the catalog and add it here too.
+    const TIER_LITERALS = ["free", "plus", "max"];
+    const pattern = new RegExp(
+      `\\b(?:tier|plan)\\w*\\s*[!=]==\\s*["'](?:${TIER_LITERALS.join("|")})["']`
+    );
+
+    const ALLOWED = new Set(["src/config/plans.ts", "src/services/entitlements.ts"]);
+
+    const offenders = FILES.filter(
+      ({ path, body }) => !ALLOWED.has(path) && pattern.test(stripComments(body))
+    ).map(({ path }) => path);
+
+    expect(offenders).toEqual([]);
+  });
+
   it("keeps queries out of React components", () => {
     const offenders = FILES.filter(
       ({ path, body }) =>

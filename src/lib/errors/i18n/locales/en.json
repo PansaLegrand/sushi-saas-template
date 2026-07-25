@@ -30,6 +30,9 @@
   "PAYMENT_SESSION_FAILED": "The payment provider is unavailable. Please try again shortly.",
   "PAYMENT_WEBHOOK_INVALID_SIGNATURE": "The webhook signature could not be verified.",
 
+  "PLAN_UPGRADE_REQUIRED": "Your plan does not include this feature.",
+  "PLAN_LIMIT_EXCEEDED": "You have reached the limit for your plan.",
+
   "STORAGE_FILE_NOT_FOUND": "That file was not found.",
   "STORAGE_OBJECT_MISSING": "The stored file is missing.",
   "STORAGE_FILE_TOO_LARGE": "That file is too large.",

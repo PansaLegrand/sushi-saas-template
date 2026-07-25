@@ -30,6 +30,9 @@
   "PAYMENT_SESSION_FAILED": "支付服务暂时不可用，请稍后重试。",
   "PAYMENT_WEBHOOK_INVALID_SIGNATURE": "无法验证 webhook 签名。",
 
+  "PLAN_UPGRADE_REQUIRED": "当前方案不包含此功能。",
+  "PLAN_LIMIT_EXCEEDED": "已达到当前方案的上限。",
+
   "STORAGE_FILE_NOT_FOUND": "未找到该文件。",
   "STORAGE_OBJECT_MISSING": "存储中的文件已丢失。",
   "STORAGE_FILE_TOO_LARGE": "文件过大。",

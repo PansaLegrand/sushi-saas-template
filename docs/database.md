@@ -136,6 +136,7 @@ catches the resulting `23505` and treats it as success. Full map:
 | `jobs.dedupe_key` unique | Two welcome emails from one retried signup |
 | `tasks (user_uuid, type, idempotency_key)` unique | Double-charging for a double-clicked task |
 | `stripe_webhook_events.event_id` unique | Reprocessing a Stripe retry |
+| `subscriptions.stripe_subscription_id` unique | Two rows for one Stripe subscription. Nullable, so comps (many NULLs) do not collide |
 | `orders.order_no` unique | Duplicate orders |
 | `reservations.reservation_no` unique | Duplicate bookings |
 | `files (bucket, key)` unique | Two rows for one object |
@@ -160,6 +161,20 @@ Credits are a separate unit with no fixed currency value — do not conflate the
 in the schema is `timestamptz`. Do not "fix" these to timestamps without
 migrating the values.
 
+`subscriptions` is the exception that proves the rule: it stores the same
+instants as `timestamptz`, because they are read on every entitlement check and
+comparing epoch integers at each one is how a timezone bug gets in.
+
+### 7. State copied from a webhook records the event's timestamp
+
+`subscriptions.stripe_event_at` holds the moment Stripe *emitted* the event the
+row was written from, not the moment we received it. Deliveries are retried for
+days and arrive out of order, so the upsert compares this column and drops
+anything older. Without it, a delayed `customer.subscription.updated` landing
+after the `deleted` that followed it resurrects a cancelled subscription — the
+user keeps a paid tier they no longer pay for, and nothing in the logs looks
+wrong. Any future table that mirrors external state needs the same column.
+
 ---
 
 ## Table catalogue
@@ -172,6 +187,7 @@ graph LR
   users --- accounts
   users -.uuid.-> credits
   users -.uuid.-> orders
+  users -.uuid.-> subscriptions
   users -.uuid.-> files
   users -.uuid.-> tasks
   users -.uuid.-> reservations
@@ -197,7 +213,8 @@ graph LR
 
 | Table | Purpose | Notes |
 | --- | --- | --- |
-| `orders` | Purchases and subscriptions | `status` is `created` / paid states. Subscription period columns are epoch seconds. |
+| `orders` | Purchases — the immutable financial log | `status` is `created` / paid states. Subscription period columns are epoch seconds. Never rewritten after the fact; do not answer "what is this user entitled to" from it. |
+| `subscriptions` | Current billing state, one row per subscription | What `orders` is not: rewritten in place on every Stripe event. `status` uses Stripe's own vocabulary. `source` is `stripe` or `manual` (a comp). `stripe_event_at` orders concurrent webhook deliveries (ground rule 7). Read through `src/services/entitlements.ts`, never directly. |
 | `credits` | Append-only ledger | Positive = grant, negative = spend. `expired_at` null means never expires. `trans_type` values are the `CreditsTransType` enum in `src/services/credit.ts`. |
 | `stripe_webhook_events` | Webhook idempotency + retry state | `status` `processing` / terminal; `attempts` counts retries. |
 

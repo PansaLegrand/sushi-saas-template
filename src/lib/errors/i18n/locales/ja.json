@@ -30,6 +30,9 @@
   "PAYMENT_SESSION_FAILED": "決済サービスに接続できません。しばらくしてからお試しください。",
   "PAYMENT_WEBHOOK_INVALID_SIGNATURE": "Webhook の署名を検証できませんでした。",
 
+  "PLAN_UPGRADE_REQUIRED": "現在のプランではこの機能をご利用いただけません。",
+  "PLAN_LIMIT_EXCEEDED": "現在のプランの上限に達しました。",
+
   "STORAGE_FILE_NOT_FOUND": "ファイルが見つかりません。",
   "STORAGE_OBJECT_MISSING": "保存されているファイルが見つかりません。",
   "STORAGE_FILE_TOO_LARGE": "ファイルサイズが大きすぎます。",

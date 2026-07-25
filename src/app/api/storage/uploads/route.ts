@@ -6,7 +6,8 @@ import { toAppError } from "@/lib/errors/app-error";
 import { parseJsonBody } from "@/lib/http/request";
 import { getUserUuid } from "@/services/user";
 import { getSnowId } from "@/lib/hash";
-import { insertFile } from "@/models/file";
+import { insertFile, sumFileBytesByUser } from "@/models/file";
+import { enforceLimit, limitOf, requireEntitlement } from "@/services/entitlements";
 import { getStorageAdapter } from "@/services/storage";
 import { getAppEnv } from "@/lib/env";
 import { requireSameOrigin } from "@/lib/origin";
@@ -111,12 +112,34 @@ export async function POST(req: Request) {
       });
     }
 
-    const maxBytes = DEFAULT_MAX_UPLOAD_MB * 1024 * 1024;
+    // Two independent caps, and the smaller wins.
+    //
+    // The env var is an infrastructure ceiling — what this deployment will
+    // accept at all, whatever anyone is paying. The plan limit is a product
+    // decision. Keeping them separate means raising a tier's allowance never
+    // silently raises what the server will accept from an unpaid account.
+    await requireEntitlement(userUuid, "storage.upload");
+
+    const planMaxMb = await limitOf(userUuid, "storage.maxFileMb");
+    const effectiveMaxMb =
+      planMaxMb === null ? DEFAULT_MAX_UPLOAD_MB : Math.min(DEFAULT_MAX_UPLOAD_MB, planMaxMb);
+    const maxBytes = effectiveMaxMb * 1024 * 1024;
+
     if (size > maxBytes) {
       return respCode("STORAGE_FILE_TOO_LARGE", {
         details: { maxBytes },
       });
     }
+
+    // Total-storage quota. Checked against what is already stored plus what
+    // this upload would add, at creation time only — a user who downgrades
+    // below what they already hold keeps their files and is simply refused new
+    // ones. Nothing here deletes data because a plan changed.
+    const usedBytes = await sumFileBytesByUser(userUuid);
+    await enforceLimit(userUuid, "storage.totalMb", {
+      current: Math.round(usedBytes / (1024 * 1024)),
+      adding: Math.ceil(Number(size) / (1024 * 1024)),
+    });
 
     const storage = getStorageAdapter();
     const bucket = storage.getDefaultBucket();

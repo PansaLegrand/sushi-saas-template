@@ -1,6 +1,8 @@
 import { getAdminContext } from "@admin/lib/authz";
 import { listAdminPaidOrders, listAdminUsers } from "@admin/lib/data";
 import GrantCreditsPanel from "@admin/components/grant-credits";
+import ManagePlanPanel from "@admin/components/manage-plan";
+import { describePlans } from "@/services/entitlements";
 import Link from "next/link";
 
 export default async function AdminHomePage() {
@@ -12,6 +14,10 @@ export default async function AdminHomePage() {
     listAdminUsers(1, 20),
     listAdminPaidOrders(1, 20),
   ]);
+
+  // Resolved server-side so the console offers exactly the tiers the catalog
+  // defines, rather than a hardcoded list that drifts from it.
+  const tiers = describePlans().map(({ tier, name }) => ({ tier, name }));
 
   return (
     <div className="grid grid-cols-1 gap-6">
@@ -104,6 +110,15 @@ export default async function AdminHomePage() {
       <section className="rounded-lg border p-4">
         <h2 className="mb-3 text-lg font-medium">User Credits</h2>
         <GrantCreditsPanel canWrite={!!canWrite} />
+      </section>
+
+      <section className="rounded-lg border p-4">
+        <h2 className="mb-1 text-lg font-medium">User Plan</h2>
+        <p className="mb-3 text-sm text-muted-foreground">
+          Look up what a user is entitled to, and comp them onto a tier. Paid
+          subscriptions are managed in Stripe.
+        </p>
+        <ManagePlanPanel canWrite={!!canWrite} tiers={tiers} />
       </section>
     </div>
   );

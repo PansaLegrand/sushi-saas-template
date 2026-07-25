@@ -5,7 +5,10 @@ import { db } from "@/db";
 import { adminAuditLogs } from "@/db/schema";
 import type { AdminContext } from "@admin/lib/authz";
 
-export type AdminAuditAction = "credits.grant";
+export type AdminAuditAction =
+  | "credits.grant"
+  | "plan.comp.grant"
+  | "plan.comp.revoke";
 
 interface WriteAuditLogParams {
   actor: AdminContext;

@@ -17,8 +17,22 @@ interface BetterAuthUser {
 }
 
 export async function getUserUuid(req: Request): Promise<string | null> {
+  return getUserUuidFromHeaders(req.headers);
+}
+
+/**
+ * The same lookup, for Server Components.
+ *
+ * A page has `headers()`, not a `Request`. Without this, every page that needs
+ * the current user's uuid re-implements the session read and the
+ * id-to-uuid fallback below — and one of them eventually keys authorization off
+ * the email instead.
+ */
+export async function getUserUuidFromHeaders(
+  requestHeaders: Headers
+): Promise<string | null> {
   const session = await auth.api.getSession({
-    headers: req.headers,
+    headers: requestHeaders,
   });
 
   if (!session) {

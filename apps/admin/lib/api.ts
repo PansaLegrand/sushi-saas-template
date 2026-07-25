@@ -8,6 +8,7 @@
 
 import { api } from "@/lib/api/client";
 import type { CreditSummary } from "@/types/credit";
+import type { PlanSnapshot } from "@/types/plan";
 
 export function getUserCredits(userUuid: string) {
   return api.get<CreditSummary>(
@@ -28,4 +29,30 @@ export function grantCredits(input: {
       idempotencyKey: crypto.randomUUID(),
     },
   });
+}
+
+export function getUserPlan(userUuid: string) {
+  return api.get<PlanSnapshot>(
+    `/api/admin/users/${encodeURIComponent(userUuid)}/plan`
+  );
+}
+
+/** Comp a user onto a tier. Replaces any comp they already hold. */
+export function grantUserPlan(input: {
+  userUuid: string;
+  tier: string;
+  expiresAt?: string | null;
+  note?: string;
+}) {
+  const { userUuid, ...body } = input;
+  return api.post<PlanSnapshot>(
+    `/api/admin/users/${encodeURIComponent(userUuid)}/plan`,
+    { body }
+  );
+}
+
+export function revokeUserPlan(userUuid: string) {
+  return api.delete<{ revoked: number; plan: PlanSnapshot }>(
+    `/api/admin/users/${encodeURIComponent(userUuid)}/plan`
+  );
 }

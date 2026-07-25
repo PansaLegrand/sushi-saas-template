@@ -56,6 +56,27 @@ export async function findUserByUuid(
   return user;
 }
 
+/**
+ * Look a user up by their Stripe customer id.
+ *
+ * The subscription webhook needs this: a `customer.subscription.*` event names
+ * a customer, and the metadata that would name the user directly is only on
+ * objects we created ourselves. This is the fallback that keeps an event
+ * created from the Stripe dashboard — a manual upgrade, a support fix — from
+ * arriving with nobody to attach it to.
+ */
+export async function findUserByStripeCustomerId(
+  stripe_customer_id: string
+): Promise<typeof users.$inferSelect | undefined> {
+  const [user] = await db()
+    .select()
+    .from(users)
+    .where(eq(users.stripe_customer_id, stripe_customer_id))
+    .limit(1);
+
+  return user;
+}
+
 export async function updateUserInviteCode(
   user_uuid: string,
   invite_code: string

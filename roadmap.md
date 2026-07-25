@@ -26,6 +26,8 @@ Legend:
 - [x] Feedback modal, API submission, admin review page
 - [x] `.env.example`, lint gate, deterministic tests, CI workflow, and working Husky hooks
 - [x] Account credit grant endpoint is disabled by default unless explicitly enabled for non-production demo use
+- [x] Plans & entitlements: free/plus/max tiers, feature gates, usage limits, comped accounts
+- [x] Subscription lifecycle: cancel, downgrade, dunning, and out-of-order webhook protection
 
 ---
 
@@ -77,7 +79,7 @@ Focus: fix the risky gaps that make the boilerplate safer to clone, configure, a
 
 Keep these out of the immediate queue unless a real product needs them:
 
-- [P2] Organizations / teams / seat billing
+- [P2] Organizations / teams / seat billing (tiers are per user today — see docs/plans.md)
 - [P2] 2FA, passkeys, session/device management
 - [P2] Full analytics dashboard
 - [P2] Public API and outgoing webhooks

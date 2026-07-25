@@ -1,6 +1,6 @@
 import { tasks } from "@/db/schema";
 import { db } from "@/db";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte } from "drizzle-orm";
 
 export type TaskStatus = "queued" | "running" | "succeeded" | "failed";
 
@@ -85,6 +85,23 @@ export async function getTasksByUserUuid(
     .limit(limit)
     .offset((page - 1) * limit);
   return data;
+}
+
+/**
+ * How many tasks a user has created since `since`, for plan quota checks.
+ *
+ * Counts every task regardless of outcome, including failed ones. Counting
+ * only successes sounds fairer until you notice it lets a user retry a failing
+ * prompt without limit, and each attempt still costs a provider call.
+ */
+export async function countTasksByUserSince(
+  user_uuid: string,
+  since: Date
+): Promise<number> {
+  return db().$count(
+    tasks,
+    and(eq(tasks.user_uuid, user_uuid), gte(tasks.created_at, since))
+  );
 }
 
 export async function updateTaskStatus(

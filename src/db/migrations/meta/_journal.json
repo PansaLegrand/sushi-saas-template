@@ -69,6 +69,13 @@
       "when": 1784900772065,
       "tag": "0009_bored_fixer",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784992307197,
+      "tag": "0010_overjoyed_luke_cage",
+      "breakpoints": true
     }
   ]
 }

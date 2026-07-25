@@ -51,7 +51,8 @@ A production‑ready Next.js starter with auth, billing, internationalization, c
 
 ## What You Get
 
-- Billing & subscriptions (Stripe)
+- Billing & subscriptions (Stripe), with the full cancel/downgrade/dunning lifecycle
+- Plans & entitlements — free/plus/max tiers gating features and usage limits
 - Authentication & profiles (Better Auth)
 - Internationalization (next‑intl)
 - MDX content (Fumadocs)
@@ -103,6 +104,7 @@ Three references worth reading before you build on this:
 | [DEPLOYMENT.md](DEPLOYMENT.md) | Local vs production environments, database hosting, how migrations ship |
 | [tests/README.md](tests/README.md) | The four test tiers and the rules for each |
 | [docs/errors.md](docs/errors.md) | Error catalog, the no-leak guarantee, and how errors get translated |
+| [docs/plans.md](docs/plans.md) | Tiers, entitlements, how a plan is resolved, and how to add a feature or a tier |
 
 
 
