@@ -1,6 +1,7 @@
 import { isCreditsPlaygroundEnabled } from "@/lib/demo-flags";
 import { requireSameOrigin } from "@/lib/origin";
 import { respData, respErr, respNoAuth, respNotFound } from "@/lib/resp";
+import { respError } from "@/lib/errors/response";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import {
   CreditsTransType,
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
   const invalidOrigin = requireSameOrigin(req);
   if (invalidOrigin) return invalidOrigin;
 
-  const limited = rateLimitOrThrow(req, "credits");
+  const limited = await rateLimitOrThrow(req, "credits");
   if (limited) return limited;
 
   try {
@@ -57,14 +58,9 @@ export async function POST(req: Request) {
 
     return respData({ balance: summary.balance });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "consume credits failed";
-
-    if (message === "insufficient credits") {
-      return respErr("insufficient credits");
-    }
-
-    console.error("consume credits failed", error);
-    return respErr("consume credits failed", { status: 500 });
+    return respError(error, {
+      logFields: { event: "credits.consume_failed" },
+      fallback: "SERVER_ERROR",
+    });
   }
 }

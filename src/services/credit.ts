@@ -4,9 +4,11 @@ import {
   findCreditByTransNo,
   getUserValidCredits,
   insertCredit,
+  insertSpendCreditIfSufficient,
   listAllCreditsByUserUuid,
 } from "@/models/credit";
 import { getFirstPaidOrderByUserUuid } from "@/models/order";
+import { AppError } from "@/lib/errors/app-error";
 import { getSnowId } from "@/lib/hash";
 import { getIsoTimestr } from "@/lib/time";
 import type { Order } from "@/types/order";
@@ -187,45 +189,27 @@ export async function decreaseCredits({
   credits,
 }: DecreaseCreditsParams): Promise<string> {
   if (credits <= 0) {
-    throw new Error("credits must be greater than zero");
+    throw new AppError("CREDITS_INVALID_AMOUNT", {
+      message: `credits must be greater than zero: ${credits}`,
+    });
   }
 
   try {
-    const ledger = await getUserValidCredits(user_uuid);
-    let accumulated = 0;
-    let sourceOrderNo = "";
-    let sourceExpiry: Date | null = null;
-
-    if (ledger?.length) {
-      for (const credit of ledger) {
-        accumulated += credit.credits;
-
-        if (accumulated >= credits) {
-          sourceOrderNo = credit.order_no ?? "";
-          sourceExpiry = credit.expired_at ?? null;
-          break;
-        }
-      }
-    }
-
-    if (accumulated < credits) {
-      throw new Error("insufficient credits");
-    }
-
-    const newCredit: Parameters<typeof insertCredit>[0] = {
+    const created = await insertSpendCreditIfSufficient({
       trans_no: getSnowId(),
       created_at: new Date(getIsoTimestr()),
-      expired_at: sourceExpiry,
       user_uuid,
       trans_type,
-      credits: -Math.abs(credits),
-      order_no: sourceOrderNo,
-    };
+      credits,
+    });
 
-    const created = await insertCredit(newCredit);
     if (!created) {
-      throw new Error("failed to insert credit");
+      throw new AppError("CREDITS_INSUFFICIENT", {
+        message: `user ${user_uuid} has insufficient credits for ${credits}`,
+        details: { required: credits },
+      });
     }
+
     return created.trans_no;
   } catch (error) {
     console.error("decrease credits failed", error);

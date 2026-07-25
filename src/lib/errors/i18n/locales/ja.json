@@ -39,6 +39,8 @@
 
   "RESERVATION_NOT_FOUND": "予約が見つかりません。",
   "RESERVATION_SLOT_UNAVAILABLE": "その時間帯はすでに埋まっています。",
+  "RESERVATION_AVAILABILITY_FAILED": "空き状況を読み込めませんでした。もう一度お試しください。",
+  "RESERVATION_CREATE_FAILED": "予約を作成できませんでした。もう一度お試しください。",
   "RESERVATION_HOLD_EXPIRED": "時間枠の仮押さえが期限切れになりました。もう一度お選びください。",
   "RESERVATION_CANCEL_WINDOW_PASSED": "この予約はオンラインでのキャンセル期限を過ぎています。",
 

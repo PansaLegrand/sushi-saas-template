@@ -85,13 +85,43 @@ describeDb("credit ledger (real database)", () => {
         trans_type: CreditsTransType.Ping,
         credits: 25,
       })
-    ).rejects.toThrow(/insufficient credits/i);
+    ).rejects.toMatchObject({ code: "CREDITS_INSUFFICIENT" });
 
     // The guard has to hold at the row level, not just in the return value:
     // a rejected spend that still inserted a negative row would corrupt the
     // balance silently.
     expect(await countRows()).toBe(1);
     expect((await getUserCreditSummary(USER)).balance).toBe(10);
+  });
+
+  it("serializes concurrent spends so one balance cannot be spent twice", async () => {
+    await increaseCredits({
+      user_uuid: USER,
+      trans_type: CreditsTransType.SystemAdd,
+      credits: 10,
+    });
+
+    const results = await Promise.allSettled([
+      decreaseCredits({
+        user_uuid: USER,
+        trans_type: CreditsTransType.Ping,
+        credits: 10,
+      }),
+      decreaseCredits({
+        user_uuid: USER,
+        trans_type: CreditsTransType.Ping,
+        credits: 10,
+      }),
+    ]);
+
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    const rejected = results.find((result) => result.status === "rejected");
+    expect(rejected).toMatchObject({
+      status: "rejected",
+      reason: expect.objectContaining({ code: "CREDITS_INSUFFICIENT" }),
+    });
+    expect(await countRows()).toBe(2);
+    expect((await getUserCreditSummary(USER)).balance).toBe(0);
   });
 
   it("rejects a replayed trans_no with a unique violation", async () => {

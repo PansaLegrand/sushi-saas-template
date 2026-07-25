@@ -15,7 +15,7 @@ export async function POST(req: Request) {
   const invalidOrigin = requireSameOrigin(req);
   if (invalidOrigin) return invalidOrigin;
 
-  const limited = rateLimitOrThrow(req, "tasks");
+  const limited = await rateLimitOrThrow(req, "tasks");
   if (limited) return limited;
 
   try {

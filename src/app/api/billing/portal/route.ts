@@ -6,6 +6,8 @@ import { getOrCreateCustomerIdForUser } from "@/services/stripe";
 import { getAppEnv, getRequiredEnv } from "@/lib/env";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
+import { respData } from "@/lib/resp";
+import { respCode, respError } from "@/lib/errors/response";
 
 export const runtime = "nodejs";
 
@@ -16,14 +18,14 @@ function withLocaleReturnUrl(locale: string | null | undefined) {
 }
 
 export async function GET(req: NextRequest) {
-  const limited = rateLimitOrThrow(req, "checkout");
+  const limited = await rateLimitOrThrow(req, "checkout");
   if (limited) return limited;
 
   try {
     const userUuid = await getUserUuid(req as any);
-    if (!userUuid) return new Response("unauthorized", { status: 401 });
+    if (!userUuid) return respCode("AUTH_REQUIRED");
     const user = await findUserByUuid(userUuid);
-    if (!user?.email) return new Response("invalid user", { status: 400 });
+    if (!user?.email) return respCode("ACCOUNT_NOT_FOUND");
 
     const { searchParams } = new URL(req.url);
     const locale = searchParams.get("locale");
@@ -43,9 +45,11 @@ export async function GET(req: NextRequest) {
     });
 
     return Response.redirect(session.url, 302);
-  } catch (e: any) {
-    console.error("billing portal failed", e);
-    return new Response("billing portal error", { status: 500 });
+  } catch (error) {
+    return respError(error, {
+      logFields: { event: "billing.portal.create_failed" },
+      fallback: "PAYMENT_SESSION_FAILED",
+    });
   }
 }
 
@@ -53,14 +57,14 @@ export async function POST(req: NextRequest) {
   const invalidOrigin = requireSameOrigin(req);
   if (invalidOrigin) return invalidOrigin;
 
-  const limited = rateLimitOrThrow(req, "checkout");
+  const limited = await rateLimitOrThrow(req, "checkout");
   if (limited) return limited;
 
   try {
     const userUuid = await getUserUuid(req as any);
-    if (!userUuid) return new Response("unauthorized", { status: 401 });
+    if (!userUuid) return respCode("AUTH_REQUIRED");
     const user = await findUserByUuid(userUuid);
-    if (!user?.email) return new Response("invalid user", { status: 400 });
+    if (!user?.email) return respCode("ACCOUNT_NOT_FOUND");
 
     const body = await req.json().catch(() => ({}));
     const locale = body?.locale ?? user.locale ?? "en";
@@ -77,14 +81,11 @@ export async function POST(req: NextRequest) {
       customer: customerId,
       return_url,
     });
-    return new Response(JSON.stringify({ url: session.url }), {
-      headers: { "content-type": "application/json" },
-    });
-  } catch (e: any) {
-    console.error("billing portal failed", e);
-    return new Response(JSON.stringify({ error: "billing portal error" }), {
-      status: 500,
-      headers: { "content-type": "application/json" },
+    return respData({ url: session.url });
+  } catch (error) {
+    return respError(error, {
+      logFields: { event: "billing.portal.create_failed" },
+      fallback: "PAYMENT_SESSION_FAILED",
     });
   }
 }

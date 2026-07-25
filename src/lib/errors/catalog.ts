@@ -199,6 +199,15 @@ export const ERROR_CATALOG = {
   RESERVATION_SLOT_UNAVAILABLE: {
     statusCode: 409,
     defaultMessage: "That time slot is no longer available.",
+    legacyCodes: ["time slot unavailable"],
+  },
+  RESERVATION_AVAILABILITY_FAILED: {
+    statusCode: 500,
+    defaultMessage: "Availability could not be loaded. Please try again.",
+  },
+  RESERVATION_CREATE_FAILED: {
+    statusCode: 500,
+    defaultMessage: "The reservation could not be created. Please try again.",
   },
   RESERVATION_HOLD_EXPIRED: {
     statusCode: 409,

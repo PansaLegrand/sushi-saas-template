@@ -83,6 +83,10 @@ choice, so a deploy cannot silently end up unprotected:
 (password reset, welcome, payment, reservation mail), `STRIPE_PRIVATE_KEY` +
 `STRIPE_WEBHOOK_SECRET`, and the `STORAGE_*` block.
 
+**Recommended for production scale**: `RATE_LIMIT_REDIS_REST_URL` +
+`RATE_LIMIT_REDIS_REST_TOKEN`. Without them, rate limiting falls back to an
+in-memory store, which is fine locally but is per-instance on serverless.
+
 **Must not be set in production**: the `ENABLE_DEMO_FEATURES`,
 `ENABLE_CREDITS_PLAYGROUND`, `ENABLE_TEXT2VIDEO_MOCK`, and
 `ENABLE_ACCOUNT_CREDIT_GRANT` flags. They default off and are ignored in

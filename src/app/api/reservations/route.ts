@@ -3,22 +3,28 @@ import { createReservationAndCheckout } from "@/features/reservations/service";
 import { getUserUuid } from "@/services/user";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
+import { respData, respNoAuth } from "@/lib/resp";
+import { respCode, respError } from "@/lib/errors/response";
 
 export async function POST(req: Request) {
   if (!ReservationsConfig.enabled) {
-    return new Response("not found", { status: 404 });
+    return respCode("RESOURCE_NOT_FOUND");
   }
   const invalidOrigin = requireSameOrigin(req);
   if (invalidOrigin) return invalidOrigin;
 
-  const limited = rateLimitOrThrow(req, "checkout");
+  const limited = await rateLimitOrThrow(req, "checkout");
   if (limited) return limited;
 
   try {
     const user_uuid = await getUserUuid(req);
-    if (!user_uuid) return new Response("unauthorized", { status: 401 });
+    if (!user_uuid) return respNoAuth();
 
-    const body = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body) {
+      return respCode("REQUEST_MALFORMED_JSON");
+    }
+
     const service_id = Number(body.service_id);
     const start_at = String(body.start_at);
     const timezone = String(body.timezone);
@@ -28,7 +34,7 @@ export async function POST(req: Request) {
     const locale = String(body.locale || "en");
 
     if (!service_id || !start_at || !timezone) {
-      return new Response("invalid params", { status: 400 });
+      return respCode("REQUEST_MISSING_FIELD");
     }
 
     const result = await createReservationAndCheckout({
@@ -42,8 +48,11 @@ export async function POST(req: Request) {
       notes,
     });
 
-    return Response.json(result);
-  } catch (e: any) {
-    return new Response("error: " + e.message, { status: 500 });
+    return respData(result);
+  } catch (error) {
+    return respError(error, {
+      logFields: { event: "reservation.create_failed" },
+      fallback: "RESERVATION_CREATE_FAILED",
+    });
   }
 }

@@ -1,6 +1,5 @@
 import Stripe from "stripe";
 import { handleCheckoutSession } from "@/services/stripe";
-import { sendPaymentSuccessEmail, sendPaymentFailedEmail, sendReservationConfirmedEmail } from "@/services/email/send";
 import { markReservationConfirmed, getServiceById } from "@/features/reservations/models";
 import { buildReservationICS } from "@/features/reservations/ics";
 import { buildGoogleCalendarUrl } from "@/features/reservations/google";
@@ -11,8 +10,8 @@ import { getSnowId } from "@/lib/hash";
 import { insertOrder, OrderStatus, findOrderBySubscriptionPeriod } from "@/models/order";
 import { increaseCredits, CreditsTransType } from "@/services/credit";
 import { updateAffiliateForOrder } from "@/services/affiliate";
-import { findUserByEmail } from "@/models/user";
-import { notifySlackEvent, notifySlackError } from "@/integrations/slack";
+import { getUserUuidsByEmail } from "@/models/user";
+import { enqueueJob } from "@/services/jobs";
 import { getAppEnv, getRequiredEnv } from "@/lib/env";
 import {
   claimStripeWebhookEvent,
@@ -103,16 +102,21 @@ export async function POST(req: Request) {
                   description: `Reservation #${reservationNo}`,
                   timeZone: ReservationsConfig.baseTimeZone,
                 });
-                queueMicrotask(() => {
-                  sendReservationConfirmedEmail(to, {
+                await enqueueJob(
+                  "reservation_confirmed_email",
+                  {
+                    to,
                     reservationNo,
                     serviceTitle: svc?.title ?? undefined,
                     startsAt: start.toISOString(),
                     timezone: confirmed.timezone ?? undefined,
                     icsContent: ics,
                     googleCalendarUrl: googleUrl,
-                  }).catch((e) => console.error("reservation email failed", e));
-                });
+                  },
+                  {
+                    dedupeKey: `reservation_confirmed_email:${reservationNo}`,
+                  }
+                );
               }
             } catch (e) {
               console.error("failed to confirm reservation", e);
@@ -127,19 +131,25 @@ export async function POST(req: Request) {
             ? session.amount_total / 100
             : undefined;
           const currency = session.currency ?? undefined;
-          queueMicrotask(() => {
-            sendPaymentSuccessEmail(to, { orderNo, amount, currency }).catch((e) => {
-              console.error("payment email failed", e);
-            });
-            // Slack notification (best-effort)
-            notifySlackEvent("Payment succeeded", {
-              order_no: orderNo,
-              email: to,
-              amount,
-              currency,
-              type: session.mode,
-            });
-          });
+          await enqueueJob(
+            "payment_success_email",
+            { to, orderNo, amount, currency },
+            { dedupeKey: `payment_success_email:${event.id}:${orderNo}` }
+          );
+          await enqueueJob(
+            "slack_event",
+            {
+              title: "Payment succeeded",
+              context: {
+                order_no: orderNo,
+                email: to,
+                amount,
+                currency,
+                type: session.mode,
+              },
+            },
+            { dedupeKey: `slack_event:${event.id}:payment_succeeded` }
+          );
         }
         break;
       }
@@ -202,8 +212,8 @@ export async function POST(req: Request) {
 
         // Fallback: resolve uuid by email from DB
         if (!userUuid && userEmail) {
-          const dbUser = await findUserByEmail(userEmail);
-          userUuid = dbUser?.uuid;
+          const userUuids = await getUserUuidsByEmail(userEmail);
+          userUuid = userUuids?.length === 1 ? userUuids[0] : undefined;
         }
         if (!userUuid) break; // cannot provision without user
 
@@ -255,16 +265,22 @@ export async function POST(req: Request) {
 
         // Affiliate reward for renewal orders (optional; follows current model)
         await updateAffiliateForOrder(order as any);
-        // Notify Slack for renewal success (best-effort)
-        notifySlackEvent("Subscription renewal succeeded", {
-          order_no,
-          user_uuid: userUuid,
-          email: userEmail,
-          amount: amount / 100,
-          currency,
-          product_id,
-          interval,
-        });
+        await enqueueJob(
+          "slack_event",
+          {
+            title: "Subscription renewal succeeded",
+            context: {
+              order_no,
+              user_uuid: userUuid,
+              email: userEmail,
+              amount: amount / 100,
+              currency,
+              product_id,
+              interval,
+            },
+          },
+          { dedupeKey: `slack_event:${event.id}:subscription_renewal` }
+        );
         break;
       }
       case "invoice.payment_failed": {
@@ -273,20 +289,30 @@ export async function POST(req: Request) {
           const amountDue = typeof invoice.amount_due === "number" ? invoice.amount_due / 100 : undefined;
           const manageUrlBase = getAppEnv().NEXT_PUBLIC_WEB_URL;
           const manageUrl = `${manageUrlBase}/en/account/billing`;
-          queueMicrotask(() => {
-            sendPaymentFailedEmail(invoice.customer_email!, {
+          await enqueueJob(
+            "payment_failed_email",
+            {
+              to: invoice.customer_email,
               invoiceNumber: invoice.number || invoice.id,
               amount: amountDue,
               currency: invoice.currency || undefined,
               manageUrl,
-            }).catch((e) => console.error("dunning email failed", e));
-            notifySlackError("Payment failed", undefined, {
-              invoice_id: invoice.id,
-              email: invoice.customer_email,
-              amount_due: amountDue,
-              currency: invoice.currency || undefined,
-            });
-          });
+            },
+            { dedupeKey: `payment_failed_email:${event.id}` }
+          );
+          await enqueueJob(
+            "slack_error",
+            {
+              title: "Payment failed",
+              context: {
+                invoice_id: invoice.id,
+                email: invoice.customer_email,
+                amount_due: amountDue,
+                currency: invoice.currency || undefined,
+              },
+            },
+            { dedupeKey: `slack_error:${event.id}:payment_failed` }
+          );
         }
         break;
       }

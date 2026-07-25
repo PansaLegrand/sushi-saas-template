@@ -6,7 +6,7 @@ import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 
 export async function GET(req: Request, ctx: { params: Promise<{ uuid: string }> }) {
-  const limited = rateLimitOrThrow(req, "uploads");
+  const limited = await rateLimitOrThrow(req, "uploads");
   if (limited) return limited;
 
   try {
@@ -60,7 +60,7 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ uuid: string
   const invalidOrigin = requireSameOrigin(req);
   if (invalidOrigin) return invalidOrigin;
 
-  const limited = rateLimitOrThrow(req, "uploads");
+  const limited = await rateLimitOrThrow(req, "uploads");
   if (limited) return limited;
 
   try {

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   constructEvent: vi.fn(),
   handleCheckoutSession: vi.fn(),
+  enqueueJob: vi.fn(),
   claimStripeWebhookEvent: vi.fn(),
   markStripeWebhookEventCompleted: vi.fn(),
   markStripeWebhookEventFailed: vi.fn(),
@@ -20,6 +21,10 @@ vi.mock("stripe", () => {
 
 vi.mock("@/services/stripe", () => ({
   handleCheckoutSession: mocks.handleCheckoutSession,
+}));
+
+vi.mock("@/services/jobs", () => ({
+  enqueueJob: mocks.enqueueJob,
 }));
 
 vi.mock("@/models/stripe-webhook-event", () => ({
@@ -103,6 +108,7 @@ describe("POST /api/pay/webhook/stripe", () => {
     mocks.markStripeWebhookEventCompleted.mockResolvedValue(undefined);
     mocks.markStripeWebhookEventFailed.mockResolvedValue(undefined);
     mocks.handleCheckoutSession.mockResolvedValue(undefined);
+    mocks.enqueueJob.mockResolvedValue(undefined);
   });
 
   it("claims and completes a new Stripe event", async () => {
@@ -118,6 +124,41 @@ describe("POST /api/pay/webhook/stripe", () => {
     expect(mocks.handleCheckoutSession).toHaveBeenCalledTimes(1);
     expect(mocks.markStripeWebhookEventCompleted).toHaveBeenCalledWith("evt_checkout_1");
     expect(mocks.markStripeWebhookEventFailed).not.toHaveBeenCalled();
+  });
+
+  it("enqueues checkout notification side effects durably", async () => {
+    mocks.constructEvent.mockReturnValue({
+      ...checkoutEvent("evt_checkout_email"),
+      data: {
+        object: {
+          id: "cs_test_1",
+          mode: "payment",
+          metadata: { order_no: "order_1" },
+          customer_details: { email: "buyer@example.com" },
+          amount_total: 2500,
+          currency: "usd",
+        },
+      },
+    });
+
+    const res = await stripeWebhook(request());
+
+    expect(res.status).toBe(200);
+    expect(mocks.enqueueJob).toHaveBeenCalledWith(
+      "payment_success_email",
+      expect.objectContaining({
+        to: "buyer@example.com",
+        orderNo: "order_1",
+        amount: 25,
+        currency: "usd",
+      }),
+      { dedupeKey: "payment_success_email:evt_checkout_email:order_1" }
+    );
+    expect(mocks.enqueueJob).toHaveBeenCalledWith(
+      "slack_event",
+      expect.objectContaining({ title: "Payment succeeded" }),
+      { dedupeKey: "slack_event:evt_checkout_email:payment_succeeded" }
+    );
   });
 
   it("skips side effects for duplicate completed events", async () => {

@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   const invalidOrigin = requireSameOrigin(req);
   if (invalidOrigin) return invalidOrigin;
 
-  const limited = rateLimitOrThrow(req, "feedback");
+  const limited = await rateLimitOrThrow(req, "feedback");
   if (limited) return limited;
 
   try {

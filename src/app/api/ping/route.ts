@@ -1,4 +1,5 @@
 import { respData, respErr, respNoAuth } from "@/lib/resp";
+import { respError } from "@/lib/errors/response";
 import { requireSameOrigin } from "@/lib/origin";
 import {
   CreditsAmount,
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
   const invalidOrigin = requireSameOrigin(req);
   if (invalidOrigin) return invalidOrigin;
 
-  const limited = rateLimitOrThrow(req, "credits");
+  const limited = await rateLimitOrThrow(req, "credits");
   if (limited) return limited;
 
   try {
@@ -46,14 +47,9 @@ export async function POST(req: Request) {
       pong: `received message: ${payload.message}`,
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "ping failed";
-
-    if (message === "insufficient credits") {
-      return respErr("insufficient credits");
-    }
-
-    console.error("ping failed", error);
-    return respErr("ping failed", { status: 500 });
+    return respError(error, {
+      logFields: { event: "ping.failed" },
+      fallback: "SERVER_ERROR",
+    });
   }
 }

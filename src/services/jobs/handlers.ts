@@ -1,4 +1,10 @@
-import { sendWelcomeEmail } from "@/services/email/send";
+import {
+  sendPaymentFailedEmail,
+  sendPaymentSuccessEmail,
+  sendReservationConfirmedEmail,
+  sendWelcomeEmail,
+} from "@/services/email/send";
+import { sendSlackMessage } from "@/integrations/slack";
 import {
   CreditsTransType,
   increaseCredits,
@@ -37,5 +43,48 @@ export const jobHandlers: JobHandlerMap = {
 
     // Surfaces the resulting balance in the runner log for debugging.
     await getUserCreditSummary(userUuid, { includeLedger: false });
+  },
+
+  payment_success_email: async ({ to, orderNo, amount, currency }) => {
+    await sendPaymentSuccessEmail(to, { orderNo, amount, currency });
+  },
+
+  payment_failed_email: async ({ to, invoiceNumber, amount, currency, manageUrl }) => {
+    await sendPaymentFailedEmail(to, {
+      invoiceNumber,
+      amount,
+      currency,
+      manageUrl,
+    });
+  },
+
+  reservation_confirmed_email: async ({
+    to,
+    reservationNo,
+    serviceTitle,
+    startsAt,
+    timezone,
+    icsContent,
+    googleCalendarUrl,
+  }) => {
+    await sendReservationConfirmedEmail(to, {
+      reservationNo,
+      serviceTitle,
+      startsAt,
+      timezone,
+      icsContent,
+      googleCalendarUrl,
+    });
+  },
+
+  slack_event: async ({ title, context }) => {
+    await sendSlackMessage(`:white_check_mark: ${title}`, context);
+  },
+
+  slack_error: async ({ title, context, error }) => {
+    await sendSlackMessage(`:rotating_light: ${title}`, {
+      ...(context ?? {}),
+      error: error ?? "",
+    });
   },
 };

@@ -13,6 +13,14 @@ type Service = {
   require_deposit: boolean;
 };
 
+async function readApiError(res: Response): Promise<string> {
+  const payload = await res.json().catch(() => null);
+  if (payload && typeof payload.message === "string") {
+    return payload.message;
+  }
+  return `Request failed (${res.status})`;
+}
+
 export default function ReservationWidget({ services, locale }: { services: Service[]; locale: string }) {
   const [serviceId, setServiceId] = useState<number | null>(services[0]?.id ?? null);
   const [date, setDate] = useState<string>(new Date().toISOString().slice(0, 10));
@@ -36,7 +44,7 @@ export default function ReservationWidget({ services, locale }: { services: Serv
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ service_id: serviceId, date, timezone }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readApiError(res));
       const data = await res.json();
       setSlots(data.slots || []);
     } catch (e: any) {
@@ -71,7 +79,7 @@ export default function ReservationWidget({ services, locale }: { services: Serv
           locale,
         }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readApiError(res));
       const data = await res.json();
       if (data.checkout_url) {
         window.location.href = data.checkout_url as string;

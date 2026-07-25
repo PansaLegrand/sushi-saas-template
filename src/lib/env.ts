@@ -121,6 +121,10 @@ const RawEnvSchema = z.object({
   // amount in the admin console.
   ADMIN_MAX_CREDIT_GRANT: envPositiveInt(100000),
 
+  RATE_LIMIT_REDIS_REST_URL: envUrl,
+  RATE_LIMIT_REDIS_REST_TOKEN: envString,
+  RATE_LIMIT_KEY_PREFIX: envString,
+
   ENABLE_DEMO_FEATURES: envBoolean(false),
   ENABLE_CREDITS_PLAYGROUND: envBoolean(false),
   ENABLE_TEXT2VIDEO_MOCK: envBoolean(false),

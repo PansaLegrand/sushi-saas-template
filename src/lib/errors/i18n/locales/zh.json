@@ -39,6 +39,8 @@
 
   "RESERVATION_NOT_FOUND": "未找到该预约。",
   "RESERVATION_SLOT_UNAVAILABLE": "该时间段已被占用。",
+  "RESERVATION_AVAILABILITY_FAILED": "无法加载可预约时间，请重试。",
+  "RESERVATION_CREATE_FAILED": "预约创建失败，请重试。",
   "RESERVATION_HOLD_EXPIRED": "你的时段占用已过期，请重新选择时间。",
   "RESERVATION_CANCEL_WINDOW_PASSED": "该预约已超过可在线取消的时限。",
 

@@ -4,7 +4,7 @@ import { findTaskByUuid } from "@/models/task";
 import { getUserUuid } from "@/services/user";
 
 export async function GET(req: Request, ctx: { params: Promise<{ uuid: string }> }) {
-  const limited = rateLimitOrThrow(req, "tasks");
+  const limited = await rateLimitOrThrow(req, "tasks");
   if (limited) return limited;
 
   try {

@@ -15,6 +15,37 @@ export interface JobPayloads {
     userUuid: string;
     credits: number;
   };
+  payment_success_email: {
+    to: string;
+    orderNo?: string;
+    amount?: number | null;
+    currency?: string | null;
+  };
+  payment_failed_email: {
+    to: string;
+    invoiceNumber?: string | null;
+    amount?: number | null;
+    currency?: string | null;
+    manageUrl?: string;
+  };
+  reservation_confirmed_email: {
+    to: string;
+    reservationNo: string;
+    serviceTitle?: string;
+    startsAt?: string;
+    timezone?: string;
+    icsContent?: string;
+    googleCalendarUrl?: string;
+  };
+  slack_event: {
+    title: string;
+    context?: Record<string, unknown>;
+  };
+  slack_error: {
+    title: string;
+    context?: Record<string, unknown>;
+    error?: string;
+  };
 }
 
 export type JobType = keyof JobPayloads;

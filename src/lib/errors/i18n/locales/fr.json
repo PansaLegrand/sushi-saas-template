@@ -39,6 +39,8 @@
 
   "RESERVATION_NOT_FOUND": "Cette réservation est introuvable.",
   "RESERVATION_SLOT_UNAVAILABLE": "Ce créneau n'est plus disponible.",
+  "RESERVATION_AVAILABILITY_FAILED": "La disponibilité n'a pas pu être chargée. Veuillez réessayer.",
+  "RESERVATION_CREATE_FAILED": "La réservation n'a pas pu être créée. Veuillez réessayer.",
   "RESERVATION_HOLD_EXPIRED": "Votre réservation provisoire a expiré. Veuillez choisir un nouveau créneau.",
   "RESERVATION_CANCEL_WINDOW_PASSED": "Cette réservation ne peut plus être annulée en ligne.",
 

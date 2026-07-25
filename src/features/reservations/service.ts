@@ -12,6 +12,7 @@ import {
 import { newStripeClient } from "@/integrations/stripe";
 import { getSnowId } from "@/lib/hash";
 import { getAppEnv } from "@/lib/env";
+import { AppError } from "@/lib/errors/app-error";
 import { insertOrder, OrderStatus, updateOrderSession } from "@/models/order";
 import { findUserByUuid } from "@/models/user";
 
@@ -101,9 +102,18 @@ export async function createReservationAndCheckout(params: {
     // As a convenience for the demo, auto-seed a service if missing
     svc = await ensureDemoService();
   }
-  if (!svc.active) throw new Error("service not available");
+  if (!svc.active) {
+    throw new AppError("FEATURE_DISABLED", {
+      message: `reservation service ${svc.id} is inactive`,
+    });
+  }
 
   const start = new Date(params.start_at);
+  if (Number.isNaN(start.getTime())) {
+    throw new AppError("REQUEST_INVALID", {
+      message: `invalid reservation start_at: ${params.start_at}`,
+    });
+  }
   const end = new Date(start.getTime() + svc.duration_min * 60 * 1000);
 
   const conflict = await hasConflict({
@@ -111,7 +121,11 @@ export async function createReservationAndCheckout(params: {
     start_at: new Date(start.getTime() - svc.buffer_before_min * 60 * 1000),
     end_at: new Date(end.getTime() + svc.buffer_after_min * 60 * 1000),
   });
-  if (conflict) throw new Error("time slot unavailable");
+  if (conflict) {
+    throw new AppError("RESERVATION_SLOT_UNAVAILABLE", {
+      message: `reservation conflict for service ${svc.id} at ${start.toISOString()}`,
+    });
+  }
 
   const reservation = await createReservation({
     user_uuid: params.user_uuid,
@@ -138,8 +152,11 @@ export async function createReservationAndCheckout(params: {
 
   // Create a lightweight order for bookkeeping and emails
   const user = await findUserByUuid(params.user_uuid);
-  if (!user?.email)
-    throw new Error("user email not found");
+  if (!user?.email) {
+    throw new AppError("ACCOUNT_NOT_FOUND", {
+      message: `reservation user email not found: ${params.user_uuid}`,
+    });
+  }
 
   const order_no = String(getSnowId());
   await insertOrder({

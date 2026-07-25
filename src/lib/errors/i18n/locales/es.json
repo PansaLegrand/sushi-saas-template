@@ -39,6 +39,8 @@
 
   "RESERVATION_NOT_FOUND": "No se encontró esa reserva.",
   "RESERVATION_SLOT_UNAVAILABLE": "Ese horario ya no está disponible.",
+  "RESERVATION_AVAILABILITY_FAILED": "No se pudo cargar la disponibilidad. Inténtalo de nuevo.",
+  "RESERVATION_CREATE_FAILED": "No se pudo crear la reserva. Inténtalo de nuevo.",
   "RESERVATION_HOLD_EXPIRED": "Tu reserva temporal ha caducado. Elige otro horario.",
   "RESERVATION_CANCEL_WINDOW_PASSED": "Esta reserva ya no se puede cancelar en línea.",
 

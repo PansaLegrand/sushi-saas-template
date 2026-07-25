@@ -39,6 +39,8 @@
 
   "RESERVATION_NOT_FOUND": "That reservation was not found.",
   "RESERVATION_SLOT_UNAVAILABLE": "That time slot is no longer available.",
+  "RESERVATION_AVAILABILITY_FAILED": "Availability could not be loaded. Please try again.",
+  "RESERVATION_CREATE_FAILED": "The reservation could not be created. Please try again.",
   "RESERVATION_HOLD_EXPIRED": "Your hold on this slot expired. Please pick a time again.",
   "RESERVATION_CANCEL_WINDOW_PASSED": "This reservation can no longer be cancelled online.",
 

@@ -2,25 +2,31 @@ import { ReservationsConfig } from "@/features/reservations/config";
 import { getAvailabilityForDate } from "@/features/reservations/service";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
+import { respData } from "@/lib/resp";
+import { respCode, respError } from "@/lib/errors/response";
 
 export async function POST(req: Request) {
   if (!ReservationsConfig.enabled) {
-    return new Response("not found", { status: 404 });
+    return respCode("RESOURCE_NOT_FOUND");
   }
   const invalidOrigin = requireSameOrigin(req);
   if (invalidOrigin) return invalidOrigin;
 
-  const limited = rateLimitOrThrow(req, "checkout");
+  const limited = await rateLimitOrThrow(req, "checkout");
   if (limited) return limited;
 
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body) {
+      return respCode("REQUEST_MALFORMED_JSON");
+    }
+
     const service_id = Number(body.service_id);
     const date: string = body.date; // YYYY-MM-DD
     const timezone: string = body.timezone;
 
     if (!service_id || !date || !timezone) {
-      return new Response("invalid params", { status: 400 });
+      return respCode("REQUEST_MISSING_FIELD");
     }
 
     const slots = await getAvailabilityForDate({
@@ -29,8 +35,11 @@ export async function POST(req: Request) {
       timezone,
     });
 
-    return Response.json({ slots });
-  } catch (e: any) {
-    return new Response("error: " + e.message, { status: 500 });
+    return respData({ slots });
+  } catch (error) {
+    return respError(error, {
+      logFields: { event: "reservation.availability_failed" },
+      fallback: "RESERVATION_AVAILABILITY_FAILED",
+    });
   }
 }
