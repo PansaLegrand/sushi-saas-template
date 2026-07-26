@@ -56,7 +56,30 @@ pnpm db:check:prod
   and verify objects remain private except through signed URLs. Confirm a
   disallowed file type is rejected before a presigned URL is created.
 - Site-mode changes: run or build with `NEXT_PUBLIC_SITE_MODE=site` and verify
-  only landing, `/docs`, `/blogs`, and `/api/health` are reachable.
+  only landing, `/docs`, `/blogs`, `/privacy`, `/terms`, and `/api/health` are
+  reachable.
+- Consent changes: with an analytics or ad id configured, confirm no vendor
+  script is in the DOM before a choice is made, that "reject" leaves it absent,
+  and that the footer's cookie settings control reopens the banner. See
+  [docs/legal.md](legal.md).
+
+## First Production Launch
+
+One-time gates, not per-release. Each one blocks going live rather than blocking
+a deploy.
+
+- [ ] `src/config/legal.ts` filled in, so no page renders the unreviewed-draft
+      notice, and both documents reviewed by a lawyer. See
+      [docs/legal.md](legal.md).
+- [ ] Privacy policy retention section reconciled with what deletion actually
+      does.
+- [ ] `RATE_LIMIT_REDIS_REST_URL` and `RATE_LIMIT_REDIS_REST_TOKEN` set. Without
+      them each serverless instance keeps a private counter and the published
+      limits are advisory — including on the auth endpoint.
+- [ ] Production log destination decided: a drain, an error tracker, or a
+      deliberate "stdout is enough for now".
+- [ ] Point-in-time restore confirmed available, and the restore procedure run
+      once against a scratch database.
 
 ## PR Notes
 

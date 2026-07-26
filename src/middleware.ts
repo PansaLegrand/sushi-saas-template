@@ -26,7 +26,10 @@ const intlMiddleware = createMiddleware(routing);
  * added next month is blocked by default instead of blocked only if whoever
  * adds it remembers. `/api/health` stays open so uptime checks keep working.
  */
-const SITE_MODE_ALLOWED_SEGMENTS = new Set(["docs", "blogs"]);
+// Legal pages are on the list because a marketing deployment is exactly where
+// they get read: a payment processor reviewing the account, or a visitor
+// deciding whether to sign up. Neither touches the database.
+const SITE_MODE_ALLOWED_SEGMENTS = new Set(["docs", "blogs", "privacy", "terms"]);
 
 const LOCALE_PREFIX = new RegExp(`^/(?:${locales.join("|")})(?=/|$)`);
 

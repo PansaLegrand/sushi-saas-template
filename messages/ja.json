@@ -253,5 +253,51 @@
       "signInFirst": "この招待を承諾するにはサインインしてください。",
       "signIn": "サインイン"
     }
+  },
+  "legal": {
+    "nav": {
+      "privacy": "プライバシー",
+      "terms": "利用規約"
+    },
+    "privacy": {
+      "title": "プライバシーポリシー",
+      "description": "収集する情報とその理由、そしてあなたが求められることについて。"
+    },
+    "terms": {
+      "title": "利用規約",
+      "description": "本サービスの利用に関する、お客様と当社との契約です。"
+    },
+    "document": {
+      "effective": "発効日 {date}",
+      "draftNotice": {
+        "title": "未レビューの草案 — まだ公開ポリシーではありません",
+        "body": "この文書はスターターキットの雛形で、プレースホルダーが残っています。src/config/legal.ts を記入し、公開前に弁護士による確認を受けてください。識別情報を設定するとこの通知は消えます。"
+      }
+    },
+    "cookies": {
+      "title": "このサイトの Cookie",
+      "description": "ログイン状態の維持には必須の Cookie を使用します。ご同意いただければ、分析および広告のためにも Cookie を使用します。設定はいつでも変更できます。",
+      "privacyLink": "プライバシーポリシーを読む。",
+      "acceptAll": "すべて許可",
+      "rejectAll": "必須以外を拒否",
+      "customise": "個別に選択",
+      "saveChoices": "選択を保存",
+      "close": "閉じる",
+      "settingsLink": "Cookie 設定",
+      "categories": {
+        "necessary": {
+          "label": "必須",
+          "description": "ログイン、セキュリティ、この選択の記憶。常に有効です。"
+        },
+        "analytics": {
+          "label": "分析",
+          "description": "どのページが使われているかを集計して把握します。"
+        },
+        "advertising": {
+          "label": "広告",
+          "description": "広告の表示と効果測定に使用します。"
+        }
+      }
+    }
   }
 }

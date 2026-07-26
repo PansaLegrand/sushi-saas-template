@@ -253,5 +253,51 @@
       "signInFirst": "Sign in to accept this invitation.",
       "signIn": "Sign in"
     }
+  },
+  "legal": {
+    "nav": {
+      "privacy": "Privacy",
+      "terms": "Terms"
+    },
+    "privacy": {
+      "title": "Privacy Policy",
+      "description": "What we collect, why, and what you can ask us to do about it."
+    },
+    "terms": {
+      "title": "Terms of Service",
+      "description": "The agreement between you and us for using this service."
+    },
+    "document": {
+      "effective": "Effective {date}",
+      "draftNotice": {
+        "title": "Unreviewed draft — not yet a published policy",
+        "body": "This document is the starter kit's skeleton with placeholder details still in it. Fill in src/config/legal.ts and have a lawyer review both documents before launch. This notice disappears once the identity fields are set."
+      }
+    },
+    "cookies": {
+      "title": "Cookies on this site",
+      "description": "We use strictly necessary cookies to keep you signed in. With your permission we would also use cookies for analytics and advertising. You can change your mind at any time.",
+      "privacyLink": "Read our privacy policy.",
+      "acceptAll": "Accept all",
+      "rejectAll": "Reject non-essential",
+      "customise": "Choose individually",
+      "saveChoices": "Save choices",
+      "close": "Close",
+      "settingsLink": "Cookie settings",
+      "categories": {
+        "necessary": {
+          "label": "Strictly necessary",
+          "description": "Sign-in, security, and remembering this choice. Always on."
+        },
+        "analytics": {
+          "label": "Analytics",
+          "description": "Helps us see which pages are used, in aggregate."
+        },
+        "advertising": {
+          "label": "Advertising",
+          "description": "Used to show and measure ads."
+        }
+      }
+    }
   }
 }

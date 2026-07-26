@@ -253,5 +253,51 @@
       "signInFirst": "请登录后接受此邀请。",
       "signIn": "登录"
     }
+  },
+  "legal": {
+    "nav": {
+      "privacy": "隐私政策",
+      "terms": "服务条款"
+    },
+    "privacy": {
+      "title": "隐私政策",
+      "description": "我们收集哪些信息、为何收集，以及你可以要求我们如何处理。"
+    },
+    "terms": {
+      "title": "服务条款",
+      "description": "你与我们之间关于使用本服务的协议。"
+    },
+    "document": {
+      "effective": "生效日期 {date}",
+      "draftNotice": {
+        "title": "未经审核的草稿——尚未成为正式政策",
+        "body": "本文档是模板骨架，其中仍包含占位信息。请填写 src/config/legal.ts，并在上线前请律师审核这两份文档。填写身份信息后此提示会消失。"
+      }
+    },
+    "cookies": {
+      "title": "本站的 Cookie",
+      "description": "我们使用严格必要的 Cookie 来保持你的登录状态。在你同意的情况下，我们还会将 Cookie 用于分析和广告。你可以随时更改选择。",
+      "privacyLink": "阅读我们的隐私政策。",
+      "acceptAll": "全部接受",
+      "rejectAll": "拒绝非必要",
+      "customise": "逐项选择",
+      "saveChoices": "保存选择",
+      "close": "关闭",
+      "settingsLink": "Cookie 设置",
+      "categories": {
+        "necessary": {
+          "label": "严格必要",
+          "description": "登录、安全以及记住此选择。始终启用。"
+        },
+        "analytics": {
+          "label": "分析",
+          "description": "帮助我们汇总了解哪些页面被使用。"
+        },
+        "advertising": {
+          "label": "广告",
+          "description": "用于展示和衡量广告效果。"
+        }
+      }
+    }
   }
 }

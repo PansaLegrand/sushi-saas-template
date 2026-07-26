@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { buildMetadata, defaultMetaFallbacks } from "@/lib/seo";
 import { SiteConfig } from "@/config/site";
+import { SiteFooter } from "@/components/site-footer";
 
 export async function generateMetadata({
   params,
@@ -174,19 +175,7 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <footer className="border-t border-border/60 py-8">
-        <div className="container flex flex-wrap items-center justify-between gap-4 text-sm text-muted-foreground">
-          <span>{t("footer")}</span>
-          {SiteConfig.contactEmail ? (
-            <a
-              href={`mailto:${SiteConfig.contactEmail}`}
-              className="underline-offset-4 transition hover:text-foreground hover:underline"
-            >
-              {SiteConfig.contactEmail}
-            </a>
-          ) : null}
-        </div>
-      </footer>
+      <SiteFooter />
     </main>
   );
 }

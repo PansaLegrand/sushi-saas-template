@@ -253,5 +253,51 @@
       "signInFirst": "Connectez-vous pour accepter cette invitation.",
       "signIn": "Se connecter"
     }
+  },
+  "legal": {
+    "nav": {
+      "privacy": "Confidentialité",
+      "terms": "Conditions"
+    },
+    "privacy": {
+      "title": "Politique de confidentialité",
+      "description": "Ce que nous collectons, pourquoi, et ce que vous pouvez nous demander."
+    },
+    "terms": {
+      "title": "Conditions d'utilisation",
+      "description": "L'accord entre vous et nous concernant l'utilisation de ce service."
+    },
+    "document": {
+      "effective": "En vigueur le {date}",
+      "draftNotice": {
+        "title": "Brouillon non relu — pas encore une politique publiée",
+        "body": "Ce document est le squelette du kit de démarrage et contient encore des mentions à compléter. Remplissez src/config/legal.ts et faites relire les deux documents par un avocat avant le lancement. Cet avis disparaît une fois les informations d'identité renseignées."
+      }
+    },
+    "cookies": {
+      "title": "Cookies sur ce site",
+      "description": "Nous utilisons des cookies strictement nécessaires pour vous garder connecté. Avec votre accord, nous utiliserions aussi des cookies de mesure d'audience et de publicité. Vous pouvez changer d'avis à tout moment.",
+      "privacyLink": "Lire notre politique de confidentialité.",
+      "acceptAll": "Tout accepter",
+      "rejectAll": "Refuser le non-essentiel",
+      "customise": "Choisir en détail",
+      "saveChoices": "Enregistrer",
+      "close": "Fermer",
+      "settingsLink": "Préférences cookies",
+      "categories": {
+        "necessary": {
+          "label": "Strictement nécessaires",
+          "description": "Connexion, sécurité et mémorisation de ce choix. Toujours actifs."
+        },
+        "analytics": {
+          "label": "Mesure d'audience",
+          "description": "Nous aide à voir quelles pages sont utilisées, de façon agrégée."
+        },
+        "advertising": {
+          "label": "Publicité",
+          "description": "Sert à afficher et mesurer les publicités."
+        }
+      }
+    }
   }
 }

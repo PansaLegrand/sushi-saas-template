@@ -253,5 +253,51 @@
       "signInFirst": "Inicia sesión para aceptar esta invitación.",
       "signIn": "Iniciar sesión"
     }
+  },
+  "legal": {
+    "nav": {
+      "privacy": "Privacidad",
+      "terms": "Términos"
+    },
+    "privacy": {
+      "title": "Política de privacidad",
+      "description": "Qué recopilamos, por qué, y qué puedes pedirnos al respecto."
+    },
+    "terms": {
+      "title": "Términos del servicio",
+      "description": "El acuerdo entre tú y nosotros para el uso de este servicio."
+    },
+    "document": {
+      "effective": "En vigor desde el {date}",
+      "draftNotice": {
+        "title": "Borrador sin revisar: todavía no es una política publicada",
+        "body": "Este documento es el esqueleto de la plantilla y aún contiene datos de marcador de posición. Completa src/config/legal.ts y haz que un abogado revise ambos documentos antes del lanzamiento. Este aviso desaparece al rellenar los datos de identidad."
+      }
+    },
+    "cookies": {
+      "title": "Cookies en este sitio",
+      "description": "Usamos cookies estrictamente necesarias para mantener tu sesión iniciada. Con tu permiso, también usaríamos cookies de analítica y publicidad. Puedes cambiar de opinión cuando quieras.",
+      "privacyLink": "Lee nuestra política de privacidad.",
+      "acceptAll": "Aceptar todo",
+      "rejectAll": "Rechazar no esenciales",
+      "customise": "Elegir individualmente",
+      "saveChoices": "Guardar opciones",
+      "close": "Cerrar",
+      "settingsLink": "Preferencias de cookies",
+      "categories": {
+        "necessary": {
+          "label": "Estrictamente necesarias",
+          "description": "Inicio de sesión, seguridad y recordar esta elección. Siempre activas."
+        },
+        "analytics": {
+          "label": "Analítica",
+          "description": "Nos ayuda a ver qué páginas se usan, de forma agregada."
+        },
+        "advertising": {
+          "label": "Publicidad",
+          "description": "Se usa para mostrar y medir anuncios."
+        }
+      }
+    }
   }
 }

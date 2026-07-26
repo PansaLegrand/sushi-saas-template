@@ -10,6 +10,12 @@ const COLLECTIONS = [
   { root: path.join(ROOT, 'content', 'blog'), routeSegment: 'blogs' },
 ];
 
+// Static routes with no MDX behind them. `source` only supplies a lastmod.
+const LEGAL_PAGES = [
+  { segment: 'privacy', source: 'src/config/legal.ts' },
+  { segment: 'terms', source: 'src/config/legal.ts' },
+];
+
 // Canonical base URL for whoever deploys this. Override per deployment.
 const rawBase =
   process.env.SITEMAP_BASE_URL ||
@@ -95,6 +101,16 @@ function main() {
       loc: localeIndexLoc,
       lastmod: getMtimeIso(path.join(ROOT, 'src', 'app', locale, 'page.tsx')),
     });
+    // Legal pages. Listed so they are indexable and findable — a payment
+    // processor reviewing the account looks for these, and a policy nobody can
+    // reach is not a published policy.
+    for (const { segment, source } of LEGAL_PAGES) {
+      urls.push({
+        loc: `${BASE_URL}/${locale}/${segment}`,
+        lastmod: getMtimeIso(path.join(ROOT, source)),
+      });
+    }
+
     // Both content collections for the locale
     for (const { root, routeSegment } of COLLECTIONS) {
       urls.push(...collectDocsForLocale(locale, root, routeSegment));

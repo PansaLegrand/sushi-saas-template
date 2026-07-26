@@ -437,6 +437,69 @@ describe("conventions", () => {
     expect(dirs).not.toContain("features");
   });
 
+  it("gates every third-party tracking script on consent", () => {
+    // Consent is only real if the tag never renders without it. Setting a flag
+    // inside gtag after the script has loaded is not consent: the script has
+    // already set cookies and already contacted the vendor.
+    //
+    // Matching on the vendor host rather than a list of filenames is the point
+    // — a new provider file added next month is caught the same way.
+    const TRACKER_HOSTS =
+      /googletagmanager\.com|google-analytics\.com|adsbygoogle|pagead2\.googlesyndication\.com/;
+
+    const offenders = FILES.filter(({ path, body }) => {
+      if (path.startsWith("src/config/")) return false; // names them, never loads them
+      const source = stripComments(body);
+      if (!TRACKER_HOSTS.test(source)) return false;
+      return !/useConsent\s*\(/.test(source);
+    }).map(({ path }) => path);
+
+    expect(offenders).toEqual([]);
+
+    // The two the kit ships with, asserted by name so deleting the gate from an
+    // existing provider fails even if the vendor URL moves into a dependency.
+    for (const path of ["src/providers/google-analytics.tsx", "src/providers/adsense.tsx"]) {
+      const file = FILES.find((f) => f.path === path);
+      expect(file, `missing ${path}`).toBeDefined();
+      expect(
+        /useConsent\s*\(/.test(stripComments(file!.body)),
+        `${path} must gate on useConsent()`
+      ).toBe(true);
+    }
+  });
+
+  it("logs server-side failures through the logger, not console", () => {
+    // `console.error(e)` skips everything src/lib/logger does for us: the
+    // request id that ties a failure to its request, the level threshold, and
+    // — the reason this is a rule and not a preference — the redaction of
+    // tokens, cookies, and connection strings. A raw Stripe or Postgres error
+    // printed straight to stdout carries whatever the library put in it.
+    //
+    // Client components are exempt: the server logger is `server-only`, and a
+    // browser error belongs in the browser console.
+    const SERVER_FILES = [
+      ...sourceFiles(SRC),
+      ...sourceFiles(join(ROOT, "apps/admin/app")),
+      ...sourceFiles(join(ROOT, "apps/admin/lib")),
+    ].map((file) => ({
+      path: relative(ROOT, file),
+      body: readFileSync(file, "utf8"),
+    }));
+
+    // The logger itself is the one place that writes to the console.
+    const ALLOWED = (path: string) => path.startsWith("src/lib/logger/");
+
+    const offenders = SERVER_FILES.filter(({ path, body }) => {
+      if (ALLOWED(path)) return false;
+      if (/^\s*["']use client["']/.test(body)) return false;
+      return /\bconsole\.(log|info|warn|error|debug)\s*\(/.test(
+        stripComments(body)
+      );
+    }).map(({ path }) => path);
+
+    expect(offenders).toEqual([]);
+  });
+
   it("uses kebab-case filenames", () => {
     // Matches the rule in AGENTS.md. Route groups and dynamic segments in
     // app/ are Next.js syntax, so only the filename itself is checked.
