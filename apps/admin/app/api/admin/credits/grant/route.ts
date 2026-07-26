@@ -9,6 +9,7 @@ import { getAppEnv } from "@/lib/env";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { respData } from "@/lib/resp";
 import { respCode, respError } from "@/lib/errors/response";
+import { logger } from "@/lib/logger/server";
 import { parseJsonBody } from "@/lib/http/request";
 import { findCreditByTransNo } from "@/models/credit";
 import { findPersonalOrganizationByUserUuid } from "@/models/organization";
@@ -177,7 +178,16 @@ export async function POST(req: Request) {
       summary,
     });
   } catch (e) {
-    console.error("admin grant credits failed", e);
+    logger.error(
+      {
+        err: e,
+        event: "admin.credits_grant_failed",
+        target_user_uuid: userUuid,
+        credits,
+        trans_no: transNo,
+      },
+      "admin grant credits failed"
+    );
 
     await writeAdminAuditLog({
       actor: admin,

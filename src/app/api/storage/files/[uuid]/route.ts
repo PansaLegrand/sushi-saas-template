@@ -5,6 +5,7 @@ import { findFileByUuid, softDeleteFile } from "@/models/file";
 import { getStorageAdapter } from "@/services/storage";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
+import { logger } from "@/lib/logger/server";
 
 export async function GET(req: Request, ctx: { params: Promise<{ uuid: string }> }) {
   const limited = await rateLimitOrThrow(req, "uploads");
@@ -81,7 +82,15 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ uuid: string
       await storage.deleteObject({ bucket: file.bucket, key: file.key });
     } catch (e) {
       // Ignore storage delete errors; still soft-delete the record
-      console.warn("storage delete failed", e);
+      logger.warn(
+        {
+          err: e,
+          event: "storage.object_delete_failed",
+          file_uuid: file.uuid,
+          org_uuid: org.orgUuid,
+        },
+        "storage delete failed"
+      );
     }
 
     const deleted = await softDeleteFile(file.uuid, org.orgUuid);

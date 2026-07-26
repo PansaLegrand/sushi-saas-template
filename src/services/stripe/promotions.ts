@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import { newStripeClient } from "@/integrations/stripe";
+import { logger } from "@/lib/logger/server";
 
 // Simple in-memory cache per runtime for created coupons, keyed by currency+amountOff.
 const couponCache = new Map<string, string>();
@@ -32,7 +33,7 @@ async function getOrCreateOnceAmountOffCoupon(params: {
     couponCache.set(cacheKey, coupon.id);
     return coupon.id;
   } catch (e) {
-    console.warn("failed to create intro coupon", e);
+    logger.warn({ err: e, currency, amount_off: amountOff }, "failed to create intro coupon");
     return undefined;
   }
 }

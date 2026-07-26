@@ -1,5 +1,6 @@
 import { insertAuthEvent, type AuthEventName } from "@/models/auth-event";
 import { updateUserLastSignin } from "@/models/user";
+import { logger } from "@/lib/logger/server";
 
 /**
  * Shape of the context Better Auth passes to database hooks. Typed loosely
@@ -101,7 +102,7 @@ export async function recordAuthEvent({
       metadata,
     });
   } catch (e) {
-    console.error("failed to record auth event", { event, error: e });
+    logger.error({ err: e, event }, "failed to record auth event");
   }
 }
 
@@ -115,6 +116,6 @@ export async function touchLastSignin(
   try {
     await updateUserLastSignin(userUuid, when);
   } catch (e) {
-    console.error("failed to update last signin", { userUuid, error: e });
+    logger.error({ err: e, user_uuid: userUuid }, "failed to update last signin");
   }
 }

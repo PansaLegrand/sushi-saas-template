@@ -8,6 +8,7 @@ import {
 } from "@/models/job";
 import { jobHandlers } from "./handlers";
 import type { JobPayloads, JobType } from "./types";
+import { logger } from "@/lib/logger/server";
 
 export type { JobPayloads, JobType } from "./types";
 
@@ -58,7 +59,7 @@ export async function enqueueJobSafe<T extends JobType>(
   try {
     await enqueueJob(type, payload, options);
   } catch (e) {
-    console.error("failed to enqueue job", { type, error: e });
+    logger.error({ err: e, job_type: type }, "failed to enqueue job");
   }
 }
 

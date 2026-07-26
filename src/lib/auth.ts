@@ -26,6 +26,7 @@ import {
   type AuthEmailLinkKind,
 } from "@/services/email/dev-auth-links";
 import * as schema from "@/db/schema";
+import { logger } from "@/lib/logger/server";
 
 const database = db();
 
@@ -86,7 +87,10 @@ async function sendAuthEmailOrLogDevLink(input: {
     });
 
     if (!loggedDevLink) {
-      console.error(`failed to send ${input.kind} email`, error);
+      logger.error(
+        { err: error, event: "auth.email_send_failed", kind: input.kind },
+        "failed to send auth email"
+      );
     }
   }
 }
@@ -104,7 +108,8 @@ const captchaPlugins = (() => {
 
   if (!env.NEXT_PUBLIC_CAPTCHA_ENABLED || !secretKey) {
     if (isProductionRuntime() && !env.NEXT_PUBLIC_CAPTCHA_ENABLED) {
-      console.warn(
+      logger.warn(
+        { event: "auth.captcha_disabled" },
         "captcha is disabled: auth endpoints have no bot protection"
       );
     }
@@ -334,7 +339,12 @@ export const auth = betterAuth({
       });
     },
     onPasswordReset: async ({ user }, _request) => {
-      console.log(`Password reset completed for ${user.email}`);
+      // Identify by id, not email. An interpolated address cannot be redacted
+      // and ends up in every log sink this stream is piped to.
+      logger.info(
+        { event: "auth.password_reset_completed", user_id: user.id },
+        "password reset completed"
+      );
     },
   },
   emailVerification: {
@@ -448,7 +458,14 @@ export const auth = betterAuth({
                 nickname: name,
               });
             } catch (e) {
-              console.error("failed to create personal organization", e);
+              logger.error(
+                {
+                  err: e,
+                  event: "auth.personal_org_create_failed",
+                  user_id: (created as any).id,
+                },
+                "failed to create personal organization"
+              );
             }
           }
 

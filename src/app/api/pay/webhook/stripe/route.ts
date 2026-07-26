@@ -21,6 +21,7 @@ import {
   markStripeWebhookEventFailed,
 } from "@/models/stripe-webhook-event";
 import { respCode } from "@/lib/errors/response";
+import { logger } from "@/lib/logger/server";
 
 const IDEMPOTENT_STRIPE_EVENTS = new Set([
   "checkout.session.completed",
@@ -43,6 +44,12 @@ const IDEMPOTENT_STRIPE_EVENTS = new Set([
 //   stripe trigger checkout_session_completed
 
 export async function POST(req: Request) {
+  // Hoisted so the catch-all below can name the event it died on. `event` is
+  // scoped to the try block, and a 500 with no event id is unactionable: you
+  // cannot find it in the Stripe dashboard to replay it.
+  let stripeEventId: string | undefined;
+  let stripeEventType: string | undefined;
+
   try {
     const signature = req.headers.get("stripe-signature");
     if (!signature) {
@@ -58,9 +65,15 @@ export async function POST(req: Request) {
       // Verify using static helper; no API key needed.
       event = Stripe.webhooks.constructEvent(rawBody, signature, secret);
     } catch (err) {
-      console.warn("invalid stripe signature", err);
+      logger.warn(
+        { err, event: "pay.webhook_invalid_signature" },
+        "invalid stripe signature"
+      );
       return respCode("PAYMENT_WEBHOOK_INVALID_SIGNATURE");
     }
+
+    stripeEventId = event.id;
+    stripeEventType = event.type;
 
     let claimedEvent = false;
     if (IDEMPOTENT_STRIPE_EVENTS.has(event.type)) {
@@ -105,7 +118,15 @@ export async function POST(req: Request) {
           } catch (e) {
             // Non-fatal: `customer.subscription.created` still carries the same
             // object, so a failure here costs latency, not entitlement.
-            console.warn("failed to sync subscription from checkout session", e);
+            logger.warn(
+              {
+                err: e,
+                event: "pay.webhook_subscription_sync_failed",
+                stripe_event_id: event.id,
+                subscription_id: subscriptionId,
+              },
+              "failed to sync subscription from checkout session"
+            );
           }
         }
         // If this checkout was for a reservation, confirm it now
@@ -151,7 +172,15 @@ export async function POST(req: Request) {
                 );
               }
             } catch (e) {
-              console.error("failed to confirm reservation", e);
+              logger.error(
+                {
+                  err: e,
+                  event: "pay.webhook_reservation_confirm_failed",
+                  stripe_event_id: event.id,
+                  reservation_no: reservationNo,
+                },
+                "failed to confirm reservation"
+              );
             }
           }
         }
@@ -422,7 +451,15 @@ export async function POST(req: Request) {
 
     return new Response("ok", { status: 200 });
   } catch (error) {
-    console.error("stripe webhook failed", error);
+    logger.error(
+      {
+        err: error,
+        event: "pay.webhook_failed",
+        stripe_event_id: stripeEventId,
+        stripe_event_type: stripeEventType,
+      },
+      "stripe webhook failed"
+    );
     return new Response("webhook error", { status: 500 });
   }
 }

@@ -1,5 +1,6 @@
 import { getAppEnv } from "@/lib/env";
 import { respCode } from "@/lib/errors/response";
+import { logger } from "@/lib/logger/server";
 
 type RateLimitBucket = "auth" | "checkout" | "feedback" | "credits" | "uploads" | "tasks";
 
@@ -176,7 +177,10 @@ export async function checkRateLimit(
     // local limiter and emit one loud process-level warning for operators.
     if (!warnedStoreFailure) {
       warnedStoreFailure = true;
-      console.error("distributed rate limit store failed; using in-memory fallback", error);
+      logger.error(
+        { err: error, event: "rate_limit.store_failed", bucket },
+        "distributed rate limit store failed; using in-memory fallback"
+      );
     }
     state = await memoryStore.increment(`fallback:${key}`, rule.windowMs);
   }

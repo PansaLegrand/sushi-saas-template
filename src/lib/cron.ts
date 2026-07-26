@@ -1,5 +1,6 @@
 import { isProductionRuntime } from "@/lib/env";
 import { respForbidden, respNoAuth } from "@/lib/resp";
+import { logger } from "@/lib/logger/server";
 
 /**
  * Guard for cron endpoints.
@@ -20,7 +21,10 @@ export function requireCronAuth(req: Request): Response | null {
     // Fail closed in production: an unauthenticated cron endpoint is worse
     // than a cron that does not run.
     if (isProductionRuntime()) {
-      console.error("CRON_SECRET is not set; refusing to run cron endpoint");
+      logger.error(
+        { event: "cron.secret_missing" },
+        "CRON_SECRET is not set; refusing to run cron endpoint"
+      );
       return respForbidden("cron secret not configured");
     }
     // Local development without the variable is allowed so the endpoint can

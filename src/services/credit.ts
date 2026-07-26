@@ -10,6 +10,7 @@ import {
 import { getFirstPaidOrderByOrg } from "@/models/order";
 import { AppError } from "@/lib/errors/app-error";
 import { getSnowId } from "@/lib/hash";
+import { logger } from "@/lib/logger/server";
 import { getIsoTimestr } from "@/lib/time";
 import type { Order } from "@/types/order";
 import type { CreditLedgerEntry, CreditSummary } from "@/types/credit";
@@ -182,7 +183,7 @@ export async function getOrgCredits(orgUuid: string): Promise<UserCredits> {
       status.is_pro = true;
     }
   } catch (error) {
-    console.error("get org credits failed", error);
+    logger.error({ err: error, org_uuid: orgUuid }, "get org credits failed");
   }
 
   return status;
@@ -219,7 +220,10 @@ export async function decreaseCredits({
 
     return created.trans_no;
   } catch (error) {
-    console.error("decrease credits failed", error);
+    logger.error(
+      { err: error, org_uuid, user_uuid, trans_type, credits },
+      "decrease credits failed"
+    );
     throw error;
   }
 }
@@ -260,7 +264,10 @@ export async function increaseCredits({
 
     await insertCredit(newCredit);
   } catch (error) {
-    console.error("increase credits failed", error);
+    logger.error(
+      { err: error, org_uuid, user_uuid, trans_type, credits, order_no },
+      "increase credits failed"
+    );
     throw error;
   }
 }
@@ -325,7 +332,10 @@ export async function refundCreditsForTransaction({
       return createdByRace.trans_no;
     }
 
-    console.error("refund credits failed", error);
+    logger.error(
+      { err: error, original_trans_no, refund_trans_no: refundTransNo },
+      "refund credits failed"
+    );
     throw error;
   }
 }
@@ -355,7 +365,10 @@ export async function updateCreditForOrder(order: Order): Promise<void> {
       order_no: order.order_no,
     });
   } catch (error) {
-    console.error("update credit for order failed", error);
+    logger.error(
+      { err: error, order_no: order.order_no, org_uuid: order.org_uuid },
+      "update credit for order failed"
+    );
     throw error;
   }
 }

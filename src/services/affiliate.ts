@@ -9,6 +9,7 @@ import {
   CommissionMode,
 } from "@/config/affiliate";
 import { getIsoTimestr } from "@/lib/time";
+import { logger } from "@/lib/logger/server";
 
 function computeReward(amountMinor: number): {
   rewardAmount: number;
@@ -66,7 +67,10 @@ export async function updateAffiliateForOrder(order: Order) {
       reward_amount: rewardAmount,
     });
   } catch (e) {
-    console.log("update affiliate for order failed: ", e);
+    logger.error(
+      { err: e, order_no: order.order_no, user_uuid: order.user_uuid },
+      "update affiliate for order failed"
+    );
     throw e;
   }
 }

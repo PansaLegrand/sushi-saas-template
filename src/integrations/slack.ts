@@ -1,6 +1,8 @@
 // Lightweight Slack webhook helper for server-side notifications.
 // Configure an Incoming Webhook URL in Slack and set SLACK_WEBHOOK_URL in env.
 
+import { logger } from "@/lib/logger/server";
+
 const WEBHOOK = process.env.SLACK_WEBHOOK_URL;
 
 function serialize(obj: unknown): string {
@@ -29,7 +31,7 @@ async function post(payload: Record<string, unknown>): Promise<void> {
     });
   } catch (e) {
     // Avoid throwing; logging is sufficient in most environments.
-    console.warn("slack webhook failed", e);
+    logger.warn({ err: e, event: "slack.webhook_failed" }, "slack webhook failed");
   } finally {
     clearTimeout(timeout);
   }

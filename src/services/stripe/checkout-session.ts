@@ -7,6 +7,7 @@ import {
 import { increaseCredits, CreditsTransType } from "@/services/credit";
 import { updateAffiliateForOrder } from "@/services/affiliate";
 import { AppError } from "@/lib/errors/app-error";
+import { logger } from "@/lib/logger/server";
 
 export async function handleCheckoutSession(
   stripe: Stripe,
@@ -28,7 +29,7 @@ export async function handleCheckoutSession(
   }
 
   if (order.status === "paid") {
-    console.log("order already paid");
+    logger.info({ order_no }, "order already paid");
     return;
   }
 
@@ -58,7 +59,10 @@ export async function handleCheckoutSession(
     }
   } catch (e) {
     // Do not fail the flow if charge retrieval fails; persist the session as backup.
-    console.warn("failed to fetch charge details, falling back to session", e);
+    logger.warn(
+      { err: e, order_no },
+      "failed to fetch charge details, falling back to session"
+    );
     charge_detail = JSON.stringify(session, null, 2);
   }
 

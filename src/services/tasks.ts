@@ -1,5 +1,6 @@
 import { getSnowId } from "@/lib/hash";
 import { isTextToVideoMockEnabled } from "@/lib/demo-flags";
+import { logger } from "@/lib/logger/server";
 import {
   findTaskByIdempotencyKey,
   insertTaskForIdempotencyKey,
@@ -152,7 +153,16 @@ export async function createTextToVideoTask(params: {
           original_trans_no: transNo,
         });
       } catch (refundError) {
-        console.error("refund text-to-video credits failed", refundError);
+        logger.error(
+          {
+            err: refundError,
+            org_uuid: orgUuid,
+            user_uuid: userUuid,
+            trans_no: transNo,
+            task_uuid: insertedTask.uuid,
+          },
+          "refund text-to-video credits failed"
+        );
       }
     }
 

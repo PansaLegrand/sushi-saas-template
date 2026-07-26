@@ -3,6 +3,7 @@ import { desc } from "drizzle-orm";
 
 import { db } from "@/db";
 import { adminAuditLogs } from "@/db/schema";
+import { logger } from "@/lib/logger/server";
 import type { AdminContext } from "@admin/lib/authz";
 
 export type AdminAuditAction =
@@ -77,12 +78,16 @@ export async function writeAdminAuditLog({
         user_agent: truncate(request?.headers.get("user-agent") ?? null, 1024),
       });
   } catch (e) {
-    console.error("failed to write admin audit log", {
-      action,
-      targetType,
-      targetUuid,
-      error: e,
-    });
+    logger.error(
+      {
+        err: e,
+        event: "admin.audit_write_failed",
+        action,
+        target_type: targetType,
+        target_uuid: targetUuid,
+      },
+      "failed to write admin audit log"
+    );
   }
 }
 
