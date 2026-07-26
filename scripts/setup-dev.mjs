@@ -187,6 +187,5 @@ console.log(`
 
 To promote yourself to admin after signing up:
 
-  docker compose exec postgres psql -U sushi -d sushi_dev \\
-    -c "update users set role='admin_rw' where email='you@example.com';"
+  pnpm admin:promote you@example.com
 `);

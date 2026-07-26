@@ -57,11 +57,27 @@ export async function POST(req: Request) {
       return respCode("STORAGE_SIZE_MISMATCH");
     }
 
+    if (
+      file.checksum_sha256 &&
+      head.checksumSHA256 &&
+      head.checksumSHA256 !== file.checksum_sha256
+    ) {
+      await updateFileByUuid(file.uuid, ctx.orgUuid, {
+        size: head.size || file.size,
+        etag: head.etag ?? null,
+        content_type: head.contentType ?? file.content_type,
+        checksum_sha256: head.checksumSHA256,
+        storage_class: head.storageClass ?? null,
+        status: "failed",
+      });
+      return respCode("STORAGE_CHECKSUM_MISMATCH");
+    }
+
     const updated = await updateFileByUuid(file.uuid, ctx.orgUuid, {
       size: head.size || file.size,
       etag: head.etag ?? null,
       content_type: head.contentType ?? file.content_type,
-      checksum_sha256: head.checksumSHA256 ?? null,
+      checksum_sha256: head.checksumSHA256 ?? file.checksum_sha256 ?? null,
       storage_class: head.storageClass ?? null,
       status: "active",
     });

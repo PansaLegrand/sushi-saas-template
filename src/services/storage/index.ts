@@ -13,8 +13,5 @@ export function getStorageAdapter(): StorageAdapter {
     case "minio":
       adapter = createS3Adapter();
       return adapter;
-    default:
-      adapter = createS3Adapter();
-      return adapter;
   }
 }

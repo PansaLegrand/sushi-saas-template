@@ -16,6 +16,7 @@ const ENV_KEYS = [
   "RESEND_API_KEY",
   "EMAIL_FROM",
   "STORAGE_BUCKET",
+  "STORAGE_PROVIDER",
   "S3_BUCKET",
   "STORAGE_ACCESS_KEY",
   "S3_ACCESS_KEY_ID",
@@ -181,6 +182,25 @@ describe("typed environment validation", () => {
     expect(env.STORAGE_BUCKET).toBe("alias-bucket");
     expect(env.STORAGE_ACCESS_KEY).toBe("alias-access");
     expect(env.STORAGE_SECRET_KEY).toBe("alias-secret");
+  });
+
+  it("fails clearly for unsupported storage providers", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("STORAGE_PROVIDER", "gcs");
+
+    const { EnvValidationError, validateAppEnv } = await loadEnvModule();
+
+    expect(() => validateAppEnv()).toThrow(EnvValidationError);
+    try {
+      validateAppEnv();
+    } catch (error) {
+      expect((error as Error).message).toContain("Expected one of: s3, r2, minio");
+      expect((error as any).issues).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining("STORAGE_PROVIDER"),
+        ])
+      );
+    }
   });
 
   it("requires turnstile keys in production by default", async () => {

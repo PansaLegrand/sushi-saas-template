@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { files } from "@/db/schema";
-import { and, desc, eq, ne, sql } from "drizzle-orm";
+import { and, desc, eq, lt, ne, sql } from "drizzle-orm";
 
 import { scopedToOrg } from "./organization";
 
@@ -102,4 +102,26 @@ export async function sumFileBytesByOrg(orgUuid: string): Promise<number> {
 
   // Postgres sums bigint-safe and the driver hands it back as a string.
   return Number(row?.total ?? 0);
+}
+
+export async function markStaleUploadingFilesFailed(params: {
+  cutoff: Date;
+  orgUuid?: string;
+}): Promise<number> {
+  const predicates = [
+    eq(files.status, "uploading"),
+    lt(files.created_at, params.cutoff),
+  ];
+
+  if (params.orgUuid) {
+    predicates.push(scopedToOrg(files.org_uuid, params.orgUuid));
+  }
+
+  const rows = await db()
+    .update(files)
+    .set({ status: "failed", updated_at: new Date() })
+    .where(and(...predicates))
+    .returning({ id: files.id });
+
+  return rows.length;
 }

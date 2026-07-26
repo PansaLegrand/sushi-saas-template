@@ -9,7 +9,18 @@ import { getSnowId } from "@/lib/hash";
 import { insertFile, sumFileBytesByOrg } from "@/models/file";
 import { enforceLimit, limitOf, requireEntitlement } from "@/services/entitlements";
 import { getStorageAdapter } from "@/services/storage";
+import { cleanupStaleUploads } from "@/services/storage/cleanup";
 import { getAppEnv } from "@/lib/env";
+import {
+  DEFAULT_STORAGE_UPLOAD_POLICY_ID,
+  STORAGE_UPLOAD_POLICY_IDS,
+  extensionForFilename,
+  getStorageUploadPolicy,
+  isAllowedUploadType,
+  isSha256Checksum,
+  isStorageUploadPolicyId,
+  normalizeContentType,
+} from "@/config/storage";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import type { CreateUploadRequest, CreateUploadResponse } from "@/types/storage";
@@ -18,18 +29,31 @@ import { notifySlackError } from "@/integrations/slack";
 
 const DEFAULT_MAX_UPLOAD_MB = getAppEnv().STORAGE_MAX_UPLOAD_MB;
 
+const ContentTypeField = z.string().trim().max(255).optional();
+
 const CreateUploadSchema = z.object({
-  filename: z.string().trim().optional(),
-  name: z.string().trim().optional(),
-  contentType: z.string().trim().optional(),
-  type: z.string().trim().optional(),
-  mimeType: z.string().trim().optional(),
-  mime: z.string().trim().optional(),
+  filename: z.string().trim().max(255).optional(),
+  name: z.string().trim().max(255).optional(),
+  contentType: ContentTypeField,
+  type: ContentTypeField,
+  mimeType: ContentTypeField,
+  mime: ContentTypeField,
   size: z.coerce.number().positive().optional(),
   checksumSha256: z.string().trim().optional(),
+  policy: z.enum(STORAGE_UPLOAD_POLICY_IDS).optional(),
   visibility: z.enum(["public", "private", "org"]).optional(),
   metadata: z.record(z.string()).optional(),
 });
+
+function metadataWithPolicy(
+  metadata: Record<string, string> | undefined,
+  policyId: string
+): Record<string, string> {
+  return {
+    ...(metadata ?? {}),
+    upload_policy: policyId,
+  };
+}
 
 export async function POST(req: Request) {
   const invalidOrigin = requireSameOrigin(req);
@@ -72,6 +96,8 @@ export async function POST(req: Request) {
           // optional metadata fields
           const checksum = form.get("checksumSha256");
           if (typeof checksum === "string") payload.checksumSha256 = checksum;
+          const policy = form.get("policy");
+          if (typeof policy === "string") payload.policy = policy as any;
           const visibility = form.get("visibility");
           if (visibility === "public" || visibility === "private" || visibility === "org") payload.visibility = visibility;
           const metadataRaw = form.get("metadata");
@@ -86,9 +112,11 @@ export async function POST(req: Request) {
           const fname = form.get("filename") || form.get("name");
           const ctype = form.get("contentType") || form.get("type") || form.get("mimeType") || form.get("mime");
           const sz = form.get("size");
+          const policy = form.get("policy");
           if (typeof fname === "string") payload.filename = fname;
           if (typeof ctype === "string") payload.contentType = ctype;
           if (typeof sz === "string") payload.size = Number(sz);
+          if (typeof policy === "string") payload.policy = policy as any;
           parsedFrom = "form";
         }
       } catch {
@@ -102,6 +130,7 @@ export async function POST(req: Request) {
       (payload as any).contentType || (payload as any).type || (payload as any).mimeType || (payload as any).mime;
     const size = typeof (payload as any).size === "string" ? Number((payload as any).size) : (payload as any).size;
     const checksumSha256 = (payload as any).checksumSha256;
+    const policyValue = (payload as any).policy;
     const visibility = (payload as any).visibility;
     const metadata = (payload as any).metadata;
 
@@ -110,6 +139,39 @@ export async function POST(req: Request) {
       baseLogger.warn({ event: "storage.presign.create.invalid", parsedFrom, filename, contentType, size });
       return respCode("REQUEST_MISSING_FIELD", {
         details: { fields: ["filename", "contentType", "size"] },
+      });
+    }
+
+    if (policyValue && !isStorageUploadPolicyId(policyValue)) {
+      return respCode("REQUEST_VALIDATION_FAILED", {
+        details: { fields: [{ field: "policy", code: "invalid_enum_value" }] },
+      });
+    }
+
+    const policyId = policyValue ?? DEFAULT_STORAGE_UPLOAD_POLICY_ID;
+    const policy = getStorageUploadPolicy(policyId);
+    const normalizedContentType = normalizeContentType(contentType);
+    const extension = extensionForFilename(filename);
+
+    if (!isAllowedUploadType(policy, { filename, contentType: normalizedContentType })) {
+      return respCode("STORAGE_FILE_TYPE_NOT_ALLOWED", {
+        details: {
+          policy: policy.id,
+          allowedContentTypes: policy.allowedContentTypes,
+          allowedExtensions: policy.allowedExtensions,
+        },
+      });
+    }
+
+    if (checksumSha256 && !isSha256Checksum(checksumSha256)) {
+      return respCode("STORAGE_CHECKSUM_INVALID", {
+        details: { field: "checksumSha256" },
+      });
+    }
+
+    if (policy.requireChecksum && !checksumSha256) {
+      return respCode("STORAGE_CHECKSUM_REQUIRED", {
+        details: { policy: policy.id },
       });
     }
 
@@ -122,8 +184,11 @@ export async function POST(req: Request) {
     await requireEntitlement(ctx.orgUuid, "storage.upload");
 
     const planMaxMb = await limitOf(ctx.orgUuid, "storage.maxFileMb");
-    const effectiveMaxMb =
-      planMaxMb === null ? DEFAULT_MAX_UPLOAD_MB : Math.min(DEFAULT_MAX_UPLOAD_MB, planMaxMb);
+    const effectiveMaxMb = Math.min(
+      DEFAULT_MAX_UPLOAD_MB,
+      ...(planMaxMb === null ? [] : [planMaxMb]),
+      ...(policy.maxFileMb === undefined ? [] : [policy.maxFileMb])
+    );
     const maxBytes = effectiveMaxMb * 1024 * 1024;
 
     if (size > maxBytes) {
@@ -136,6 +201,7 @@ export async function POST(req: Request) {
     // this upload would add, at creation time only — a user who downgrades
     // below what they already hold keeps their files and is simply refused new
     // ones. Nothing here deletes data because a plan changed.
+    await cleanupStaleUploads({ orgUuid: ctx.orgUuid });
     const usedBytes = await sumFileBytesByOrg(ctx.orgUuid);
     await enforceLimit(ctx.orgUuid, "storage.totalMb", {
       current: Math.round(usedBytes / (1024 * 1024)),
@@ -158,18 +224,19 @@ export async function POST(req: Request) {
       region: getAppEnv().STORAGE_REGION || null,
       endpoint: getAppEnv().STORAGE_ENDPOINT || null,
       original_filename: filename,
-      extension: filename.includes(".") ? filename.split(".").pop()!.toLowerCase() : "",
-      content_type: contentType,
+      extension: extension.slice(1),
+      content_type: normalizedContentType,
       size: Number(size),
       visibility: (visibility as any) ?? "private",
       status: "uploading",
-      metadata_json: metadata ? JSON.stringify(metadata) : null,
+      checksum_sha256: checksumSha256 ?? null,
+      metadata_json: JSON.stringify(metadataWithPolicy(metadata, policy.id)),
     });
 
     const signed = await storage.getPresignedUpload({
       bucket,
       key,
-      contentType,
+      contentType: normalizedContentType,
       size: Number(size),
       checksumSha256,
       metadata,
@@ -187,7 +254,7 @@ export async function POST(req: Request) {
       key,
       bucket,
       size: Number(size),
-      content_type: contentType,
+      content_type: normalizedContentType,
       status: "ok",
     });
     return respData(res);

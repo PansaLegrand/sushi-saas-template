@@ -3,6 +3,7 @@ import { respData } from "@/lib/resp";
 import { respError } from "@/lib/errors/response";
 import { countJobsByStatus } from "@/models/job";
 import { pruneFinishedJobs, runDueJobs } from "@/services/jobs";
+import { cleanupStaleUploads } from "@/services/storage/cleanup";
 
 // Always run on demand; never cached.
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ export async function GET(req: Request) {
   try {
     const result = await runDueJobs(25);
     await pruneFinishedJobs();
+    const staleUploadsFailed = await cleanupStaleUploads();
     const pending = await countJobsByStatus();
 
     console.log("cron.jobs", {
@@ -33,6 +35,7 @@ export async function GET(req: Request) {
 
     return respData({
       ...result,
+      storage: { staleUploadsFailed },
       queue: pending,
       durationMs: Date.now() - startedAt,
     });

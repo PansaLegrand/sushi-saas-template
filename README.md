@@ -158,9 +158,15 @@ Admin accounts must enable two-factor authentication before they can enter the
 admin console. Enable MFA from the public account page, then sign in to the
 admin app and complete the two-factor challenge.
 
-For now, the first admin role is still assigned manually in the database. The
-roadmap tracks a small `pnpm admin:promote <email>` command as the next quality
-of life improvement.
+Promote the first admin from the command line after that user signs up:
+
+```bash
+pnpm admin:promote you@example.com
+```
+
+The command defaults to `admin_rw`. Use `admin_ro` for read-only access, or pass
+`--provider <provider>` if the same email exists through multiple auth
+providers.
 
 ## Deployment Notes
 
@@ -199,6 +205,8 @@ Read [DEPLOYMENT.md](DEPLOYMENT.md) before shipping. The short version:
 | --- | --- |
 | [docs/database.md](docs/database.md) | Schema reference, invariants, and the checklist for changing tables |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | Environments, database hosting, and production migration workflow |
+| [docs/release-checklist.md](docs/release-checklist.md) | Required commands and manual smoke checks before a PR or release |
+| [docs/storage-providers.md](docs/storage-providers.md) | R2, AWS S3, and MinIO configuration plus upload smoke tests |
 | [tests/README.md](tests/README.md) | Test tiers and rules for mocks, DB tests, auth gates, and replay tests |
 | [docs/errors.md](docs/errors.md) | Error catalog, translated messages, and the no-leak server/UI contract |
 | [docs/plans.md](docs/plans.md) | Plans, tiers, entitlements, and feature limits |

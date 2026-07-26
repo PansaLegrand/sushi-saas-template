@@ -29,6 +29,7 @@
     "lint:admin": "next lint apps/admin --max-warnings 0",
     "gen:sitemap": "node scripts/generate-sitemap.mjs",
     "setup": "node scripts/setup-dev.mjs",
+    "admin:promote": "node scripts/admin-promote.mjs",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:generate": "drizzle-kit generate --config src/db/config.ts",

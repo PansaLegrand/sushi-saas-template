@@ -219,6 +219,22 @@ export const ERROR_CATALOG = {
     statusCode: 413,
     defaultMessage: "That file is too large.",
   },
+  STORAGE_FILE_TYPE_NOT_ALLOWED: {
+    statusCode: 415,
+    defaultMessage: "That file type is not allowed.",
+  },
+  STORAGE_CHECKSUM_REQUIRED: {
+    statusCode: 400,
+    defaultMessage: "This upload requires a checksum.",
+  },
+  STORAGE_CHECKSUM_INVALID: {
+    statusCode: 400,
+    defaultMessage: "The upload checksum is invalid.",
+  },
+  STORAGE_CHECKSUM_MISMATCH: {
+    statusCode: 400,
+    defaultMessage: "The uploaded file did not match the expected checksum.",
+  },
   STORAGE_SIZE_MISMATCH: {
     statusCode: 400,
     defaultMessage: "The uploaded file did not match the expected size.",

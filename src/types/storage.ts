@@ -1,4 +1,9 @@
-export type StorageProvider = "s3" | "r2" | "gcs" | "minio";
+import type {
+  StorageUploadPolicyId,
+  StorageUploadVisibility,
+} from "@/config/storage";
+
+export type StorageProvider = "s3" | "r2" | "minio";
 
 export interface FileObject {
   id: number;
@@ -29,7 +34,8 @@ export interface CreateUploadRequest {
   contentType: string;
   size: number;
   checksumSha256?: string; // base64-encoded
-  visibility?: "private" | "public" | "org";
+  policy?: StorageUploadPolicyId;
+  visibility?: StorageUploadVisibility;
   metadata?: Record<string, string>;
 }
 
@@ -51,4 +57,3 @@ export interface SignedDownloadUrl {
   url: string;
   expiresIn: number;
 }
-

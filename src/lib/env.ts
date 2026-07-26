@@ -2,6 +2,8 @@ import { z } from "zod";
 
 const TRUE_VALUES = new Set(["1", "true", "yes", "on"]);
 const FALSE_VALUES = new Set(["0", "false", "no", "off"]);
+const STORAGE_PROVIDERS = ["s3", "r2", "minio"] as const;
+type StorageProvider = (typeof STORAGE_PROVIDERS)[number];
 
 function emptyToUndefined(value: unknown) {
   if (typeof value === "string" && value.trim() === "") {
@@ -60,6 +62,27 @@ function envPositiveInt(defaultValue: number) {
     .transform((value) => value ?? defaultValue);
 }
 
+const envStorageProvider = z
+  .preprocess(emptyToUndefined, z.string().trim().optional())
+  .transform((value, ctx): StorageProvider => {
+    if (value === undefined) {
+      return "s3";
+    }
+
+    const normalized = value.toLowerCase();
+    if (STORAGE_PROVIDERS.includes(normalized as StorageProvider)) {
+      return normalized as StorageProvider;
+    }
+
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `Expected one of: ${STORAGE_PROVIDERS.join(", ")}. Received ${JSON.stringify(
+        value.length > 40 ? `${value.slice(0, 40)}…` : value
+      )}`,
+    });
+    return z.NEVER;
+  });
+
 const RawEnvSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
@@ -116,7 +139,7 @@ const RawEnvSchema = z.object({
   NEXT_PUBLIC_PAY_FAIL_URL: envString,
   NEXT_PUBLIC_PAY_CANCEL_URL: envString,
 
-  STORAGE_PROVIDER: envString,
+  STORAGE_PROVIDER: envStorageProvider,
   STORAGE_ENDPOINT: envUrl,
   STORAGE_REGION: envString,
   STORAGE_ACCESS_KEY: envString,
@@ -181,7 +204,7 @@ export type AppEnv = Omit<
   NEXT_PUBLIC_PROJECT_NAME: string;
   NEXT_PUBLIC_DEFAULT_THEME: string;
   BETTER_AUTH_SECRET?: string;
-  STORAGE_PROVIDER: string;
+  STORAGE_PROVIDER: StorageProvider;
   STORAGE_ENDPOINT?: string;
   STORAGE_REGION: string;
   STORAGE_ACCESS_KEY?: string;
@@ -234,7 +257,7 @@ function buildAppEnv(raw: RawEnv): AppEnv {
     NEXT_PUBLIC_PROJECT_NAME: raw.NEXT_PUBLIC_PROJECT_NAME ?? "sushi-saas-template",
     NEXT_PUBLIC_DEFAULT_THEME: raw.NEXT_PUBLIC_DEFAULT_THEME ?? "system",
     BETTER_AUTH_SECRET: raw.BETTER_AUTH_SECRET ?? raw.AUTH_SECRET,
-    STORAGE_PROVIDER: (raw.STORAGE_PROVIDER ?? "s3").toLowerCase(),
+    STORAGE_PROVIDER: raw.STORAGE_PROVIDER,
     STORAGE_ENDPOINT: raw.STORAGE_ENDPOINT ?? raw.S3_ENDPOINT,
     STORAGE_REGION: raw.STORAGE_REGION ?? raw.S3_REGION ?? "auto",
     STORAGE_ACCESS_KEY: raw.STORAGE_ACCESS_KEY ?? raw.S3_ACCESS_KEY_ID,

@@ -1,0 +1,73 @@
+# Release Checklist
+
+Use this before opening a PR, promoting a deployment, or tagging a release.
+Keep the notes short, but record what ran, what was skipped, and why.
+
+## Required Commands
+
+Run these from the repository root:
+
+```bash
+pnpm lint
+pnpm test:run
+pnpm build
+```
+
+If the change touches `src/db/schema.ts`, migrations, or database-owned
+invariants, also run:
+
+```bash
+pnpm db:generate
+pnpm db:migrate
+pnpm test:db
+```
+
+Before applying production migrations, run:
+
+```bash
+pnpm db:check:prod
+```
+
+## Manual Smoke Checks
+
+- Sign up a new user and verify the account.
+- Log out, then log back in.
+- Open one localized homepage other than the default locale.
+- Start checkout from pricing, complete payment, and confirm the Stripe webhook
+  updates the order/subscription state.
+- Confirm credits changed through the expected path: checkout, admin grant, or
+  a task spend, depending on the change.
+- Create a reservation, complete checkout, and confirm it appears in the user's
+  reservations page.
+- Upload a file, complete the upload, download it, then delete it.
+- Invite a teammate, accept the invitation as that user, and confirm the team
+  page shows the new member.
+
+## Conditional Checks
+
+- Admin changes: sign in to `apps/admin`, complete MFA if required, and verify
+  read/write guards on the affected admin surface.
+- Billing changes: open the billing portal, cancel or update a subscription in
+  Stripe test mode, and verify the webhook result.
+- Email changes: confirm the email in the provider dashboard or development
+  auth-link logs, and verify no raw provider error reaches the UI.
+- Storage changes: run the provider smoke test in
+  [docs/storage-providers.md](storage-providers.md) against the target provider
+  and verify objects remain private except through signed URLs. Confirm a
+  disallowed file type is rejected before a presigned URL is created.
+- Site-mode changes: run or build with `NEXT_PUBLIC_SITE_MODE=site` and verify
+  only landing, `/docs`, `/blogs`, and `/api/health` are reachable.
+
+## PR Notes
+
+Include a short validation block in the PR:
+
+```text
+Validation:
+- pnpm lint
+- pnpm test:run
+- pnpm build
+- Manual: signup, login, checkout/webhook, credits, reservation, upload, team invite
+```
+
+If a check is skipped, name the reason rather than leaving it implied.

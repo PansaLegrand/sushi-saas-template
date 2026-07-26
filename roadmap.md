@@ -24,6 +24,14 @@ Legend:
 - [x] Docs/blog with MDX, Drizzle migrations, health endpoint
 - [x] Password reset email link flow
 - [x] Feedback modal, API submission, admin review page
+- [x] Storage v1: private S3/R2/MinIO-compatible uploads, presigned download
+  URLs, org-scoped file reads, soft delete
+- [x] Tasks scaffold: generic task records, text-to-video demo provider,
+  idempotency, credit spend/refund tracing, monthly plan limits
+- [x] Durable background jobs: database queue, Vercel cron drain, retries,
+  dedupe keys, pruning for finished jobs
+- [x] Auth hardening: Cloudflare Turnstile wiring, auth event logs, local
+  development verification/password-reset link logging
 - [x] `.env.example`, lint gate, deterministic tests, CI workflow, and working Husky hooks
 - [x] Account credit grant endpoint is disabled by default unless explicitly enabled for non-production demo use
 - [x] Plans & entitlements: free/plus/max tiers, feature gates, usage limits, comped accounts
@@ -31,6 +39,8 @@ Legend:
 - [x] Organizations & tenancy: personal workspace per user, org-scoped data, pooled credits — see [docs/organizations.md](docs/organizations.md)
 - [x] Teams: invitations with email, member management, roles, last-owner protection
 - [x] Billing belongs to the organization: org-scoped Stripe customer, owner-only checkout and portal
+- [x] Site/app split: `NEXT_PUBLIC_SITE_MODE=site` serves landing, docs, blog,
+  and health only, while SaaS routes are blocked at middleware
 
 ---
 
@@ -72,9 +82,11 @@ Ordered. Take the top item.
      `users.two_factor_enabled` is true, and sends them to a setup-required
      page instead of the admin console.
 
-5. [ ] [P1] Promote the first admin without SQL
-   - Every user signs up as `role='user'`; the only path to admin is a manual
-     `update users set role=...`. Add `pnpm admin:promote <email>`.
+5. [x] [P1] Promote the first admin without SQL
+   - Added `pnpm admin:promote <email> [admin_ro|admin_rw]`, backed by
+     `scripts/admin-promote.mjs`.
+   - The command refuses ambiguous same-email multi-provider matches unless the
+     operator passes `--provider <provider>`, and reminds admins to enable MFA.
 
 6. [ ] [P1] Write the account-deletion policy, then build it
    - There is no deletion or export path at all, and both are legal
@@ -87,15 +99,31 @@ Ordered. Take the top item.
      shared team deletes their account is a product flow, not a query. See
      [docs/organizations.md](docs/organizations.md).
 
-7. [ ] [P1] Harden file uploads
-   - Validate file type/size server-side.
-   - Keep files private by default.
-   - Document the S3/R2/MinIO smoke test.
+7. [x] [P1] Finish hardening file uploads
+   - Already shipped: files are private by default, tenant-scoped, size-limited
+     by both deployment env and plan limits, completed through presigned URLs,
+     and soft-deleted.
+   - Added named upload policies in `src/config/storage.ts`, enforced
+     server-side and shared with a reusable configurable `Uploader` component.
+   - Added optional and policy-required SHA-256 checksums, completion-time
+     checksum mismatch handling, and stale `uploading` row cleanup.
+   - Added provider-neutral R2/AWS S3/MinIO setup and smoke-test docs in
+     [docs/storage-providers.md](docs/storage-providers.md).
 
-8. [ ] [P1] Add a small release checklist
-   - Manual checks: signup, login, checkout, webhook, credits, reservation,
-     upload, localized homepage, invite a teammate.
-   - Commands: `pnpm lint`, `pnpm test:run`, `pnpm build`.
+8. [x] [P1] Add a small release checklist
+   - Added [docs/release-checklist.md](docs/release-checklist.md) with required
+     commands, core manual smoke checks, conditional checks, and PR validation
+     notes.
+   - Linked it from [DEPLOYMENT.md](DEPLOYMENT.md) and the README documentation
+     map.
+
+9. [x] [P1] Reconcile docs and product copy with the current code
+   - Updated `docs/database.md` so `files.org_uuid` is documented as the tenant
+     column and `files.org_id` as legacy cleanup, not future tenancy.
+   - Removed the pricing promise for a usage analytics dashboard while that
+     dashboard remains P2.
+   - Aligned visible pricing names with free/plus/max entitlements while keeping
+     compatibility-sensitive product ids and Stripe env fallbacks in place.
 
 ---
 
@@ -105,25 +133,54 @@ Organizations shipped; these complete the story. None is required for a
 single-person deployment, and each is additive — the seams are already in
 place. Full reasoning in [docs/organizations.md](docs/organizations.md).
 
-9. [ ] [P1] Org switcher
+10. [ ] [P1] Org switcher
    - A user can now belong to several organizations and has no way to move
      between them. `getOrgContext` picks active → personal → first.
-   - Blocks nothing else, but makes item 10 worth doing.
+   - Blocks nothing else, but makes item 11 worth doing.
 
-10. [ ] [P2] Move tenant routes under `/[locale]/[org]/`
+11. [ ] [P2] Move tenant routes under `/[locale]/[org]/`
     - `getOrgContext(req, orgSlug)` already accepts a slug; nothing passes one.
     - Path scoping beats session-only: with the org held only in the session,
       two browser tabs on two organizations fight over one value and the loser
       silently acts in the wrong tenant.
     - Large: it moves every page and every link. Its own change.
 
-11. [ ] [P2] "Request upgrade" flow
+12. [ ] [P2] "Request upgrade" flow
     - A member hitting checkout gets `BILLING_OWNER_ONLY` with a clear message,
       but nothing tells the owner they were asked.
 
-12. [ ] [P2] Dedicated billing role
+13. [ ] [P2] Dedicated billing role
     - Billing is owner-only. Mature products split it out so finance can hold
       billing without product access. Additive on top of `can()`.
+
+---
+
+## Technical Debt Worth Scheduling
+
+These are not product features, but they are unfinished pieces of starter
+readiness that came out of the code audit. Treat them as small, isolated
+hardening passes rather than one giant schema rewrite.
+
+- [P1] Add foreign keys in expand/contract passes
+  - There are no foreign keys anywhere. Start with high-value references such
+    as `credits.user_uuid`, `tasks.user_uuid`, and tenant `org_uuid` columns,
+    after sweeping orphans.
+- [P1] Normalize nullable timestamps on older tables
+  - Newer tables use `not null default now()`. Older ones (`orders`, `credits`,
+    `posts`, `affiliates`, `feedbacks`, `apikeys`) still rely on application
+    code to set `created_at`, which makes a forgotten field break ordering.
+- [P1] Define retention for append-only operational tables
+  - `jobs` prunes finished rows after 14 days. `auth_events` and
+    `admin_audit_logs` currently grow forever; decide retention before the
+    tables are large.
+- [P1] Remove serverless collision risk from generated ids
+  - `getSnowId()` defaults to one worker id across instances. Unique indexes
+    protect data integrity, but a collision still becomes a user-visible failed
+    insert. Prefer UUIDv7 or another instance-safe id for new financial/usage
+    records.
+- [P2] Add database CHECK constraints for status columns
+  - Allowed statuses live in comments and TypeScript today. Constraints would
+    make accidental direct SQL updates fail loudly.
 
 ---
 

@@ -53,11 +53,14 @@ No Docker at all? Same thing — install Postgres however you like, create
 
 ### Making yourself an admin
 
-Roles live in `users.role` and there is no UI for the first promotion:
+Roles live in `users.role`. Promote the first admin after signing up:
 
 ```bash
-docker compose exec postgres psql -U sushi -d sushi_dev -c "update users set role='admin_rw' where email='you@example.com';"
+pnpm admin:promote you@example.com
 ```
+
+The command defaults to `admin_rw`. Use `pnpm admin:promote you@example.com
+admin_ro` for read-only admin access.
 
 ---
 
@@ -219,6 +222,11 @@ On Vercel that is two projects on the same repo. The admin project needs the sam
 `DATABASE_URL`, `BETTER_AUTH_SECRET`, and Turnstile keys — admin sign-in goes
 through the same challenged endpoint — plus `NEXT_PUBLIC_ADMIN_WEB_URL` set to
 its own origin.
+
+Before opening a release PR or promoting a deployment, run the short checklist
+in [docs/release-checklist.md](docs/release-checklist.md). It covers the command
+gate plus the core manual smoke checks: signup, login, checkout, webhook,
+credits, reservations, upload, localized homepage, and teammate invitation.
 
 `pnpm build` runs `pnpm test:run` first via `prebuild`, so a broken test blocks a
 deploy without any extra CI wiring.

@@ -79,7 +79,7 @@ Shared auth, database schema, product models, and service integrations stay in `
 - Use a dedicated admin origin, for example `https://admin.example.com`.
 - Set `NEXT_PUBLIC_ADMIN_WEB_URL` to that origin.
 - Keep `DATABASE_URL`, `BETTER_AUTH_SECRET`, and other shared secrets aligned with the public web app.
-- Assign `admin_ro` or `admin_rw` manually in the database for trusted operators, then have each admin enable two-factor auth before opening the console.
+- Promote trusted operators with `pnpm admin:promote <email> [admin_ro|admin_rw]`, then have each admin enable two-factor auth before opening the console.
 - Keep new admin write actions behind `requireAdminWrite()` and same-origin protection, and record them with `writeAdminAuditLog()`.
 - Set `ADMIN_MAX_CREDIT_GRANT` to a sane ceiling for your product (defaults to 100000).
 - `apps/admin/middleware.ts` sends `noindex` and `no-store` on every admin response; keep the RBAC gate in the layout and route handlers rather than moving it into middleware.

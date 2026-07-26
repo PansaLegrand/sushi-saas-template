@@ -222,7 +222,7 @@ graph LR
 
 | Table | Purpose | Notes |
 | --- | --- | --- |
-| `files` | S3/R2 object metadata | Lifecycle `uploading` → `active` → `deleted`. **Soft delete**: set `status='deleted'` and `deleted_at`; the row stays. `org_id` is a placeholder for future tenancy — currently always `""`. |
+| `files` | S3/R2 object metadata | Lifecycle `uploading` → `active` → `deleted`. **Soft delete**: set `status='deleted'` and `deleted_at`; the row stays. Tenant ownership is `org_uuid`; the older `org_id` column is legacy and should not be used for authorization. |
 | `tasks` | AI/usage work records | `credits_trans_no` traces the exact ledger row that paid for it. Idempotent per `(user_uuid, type, idempotency_key)`. |
 
 ### Operations
@@ -337,8 +337,9 @@ Ordered by how much they will hurt.
 4. **`posts` and `apikeys` are dead.** Drop them, or build the features. Dead
    tables mislead everyone who reads the schema next.
 
-5. **No `organizations` table, but `files.org_id` exists.** Multi-tenancy is
-   half-anticipated. Either commit to it or remove the column.
+5. **`files.org_id` is legacy.** Tenancy now uses `org_uuid` across application
+   tables. `files.org_id` remains as an older placeholder column and should be
+   dropped in a contract migration once no deployed code can reference it.
 
 6. **No retention policy on the append-only tables.** `auth_events`,
    `admin_audit_logs`, and `jobs` grow forever. `jobs` alone has pruning
