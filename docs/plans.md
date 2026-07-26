@@ -1,6 +1,6 @@
 # Plans, tiers, and entitlements
 
-Every user is on exactly one tier, always. `free` is a real tier with a real
+Every organization is on exactly one tier, always. `free` is a real tier with a real
 row in the catalog — not the absence of a subscription — so no call site
 anywhere needs a null check before asking what someone may do.
 
@@ -18,12 +18,20 @@ src/services/subscriptions.ts  keeps the table in step with Stripe
 compare a tier name.** Call sites ask for a capability:
 
 ```ts
-await requireEntitlement(userUuid, "tasks.text_to_video");
-await enforceLimit(userUuid, "storage.totalMb", { current, adding });
+await requireEntitlement(ctx.orgUuid, "tasks.text_to_video");
+await enforceLimit(ctx.orgUuid, "storage.totalMb", { current, adding });
 
-if (await can(userUuid, "storage.upload")) { … }
-const max = await limitOf(userUuid, "storage.maxFileMb");
+if (await can(ctx.orgUuid, "storage.upload")) { … }
+const max = await limitOf(ctx.orgUuid, "storage.maxFileMb");
 ```
+
+Entitlements resolve per **organization**, not per user: the plan is bought by
+the tenant, so a member joining a team on `max` gets `max`, and the owner
+leaving does not downgrade everyone else. `ctx` comes from `getOrgContext()` —
+see [organizations.md](organizations.md).
+
+`ctx.orgUuid` is a branded `OrgUuid`, so passing a user uuid to any of these is
+a compile error. It used to be a silent free-tier answer.
 
 `tests/unit/architecture.test.ts` fails the build on an import of
 `@/config/plans` from anywhere else, and on any `tier === "max"` comparison.
