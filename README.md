@@ -207,6 +207,8 @@ Read [DEPLOYMENT.md](DEPLOYMENT.md) before shipping. The short version:
 | [DEPLOYMENT.md](DEPLOYMENT.md) | Environments, database hosting, and production migration workflow |
 | [docs/release-checklist.md](docs/release-checklist.md) | Required commands and manual smoke checks before a PR or release |
 | [docs/storage-providers.md](docs/storage-providers.md) | R2, AWS S3, and MinIO configuration plus upload smoke tests |
+| [docs/legal.md](docs/legal.md) | Privacy/terms pages, cookie consent, and what to fill in before launch |
+| [docs/security-headers.md](docs/security-headers.md) | Response headers, the CSP, and how to move it from report-only to enforce |
 | [tests/README.md](tests/README.md) | Test tiers and rules for mocks, DB tests, auth gates, and replay tests |
 | [docs/errors.md](docs/errors.md) | Error catalog, translated messages, and the no-leak server/UI contract |
 | [docs/plans.md](docs/plans.md) | Plans, tiers, entitlements, and feature limits |

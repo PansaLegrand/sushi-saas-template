@@ -6,6 +6,17 @@ import { NextResponse, type NextRequest } from "next/server";
  * The RBAC gate stays in `(admin)/layout.tsx` and in each route handler — this
  * only sets headers, so it never becomes the thing standing between an
  * unauthenticated request and admin data.
+ *
+ * Two layers set headers here, deliberately:
+ *
+ * - `next.config.ts` applies the shared baseline from
+ *   `src/config/security-headers.js`, including the full **report-only** CSP.
+ * - This file adds what is specific to the admin console, and keeps a narrow
+ *   **enforced** CSP. That enforced policy predates the shared one and is known
+ *   safe, so it stays on while the broader policy is still collecting reports.
+ *
+ * The `Referrer-Policy` here is stricter than the shared default on purpose —
+ * an admin URL can carry a user id, and `.set()` means this value wins.
  */
 export function middleware(_req: NextRequest) {
   const res = NextResponse.next();

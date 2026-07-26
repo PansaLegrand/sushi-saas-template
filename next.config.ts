@@ -1,5 +1,6 @@
 import createNextIntlPlugin from "next-intl/plugin";
 import { createMDX as createFumadocsMDX } from "fumadocs-mdx/next";
+import { securityHeadersRoute } from "./src/config/security-headers.js";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
@@ -27,6 +28,9 @@ const nextConfig = {
     optimizePackageImports: ["sonner"],
   },
   pageExtensions: ["ts", "tsx", "md", "mdx"],
+  async headers() {
+    return [securityHeadersRoute()];
+  },
   async redirects() {
     return MOVED_TO_DOCS.flatMap((slug) => [
       // Locale-prefixed, e.g. /en/blogs/quick-start
