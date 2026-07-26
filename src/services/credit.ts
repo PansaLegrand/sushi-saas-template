@@ -1,6 +1,5 @@
 import {
   type CreditRow,
-  findCreditByOrderNo,
   findCreditByTransNo,
   getOrgValidCredits,
   insertCredit,
@@ -12,7 +11,6 @@ import { AppError } from "@/lib/errors/app-error";
 import { getSnowId } from "@/lib/hash";
 import { logger } from "@/lib/logger/server";
 import { getIsoTimestr } from "@/lib/time";
-import type { Order } from "@/types/order";
 import type { CreditLedgerEntry, CreditSummary } from "@/types/credit";
 import type { UserCredits } from "@/types/user";
 
@@ -340,35 +338,13 @@ export async function refundCreditsForTransaction({
   }
 }
 
-export async function updateCreditForOrder(order: Order): Promise<void> {
-  try {
-    const credit = await findCreditByOrderNo(order.order_no);
-    if (credit) {
-      // Order already increased credit; no further action required.
-      return;
-    }
-
-    if (!order.org_uuid) {
-      // An order with no tenant cannot be credited to a balance. Throwing keeps
-      // the payment reconcilable by hand instead of silently granting nothing.
-      throw new AppError("CREDITS_INVALID_AMOUNT", {
-        message: `order ${order.order_no} has no organization to credit`,
-      });
-    }
-
-    await increaseCredits({
-      org_uuid: order.org_uuid,
-      user_uuid: order.user_uuid,
-      trans_type: CreditsTransType.OrderPay,
-      credits: order.credits,
-      expired_at: order.expired_at ?? undefined,
-      order_no: order.order_no,
-    });
-  } catch (error) {
-    logger.error(
-      { err: error, order_no: order.order_no, org_uuid: order.org_uuid },
-      "update credit for order failed"
-    );
-    throw error;
-  }
-}
+/**
+ * Order fulfillment used to live here, as a `findCreditByOrderNo` check
+ * followed by a grant. It was never called by anything, while the live Stripe
+ * path used a *different* and incorrect guard — two versions of the same rule
+ * in one repo, one right and unreachable.
+ *
+ * It now lives in `src/models/fulfillment.ts`, where the status write and the
+ * grant share a transaction, and the grant carries a deterministic `trans_no`
+ * so the database refuses a replay instead of a `select` hoping to spot one.
+ */

@@ -6,9 +6,13 @@ import { buildGoogleCalendarUrl } from "@/services/reservations/google";
 import { ReservationsConfig } from "@/config/reservations";
 import { getPricingConfig } from "@/config/pricing";
 import { locales } from "@/i18n/locale";
-import { getSnowId } from "@/lib/hash";
-import { insertOrder, OrderStatus, findOrderBySubscriptionPeriod } from "@/models/order";
-import { increaseCredits, CreditsTransType } from "@/services/credit";
+import { OrderStatus } from "@/models/order";
+import { insertRenewalOrderWithGrant } from "@/models/fulfillment";
+import { CreditsTransType } from "@/services/credit";
+import {
+  renewalOrderNo,
+  subscriptionPeriodTransNo,
+} from "@/services/stripe/idempotency";
 import { updateAffiliateForOrder } from "@/services/affiliate";
 import { syncStripeSubscription } from "@/services/subscriptions";
 import { findPersonalOrganizationByUserUuid } from "@/models/organization";
@@ -233,10 +237,13 @@ export async function POST(req: Request) {
         const priceId = line?.price?.id ?? undefined;
         const interval = line?.price?.recurring?.interval ?? undefined;
 
-        if (periodStart && (await findOrderBySubscriptionPeriod(subId, periodStart))) {
-          // Idempotency: we already created an order for this cycle
-          break;
-        }
+        // No "have we seen this cycle?" pre-check. The order number below is
+        // derived from the billing period, so a replay conflicts on
+        // `orders.order_no` and the grant conflicts on `credits.trans_no`. The
+        // pre-check that used to live here skipped the grant whenever the order
+        // existed — which meant a cycle whose order was written but whose
+        // credits were not could never be repaired.
+        if (!periodStart) break;
 
         // Resolve the plan from configured price IDs
         function findPlanByPriceId(id?: string) {
@@ -297,46 +304,73 @@ export async function POST(req: Request) {
         const product_id = (plan?.product_id as string | undefined) ?? priceId ?? "subscription";
         const credits = (plan?.credits as number | undefined) ?? 0;
 
-        const order_no = getSnowId();
-        const order = await insertOrder({
-          order_no,
-          created_at: new Date(),
-          org_uuid: orgUuid,
-          user_uuid: userUuid,
-          user_email: userEmail || "",
-          amount,
-          interval: (interval as string) || "month",
-          expired_at: expiredAt,
-          status: OrderStatus.Paid,
-          credits,
-          currency,
-          product_id,
-          product_name,
-          valid_months: plan?.valid_months ?? (interval === "year" ? 12 : 1),
-          sub_id: subId,
-          sub_interval_count: line?.quantity ?? 1,
-          sub_cycle_anchor: undefined,
-          sub_period_end: periodEnd ?? undefined,
-          sub_period_start: periodStart ?? undefined,
-          sub_times: undefined,
-          paid_at: new Date(),
-          paid_email: userEmail || undefined,
-          paid_detail: JSON.stringify({ invoiceId: invoice.id }),
-        } as any);
+        // Derived from the billing period, so the insert below is idempotent
+        // under the existing unique index on `orders.order_no`.
+        const order_no = renewalOrderNo(subId, periodStart);
 
-        if (credits && credits > 0) {
-          await increaseCredits({
-            org_uuid: orgUuid,
-            user_uuid: userUuid,
-            trans_type: CreditsTransType.OrderPay,
-            credits,
-            expired_at: expiredAt ?? undefined,
-            order_no: order_no,
+        // The renewal order and its credits, in one transaction. The grant is
+        // attempted whether or not the order was new, so a cycle previously
+        // recorded without its credits is repaired by the next delivery.
+        const { order, order_created, credit_granted } =
+          await insertRenewalOrderWithGrant({
+            order: {
+              order_no,
+              created_at: new Date(),
+              org_uuid: orgUuid,
+              user_uuid: userUuid,
+              user_email: userEmail || "",
+              amount,
+              interval: (interval as string) || "month",
+              expired_at: expiredAt,
+              status: OrderStatus.Paid,
+              credits,
+              currency,
+              product_id,
+              product_name,
+              valid_months: plan?.valid_months ?? (interval === "year" ? 12 : 1),
+              sub_id: subId,
+              sub_interval_count: line?.quantity ?? 1,
+              sub_cycle_anchor: undefined,
+              sub_period_end: periodEnd ?? undefined,
+              sub_period_start: periodStart,
+              sub_times: undefined,
+              paid_at: new Date(),
+              paid_email: userEmail || undefined,
+              paid_detail: JSON.stringify({ invoiceId: invoice.id }),
+            },
+            grant:
+              credits && credits > 0
+                ? {
+                    trans_no: subscriptionPeriodTransNo(subId, periodStart),
+                    trans_type: CreditsTransType.OrderPay,
+                    credits,
+                    expired_at: expiredAt,
+                  }
+                : null,
           });
-        }
+
+        logger.info(
+          {
+            event: "pay.renewal_fulfilled",
+            stripe_event_id: event.id,
+            order_no,
+            org_id: orgUuid,
+            user_id: userUuid,
+            credits,
+            order_created,
+            credit_granted,
+          },
+          "subscription renewal fulfilled"
+        );
+
+        // Everything below is a side effect that must fire once per cycle, not
+        // once per delivery. `order_created` is the cycle's own first-time flag;
+        // the job dedupe keys are scoped to an event id, which would let a
+        // second event for the same period notify twice.
+        if (!order_created) break;
 
         // Affiliate reward for renewal orders (optional; follows current model)
-        await updateAffiliateForOrder(order as any);
+        if (order) await updateAffiliateForOrder(order as any);
         await enqueueJob(
           "slack_event",
           {

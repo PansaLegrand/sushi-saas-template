@@ -55,19 +55,28 @@ Ordered by what hurts a real deployment first, not by when it was found. Take
 the top item.
 
 The reordering came out of a full audit against the code on 2026-07-26. Two
-things changed. Items 2, 3, and 4 were missing from this roadmap entirely and
-each one blocks going live. "Make a fresh clone run without Docker" dropped
-from the top to item 7, because it is a template *adoption* problem — it slows
-strangers cloning the public repo, and blocks nothing for anyone who already
-has Docker running.
+things changed. The legal pages, security headers, and generated-id items were
+missing from this roadmap entirely and each one blocks going live. "Make a
+fresh clone run without Docker" dropped from the top to the bottom of the
+queue, because it is a template *adoption* problem — it slows strangers cloning
+the public repo, and blocks nothing for anyone who already has Docker running.
 
-Items 1, 2, and 3 shipped on 2026-07-26 and are kept in place, with what was
-deliberately left open recorded under each. Rate limiting was demoted from P0
-to item 5 the same day, and account deletion to item 6 — the reasoning is
-recorded on each, because a priority that moves without a reason moves back.
-Account deletion carries a **trigger rather than a position**: it must happen
-before the first real user, whenever that lands. **Item 4 is the top of the
-queue.**
+The logger, legal pages, and security headers shipped on 2026-07-26 and are
+kept in place, with what was deliberately left open recorded under each. Rate
+limiting was demoted from P0 the same day, and account deletion after it — the
+reasoning is recorded on each, because a priority that moves without a reason
+moves back. Account deletion carries a **trigger rather than a position**: it
+must happen before the first real user, whenever that lands.
+
+Items 4 and 5 were added on 2026-07-26 after reviewing this template's Stripe
+code against `dojo-video-web`, a deployed SaaS that bills through Stripe.
+Everything below them shifted down by two. Item 4 went straight to the top of
+the queue ahead of the generated-id work: it is the only open item that can
+take a customer's money and grant them nothing, and it does so silently.
+References between items are by name rather than by number from here on,
+because positional references in this file have already gone stale twice.
+
+Item 4 shipped on 2026-07-26. **Item 5 is the top of the queue.**
 
 1. [x] [P0] Route every production failure through the logger
    - Swept all 20 stray `console.*` calls in server code onto `src/lib/logger`,
@@ -140,15 +149,164 @@ queue.**
      `X-Robots-Tag` and `no-store`. Those stay; both layers are documented in
      that file and in the doc above.
 
-4. [ ] [P1] Remove serverless collision risk from generated ids
+4. [x] [P0] Make paying and crediting succeed or fail together
+   - Shipped 2026-07-26. Both fulfillment paths now write the payment and its
+     credits in one transaction, keyed so a replay collides instead of
+     duplicating. 12 database-tier tests in
+     `tests/db/stripe.fulfillment.test.ts`, including the exact starting state
+     the bug produced: an order that says `paid` with no ledger row.
+   - **Two mechanisms, because neither covers the other.** The transaction
+     removes the window in which a paid order has no credits. A deterministic
+     `trans_no` under the existing unique index on `credits.trans_no` is what
+     stops two *concurrent* deliveries from each granting — a transaction does
+     not help there, since both open their own. Keys are built in
+     `src/services/stripe/idempotency.ts`: `order_pay:<order_no>`,
+     `stripe_period:<sub_id>:<period_start>`, `renewal:<sub_id>:<period_start>`.
+   - The transaction lives in the **model layer**
+     (`src/models/fulfillment.ts`), not in the service that used to sequence the
+     writes. `tests/unit/architecture.test.ts` allows `db()` only from
+     `src/models/`, and `insertSpendCreditIfSufficient` had already set the
+     precedent for a compound atomic write there. Stripe's API calls stay
+     outside it: a transaction holds one of ten pooled connections and must not
+     wait on someone else's network.
+   - Both check-then-skip guards are gone rather than corrected. The renewal
+     `order_no` is derived from the billing period, so `insertOrder` is
+     idempotent under an index that already existed — no migration. Guarding by
+     construction beats guarding by inspection; there is no branch left to get
+     wrong.
+   - `updateCreditForOrder` is deleted. It held the *correct* version of the
+     guard, was never called by anything, and sat next to a live incorrect one.
+     A pointer to its replacement is left in `src/services/credit.ts`.
+   - Fell out of the work: the renewal order payload no longer needs its
+     `as any`, so the whole object is type-checked — which is what surfaced that
+     `orders.user_uuid` defaults to `""` while `credits.user_uuid` is `not null`.
+     `insertRenewalOrderWithGrant` now demands the attribution explicitly rather
+     than silently writing a ledger row nobody can trace.
+   - Visible change, admin-only: renewal order numbers now read
+     `renewal:sub_123:1767225600` instead of a snowflake, in the admin orders
+     table. Nothing parses `order_no` numerically — checked — and no
+     customer-facing surface renders it.
+   - Still open, deliberately: **the same shape survives in affiliate rewards.**
+     `updateAffiliateForOrder` guards on `findAffiliateByOrderNo` with no unique
+     index behind it, so two concurrent deliveries can both write a reward. Left
+     alone here because it is not money the customer handed over and because
+     fixing it needs a migration. Now tracked under *Technical Debt Worth
+     Scheduling* rather than only in this bullet — a sub-bullet on a shipped
+     item is where a known defect goes to be forgotten.
+   - Also left in place: `findCreditByOrderNo` in `src/models/credit.ts` is now
+     unused. Kept on purpose, unlike the function above — it is a plain query
+     accessor rather than a competing copy of a rule, and item 5's
+     reconciliation script needs exactly that lookup.
+   - Original finding, kept for the reasoning:
+     **This was the one open item that could take money and grant nothing.**
+     `src/services/stripe/checkout-session.ts` returns early when the order is
+     already `paid`, but it writes that status *before* it grants credits. A
+     crash, timeout, or deploy in the window between those two writes ends with
+     a paid order and no credits — and the next delivery makes it permanent:
+     Stripe redelivers, `claimStripeWebhookEvent` re-claims the event because a
+     `failed` row is retriable, the handler sees `paid`, returns, and the event
+     is marked `completed`. No alert, no retries left, no trace except a
+     customer email.
+   - The renewal path in `src/app/api/pay/webhook/stripe/route.ts` has the same
+     shape: the guard asks whether an order exists for `(sub_id, periodStart)`,
+     and the order is inserted before the grant. Crash between them and the
+     renewal is never credited.
+   - The defect in both is the same: **the guard checks the wrong evidence.** It
+     asks whether the payment was recorded, then skips work that is not the
+     payment. Fix by guarding the grant on the grant's own evidence — a credit
+     row — or by putting both writes in one transaction.
+   - `updateCreditForOrder` in `src/services/credit.ts` already performs exactly
+     the right check and is **dead code** — nothing in `src` or `tests` calls
+     it. Adopt it or delete it. Leaving a correct and an incorrect version of
+     the same guard side by side is how this recurs.
+   - Then make the grants deterministic: `order_pay:<order_no>` and
+     `stripe_period:<sub_id>:<period_start>` as `trans_no`. `credits.trans_no`
+     is already unique and `increaseCredits` already accepts an explicit
+     `trans_no`; no Stripe path passes one. This closes the double-grant race
+     that any check-then-insert guard leaves open. It is a **different failure
+     from the missing grant above and not a substitute for fixing it** — a
+     uniqueness constraint cannot help when the insert never ran.
+   - Make the renewal `order_no` deterministic too, so `insertOrder` is
+     idempotent under the existing `orders.order_no` unique index. Preferred
+     over a unique index on `(sub_id, sub_period_start)` because it needs no
+     migration.
+   - Tests are part of this item, not a follow-up, and they belong in the
+     database tier against real Postgres per [tests/README.md](tests/README.md):
+     replay a paid order whose credit row is missing, replay a renewal order
+     whose credit row is missing, and deliver the same event twice
+     concurrently. Writing these first would have caught the bug.
+   - Borrowed shape: `dojo-video-web`'s `handleInvoicePaid` performs the
+     subscription sync and the credit grant inside one transaction, keyed by an
+     idempotency key derived from the billing period.
+   - Deliberately **not** in this item: ledger columns, webhook receipt fields,
+     reconciliation, and refund reversal. They are item 5. This item is scoped
+     to stop losing money and to prove it with tests.
+
+5. [ ] [P1] Give Stripe money movement an auditable record
+   - Follows item 4 and depends on nothing else. Item 4 stops the bleeding;
+     this is what makes the next discrepancy findable instead of anecdotal.
+   - Credit ledger columns: `balance_after`, `actor`, `metadata`. A credits row
+     carries only `order_no` today, so "why does this org have 340 credits" is a
+     join through orders and a guess. `balance_after` is the one that matters —
+     it turns silent ledger drift into an inconsistency a script can detect.
+     `actor` distinguishes `stripe:webhook` from `admin:<id>` from `system`.
+   - Webhook receipts: denormalize and index `stripe_customer_id`,
+     `stripe_invoice_id`, `stripe_subscription_id`, and `stripe_object_id`,
+     plus `livemode`, `api_version`, and `request_id`. The payload is `text`
+     today, so "every event for this subscription" is a full scan and a JSON
+     parse.
+   - Add `action_required` alongside `processing | completed | failed`. "This
+     price is not in the plan catalog" is not transient and three days of Stripe
+     retries will not fix it. Without this status the reconciliation script
+     below has nothing to query, and a human-decision case is indistinguishable
+     from a transient blip.
+   - Reconciliation script: walk recent paid Stripe invoices, assert a local
+     order, credit row, and webhook receipt for each, and exit nonzero on
+     drift. Model: `dojo-video-web`'s `scripts/reconcile-stripe-billing.js`.
+   - Stripe client polish: one cached client with `appInfo` and
+     `maxNetworkRetries`, replacing the per-request `new Stripe(...)` in several
+     handlers. Reject test-mode events in production on `livemode` — neither
+     this template nor `dojo-video-web` does today.
+   - **Open decision, make it before building:** whether a full refund,
+     `invoice.voided`, or `credit_note.created` should reverse credits
+     automatically. `dojo-video-web` does, keyed off the original grant's
+     idempotency key and refusing when the balance no longer covers it. This
+     template only posts to Slack, which is a defensible product call — a
+     clawback mid-dispute has real judgement in it — but it needs the
+     `action_required` record above to be auditable rather than a message
+     someone scrolls past.
+   - Explicitly **not** borrowed: `dojo-video-web`'s webhook answers 200
+     unconditionally, so a failed event is never redelivered and recovery rests
+     entirely on its cron and scripts. Keep this template's 500.
+   - Order of work, smallest blast radius first. The first two are additive
+     columns and can ship on their own; the script is worth little until
+     `action_required` exists to give it something to query:
+     1. `balance_after`, `actor`, `metadata` on `credits` — one migration,
+        backfill `balance_after` as null rather than guessing history.
+     2. Receipt fields on `stripe_webhook_events`, denormalized at write time
+        from the payload already being stored.
+     3. `action_required` status, and the handful of `return` sites in the
+        webhook that should use it instead of throwing — an unmapped price is
+        the motivating case.
+     4. Reconciliation script + a cron sweep over `failed` and
+        `action_required`.
+     5. Cached Stripe client, `livemode` rejection. Independent of the rest;
+        pick it up any time.
+   - The refund decision gates only step 4's reversal behaviour. Steps 1–3 are
+     worth doing either way, so it does not block starting.
+
+6. [ ] [P1] Remove serverless collision risk from generated ids
    - Promoted out of technical debt: it is a deployment-shape bug, not
      housekeeping. `getSnowId()` in `src/lib/hash.ts` defaults to one worker id,
      and serverless runs many instances of it at once.
    - Unique indexes protect data integrity, but a collision still becomes a
      user-visible failed insert on a financial record. Prefer UUIDv7 or another
      instance-safe id for new financial and usage records.
+   - Interaction with item 4: the deterministic `trans_no` and `order_no` values
+     added there are derived from Stripe ids, not from `getSnowId()`, so that
+     work neither depends on this nor is undone by it.
 
-5. [ ] [P1] Make rate limiting fail loudly instead of degrading quietly
+7. [ ] [P1] Make rate limiting fail loudly instead of degrading quietly
    - `src/lib/rate-limit.ts` already supports a Redis REST store, but falls
      back to an in-process `Map` unless `RATE_LIMIT_REDIS_REST_URL` and
      `RATE_LIMIT_REDIS_REST_TOKEN` are set. On serverless each instance keeps
@@ -167,7 +325,7 @@ queue.**
      misconfigured deployment fails at boot rather than silently serving
      advisory limits.
 
-6. [ ] [P1] Write the account-deletion policy, then build it
+8. [ ] [P1] Write the account-deletion policy, then build it
    - **Trigger, not a date: do this before your first real user.** Deletion and
      export are legal obligations from the moment you hold someone else's
      personal data, and the privacy policy shipped in item 2 already makes
@@ -182,7 +340,7 @@ queue.**
      decision is the blocker on starting, not the implementation. See
      [docs/organizations.md](docs/organizations.md).
 
-7. [ ] [P1] Make a fresh clone run without Docker
+9. [ ] [P1] Make a fresh clone run without Docker
    - `pnpm setup` requires Docker + Postgres before anything renders. Every
      other starter kit runs on `create` + `dev` alone.
    - Consider an embedded Postgres (PGlite speaks the wire protocol and Drizzle
@@ -249,25 +407,26 @@ Organizations shipped; these complete the story. None is required for a
 single-person deployment, and each is additive — the seams are already in
 place. Full reasoning in [docs/organizations.md](docs/organizations.md).
 
-8. [ ] [P1] Org switcher
-   - A user can now belong to several organizations and has no way to move
-     between them. `getOrgContext` picks active → personal → first.
-   - Blocks nothing else, but makes item 9 worth doing.
-   - Audit note: this is P1 only for a B2B product. If the product built on
-     this template is B2C or single-workspace, it can wait indefinitely.
+10. [ ] [P1] Org switcher
+    - A user can now belong to several organizations and has no way to move
+      between them. `getOrgContext` picks active → personal → first.
+    - Blocks nothing else, but makes the path-scoped tenant routes below worth
+      doing.
+    - Audit note: this is P1 only for a B2B product. If the product built on
+      this template is B2C or single-workspace, it can wait indefinitely.
 
-9. [ ] [P2] Move tenant routes under `/[locale]/[org]/`
+11. [ ] [P2] Move tenant routes under `/[locale]/[org]/`
     - `getOrgContext(req, orgSlug)` already accepts a slug; nothing passes one.
     - Path scoping beats session-only: with the org held only in the session,
       two browser tabs on two organizations fight over one value and the loser
       silently acts in the wrong tenant.
     - Large: it moves every page and every link. Its own change.
 
-10. [ ] [P2] "Request upgrade" flow
+12. [ ] [P2] "Request upgrade" flow
     - A member hitting checkout gets `BILLING_OWNER_ONLY` with a clear message,
       but nothing tells the owner they were asked.
 
-11. [ ] [P2] Dedicated billing role
+13. [ ] [P2] Dedicated billing role
     - Billing is owner-only. Mature products split it out so finance can hold
       billing without product access. Additive on top of `can()`.
 
@@ -279,6 +438,17 @@ These are not product features, but they are unfinished pieces of starter
 readiness that came out of the code audit. Treat them as small, isolated
 hardening passes rather than one giant schema rewrite.
 
+- [P1] Make the affiliate reward idempotent
+  - The last known instance of the pattern item 4 removed from billing:
+    `updateAffiliateForOrder` checks `findAffiliateByOrderNo` and then inserts,
+    with no unique index on `affiliates.paid_order_no` behind it. Two concurrent
+    webhook deliveries for one order can both pass the check and both write a
+    reward.
+  - Smaller stakes than the billing bug — it is a payout we owe a referrer, not
+    credits a customer paid for — which is why it was not folded into item 4.
+    The fix is the same shape: unique index, then let the insert conflict.
+  - Sweep duplicates before adding the index; a paid order that already earned
+    two rewards will block the migration.
 - [P1] Add foreign keys in expand/contract passes
   - There are no foreign keys anywhere. Start with high-value references such
     as `credits.user_uuid`, `tasks.user_uuid`, and tenant `org_uuid` columns,
