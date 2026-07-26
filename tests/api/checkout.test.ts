@@ -22,6 +22,8 @@ import { resetRateLimitForTests } from "@/lib/rate-limit";
 // Mocks first
 vi.mock("@/services/user", () => ({ getUserUuid: vi.fn().mockResolvedValue("u-test") }));
 
+const mocks = vi.hoisted(() => ({ can: vi.fn(() => true) }));
+
 // The routes resolve their tenant through `getOrgContext`, which pulls in the
 // real Better Auth instance (and therefore a real database) if left unmocked.
 vi.mock("@/services/authz", () => ({
@@ -45,7 +47,7 @@ vi.mock("@/services/authz", () => ({
       orgSlug: "test-org",
       role: "owner",
     }),
-  can: () => true,
+  can: mocks.can,
 }));
 
 vi.mock("@/models/user", () => ({ findUserByUuid: vi.fn().mockResolvedValue({ email: "user@test.dev" }) }));
@@ -120,6 +122,29 @@ describe("POST /api/checkout", () => {
     expect(payload.message).toBe("invalid origin");
     expect(orderMod.insertOrder).not.toHaveBeenCalled();
     expect(orderMod.updateOrderSession).not.toHaveBeenCalled();
+  });
+
+  it("refuses a member and names who can upgrade instead", async () => {
+    // The plan is billed to the owner, so a member must not be able to put a
+    // subscription on the team. Its own code, not a bare forbidden: the useful
+    // thing to tell someone who wants an upgrade is who can grant it.
+    mocks.can.mockReturnValueOnce(false);
+
+    const body = { product_id: "scale-monthly", currency: "usd", locale: "en" };
+    const req = new Request("http://local/api/checkout", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    const res = await checkout(req);
+    const payload = await res.json();
+    const orders = await import("@/models/order");
+
+    expect(res.status).toBe(403);
+    expect(payload.error_code).toBe("BILLING_OWNER_ONLY");
+    // Refused before any order row exists.
+    expect(orders.insertOrder).not.toHaveBeenCalled();
   });
 
   it("rejects unauthenticated checkout requests before creating an order", async () => {

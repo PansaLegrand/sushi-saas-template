@@ -53,5 +53,6 @@
   "ORG_INVITATION_NOT_FOUND": "此邀请无效或已被使用。",
   "ORG_INVITATION_EXPIRED": "此邀请已过期，请索取新的邀请。",
   "ORG_INVITATION_WRONG_ACCOUNT": "此邀请发送至其他邮箱地址。请使用该地址登录后接受。",
-  "ORG_CANNOT_LEAVE_LAST": "这是您唯一的工作区。请先加入或创建另一个工作区再退出。"
+  "ORG_CANNOT_LEAVE_LAST": "这是您唯一的工作区。请先加入或创建另一个工作区再退出。",
+  "BILLING_OWNER_ONLY": "只有所有者可以更改团队的套餐。请联系所有者进行升级。"
 }

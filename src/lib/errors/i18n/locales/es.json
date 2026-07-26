@@ -53,5 +53,6 @@
   "ORG_INVITATION_NOT_FOUND": "Esta invitación no es válida o ya se ha usado.",
   "ORG_INVITATION_EXPIRED": "Esta invitación ha caducado. Pide una nueva.",
   "ORG_INVITATION_WRONG_ACCOUNT": "Esta invitación se envió a otra dirección de correo. Inicia sesión con esa dirección para aceptarla.",
-  "ORG_CANNOT_LEAVE_LAST": "Este es tu único espacio de trabajo. Únete o crea otro antes de salir."
+  "ORG_CANNOT_LEAVE_LAST": "Este es tu único espacio de trabajo. Únete o crea otro antes de salir.",
+  "BILLING_OWNER_ONLY": "Solo un propietario puede cambiar el plan del equipo. Pide a un propietario que lo mejore."
 }

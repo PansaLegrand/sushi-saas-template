@@ -7,5 +7,5 @@
  * promotional discounts.
  */
 export { handleCheckoutSession } from "./checkout-session";
-export { getOrCreateCustomerIdForUser } from "./customer";
+export { getOrCreateCustomerIdForOrg } from "./customer";
 export { buildIntroDiscounts } from "./promotions";

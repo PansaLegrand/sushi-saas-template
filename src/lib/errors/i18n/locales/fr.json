@@ -53,5 +53,6 @@
   "ORG_INVITATION_NOT_FOUND": "Cette invitation est invalide ou a déjà été utilisée.",
   "ORG_INVITATION_EXPIRED": "Cette invitation a expiré. Demandez-en une nouvelle.",
   "ORG_INVITATION_WRONG_ACCOUNT": "Cette invitation a été envoyée à une autre adresse e-mail. Connectez-vous avec cette adresse pour l'accepter.",
-  "ORG_CANNOT_LEAVE_LAST": "C'est votre seul espace de travail. Rejoignez-en ou créez-en un autre avant de partir."
+  "ORG_CANNOT_LEAVE_LAST": "C'est votre seul espace de travail. Rejoignez-en ou créez-en un autre avant de partir.",
+  "BILLING_OWNER_ONLY": "Seul un propriétaire peut changer le forfait de l'équipe. Demandez à un propriétaire de le mettre à niveau."
 }

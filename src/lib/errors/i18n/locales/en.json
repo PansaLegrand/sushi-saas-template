@@ -53,5 +53,6 @@
   "ORG_INVITATION_NOT_FOUND": "This invitation is invalid or has already been used.",
   "ORG_INVITATION_EXPIRED": "This invitation has expired. Ask for a new one.",
   "ORG_INVITATION_WRONG_ACCOUNT": "This invitation was sent to a different email address. Sign in with that address to accept it.",
-  "ORG_CANNOT_LEAVE_LAST": "This is your only workspace. Join or create another one before leaving."
+  "ORG_CANNOT_LEAVE_LAST": "This is your only workspace. Join or create another one before leaving.",
+  "BILLING_OWNER_ONLY": "Only an owner can change this team's plan. Ask an owner to upgrade."
 }

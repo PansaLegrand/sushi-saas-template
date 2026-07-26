@@ -2,9 +2,10 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 
 import Stripe from "stripe";
-import { getUserUuid } from "@/services/user";
+import { can, getOrgContext } from "@/services/authz";
+import { findOrganizationByUuid } from "@/models/organization";
 import { findUserByUuid } from "@/models/user";
-import { getOrCreateCustomerIdForUser } from "@/services/stripe";
+import { getOrCreateCustomerIdForOrg } from "@/services/stripe";
 import { getAppEnv, getRequiredEnv } from "@/lib/env";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
@@ -29,20 +30,27 @@ export async function GET(req: NextRequest) {
   if (limited) return limited;
 
   try {
-    const userUuid = await getUserUuid(req as any);
-    if (!userUuid) return respCode("AUTH_REQUIRED");
-    const user = await findUserByUuid(userUuid);
+    // The portal exposes the payment method, invoices, and cancellation for
+    // the whole team, so it is gated exactly like checkout.
+    const ctx = await getOrgContext(req as unknown as Request);
+    if (!ctx) return respCode("AUTH_REQUIRED");
+    if (!can(ctx, "billing:manage")) return respCode("BILLING_OWNER_ONLY");
+
+    const user = await findUserByUuid(ctx.userUuid);
     if (!user?.email) return respCode("ACCOUNT_NOT_FOUND");
+
+    const org = await findOrganizationByUuid(ctx.orgUuid);
+    if (!org) return respCode("RESOURCE_NOT_FOUND");
 
     const { searchParams } = new URL(req.url);
     const locale = searchParams.get("locale");
     const return_url = withLocaleReturnUrl(locale || user.locale || undefined);
 
-    const customerId = await getOrCreateCustomerIdForUser({
-      uuid: user.uuid,
+    const customerId = await getOrCreateCustomerIdForOrg({
+      orgUuid: org.uuid,
+      orgName: org.name,
       email: user.email,
-      nickname: user.nickname || undefined,
-      stripe_customer_id: (user as any).stripe_customer_id,
+      stripe_customer_id: org.stripe_customer_id,
     });
 
     const stripe = new Stripe(getRequiredEnv("STRIPE_PRIVATE_KEY"));
@@ -68,10 +76,17 @@ export async function POST(req: NextRequest) {
   if (limited) return limited;
 
   try {
-    const userUuid = await getUserUuid(req as any);
-    if (!userUuid) return respCode("AUTH_REQUIRED");
-    const user = await findUserByUuid(userUuid);
+    // The portal exposes the payment method, invoices, and cancellation for
+    // the whole team, so it is gated exactly like checkout.
+    const ctx = await getOrgContext(req as unknown as Request);
+    if (!ctx) return respCode("AUTH_REQUIRED");
+    if (!can(ctx, "billing:manage")) return respCode("BILLING_OWNER_ONLY");
+
+    const user = await findUserByUuid(ctx.userUuid);
     if (!user?.email) return respCode("ACCOUNT_NOT_FOUND");
+
+    const org = await findOrganizationByUuid(ctx.orgUuid);
+    if (!org) return respCode("RESOURCE_NOT_FOUND");
 
     const body = await parseJsonBody(req, BillingPortalSchema, {
       defaultValue: {},
@@ -79,11 +94,11 @@ export async function POST(req: NextRequest) {
     const locale = body?.locale ?? user.locale ?? "en";
     const return_url = withLocaleReturnUrl(locale);
 
-    const customerId = await getOrCreateCustomerIdForUser({
-      uuid: user.uuid,
+    const customerId = await getOrCreateCustomerIdForOrg({
+      orgUuid: org.uuid,
+      orgName: org.name,
       email: user.email,
-      nickname: user.nickname || undefined,
-      stripe_customer_id: (user as any).stripe_customer_id,
+      stripe_customer_id: org.stripe_customer_id,
     });
     const stripe = new Stripe(getRequiredEnv("STRIPE_PRIVATE_KEY"));
     const session = await stripe.billingPortal.sessions.create({

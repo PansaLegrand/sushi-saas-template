@@ -265,6 +265,11 @@ export const ERROR_CATALOG = {
   },
 
   // ------------------------------------------------------- organizations
+  BILLING_OWNER_ONLY: {
+    statusCode: 403,
+    defaultMessage:
+      "Only an owner can change this team's plan. Ask an owner to upgrade.",
+  },
   ORG_MEMBER_NOT_FOUND: {
     statusCode: 404,
     defaultMessage: "That member is not part of this team.",

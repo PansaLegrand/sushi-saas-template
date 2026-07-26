@@ -1,12 +1,13 @@
 import { z } from "zod";
 
-import { getOrgContext } from "@/services/authz";
+import { can, getOrgContext } from "@/services/authz";
 import { insertOrder, OrderStatus, updateOrderSession } from "@/models/order";
 import { respData, respNoAuth } from "@/lib/resp";
 import { respCode, respError } from "@/lib/errors/response";
 import { parseJsonBody } from "@/lib/http/request";
 
 import Stripe from "stripe";
+import { findOrganizationByUuid } from "@/models/organization";
 import { findUserByUuid } from "@/models/user";
 import { getSnowId } from "@/lib/hash";
 import { getPricingPage } from "@/services/page";
@@ -16,7 +17,7 @@ import { Order } from "@/types/order";
 import { getAppEnv } from "@/lib/env";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
-import { buildIntroDiscounts, getOrCreateCustomerIdForUser } from "@/services/stripe";
+import { buildIntroDiscounts, getOrCreateCustomerIdForOrg } from "@/services/stripe";
 import { logger as baseLogger, requestIdFromHeaders } from "@/lib/logger/server";
 
 const CheckoutSchema = z.object({
@@ -105,6 +106,14 @@ export async function POST(req: Request) {
     const ctx = await getOrgContext(req);
     if (!ctx) {
       return respNoAuth("no auth, please sign-in");
+    }
+
+    // The plan is bought by the organization and billed to its owner, so a
+    // member cannot put a subscription on the team. Reported with its own code
+    // rather than a bare forbidden: the useful thing to tell someone who wants
+    // an upgrade is who can grant it.
+    if (!can(ctx, "billing:manage")) {
+      return respCode("BILLING_OWNER_ONLY");
     }
 
     const user = await findUserByUuid(ctx.userUuid);
@@ -274,15 +283,20 @@ async function stripeCheckout({
     expand: ["subscription", "payment_intent"],
   };
 
-  // Prefer binding to a Stripe Customer to avoid duplicates across checkouts
+  // Bind to the organization's Stripe Customer. Two checkouts by two different
+  // members of the same team must land on one customer, or the team ends up
+  // with two payment methods and two portals showing half the picture each.
   try {
-    const user = await findUserByUuid(order.user_uuid);
-    if (user?.email) {
-      const customerId = await getOrCreateCustomerIdForUser({
-        uuid: user.uuid,
-        email: user.email,
-        nickname: user.nickname,
-        stripe_customer_id: (user as any).stripe_customer_id,
+    const org = order.org_uuid
+      ? await findOrganizationByUuid(order.org_uuid)
+      : undefined;
+
+    if (org && order.user_email) {
+      const customerId = await getOrCreateCustomerIdForOrg({
+        orgUuid: org.uuid,
+        orgName: org.name,
+        email: order.user_email,
+        stripe_customer_id: org.stripe_customer_id,
       });
       if (customerId) {
         (options as any).customer = customerId;

@@ -111,6 +111,13 @@
       "when": 1785002074989,
       "tag": "0015_org_scope_not_null",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1785041854918,
+      "tag": "0016_backfill_org_stripe_customer",
+      "breakpoints": true
     }
   ]
 }
