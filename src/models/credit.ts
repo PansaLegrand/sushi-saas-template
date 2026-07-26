@@ -2,11 +2,31 @@ import { credits } from "@/db/schema";
 import { db } from "@/db";
 import { desc, eq, and, gte, asc, isNull, or, sql } from "drizzle-orm";
 
+import { scopedToOrg } from "./organization";
+
 /** A ledger row. Exported so services can type over rows without importing the schema. */
 export type CreditRow = typeof credits.$inferSelect;
 
+/**
+ * The credit ledger, pooled at the organization.
+ *
+ * Two columns, two different questions, and conflating them is the mistake this
+ * file exists to prevent:
+ *
+ *   org_uuid  — whose balance this row moves. All arithmetic keys on it.
+ *   user_uuid — which member did it. Never used for arithmetic.
+ *
+ * `user_uuid` is carried on every row even though nothing reads it for balance
+ * purposes, because per-member quotas and usage reporting cannot be
+ * reconstructed after the fact. It costs one column now and is impossible to
+ * backfill later.
+ */
+
+/** `org_uuid` is required: a ledger row outside a balance is money nobody owns. */
+export type CreditInsert = typeof credits.$inferInsert & { org_uuid: string };
+
 export async function insertCredit(
-  data: typeof credits.$inferInsert
+  data: CreditInsert
 ): Promise<typeof credits.$inferSelect | undefined> {
   if (data.created_at && typeof data.created_at === "string") {
     data.created_at = new Date(data.created_at);
@@ -21,12 +41,14 @@ export async function insertCredit(
 }
 
 export async function insertSpendCreditIfSufficient({
+  org_uuid,
   user_uuid,
   trans_type,
   credits: amount,
   trans_no,
   created_at,
 }: {
+  org_uuid: string;
   user_uuid: string;
   trans_type: string;
   credits: number;
@@ -34,10 +56,16 @@ export async function insertSpendCreditIfSufficient({
   created_at: Date;
 }): Promise<CreditRow | undefined> {
   return db().transaction(async (tx) => {
-    // Serialize spends per user. Without this, two concurrent requests can both
-    // read the same balance and each insert a negative ledger row.
+    // Serialize spends per ORGANIZATION, not per user.
+    //
+    // This lock used to key on `user_uuid`, which was correct while a balance
+    // belonged to one person. Pooling the balance changed the invariant: two
+    // members of the same org spending at the same time would take two
+    // different locks, both read the same balance, and both succeed — spending
+    // the same credits twice and driving the org negative. The lock must cover
+    // exactly what the balance covers.
     await tx.execute(sql`
-      select pg_advisory_xact_lock(hashtextextended(${user_uuid}, 0::bigint))
+      select pg_advisory_xact_lock(hashtextextended(${org_uuid}, 0::bigint))
     `);
 
     const now = new Date();
@@ -46,7 +74,7 @@ export async function insertSpendCreditIfSufficient({
       .from(credits)
       .where(
         and(
-          eq(credits.user_uuid, user_uuid),
+          scopedToOrg(credits.org_uuid, org_uuid),
           or(isNull(credits.expired_at), gte(credits.expired_at, now))
         )
       )
@@ -93,6 +121,8 @@ export async function insertSpendCreditIfSufficient({
         trans_no,
         created_at,
         expired_at: sourceExpiry,
+        org_uuid,
+        // The actor. Recorded, never summed.
         user_uuid,
         trans_type,
         credits: -Math.abs(amount),
@@ -104,6 +134,14 @@ export async function insertSpendCreditIfSufficient({
   });
 }
 
+/**
+ * Lookup by `trans_no`, which is globally unique.
+ *
+ * Unscoped on purpose: this resolves a transaction the caller already holds an
+ * identifier for — a refund reconciling against a spend, or a retried job
+ * checking whether it already ran. Callers that go on to act on the row must
+ * compare its `org_uuid` against their own context.
+ */
 export async function findCreditByTransNo(
   trans_no: string
 ): Promise<typeof credits.$inferSelect | undefined> {
@@ -116,6 +154,7 @@ export async function findCreditByTransNo(
   return credit;
 }
 
+/** Lookup by `order_no`, also globally unique. Same caveat as above. */
 export async function findCreditByOrderNo(
   order_no: string
 ): Promise<typeof credits.$inferSelect | undefined> {
@@ -128,8 +167,8 @@ export async function findCreditByOrderNo(
   return credit;
 }
 
-export async function getUserValidCredits(
-  user_uuid: string
+export async function getOrgValidCredits(
+  orgUuid: string
 ): Promise<(typeof credits.$inferSelect)[] | undefined> {
   const now = new Date();
   const data = await db()
@@ -137,7 +176,7 @@ export async function getUserValidCredits(
     .from(credits)
     .where(
       and(
-        eq(credits.user_uuid, user_uuid),
+        scopedToOrg(credits.org_uuid, orgUuid),
         or(isNull(credits.expired_at), gte(credits.expired_at, now))
       )
     )
@@ -147,35 +186,31 @@ export async function getUserValidCredits(
 }
 
 /**
- * Every ledger row for a user, newest first, unpaginated.
+ * Every ledger row for an organization, newest first, unpaginated.
  *
  * Balance is the sum of the whole ledger, so anything computing it must see all
- * rows — `getCreditsByUserUuid` caps at 50 and would silently under-report for
- * an active account.
+ * rows — `getCreditsByOrg` caps at 50 and would silently under-report for an
+ * active account.
  */
-export async function listAllCreditsByUserUuid(
-  user_uuid: string
-): Promise<CreditRow[]> {
+export async function listAllCreditsByOrg(orgUuid: string): Promise<CreditRow[]> {
   return db()
     .select()
     .from(credits)
-    .where(eq(credits.user_uuid, user_uuid))
+    .where(scopedToOrg(credits.org_uuid, orgUuid))
     .orderBy(desc(credits.created_at));
 }
 
 /** Paginated view for the ledger UI. Do not use for balance arithmetic. */
-export async function getCreditsByUserUuid(
-  user_uuid: string,
+export async function getCreditsByOrg(
+  orgUuid: string,
   page: number = 1,
   limit: number = 50
 ): Promise<(typeof credits.$inferSelect)[] | undefined> {
-  const data = await db()
+  return db()
     .select()
     .from(credits)
-    .where(eq(credits.user_uuid, user_uuid))
+    .where(scopedToOrg(credits.org_uuid, orgUuid))
     .orderBy(desc(credits.created_at))
     .limit(limit)
     .offset((page - 1) * limit);
-
-  return data;
 }

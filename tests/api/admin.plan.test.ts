@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   requireAdminWrite: vi.fn(),
   writeAdminAuditLog: vi.fn(),
   findUserByUuid: vi.fn(),
+  findPersonalOrganizationByUserUuid: vi.fn(),
   getPlanSnapshot: vi.fn(),
   grantManualSubscription: vi.fn(),
   revokeManualSubscriptions: vi.fn(),
@@ -35,6 +36,13 @@ vi.mock("@admin/lib/audit", () => ({
 
 vi.mock("@/models/user", () => ({
   findUserByUuid: mocks.findUserByUuid,
+}));
+
+vi.mock("@/models/organization", () => ({
+  findPersonalOrganizationByUserUuid: mocks.findPersonalOrganizationByUserUuid,
+  // A compile-time brand with no runtime behaviour; the mock must still supply
+  // it or the route's import resolves to undefined.
+  asOrgUuid: (value: string) => value,
 }));
 
 vi.mock("@/services/entitlements", () => ({
@@ -77,6 +85,10 @@ describe("admin user plan API", () => {
     mocks.requireAdminRead.mockResolvedValue(readOnlyAdmin);
     mocks.requireAdminWrite.mockResolvedValue(writeAdmin);
     mocks.findUserByUuid.mockResolvedValue({ uuid: "u-1", email: "user@example.com" });
+    mocks.findPersonalOrganizationByUserUuid.mockResolvedValue({
+      uuid: "org-1",
+      is_personal: true,
+    });
     mocks.getPlanSnapshot.mockResolvedValue({ tier: "max", name: "Max" });
     mocks.grantManualSubscription.mockResolvedValue({ status: "granted", row: {} });
     mocks.revokeManualSubscriptions.mockResolvedValue(1);
@@ -120,8 +132,11 @@ describe("admin user plan API", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(mocks.revokeManualSubscriptions).toHaveBeenCalledWith("u-1");
+    // Both keyed on the organization: a plan is bought by a tenant, so comping
+    // "a user" comps their personal workspace.
+    expect(mocks.revokeManualSubscriptions).toHaveBeenCalledWith("org-1");
     expect(mocks.grantManualSubscription).toHaveBeenCalledWith({
+      orgUuid: "org-1",
       userUuid: "u-1",
       tier: "max",
       expiresAt: null,

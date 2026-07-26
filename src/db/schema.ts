@@ -57,6 +57,11 @@ export const sessions = pgTable(
     user_agent: text(),
     created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    // Which org this session is currently acting in. Better Auth writes it via
+    // `organization.setActive`. It is a *default*, not the authorization input:
+    // routes resolve the org from the URL so two tabs on two orgs cannot fight
+    // over one session value. See `getOrgContext()`.
+    active_organization_id: varchar({ length: 255 }),
   },
   (table) => [
     uniqueIndex("sessions_token_unique_idx").on(table.token),
@@ -111,6 +116,87 @@ export const verifications = pgTable(
   ]
 );
 
+// ---------------------------------------------------------------------------
+// Tenancy (Better Auth `organization` plugin)
+//
+// Every user belongs to at least one organization: signup creates a personal
+// org with a single owner. There is deliberately no "user-owned resource" path
+// alongside the org-owned one — a solo account is a team of one. That is what
+// keeps tenancy from doubling every query, every permission check, and every
+// billing rule.
+//
+// These three tables are owned by the plugin; the field names below are mapped
+// to its logical model in `src/lib/auth.ts`. Do not add app columns here without
+// declaring them as `additionalFields` there, or the adapter will not see them.
+// ---------------------------------------------------------------------------
+
+export const organizations = pgTable(
+  "organizations",
+  {
+    id: varchar({ length: 255 }).primaryKey(),
+    // Dual id, same convention as `users`: `id` belongs to Better Auth, `uuid`
+    // is what application tables reference. Never expose `id` in a URL or an
+    // API payload.
+    uuid: varchar({ length: 255 }).notNull().unique(),
+    name: varchar({ length: 255 }).notNull(),
+    slug: varchar({ length: 255 }).notNull().unique(),
+    logo: varchar({ length: 255 }),
+    metadata: text(),
+    // Billing subject. Moved off `users` — a subscription belongs to the org,
+    // not to whoever happened to click checkout.
+    stripe_customer_id: varchar({ length: 255 }),
+    // True for the org created automatically at signup. A personal org cannot
+    // be deleted or left while it is the user's only one.
+    is_personal: boolean().notNull().default(false),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("organizations_stripe_customer_idx").on(table.stripe_customer_id)]
+);
+
+export const orgMembers = pgTable(
+  "org_members",
+  {
+    id: varchar({ length: 255 }).primaryKey(),
+    organization_id: varchar({ length: 255 }).notNull(),
+    user_id: varchar({ length: 255 }).notNull(),
+    // "owner" | "admin" | "member". Kept as a string rather than an enum so a
+    // fourth role is a code change, not a migration.
+    role: varchar({ length: 50 }).notNull().default("member"),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // One membership per user per org. Without this, a double-accepted
+    // invitation silently grants two rows and the higher role wins by accident.
+    uniqueIndex("org_members_org_user_unique_idx").on(
+      table.organization_id,
+      table.user_id
+    ),
+    index("org_members_user_id_idx").on(table.user_id),
+  ]
+);
+
+export const orgInvitations = pgTable(
+  "org_invitations",
+  {
+    id: varchar({ length: 255 }).primaryKey(),
+    organization_id: varchar({ length: 255 }).notNull(),
+    email: varchar({ length: 255 }).notNull(),
+    role: varchar({ length: 50 }),
+    // "pending" | "accepted" | "rejected" | "canceled"
+    status: varchar({ length: 50 }).notNull().default("pending"),
+    expires_at: timestamp({ withTimezone: true }).notNull(),
+    inviter_id: varchar({ length: 255 }).notNull(),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("org_invitations_org_id_idx").on(table.organization_id),
+    // Invitations are looked up by the address that was invited, before that
+    // address has an account.
+    index("org_invitations_email_idx").on(table.email),
+  ]
+);
+
 // Orders table
 export const orders = pgTable("orders", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -138,7 +224,11 @@ export const orders = pgTable("orders", {
   paid_at: timestamp({ withTimezone: true }),
   paid_email: varchar({ length: 255 }),
   paid_detail: text(),
-});
+  // Tenant scope, mandatory since migration 0015: a row with no organization is
+  // unreachable by every scoped read. `user_uuid` stays as the actor — who
+  // clicked checkout — which is a different question from who it belongs to.
+  org_uuid: varchar({ length: 255 }).notNull(),
+}, (table) => [index("orders_org_idx").on(table.org_uuid)]);
 
 // Stripe webhook event idempotency
 export const stripeWebhookEvents = pgTable(
@@ -169,19 +259,25 @@ export const apikeys = pgTable("apikeys", {
   user_uuid: varchar({ length: 255 }).notNull(),
   created_at: timestamp({ withTimezone: true }),
   status: varchar({ length: 50 }),
-});
+  org_uuid: varchar({ length: 255 }).notNull(),
+}, (table) => [index("apikeys_org_idx").on(table.org_uuid)]);
 
 // Credits table
 export const credits = pgTable("credits", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   trans_no: varchar({ length: 255 }).notNull().unique(),
   created_at: timestamp({ withTimezone: true }),
+  // The actor: which member spent or earned this. Kept deliberately alongside
+  // `org_uuid`, because the balance is pooled at the org but per-member quotas
+  // and usage reporting are impossible to build later if nobody recorded who.
   user_uuid: varchar({ length: 255 }).notNull(),
   trans_type: varchar({ length: 50 }).notNull(),
   credits: integer().notNull(),
   order_no: varchar({ length: 255 }),
   expired_at: timestamp({ withTimezone: true }),
-});
+  // The balance keys on this, not on user_uuid.
+  org_uuid: varchar({ length: 255 }).notNull(),
+}, (table) => [index("credits_org_idx").on(table.org_uuid)]);
 
 // Posts table
 export const posts = pgTable("posts", {
@@ -266,10 +362,12 @@ export const reservations = pgTable(
     notes: text(),
     policy_snapshot: text(),
     created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    org_uuid: varchar({ length: 255 }).notNull(),
   },
   (table) => [
     index("reservations_service_time_idx").on(table.service_id, table.start_at),
     index("reservations_user_idx").on(table.user_uuid),
+    index("reservations_org_idx").on(table.org_uuid),
   ]
 );
 
@@ -308,9 +406,11 @@ export const files = pgTable(
     created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
     deleted_at: timestamp({ withTimezone: true }),
+    org_uuid: varchar({ length: 255 }).notNull(),
   },
   (table) => [
     index("files_user_idx").on(table.user_uuid),
+    index("files_org_idx").on(table.org_uuid),
     uniqueIndex("files_bucket_key_unique_idx").on(table.bucket, table.key),
   ]
 );
@@ -338,9 +438,11 @@ export const tasks = pgTable(
 
     created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    org_uuid: varchar({ length: 255 }).notNull(),
   },
   (table) => [
     index("tasks_user_idx").on(table.user_uuid),
+    index("tasks_org_idx").on(table.org_uuid),
     index("tasks_status_idx").on(table.status),
     index("tasks_trans_idx").on(table.credits_trans_no),
     uniqueIndex("tasks_idempotency_unique_idx").on(
@@ -520,6 +622,7 @@ export const subscriptions = pgTable(
 
     created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    org_uuid: varchar({ length: 255 }).notNull(),
   },
   (table) => [
     uniqueIndex("subscriptions_stripe_id_unique_idx").on(
@@ -528,6 +631,9 @@ export const subscriptions = pgTable(
     // The read path: "everything currently live for this user", on every
     // entitlement check.
     index("subscriptions_user_status_idx").on(table.user_uuid, table.status),
+    // The same read path once the plan belongs to the org rather than to
+    // whoever subscribed. Migration 0017 switches entitlement resolution to it.
+    index("subscriptions_org_status_idx").on(table.org_uuid, table.status),
     index("subscriptions_customer_idx").on(table.stripe_customer_id),
   ]
 );

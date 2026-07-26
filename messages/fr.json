@@ -201,5 +201,57 @@
     "notFoundTitle": "Page introuvable",
     "notFoundDescription": "La page que vous cherchez n'existe pas ou a été déplacée.",
     "digest": "Référence"
+  },
+  "team": {
+    "title": "Équipe",
+    "subtitle": "Les personnes qui peuvent travailler dans {name}.",
+    "personalNotice": "Ceci est votre espace personnel. Invitez quelqu'un et il deviendra une équipe partagée.",
+    "membersHeading": "Membres",
+    "invitationsHeading": "Invitations en attente",
+    "invite": "Inviter",
+    "inviteEmailLabel": "Adresse e-mail",
+    "inviteRoleLabel": "Rôle",
+    "inviteSubmit": "Envoyer l'invitation",
+    "inviteSending": "Envoi…",
+    "inviteSent": "Invitation envoyée à {email}.",
+    "noInvitations": "Aucune invitation en attente.",
+    "cancelInvitation": "Annuler",
+    "invitationCanceled": "Invitation retirée.",
+    "expires": "Expire le {date}",
+    "you": "vous",
+    "remove": "Retirer",
+    "removeConfirmTitle": "Retirer {name} ?",
+    "removeConfirmBody": "Cette personne perd immédiatement l'accès à l'équipe. Ce qu'elle a créé est conservé.",
+    "removeConfirm": "Retirer",
+    "removed": "{name} a été retiré.",
+    "leave": "Quitter l'équipe",
+    "leaveConfirmTitle": "Quitter {name} ?",
+    "leaveConfirmBody": "Vous perdez l'accès immédiatement. Une nouvelle invitation sera nécessaire pour revenir.",
+    "leaveConfirm": "Quitter",
+    "left": "Vous avez quitté l'équipe.",
+    "cancel": "Annuler",
+    "roleChanged": "{name} est maintenant {role}.",
+    "joined": "A rejoint le {date}",
+    "roles": {
+      "owner": "Propriétaire",
+      "admin": "Administrateur",
+      "member": "Membre"
+    },
+    "roleHelp": {
+      "owner": "Contrôle total, y compris la facturation et la suppression de l'équipe.",
+      "admin": "Peut inviter et gérer les membres.",
+      "member": "Peut utiliser l'espace de travail."
+    },
+    "invitation": {
+      "title": "Rejoindre {name}",
+      "body": "Vous êtes invité à rejoindre {name}. En acceptant, vous accédez à l'espace de cette équipe et à son allocation partagée.",
+      "accept": "Accepter l'invitation",
+      "decline": "Refuser",
+      "accepting": "Adhésion…",
+      "accepted": "Vous avez rejoint {name}.",
+      "declined": "Invitation refusée.",
+      "signInFirst": "Connectez-vous pour accepter cette invitation.",
+      "signIn": "Se connecter"
+    }
   }
 }

@@ -1,6 +1,7 @@
 import {
   sendPaymentFailedEmail,
   sendPaymentSuccessEmail,
+  sendOrgInvitationEmail,
   sendReservationConfirmedEmail,
   sendWelcomeEmail,
 } from "@/services/email/send";
@@ -8,8 +9,9 @@ import { sendSlackMessage } from "@/integrations/slack";
 import {
   CreditsTransType,
   increaseCredits,
-  getUserCreditSummary,
+  getOrgCreditSummary,
 } from "@/services/credit";
+import { findPersonalOrganizationByUserUuid } from "@/models/organization";
 import type { JobHandlerMap } from "./types";
 
 /**
@@ -21,13 +23,31 @@ export const jobHandlers: JobHandlerMap = {
     await sendWelcomeEmail(email, name);
   },
 
+  org_invitation_email: async ({ to, url, organizationName, inviterName, expiresInHours }) => {
+    await sendOrgInvitationEmail(to, {
+      url,
+      organizationName,
+      inviterName,
+      expiresInHours,
+    });
+  },
+
   new_user_credits: async ({ userUuid, credits }) => {
     // Deterministic trans_no: the ledger's unique constraint makes a replay a
     // no-op rather than a second grant.
     const transNo = `new_user_${userUuid}`;
 
+    // The organization is resolved here rather than carried in the payload, so
+    // that jobs already queued when this deployed still run. Changing a payload
+    // shape strands every in-flight job of that type.
+    const org = await findPersonalOrganizationByUserUuid(userUuid);
+    if (!org) {
+      throw new Error(`no personal organization for user ${userUuid}`);
+    }
+
     try {
       await increaseCredits({
+        org_uuid: org.uuid,
         user_uuid: userUuid,
         trans_type: CreditsTransType.NewUser,
         credits,
@@ -42,7 +62,7 @@ export const jobHandlers: JobHandlerMap = {
     }
 
     // Surfaces the resulting balance in the runner log for debugging.
-    await getUserCreditSummary(userUuid, { includeLedger: false });
+    await getOrgCreditSummary(org.uuid, { includeLedger: false });
   },
 
   payment_success_email: async ({ to, orderNo, amount, currency }) => {

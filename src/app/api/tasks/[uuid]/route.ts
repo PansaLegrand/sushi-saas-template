@@ -2,24 +2,23 @@ import { respData, respNoAuth } from "@/lib/resp";
 import { respCode, respError } from "@/lib/errors/response";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { findTaskByUuid } from "@/models/task";
-import { getUserUuid } from "@/services/user";
+import { getOrgContext } from "@/services/authz";
 
 export async function GET(req: Request, ctx: { params: Promise<{ uuid: string }> }) {
   const limited = await rateLimitOrThrow(req, "tasks");
   if (limited) return limited;
 
   try {
-    const userUuid = await getUserUuid(req);
-    if (!userUuid) return respNoAuth();
+    const org = await getOrgContext(req);
+    if (!org) return respNoAuth();
 
     const { uuid } = await ctx.params;
     if (!uuid) return respCode("REQUEST_MISSING_FIELD", {
       details: { field: "uuid" },
     });
 
-    const task = await findTaskByUuid(uuid);
+    const task = await findTaskByUuid(uuid, org.orgUuid);
     if (!task) return respCode("TASK_NOT_FOUND");
-    if (task.user_uuid !== userUuid) return respCode("AUTH_FORBIDDEN");
 
     return respData({
       task: {

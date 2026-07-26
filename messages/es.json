@@ -201,5 +201,57 @@
     "notFoundTitle": "Página no encontrada",
     "notFoundDescription": "La página que buscas no existe o se ha movido.",
     "digest": "Referencia"
+  },
+  "team": {
+    "title": "Equipo",
+    "subtitle": "Personas que pueden trabajar en {name}.",
+    "personalNotice": "Este es tu espacio personal. Invita a alguien y pasará a ser un equipo compartido.",
+    "membersHeading": "Miembros",
+    "invitationsHeading": "Invitaciones pendientes",
+    "invite": "Invitar",
+    "inviteEmailLabel": "Correo electrónico",
+    "inviteRoleLabel": "Rol",
+    "inviteSubmit": "Enviar invitación",
+    "inviteSending": "Enviando…",
+    "inviteSent": "Invitación enviada a {email}.",
+    "noInvitations": "No hay invitaciones pendientes.",
+    "cancelInvitation": "Cancelar",
+    "invitationCanceled": "Invitación retirada.",
+    "expires": "Caduca el {date}",
+    "you": "tú",
+    "remove": "Quitar",
+    "removeConfirmTitle": "¿Quitar a {name}?",
+    "removeConfirmBody": "Perderá el acceso al equipo de inmediato. Lo que haya creado se conserva.",
+    "removeConfirm": "Quitar",
+    "removed": "Se quitó a {name}.",
+    "leave": "Salir del equipo",
+    "leaveConfirmTitle": "¿Salir de {name}?",
+    "leaveConfirmBody": "Perderás el acceso de inmediato. Necesitarás una nueva invitación para volver.",
+    "leaveConfirm": "Salir",
+    "left": "Has salido del equipo.",
+    "cancel": "Cancelar",
+    "roleChanged": "{name} ahora es {role}.",
+    "joined": "Se unió el {date}",
+    "roles": {
+      "owner": "Propietario",
+      "admin": "Administrador",
+      "member": "Miembro"
+    },
+    "roleHelp": {
+      "owner": "Control total, incluida la facturación y eliminar el equipo.",
+      "admin": "Puede invitar y gestionar miembros.",
+      "member": "Puede usar el espacio de trabajo."
+    },
+    "invitation": {
+      "title": "Unirse a {name}",
+      "body": "Te han invitado a unirte a {name}. Al aceptar tendrás acceso al espacio de ese equipo y a su asignación compartida.",
+      "accept": "Aceptar invitación",
+      "decline": "Rechazar",
+      "accepting": "Uniéndose…",
+      "accepted": "Te has unido a {name}.",
+      "declined": "Invitación rechazada.",
+      "signInFirst": "Inicia sesión para aceptar esta invitación.",
+      "signIn": "Iniciar sesión"
+    }
   }
 }

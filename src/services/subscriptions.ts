@@ -7,10 +7,15 @@ import {
   SubscriptionStatus,
   endSubscription,
   insertManualSubscription,
-  listSubscriptionsByUserUuid,
+  listSubscriptionsByOrg,
   upsertStripeSubscription,
   type SubscriptionRow,
 } from "@/models/subscription";
+import {
+  findOrganizationByStripeCustomerId,
+  findPersonalOrganizationByUserUuid,
+  type OrgUuid,
+} from "@/models/organization";
 import { findUserByStripeCustomerId, getUserUuidsByEmail } from "@/models/user";
 import { isTier, tierForPriceIds } from "@/services/entitlements";
 import type { Tier } from "@/types/plan";
@@ -33,7 +38,7 @@ import type { Tier } from "@/types/plan";
 export type SyncOutcome =
   | { status: "applied"; row: SubscriptionRow; tier: Tier }
   | { status: "stale" }
-  | { status: "unmapped"; reason: "no-user" | "no-tier" };
+  | { status: "unmapped"; reason: "no-user" | "no-tier" | "no-org" };
 
 /**
  * Write a Stripe subscription into our table.
@@ -74,10 +79,23 @@ export async function syncStripeSubscription(
     return { status: "unmapped", reason: "no-tier" };
   }
 
+  const orgUuid = await resolveOrgUuid(subscription, userUuid);
+  if (!orgUuid) {
+    // Same reasoning as an unattributable user: entitlements resolve per org,
+    // so a subscription with no org is a paying customer with no access.
+    log.error({ status: "unmapped", reason: "no-org", user_id: userUuid });
+    notifySlackError("Subscription webhook: no organization for subscription", undefined, {
+      stripe_subscription_id: subscription.id,
+      stripe_customer_id: customerIdOf(subscription),
+    });
+    return { status: "unmapped", reason: "no-org" };
+  }
+
   const period = periodOf(subscription);
 
   const { applied, row } = await upsertStripeSubscription({
     uuid: getSnowId(),
+    org_uuid: orgUuid,
     user_uuid: userUuid,
     stripe_subscription_id: subscription.id,
     stripe_customer_id: customerIdOf(subscription),
@@ -145,6 +163,31 @@ async function resolveUserUuid(
   return null;
 }
 
+/**
+ * Which tenant a Stripe subscription belongs to.
+ *
+ * Ordered most to least authoritative. Checkout stamps `org_uuid` into
+ * metadata, so that wins; the customer linkage is next; a personal org derived
+ * from the resolved user is the last resort, and is correct for every account
+ * that has never created a second organization.
+ */
+async function resolveOrgUuid(
+  subscription: Stripe.Subscription,
+  userUuid: string
+): Promise<string | null> {
+  const fromMetadata = subscription.metadata?.org_uuid;
+  if (fromMetadata) return fromMetadata;
+
+  const customerId = customerIdOf(subscription);
+  if (customerId) {
+    const org = await findOrganizationByStripeCustomerId(customerId);
+    if (org) return org.uuid;
+  }
+
+  const personal = await findPersonalOrganizationByUserUuid(userUuid);
+  return personal?.uuid ?? null;
+}
+
 function customerIdOf(subscription: Stripe.Subscription): string | null {
   const customer = subscription.customer;
   if (!customer) return null;
@@ -209,6 +252,7 @@ export type CompResult =
  * to write an audit log entry alongside this.
  */
 export async function grantManualSubscription(input: {
+  orgUuid: OrgUuid;
   userUuid: string;
   tier: string;
   expiresAt?: Date | null;
@@ -218,6 +262,7 @@ export async function grantManualSubscription(input: {
 
   const row = await insertManualSubscription({
     uuid: getSnowId(),
+    org_uuid: input.orgUuid,
     user_uuid: input.userUuid,
     tier: input.tier,
     status: SubscriptionStatus.Active,
@@ -238,8 +283,8 @@ export async function grantManualSubscription(input: {
 }
 
 /** Revoke every comped subscription a user holds. Paid rows are untouched. */
-export async function revokeManualSubscriptions(userUuid: string): Promise<number> {
-  const rows = await listSubscriptionsByUserUuid(userUuid, {
+export async function revokeManualSubscriptions(orgUuid: OrgUuid): Promise<number> {
+  const rows = await listSubscriptionsByOrg(orgUuid, {
     statuses: [SubscriptionStatus.Active, SubscriptionStatus.Trialing],
   });
 
@@ -251,7 +296,7 @@ export async function revokeManualSubscriptions(userUuid: string): Promise<numbe
   if (comped.length > 0) {
     logger.info({
       event: "subscription.comp.revoked",
-      user_id: userUuid,
+      org_id: orgUuid,
       count: comped.length,
     });
   }

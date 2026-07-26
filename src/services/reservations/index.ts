@@ -89,6 +89,7 @@ export async function getAvailabilityForDate(params: {
 
 export async function createReservationAndCheckout(params: {
   locale: string;
+  org_uuid: string;
   user_uuid: string;
   service_id: number;
   start_at: string; // ISO
@@ -128,6 +129,7 @@ export async function createReservationAndCheckout(params: {
   }
 
   const reservation = await createReservation({
+    org_uuid: params.org_uuid,
     user_uuid: params.user_uuid,
     service_id: svc.id,
     start_at: start,
@@ -162,6 +164,7 @@ export async function createReservationAndCheckout(params: {
   await insertOrder({
     order_no,
     created_at: new Date(),
+    org_uuid: params.org_uuid,
     user_uuid: params.user_uuid,
     user_email: user.email,
     amount: amountNow,
@@ -207,6 +210,8 @@ export async function createReservationAndCheckout(params: {
       order_no,
       service_id: String(svc.id),
       user_uuid: params.user_uuid,
+      // Stamped so the webhook attributes the payment without guessing.
+      org_uuid: params.org_uuid,
       product_name: `Reservation: ${svc.title}`,
       reservation_start_at: start.toISOString(),
       reservation_tz: params.timezone,

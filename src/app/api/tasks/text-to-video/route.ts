@@ -7,9 +7,9 @@ import { respCode, respError } from "@/lib/errors/response";
 import { parseJsonBody } from "@/lib/http/request";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { startOfUtcMonth } from "@/lib/time";
-import { countTasksByUserSince } from "@/models/task";
+import { countTasksByOrgSince } from "@/models/task";
 import { enforceLimit, requireEntitlement } from "@/services/entitlements";
-import { getUserUuid } from "@/services/user";
+import { getOrgContext } from "@/services/authz";
 import { createTextToVideoTask } from "@/services/tasks";
 import type { CreateTextToVideoResponse } from "@/types/task";
 
@@ -32,16 +32,18 @@ export async function POST(req: Request) {
   if (limited) return limited;
 
   try {
-    const userUuid = await getUserUuid(req);
-    if (!userUuid) return respNoAuth();
+    const ctx = await getOrgContext(req);
+    if (!ctx) return respNoAuth();
 
     // Plan gate before anything is parsed or spent. Two checks, because they
     // fail for different reasons and the user needs to be told which: the
     // first means "your plan never included this", the second means "it does,
     // and you have used this month's allowance".
-    await requireEntitlement(userUuid, "tasks.text_to_video");
-    await enforceLimit(userUuid, "tasks.perMonth", {
-      current: await countTasksByUserSince(userUuid, startOfUtcMonth()),
+    await requireEntitlement(ctx.orgUuid, "tasks.text_to_video");
+    // Org-wide: the monthly allowance is bought by the tenant, so five members
+    // share one quota rather than getting five.
+    await enforceLimit(ctx.orgUuid, "tasks.perMonth", {
+      current: await countTasksByOrgSince(ctx.orgUuid, startOfUtcMonth()),
       adding: 1,
     });
 
@@ -61,7 +63,8 @@ export async function POST(req: Request) {
         : req.headers.get("idempotency-key") ?? undefined;
 
     const { task } = await createTextToVideoTask({
-      userUuid,
+      orgUuid: ctx.orgUuid,
+      userUuid: ctx.userUuid,
       input: { prompt: payload.prompt, seconds, aspectRatio },
       idempotencyKey,
     });

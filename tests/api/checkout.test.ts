@@ -21,6 +21,33 @@ import { resetRateLimitForTests } from "@/lib/rate-limit";
 
 // Mocks first
 vi.mock("@/services/user", () => ({ getUserUuid: vi.fn().mockResolvedValue("u-test") }));
+
+// The routes resolve their tenant through `getOrgContext`, which pulls in the
+// real Better Auth instance (and therefore a real database) if left unmocked.
+vi.mock("@/services/authz", () => ({
+  getOrgContext: vi
+    .fn()
+    .mockResolvedValue({
+      userId: "id-test",
+      userUuid: "u-test",
+      orgId: "id-org-test",
+      orgUuid: "org-test",
+      orgSlug: "test-org",
+      role: "owner",
+    }),
+  getOrgContextFromHeaders: vi
+    .fn()
+    .mockResolvedValue({
+      userId: "id-test",
+      userUuid: "u-test",
+      orgId: "id-org-test",
+      orgUuid: "org-test",
+      orgSlug: "test-org",
+      role: "owner",
+    }),
+  can: () => true,
+}));
+
 vi.mock("@/models/user", () => ({ findUserByUuid: vi.fn().mockResolvedValue({ email: "user@test.dev" }) }));
 vi.mock("@/models/order", () => ({
   OrderStatus: { Created: "created" },
@@ -96,8 +123,9 @@ describe("POST /api/checkout", () => {
   });
 
   it("rejects unauthenticated checkout requests before creating an order", async () => {
-    const userMod = await import("@/services/user");
-    vi.mocked(userMod.getUserUuid).mockResolvedValueOnce(null);
+    // No session means no organization to bill.
+    const authz = await import("@/services/authz");
+    vi.mocked(authz.getOrgContext).mockResolvedValueOnce(null);
 
     const body = { product_id: "scale-monthly", currency: "usd", locale: "en" };
     const req = new Request("http://local/api/checkout", {

@@ -2,12 +2,12 @@ import {
   type CreditRow,
   findCreditByOrderNo,
   findCreditByTransNo,
-  getUserValidCredits,
+  getOrgValidCredits,
   insertCredit,
   insertSpendCreditIfSufficient,
-  listAllCreditsByUserUuid,
+  listAllCreditsByOrg,
 } from "@/models/credit";
-import { getFirstPaidOrderByUserUuid } from "@/models/order";
+import { getFirstPaidOrderByOrg } from "@/models/order";
 import { AppError } from "@/lib/errors/app-error";
 import { getSnowId } from "@/lib/hash";
 import { getIsoTimestr } from "@/lib/time";
@@ -40,12 +40,16 @@ interface CreditSummaryOptions {
 }
 
 interface DecreaseCreditsParams {
+  /** Whose balance moves. */
+  org_uuid: string;
+  /** Which member spent it. Recorded for attribution, never summed. */
   user_uuid: string;
   trans_type: CreditsTransType;
   credits: number;
 }
 
 interface IncreaseCreditsParams {
+  org_uuid: string;
   user_uuid: string;
   trans_type: CreditsTransType | string;
   credits: number;
@@ -60,6 +64,7 @@ interface IncreaseCreditsParams {
 }
 
 interface RefundCreditsParams {
+  org_uuid: string;
   user_uuid: string;
   original_trans_no: string;
 }
@@ -98,11 +103,11 @@ function willExpireSoon(row: CreditRow, now: Date): boolean {
   return diffMs > 0 && diffMs <= windowMs;
 }
 
-export async function getUserCreditSummary(
-  userUuid: string,
+export async function getOrgCreditSummary(
+  orgUuid: string,
   options: CreditSummaryOptions = {}
 ): Promise<CreditSummary> {
-  const rows = await listAllCreditsByUserUuid(userUuid);
+  const rows = await listAllCreditsByOrg(orgUuid);
 
   const now = new Date();
   const summary: CreditSummary = {
@@ -149,7 +154,7 @@ export async function getUserCreditSummary(
   return summary;
 }
 
-export async function getUserCredits(userUuid: string): Promise<UserCredits> {
+export async function getOrgCredits(orgUuid: string): Promise<UserCredits> {
   const status: UserCredits = {
     left_credits: 0,
     is_pro: false,
@@ -157,12 +162,12 @@ export async function getUserCredits(userUuid: string): Promise<UserCredits> {
   };
 
   try {
-    const firstPaidOrder = await getFirstPaidOrderByUserUuid(userUuid);
+    const firstPaidOrder = await getFirstPaidOrderByOrg(orgUuid);
     if (firstPaidOrder) {
       status.is_recharged = true;
     }
 
-    const credits = await getUserValidCredits(userUuid);
+    const credits = await getOrgValidCredits(orgUuid);
     if (credits?.length) {
       for (const entry of credits) {
         status.left_credits += entry.credits || 0;
@@ -177,13 +182,14 @@ export async function getUserCredits(userUuid: string): Promise<UserCredits> {
       status.is_pro = true;
     }
   } catch (error) {
-    console.error("get user credits failed", error);
+    console.error("get org credits failed", error);
   }
 
   return status;
 }
 
 export async function decreaseCredits({
+  org_uuid,
   user_uuid,
   trans_type,
   credits,
@@ -198,6 +204,7 @@ export async function decreaseCredits({
     const created = await insertSpendCreditIfSufficient({
       trans_no: getSnowId(),
       created_at: new Date(getIsoTimestr()),
+      org_uuid,
       user_uuid,
       trans_type,
       credits,
@@ -205,7 +212,7 @@ export async function decreaseCredits({
 
     if (!created) {
       throw new AppError("CREDITS_INSUFFICIENT", {
-        message: `user ${user_uuid} has insufficient credits for ${credits}`,
+        message: `org ${org_uuid} has insufficient credits for ${credits}`,
         details: { required: credits },
       });
     }
@@ -218,6 +225,7 @@ export async function decreaseCredits({
 }
 
 export async function increaseCredits({
+  org_uuid,
   user_uuid,
   trans_type,
   credits,
@@ -242,6 +250,7 @@ export async function increaseCredits({
     const newCredit: Parameters<typeof insertCredit>[0] = {
       trans_no: trans_no ?? getSnowId(),
       created_at: new Date(getIsoTimestr()),
+      org_uuid,
       user_uuid,
       trans_type,
       credits,
@@ -257,6 +266,7 @@ export async function increaseCredits({
 }
 
 export async function refundCreditsForTransaction({
+  org_uuid,
   user_uuid,
   original_trans_no,
 }: RefundCreditsParams): Promise<string> {
@@ -267,9 +277,14 @@ export async function refundCreditsForTransaction({
     });
   }
 
-  if (original.user_uuid !== user_uuid) {
+  // The tenancy check. `findCreditByTransNo` is unscoped by necessity — a
+  // trans_no is globally unique and the caller holds only that — so this is
+  // where the row is proven to belong to the caller's organization. Reported as
+  // "not found" rather than "forbidden": whether a transaction exists in
+  // another tenant is not something this caller gets to learn.
+  if (original.org_uuid !== org_uuid) {
     throw new AppError("CREDITS_TRANSACTION_NOT_FOUND", {
-      message: `credit transaction ${original_trans_no} does not belong to user ${user_uuid}`,
+      message: `credit transaction ${original_trans_no} does not belong to org ${org_uuid}`,
     });
   }
 
@@ -289,6 +304,7 @@ export async function refundCreditsForTransaction({
     const created = await insertCredit({
       trans_no: refundTransNo,
       created_at: new Date(getIsoTimestr()),
+      org_uuid,
       user_uuid,
       trans_type: CreditsTransType.TaskAdjust,
       credits: Math.abs(original.credits),
@@ -322,7 +338,16 @@ export async function updateCreditForOrder(order: Order): Promise<void> {
       return;
     }
 
+    if (!order.org_uuid) {
+      // An order with no tenant cannot be credited to a balance. Throwing keeps
+      // the payment reconcilable by hand instead of silently granting nothing.
+      throw new AppError("CREDITS_INVALID_AMOUNT", {
+        message: `order ${order.order_no} has no organization to credit`,
+      });
+    }
+
     await increaseCredits({
+      org_uuid: order.org_uuid,
       user_uuid: order.user_uuid,
       trans_type: CreditsTransType.OrderPay,
       credits: order.credits,

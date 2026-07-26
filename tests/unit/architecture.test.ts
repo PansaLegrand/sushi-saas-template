@@ -299,6 +299,100 @@ describe("layering", () => {
   });
 });
 
+describe("tenancy", () => {
+  /**
+   * Tables owned by an organization rather than by a user.
+   *
+   * `affiliates` and `feedbacks` are deliberately absent: a referral and a
+   * piece of feedback belong to the person, not to the tenant they happen to
+   * be working in.
+   */
+  const TENANT_TABLES = [
+    "apikeys",
+    "credits",
+    "files",
+    "orders",
+    "reservations",
+    "subscriptions",
+    "tasks",
+  ] as const;
+
+  const MODEL_FILES = FILES.filter(({ path }) => path.startsWith("src/models/"));
+
+  /** `.from(files)`, `.update(tasks)`, `.delete(credits)` — a query root. */
+  function queryRoots(body: string, table: string): boolean {
+    return new RegExp(
+      `\\.(?:from|update|delete)\\(\\s*${table}\\s*[,)]`
+    ).test(stripComments(body));
+  }
+
+  it("finds the tenant models to check", () => {
+    // Guards the guard. A regex that stops matching would make every rule
+    // below vacuously pass — the worst outcome for a rule about data leaks.
+    const touched = MODEL_FILES.filter(({ body }) =>
+      TENANT_TABLES.some((table) => queryRoots(body, table))
+    );
+
+    expect(touched.length).toBeGreaterThanOrEqual(TENANT_TABLES.length);
+  });
+
+  it("scopes every tenant-table query to an organization", () => {
+    /**
+     * Models whose queries are legitimately global, each for a stated reason.
+     *
+     * This list is the whole risk surface of multi-tenancy in one place. A new
+     * entry needs a reason that survives the question "what happens when two
+     * customers both have a row matching this key".
+     */
+    const ALLOWED = new Map([
+      [
+        "src/models/stripe-webhook-event.ts",
+        "Webhook idempotency is keyed on Stripe's event id, which is global by construction.",
+      ],
+      [
+        "src/models/organization.ts",
+        "Defines the scope predicate; it cannot be written in terms of itself.",
+      ],
+    ]);
+
+    const offenders = MODEL_FILES.filter(({ path, body }) => {
+      if (ALLOWED.has(path)) return false;
+      if (!TENANT_TABLES.some((table) => queryRoots(body, table))) return false;
+
+      return !/\bscopedToOrg\b/.test(body);
+    }).map(({ path }) => path);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("writes an organization on every tenant-table insert", () => {
+    // A row inserted without `org_uuid` is invisible to every scoped read that
+    // follows — the data is not lost, it is unreachable, which is worse
+    // because nothing errors.
+    const offenders = MODEL_FILES.filter(({ body }) => {
+      const source = stripComments(body);
+      const inserts = TENANT_TABLES.some((table) =>
+        new RegExp(`\\.insert\\(\\s*${table}\\s*[,)]`).test(source)
+      );
+
+      return inserts && !/\borg_uuid\b/.test(source);
+    }).map(({ path }) => path);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("keeps the organization id out of request payloads", () => {
+    // The tenant a request acts in comes from the session and the URL, resolved
+    // by getOrgContext(). A body-supplied org_uuid is an authorization bypass
+    // with a friendly name: anyone could post another tenant's id.
+    const offenders = API_ROUTE_FILES.filter(({ body }) =>
+      /\borg_?[uU]uid\s*:\s*z\./.test(stripComments(body))
+    ).map(({ path }) => path);
+
+    expect(offenders).toEqual([]);
+  });
+});
+
 describe("site content", () => {
   // The kit and the project's own website are one repo but must not be one
   // thing. Site identity belongs in src/config/site.ts; anything else that

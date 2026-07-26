@@ -27,10 +27,37 @@ vi.mock("@/services/user", () => ({
   getUserUuid: vi.fn().mockResolvedValue("u-test"),
 }));
 
+// The routes resolve their tenant through `getOrgContext`, which pulls in the
+// real Better Auth instance (and therefore a real database) if left unmocked.
+vi.mock("@/services/authz", () => ({
+  getOrgContext: vi
+    .fn()
+    .mockResolvedValue({
+      userId: "id-test",
+      userUuid: "u-test",
+      orgId: "id-org-test",
+      orgUuid: "org-test",
+      orgSlug: "test-org",
+      role: "owner",
+    }),
+  getOrgContextFromHeaders: vi
+    .fn()
+    .mockResolvedValue({
+      userId: "id-test",
+      userUuid: "u-test",
+      orgId: "id-org-test",
+      orgUuid: "org-test",
+      orgSlug: "test-org",
+      role: "owner",
+    }),
+  can: () => true,
+}));
+
+
 vi.mock("@/services/credit", () => ({
   CreditsTransType: { MockUsage: "mock_usage" },
   decreaseCredits: vi.fn().mockResolvedValue(undefined),
-  getUserCreditSummary: vi
+  getOrgCreditSummary: vi
     .fn()
     .mockResolvedValue({
       balance: 4,
@@ -87,6 +114,7 @@ describe("POST /api/account/credits/consume", () => {
     // Verify the service was called with our user UUID and amount
     const credit = await import("@/services/credit");
     expect(credit.decreaseCredits).toHaveBeenCalledWith({
+      org_uuid: "org-test",
       user_uuid: "u-test",
       trans_type: "mock_usage",
       credits: 1,

@@ -3,6 +3,8 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { subscriptions } from "@/db/schema";
 
+import { scopedToOrg } from "./organization";
+
 /** A subscription row. Exported so services can type over rows without importing the schema. */
 export type SubscriptionRow = typeof subscriptions.$inferSelect;
 
@@ -39,6 +41,9 @@ export type SubscriptionSourceValue =
 
 export type UpsertStripeSubscriptionInput = {
   uuid: string;
+  /** Who the plan belongs to. Entitlements resolve from this. */
+  org_uuid: string;
+  /** Which member subscribed. Recorded for attribution, never for entitlement. */
   user_uuid: string;
   stripe_subscription_id: string;
   stripe_customer_id?: string | null;
@@ -85,6 +90,7 @@ export async function upsertStripeSubscription(
 
   const values = {
     uuid: input.uuid,
+    org_uuid: input.org_uuid,
     user_uuid: input.user_uuid,
     stripe_subscription_id: input.stripe_subscription_id,
     stripe_customer_id: input.stripe_customer_id ?? null,
@@ -109,6 +115,7 @@ export async function upsertStripeSubscription(
       set: {
         // `uuid` and `created_at` are intentionally absent: the row keeps the
         // identity it was created with.
+        org_uuid: values.org_uuid,
         user_uuid: values.user_uuid,
         stripe_customer_id: values.stripe_customer_id,
         stripe_price_id: values.stripe_price_id,
@@ -131,6 +138,12 @@ export async function upsertStripeSubscription(
   return { applied: Boolean(row), row };
 }
 
+/**
+ * Lookup by Stripe's own subscription id, which is globally unique.
+ *
+ * Necessarily unscoped: a webhook arrives knowing only Stripe's identifiers, so
+ * this is the call that *establishes* which tenant the event belongs to.
+ */
 export async function findSubscriptionByStripeId(
   stripeSubscriptionId: string
 ): Promise<SubscriptionRow | undefined> {
@@ -144,35 +157,38 @@ export async function findSubscriptionByStripeId(
 }
 
 /**
- * Every subscription row for a user, optionally narrowed to a set of statuses.
+ * Every subscription row for an organization, optionally narrowed to statuses.
+ *
+ * Org-scoped rather than user-scoped because the plan is bought by the tenant:
+ * a member joining an org on the max tier gets the max tier, and the owner
+ * leaving does not downgrade everyone else.
  *
  * The status filter is a parameter rather than a constant here because *which*
  * statuses still entitle someone is a product decision — past_due entitles
  * during its grace period, and that rule belongs in the entitlement service,
  * not in a CRUD helper.
  */
-export async function listSubscriptionsByUserUuid(
-  userUuid: string,
+export async function listSubscriptionsByOrg(
+  orgUuid: string,
   options: { statuses?: readonly string[] } = {}
 ): Promise<SubscriptionRow[]> {
   const statuses = options.statuses;
+  const scope = scopedToOrg(subscriptions.org_uuid, orgUuid);
 
   return db()
     .select()
     .from(subscriptions)
     .where(
       statuses?.length
-        ? and(
-            eq(subscriptions.user_uuid, userUuid),
-            inArray(subscriptions.status, [...statuses])
-          )
-        : eq(subscriptions.user_uuid, userUuid)
+        ? and(scope, inArray(subscriptions.status, [...statuses]))
+        : scope
     )
     .orderBy(desc(subscriptions.updated_at));
 }
 
 export type InsertManualSubscriptionInput = {
   uuid: string;
+  org_uuid: string;
   user_uuid: string;
   tier: string;
   status: string;
@@ -188,6 +204,7 @@ export async function insertManualSubscription(
     .insert(subscriptions)
     .values({
       uuid: input.uuid,
+      org_uuid: input.org_uuid,
       user_uuid: input.user_uuid,
       tier: input.tier,
       status: input.status,

@@ -40,6 +40,14 @@ vi.mock("@/models/user", () => ({
     .mockResolvedValue({ uuid: "u-target", email: "user@example.com" }),
 }));
 
+// A grant lands in the recipient's personal workspace balance, so the route
+// resolves their org before touching the ledger.
+vi.mock("@/models/organization", () => ({
+  findPersonalOrganizationByUserUuid: vi
+    .fn()
+    .mockResolvedValue({ uuid: "org-target", is_personal: true }),
+}));
+
 vi.mock("@/models/credit", () => ({
   findCreditByTransNo: vi.fn().mockResolvedValue(undefined),
 }));
@@ -47,7 +55,7 @@ vi.mock("@/models/credit", () => ({
 vi.mock("@/services/credit", () => ({
   CreditsTransType: { SystemAdd: "system_add" },
   increaseCredits: vi.fn().mockResolvedValue(undefined),
-  getUserCreditSummary: vi.fn().mockResolvedValue({
+  getOrgCreditSummary: vi.fn().mockResolvedValue({
     balance: 100,
     granted: 100,
     consumed: 0,

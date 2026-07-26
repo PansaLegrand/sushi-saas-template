@@ -35,13 +35,16 @@ export function calculateTextToVideoCost(params: {
 }
 
 export async function createTextToVideoTask(params: {
+  /** The tenant the task and its credit spend belong to. */
+  orgUuid: string;
+  /** The member who ran it. */
   userUuid: string;
   input: TextToVideoInput;
   idempotencyKey?: string;
 }): Promise<{
   task: typeof import("@/db/schema").tasks.$inferSelect;
 }> {
-  const { userUuid, input } = params;
+  const { orgUuid, userUuid, input } = params;
 
   const seconds = Number.isFinite(input.seconds as number) ? (input.seconds as number) : 8;
   const aspectRatio = input.aspectRatio ?? "landscape";
@@ -71,6 +74,7 @@ export async function createTextToVideoTask(params: {
 
   const insertedTask = await insertTaskForIdempotencyKey({
     uuid,
+    org_uuid: orgUuid,
     user_uuid: userUuid,
     type: TASK_TYPE_TEXT_TO_VIDEO,
     status: "running",
@@ -90,6 +94,7 @@ export async function createTextToVideoTask(params: {
     }
 
     const existingTask = await findTaskByIdempotencyKey({
+      org_uuid: orgUuid,
       user_uuid: userUuid,
       type: TASK_TYPE_TEXT_TO_VIDEO,
       idempotency_key: idempotencyKey,
@@ -107,12 +112,13 @@ export async function createTextToVideoTask(params: {
   let transNo: string | undefined;
   try {
     transNo = await decreaseCredits({
+      org_uuid: orgUuid,
       user_uuid: userUuid,
       trans_type: CreditsTransType.TaskTextToVideo,
       credits: creditsUsed,
     });
 
-    await updateTaskStatus(insertedTask.uuid, "running", {
+    await updateTaskStatus(insertedTask.uuid, orgUuid, "running", {
       credits_trans_no: transNo,
     });
 
@@ -122,7 +128,7 @@ export async function createTextToVideoTask(params: {
       aspectRatio,
     });
 
-    const task = await updateTaskStatus(insertedTask.uuid, "succeeded", {
+    const task = await updateTaskStatus(insertedTask.uuid, orgUuid, "succeeded", {
       output_url: result.outputUrl,
       output_json: result.raw ? JSON.stringify(result.raw) : null,
       completed_at: new Date(),
@@ -141,6 +147,7 @@ export async function createTextToVideoTask(params: {
     if (transNo) {
       try {
         await refundCreditsForTransaction({
+          org_uuid: orgUuid,
           user_uuid: userUuid,
           original_trans_no: transNo,
         });
@@ -149,7 +156,7 @@ export async function createTextToVideoTask(params: {
       }
     }
 
-    await updateTaskStatus(insertedTask.uuid, "failed", {
+    await updateTaskStatus(insertedTask.uuid, orgUuid, "failed", {
       credits_trans_no: transNo,
       error_message: appError.code,
       completed_at: new Date(),

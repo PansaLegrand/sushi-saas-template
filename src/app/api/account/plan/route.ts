@@ -1,7 +1,7 @@
 import { respData, respNoAuth } from "@/lib/resp";
 import { respError } from "@/lib/errors/response";
 import { getPlanSnapshot } from "@/services/entitlements";
-import { getUserUuid } from "@/services/user";
+import { getOrgContext } from "@/services/authz";
 
 /**
  * The signed-in user's current plan.
@@ -16,12 +16,12 @@ import { getUserUuid } from "@/services/user";
  */
 export async function GET(req: Request) {
   try {
-    const userUuid = await getUserUuid(req);
-    if (!userUuid) {
+    const ctx = await getOrgContext(req);
+    if (!ctx) {
       return respNoAuth();
     }
 
-    return respData(await getPlanSnapshot(userUuid));
+    return respData(await getPlanSnapshot(ctx.orgUuid));
   } catch (error) {
     return respError(error, {
       logFields: { event: "account.plan_failed" },

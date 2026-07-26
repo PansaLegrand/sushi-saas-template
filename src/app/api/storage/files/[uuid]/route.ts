@@ -1,6 +1,6 @@
 import { respData, respNoAuth } from "@/lib/resp";
 import { respCode, respError } from "@/lib/errors/response";
-import { getUserUuid } from "@/services/user";
+import { getOrgContext } from "@/services/authz";
 import { findFileByUuid, softDeleteFile } from "@/models/file";
 import { getStorageAdapter } from "@/services/storage";
 import { requireSameOrigin } from "@/lib/origin";
@@ -11,12 +11,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ uuid: string }>
   if (limited) return limited;
 
   try {
-    const userUuid = await getUserUuid(req);
-    if (!userUuid) return respNoAuth();
+    const org = await getOrgContext(req);
+    if (!org) return respNoAuth();
 
     const { uuid } = await ctx.params;
-    const file = await findFileByUuid(uuid);
-    if (!file || file.user_uuid !== userUuid) {
+    const file = await findFileByUuid(uuid, org.orgUuid);
+    if (!file) {
       return respCode("STORAGE_FILE_NOT_FOUND");
     }
 
@@ -67,12 +67,12 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ uuid: string
   if (limited) return limited;
 
   try {
-    const userUuid = await getUserUuid(req);
-    if (!userUuid) return respNoAuth();
+    const org = await getOrgContext(req);
+    if (!org) return respNoAuth();
 
     const { uuid } = await ctx.params;
-    const file = await findFileByUuid(uuid);
-    if (!file || file.user_uuid !== userUuid) {
+    const file = await findFileByUuid(uuid, org.orgUuid);
+    if (!file) {
       return respCode("STORAGE_FILE_NOT_FOUND");
     }
 
@@ -84,7 +84,7 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ uuid: string
       console.warn("storage delete failed", e);
     }
 
-    const deleted = await softDeleteFile(file.uuid);
+    const deleted = await softDeleteFile(file.uuid, org.orgUuid);
     return respData({ ok: true, file: deleted ?? file });
   } catch (error) {
     return respError(error, {

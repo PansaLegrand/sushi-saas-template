@@ -7,6 +7,7 @@ import { parseJsonBody } from "@/lib/http/request";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { respData } from "@/lib/resp";
 import { respCode, respError } from "@/lib/errors/response";
+import { asOrgUuid, findPersonalOrganizationByUserUuid } from "@/models/organization";
 import { findUserByUuid } from "@/models/user";
 import { getPlanSnapshot } from "@/services/entitlements";
 import {
@@ -53,7 +54,12 @@ export async function GET(
     const user = await findUserByUuid(uuid);
     if (!user) return respCode("ACCOUNT_NOT_FOUND");
 
-    return respData(await getPlanSnapshot(uuid));
+    // A plan belongs to an organization. "This user's plan" means the plan of
+    // the workspace they own alone.
+    const org = await findPersonalOrganizationByUserUuid(uuid);
+    if (!org) return respCode("ACCOUNT_NOT_FOUND");
+
+    return respData(await getPlanSnapshot(asOrgUuid(org.uuid)));
   } catch (e) {
     return respError(e, {
       logFields: { event: "admin.user_plan_failed" },
@@ -106,11 +112,17 @@ export async function POST(
     const target = await findUserByUuid(uuid);
     if (!target) return respCode("ACCOUNT_NOT_FOUND");
 
+    // A plan belongs to an organization, so comping "a user" comps their
+    // personal workspace.
+    const targetOrg = await findPersonalOrganizationByUserUuid(uuid);
+    if (!targetOrg) return respCode("ACCOUNT_NOT_FOUND");
+
     // One comp at a time: granting a second while the first is live would
     // leave two rows and make revocation ambiguous.
-    await revokeManualSubscriptions(uuid);
+    await revokeManualSubscriptions(asOrgUuid(targetOrg.uuid));
 
     const result = await grantManualSubscription({
+      orgUuid: asOrgUuid(targetOrg.uuid),
       userUuid: uuid,
       tier: payload.tier,
       expiresAt,
@@ -137,7 +149,7 @@ export async function POST(
       request: req,
     });
 
-    return respData(await getPlanSnapshot(uuid));
+    return respData(await getPlanSnapshot(asOrgUuid(targetOrg.uuid)));
   } catch (e) {
     await writeAdminAuditLog({
       actor: admin,
@@ -175,7 +187,12 @@ export async function DELETE(
   }
 
   try {
-    const revoked = await revokeManualSubscriptions(uuid);
+    // Comps hang off the organization, so revoking "a user's" comp means
+    // revoking their personal workspace's.
+    const targetOrg = await findPersonalOrganizationByUserUuid(uuid);
+    if (!targetOrg) return respCode("ACCOUNT_NOT_FOUND");
+
+    const revoked = await revokeManualSubscriptions(asOrgUuid(targetOrg.uuid));
 
     if (revoked > 0) {
       await writeAdminAuditLog({
@@ -188,7 +205,7 @@ export async function DELETE(
       });
     }
 
-    return respData({ revoked, plan: await getPlanSnapshot(uuid) });
+    return respData({ revoked, plan: await getPlanSnapshot(asOrgUuid(targetOrg.uuid)) });
   } catch (e) {
     return respError(e, {
       logFields: { event: "admin.plan.revoke_failed" },

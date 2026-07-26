@@ -28,6 +28,15 @@ vi.mock("@/models/subscription", async () => {
   return { ...actual, upsertStripeSubscription: mocks.upsertStripeSubscription };
 });
 
+// The sync path now resolves a tenant as well as a user; without this the
+// service would reach a real database from a mocked-tier test.
+vi.mock("@/models/organization", () => ({
+  findOrganizationByStripeCustomerId: vi.fn().mockResolvedValue(undefined),
+  findPersonalOrganizationByUserUuid: vi
+    .fn()
+    .mockResolvedValue({ uuid: "org-1", is_personal: true }),
+}));
+
 vi.mock("@/models/user", () => ({
   findUserByStripeCustomerId: mocks.findUserByStripeCustomerId,
   getUserUuidsByEmail: mocks.getUserUuidsByEmail,

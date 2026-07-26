@@ -4,8 +4,8 @@ import { respData, respNoAuth } from "@/lib/resp";
 import { respError } from "@/lib/errors/response";
 import { parseJsonBody } from "@/lib/http/request";
 import { requireSameOrigin } from "@/lib/origin";
-import { getUserCreditSummary } from "@/services/credit";
-import { getUserUuid } from "@/services/user";
+import { getOrgCreditSummary } from "@/services/credit";
+import { getOrgContext } from "@/services/authz";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 
 const CreditQuerySchema = z.object({
@@ -22,8 +22,8 @@ export async function POST(req: Request) {
   if (limited) return limited;
 
   try {
-    const userUuid = await getUserUuid(req);
-    if (!userUuid) {
+    const ctx = await getOrgContext(req);
+    if (!ctx) {
       return respNoAuth();
     }
 
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
       defaultValue: {},
     });
 
-    const summary = await getUserCreditSummary(userUuid, {
+    const summary = await getOrgCreditSummary(ctx.orgUuid, {
       includeLedger: payload.includeLedger,
       ledgerLimit: payload.ledgerLimit,
       includeExpiring: payload.includeExpiring,

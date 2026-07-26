@@ -11,6 +11,7 @@ import { insertOrder, OrderStatus, findOrderBySubscriptionPeriod } from "@/model
 import { increaseCredits, CreditsTransType } from "@/services/credit";
 import { updateAffiliateForOrder } from "@/services/affiliate";
 import { syncStripeSubscription } from "@/services/subscriptions";
+import { findPersonalOrganizationByUserUuid } from "@/models/organization";
 import { getUserUuidsByEmail } from "@/models/user";
 import { enqueueJob } from "@/services/jobs";
 import { getAppEnv, getRequiredEnv } from "@/lib/env";
@@ -248,6 +249,15 @@ export async function POST(req: Request) {
         }
         if (!userUuid) break; // cannot provision without user
 
+        // Credits pool at the organization. Metadata set by our checkout wins;
+        // otherwise fall back to the payer's personal workspace, which is
+        // correct for any account that never created a second org.
+        const orgUuid =
+          ((invoice as any).metadata?.org_uuid as string | undefined) ||
+          (await findPersonalOrganizationByUserUuid(userUuid))?.uuid;
+
+        if (!orgUuid) break; // cannot provision without a tenant
+
         // Compute expiry: use period end + 24h grace similar to checkout route
         const graceMs = 24 * 60 * 60 * 1000;
         const expiredAt = periodEnd ? new Date(periodEnd * 1000 + graceMs) : null;
@@ -262,6 +272,7 @@ export async function POST(req: Request) {
         const order = await insertOrder({
           order_no,
           created_at: new Date(),
+          org_uuid: orgUuid,
           user_uuid: userUuid,
           user_email: userEmail || "",
           amount,
@@ -286,6 +297,7 @@ export async function POST(req: Request) {
 
         if (credits && credits > 0) {
           await increaseCredits({
+            org_uuid: orgUuid,
             user_uuid: userUuid,
             trans_type: CreditsTransType.OrderPay,
             credits,

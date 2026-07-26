@@ -37,6 +37,13 @@ export interface JobPayloads {
     icsContent?: string;
     googleCalendarUrl?: string;
   };
+  org_invitation_email: {
+    to: string;
+    url: string;
+    organizationName: string;
+    inviterName?: string;
+    expiresInHours?: number;
+  };
   slack_event: {
     title: string;
     context?: Record<string, unknown>;

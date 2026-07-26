@@ -10,7 +10,6 @@
   "AUTH_INVALID_TOKEN": "Ce lien est invalide ou a expiré. Demandez-en un nouveau.",
   "AUTH_PASSWORD_TOO_SHORT": "Ce mot de passe est trop court.",
   "ACCOUNT_NOT_FOUND": "Compte introuvable.",
-
   "REQUEST_INVALID": "La requête n'est pas valide.",
   "REQUEST_MALFORMED_JSON": "Le corps de la requête n'est pas un JSON valide.",
   "REQUEST_VALIDATION_FAILED": "Certains champs nécessitent votre attention.",
@@ -18,41 +17,41 @@
   "REQUEST_ORIGIN_REJECTED": "Cette requête provient d'une origine non reconnue.",
   "REQUEST_RATE_LIMITED": "Trop de requêtes. Veuillez patienter avant de réessayer.",
   "RESOURCE_NOT_FOUND": "Introuvable.",
-
   "CREDITS_INSUFFICIENT": "Vous n'avez pas assez de crédits pour cette action.",
   "CREDITS_INVALID_AMOUNT": "Le nombre de crédits n'est pas valide.",
   "CREDITS_GRANT_LIMIT_EXCEEDED": "Cela dépasse le maximum autorisé pour une seule attribution.",
   "CREDITS_GRANT_FAILED": "L'attribution de crédits n'a pas pu être effectuée.",
   "CREDITS_TRANSACTION_NOT_FOUND": "Cette transaction de crédits est introuvable.",
-
   "ORDER_INVALID_PRODUCT": "Ce produit n'est pas disponible.",
   "ORDER_CREATE_FAILED": "Nous n'avons pas pu créer votre commande. Veuillez réessayer.",
   "PAYMENT_SESSION_FAILED": "Le prestataire de paiement est indisponible. Veuillez réessayer sous peu.",
   "PAYMENT_WEBHOOK_INVALID_SIGNATURE": "La signature du webhook n'a pas pu être vérifiée.",
-
   "PLAN_UPGRADE_REQUIRED": "Votre formule n'inclut pas cette fonctionnalité.",
   "PLAN_LIMIT_EXCEEDED": "Vous avez atteint la limite de votre formule.",
-
   "STORAGE_FILE_NOT_FOUND": "Ce fichier est introuvable.",
   "STORAGE_OBJECT_MISSING": "Le fichier stocké est manquant.",
   "STORAGE_FILE_TOO_LARGE": "Ce fichier est trop volumineux.",
   "STORAGE_SIZE_MISMATCH": "La taille du fichier envoyé ne correspond pas à celle attendue.",
   "STORAGE_UPLOAD_FAILED": "L'envoi n'a pas pu être terminé.",
-
   "TASK_NOT_FOUND": "Cette tâche est introuvable.",
   "TASK_PROMPT_REQUIRED": "Veuillez saisir une instruction.",
   "TASK_CREATE_FAILED": "La tâche n'a pas pu être créée. Veuillez réessayer.",
   "TASK_PROVIDER_FAILED": "Le service de génération a échoué. Veuillez réessayer.",
-
   "RESERVATION_NOT_FOUND": "Cette réservation est introuvable.",
   "RESERVATION_SLOT_UNAVAILABLE": "Ce créneau n'est plus disponible.",
   "RESERVATION_AVAILABILITY_FAILED": "La disponibilité n'a pas pu être chargée. Veuillez réessayer.",
   "RESERVATION_CREATE_FAILED": "La réservation n'a pas pu être créée. Veuillez réessayer.",
   "RESERVATION_HOLD_EXPIRED": "Votre réservation provisoire a expiré. Veuillez choisir un nouveau créneau.",
   "RESERVATION_CANCEL_WINDOW_PASSED": "Cette réservation ne peut plus être annulée en ligne.",
-
   "FEATURE_DISABLED": "Cette fonctionnalité n'est pas activée.",
   "SERVICE_UNAVAILABLE": "Le service est temporairement indisponible. Veuillez réessayer sous peu.",
   "SERVER_ERROR": "Une erreur est survenue de notre côté. Veuillez réessayer.",
-  "NETWORK_UNAVAILABLE": "Impossible de joindre le serveur. Vérifiez votre connexion et réessayez."
+  "NETWORK_UNAVAILABLE": "Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.",
+  "ORG_MEMBER_NOT_FOUND": "Cette personne ne fait pas partie de cette équipe.",
+  "ORG_LAST_OWNER": "C'est le seul propriétaire. Désignez d'abord un autre propriétaire.",
+  "ORG_ALREADY_MEMBER": "Cette personne fait déjà partie de l'équipe.",
+  "ORG_INVITATION_NOT_FOUND": "Cette invitation est invalide ou a déjà été utilisée.",
+  "ORG_INVITATION_EXPIRED": "Cette invitation a expiré. Demandez-en une nouvelle.",
+  "ORG_INVITATION_WRONG_ACCOUNT": "Cette invitation a été envoyée à une autre adresse e-mail. Connectez-vous avec cette adresse pour l'accepter.",
+  "ORG_CANNOT_LEAVE_LAST": "C'est votre seul espace de travail. Rejoignez-en ou créez-en un autre avant de partir."
 }

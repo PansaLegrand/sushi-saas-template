@@ -8,6 +8,8 @@ import {
 import { getSnowId } from "@/lib/hash";
 import { ReservationsConfig } from "@/config/reservations";
 
+import { scopedToOrg } from "./organization";
+
 export type ReservationService = typeof reservationServices.$inferSelect;
 export type Reservation = typeof reservations.$inferSelect;
 
@@ -56,6 +58,9 @@ export async function getServiceById(id: number): Promise<ReservationService | u
 }
 
 export async function createReservation(params: {
+  /** The tenant the booking belongs to. */
+  org_uuid: string;
+  /** The member who made it. */
   user_uuid: string;
   service_id: number;
   start_at: Date;
@@ -70,6 +75,7 @@ export async function createReservation(params: {
     .insert(reservations)
     .values({
       reservation_no: String(getSnowId()),
+      org_uuid: params.org_uuid,
       user_uuid: params.user_uuid,
       service_id: params.service_id,
       start_at: params.start_at,
@@ -159,15 +165,15 @@ export async function hasConflict(params: {
   return results.length > 0;
 }
 
-export async function listUserReservations(user_uuid: string): Promise<Reservation[]> {
+export async function listOrgReservations(orgUuid: string): Promise<Reservation[]> {
   const rows = await db()
     .select()
     .from(reservations)
-    .where(eq(reservations.user_uuid, user_uuid));
+    .where(scopedToOrg(reservations.org_uuid, orgUuid));
   return rows;
 }
 
-export async function listUserReservationsWithService(user_uuid: string): Promise<Array<Reservation & { service: ReservationService }>> {
+export async function listOrgReservationsWithService(orgUuid: string): Promise<Array<Reservation & { service: ReservationService }>> {
   const rows = await db()
     .select({
       r: reservations,
@@ -175,6 +181,6 @@ export async function listUserReservationsWithService(user_uuid: string): Promis
     })
     .from(reservations)
     .leftJoin(reservationServices, eq(reservations.service_id, reservationServices.id))
-    .where(eq(reservations.user_uuid, user_uuid));
+    .where(scopedToOrg(reservations.org_uuid, orgUuid));
   return rows.map((row: any) => ({ ...row.r, service: row.s }));
 }

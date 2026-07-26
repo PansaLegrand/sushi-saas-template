@@ -6,12 +6,12 @@ import { parseJsonBody } from "@/lib/http/request";
 import {
   CreditsTransType,
   increaseCredits,
-  getUserCreditSummary,
+  getOrgCreditSummary,
 } from "@/services/credit";
 import { isAccountCreditGrantEnabled } from "@/lib/demo-flags";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
-import { getUserUuid } from "@/services/user";
+import { getOrgContext } from "@/services/authz";
 
 const CreditGrantSchema = z.object({
   credits: z.unknown(),
@@ -32,8 +32,8 @@ export async function POST(req: Request) {
   if (limited) return limited;
 
   try {
-    const userUuid = await getUserUuid(req);
-    if (!userUuid) {
+    const ctx = await getOrgContext(req);
+    if (!ctx) {
       return respNoAuth();
     }
 
@@ -45,14 +45,15 @@ export async function POST(req: Request) {
     }
 
     await increaseCredits({
-      user_uuid: userUuid,
+      org_uuid: ctx.orgUuid,
+      user_uuid: ctx.userUuid,
       trans_type: CreditsTransType.SystemAdd,
       credits,
       expired_at: payload.expiredAt,
       order_no: payload.orderNo,
     });
 
-    const summary = await getUserCreditSummary(userUuid, {
+    const summary = await getOrgCreditSummary(ctx.orgUuid, {
       includeLedger: true,
       ledgerLimit: payload.ledgerLimit,
     });

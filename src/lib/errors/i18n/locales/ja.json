@@ -10,7 +10,6 @@
   "AUTH_INVALID_TOKEN": "このリンクは無効か、有効期限が切れています。再度お試しください。",
   "AUTH_PASSWORD_TOO_SHORT": "パスワードが短すぎます。",
   "ACCOUNT_NOT_FOUND": "アカウントが見つかりません。",
-
   "REQUEST_INVALID": "リクエストが不正です。",
   "REQUEST_MALFORMED_JSON": "リクエスト本文が有効な JSON ではありません。",
   "REQUEST_VALIDATION_FAILED": "入力内容にエラーがあります。ご確認ください。",
@@ -18,41 +17,41 @@
   "REQUEST_ORIGIN_REJECTED": "認識できない送信元からのリクエストです。",
   "REQUEST_RATE_LIMITED": "リクエストが多すぎます。しばらくしてからお試しください。",
   "RESOURCE_NOT_FOUND": "見つかりませんでした。",
-
   "CREDITS_INSUFFICIENT": "クレジットが不足しています。",
   "CREDITS_INVALID_AMOUNT": "クレジット数が不正です。",
   "CREDITS_GRANT_LIMIT_EXCEEDED": "1 回の付与上限を超えています。",
   "CREDITS_GRANT_FAILED": "クレジットの付与を完了できませんでした。",
   "CREDITS_TRANSACTION_NOT_FOUND": "該当するクレジット取引が見つかりません。",
-
   "ORDER_INVALID_PRODUCT": "この商品は現在ご利用いただけません。",
   "ORDER_CREATE_FAILED": "注文を開始できませんでした。もう一度お試しください。",
   "PAYMENT_SESSION_FAILED": "決済サービスに接続できません。しばらくしてからお試しください。",
   "PAYMENT_WEBHOOK_INVALID_SIGNATURE": "Webhook の署名を検証できませんでした。",
-
   "PLAN_UPGRADE_REQUIRED": "現在のプランではこの機能をご利用いただけません。",
   "PLAN_LIMIT_EXCEEDED": "現在のプランの上限に達しました。",
-
   "STORAGE_FILE_NOT_FOUND": "ファイルが見つかりません。",
   "STORAGE_OBJECT_MISSING": "保存されているファイルが見つかりません。",
   "STORAGE_FILE_TOO_LARGE": "ファイルサイズが大きすぎます。",
   "STORAGE_SIZE_MISMATCH": "アップロードされたファイルのサイズが一致しません。",
   "STORAGE_UPLOAD_FAILED": "アップロードを完了できませんでした。",
-
   "TASK_NOT_FOUND": "タスクが見つかりません。",
   "TASK_PROMPT_REQUIRED": "プロンプトを入力してください。",
   "TASK_CREATE_FAILED": "タスクを作成できませんでした。もう一度お試しください。",
   "TASK_PROVIDER_FAILED": "生成サービスの呼び出しに失敗しました。もう一度お試しください。",
-
   "RESERVATION_NOT_FOUND": "予約が見つかりません。",
   "RESERVATION_SLOT_UNAVAILABLE": "その時間帯はすでに埋まっています。",
   "RESERVATION_AVAILABILITY_FAILED": "空き状況を読み込めませんでした。もう一度お試しください。",
   "RESERVATION_CREATE_FAILED": "予約を作成できませんでした。もう一度お試しください。",
   "RESERVATION_HOLD_EXPIRED": "時間枠の仮押さえが期限切れになりました。もう一度お選びください。",
   "RESERVATION_CANCEL_WINDOW_PASSED": "この予約はオンラインでのキャンセル期限を過ぎています。",
-
   "FEATURE_DISABLED": "この機能は有効になっていません。",
   "SERVICE_UNAVAILABLE": "サービスが一時的に利用できません。しばらくしてからお試しください。",
   "SERVER_ERROR": "サーバー側で問題が発生しました。もう一度お試しください。",
-  "NETWORK_UNAVAILABLE": "サーバーに接続できませんでした。通信環境を確認して、もう一度お試しください。"
+  "NETWORK_UNAVAILABLE": "サーバーに接続できませんでした。通信環境を確認して、もう一度お試しください。",
+  "ORG_MEMBER_NOT_FOUND": "そのメンバーはこのチームに所属していません。",
+  "ORG_LAST_OWNER": "唯一のオーナーです。先に別のオーナーを指定してください。",
+  "ORG_ALREADY_MEMBER": "その方はすでにチームのメンバーです。",
+  "ORG_INVITATION_NOT_FOUND": "この招待は無効か、すでに使用されています。",
+  "ORG_INVITATION_EXPIRED": "この招待は期限切れです。新しい招待を依頼してください。",
+  "ORG_INVITATION_WRONG_ACCOUNT": "この招待は別のメールアドレス宛です。そのアドレスでサインインして承諾してください。",
+  "ORG_CANNOT_LEAVE_LAST": "これは唯一のワークスペースです。退出する前に別のワークスペースに参加または作成してください。"
 }

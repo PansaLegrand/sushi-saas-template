@@ -18,8 +18,35 @@ vi.mock("@/services/user", () => ({
   getUserUuid: vi.fn().mockResolvedValue("u-test"),
 }));
 
-const listSubscriptionsByUserUuid = vi.fn();
-const countTasksByUserSince = vi.fn();
+// The routes resolve their tenant through `getOrgContext`, which pulls in the
+// real Better Auth instance (and therefore a real database) if left unmocked.
+vi.mock("@/services/authz", () => ({
+  getOrgContext: vi
+    .fn()
+    .mockResolvedValue({
+      userId: "id-test",
+      userUuid: "u-test",
+      orgId: "id-org-test",
+      orgUuid: "org-test",
+      orgSlug: "test-org",
+      role: "owner",
+    }),
+  getOrgContextFromHeaders: vi
+    .fn()
+    .mockResolvedValue({
+      userId: "id-test",
+      userUuid: "u-test",
+      orgId: "id-org-test",
+      orgUuid: "org-test",
+      orgSlug: "test-org",
+      role: "owner",
+    }),
+  can: () => true,
+}));
+
+
+const listSubscriptionsByOrg = vi.fn();
+const countTasksByOrgSince = vi.fn();
 
 vi.mock("@/models/subscription", async () => {
   const actual = await vi.importActual<typeof import("@/models/subscription")>(
@@ -27,13 +54,13 @@ vi.mock("@/models/subscription", async () => {
   );
   return {
     ...actual,
-    listSubscriptionsByUserUuid: (...args: unknown[]) =>
-      listSubscriptionsByUserUuid(...args),
+    listSubscriptionsByOrg: (...args: unknown[]) =>
+      listSubscriptionsByOrg(...args),
   };
 });
 
 vi.mock("@/models/task", () => ({
-  countTasksByUserSince: (...args: unknown[]) => countTasksByUserSince(...args),
+  countTasksByOrgSince: (...args: unknown[]) => countTasksByOrgSince(...args),
 }));
 
 /** An active subscription row on `tier`, enough for the entitlement service. */
@@ -91,8 +118,8 @@ describe("POST /api/tasks/text-to-video", () => {
     resetRateLimitForTests();
     // Entitled and under quota unless a test says otherwise, so the cases
     // below stay about the behaviour they are named for.
-    listSubscriptionsByUserUuid.mockResolvedValue([subscriptionOn("plus")]);
-    countTasksByUserSince.mockResolvedValue(0);
+    listSubscriptionsByOrg.mockResolvedValue([subscriptionOn("plus")]);
+    countTasksByOrgSince.mockResolvedValue(0);
   });
 
   it("rejects requests when the demo provider is disabled", async () => {
@@ -128,6 +155,7 @@ describe("POST /api/tasks/text-to-video", () => {
     expect(payload.code).toBe(0);
     expect(payload.data.task.uuid).toBe("task-test");
     expect(tasks.createTextToVideoTask).toHaveBeenCalledWith({
+      orgUuid: "org-test",
       userUuid: "u-test",
       input: { prompt: "hello", seconds: 8, aspectRatio: "landscape" },
       idempotencyKey: undefined,
@@ -153,6 +181,7 @@ describe("POST /api/tasks/text-to-video", () => {
 
     expect(res.status).toBe(200);
     expect(tasks.createTextToVideoTask).toHaveBeenCalledWith({
+      orgUuid: "org-test",
       userUuid: "u-test",
       input: { prompt: "hello", seconds: 8, aspectRatio: "landscape" },
       idempotencyKey: "idem-header-test",
@@ -161,7 +190,7 @@ describe("POST /api/tasks/text-to-video", () => {
 
   it("refuses a free account and names the tier that would work", async () => {
     enableDemoProvider();
-    listSubscriptionsByUserUuid.mockResolvedValue([]);
+    listSubscriptionsByOrg.mockResolvedValue([]);
 
     const req = new Request("http://test", {
       method: "POST",
@@ -182,7 +211,7 @@ describe("POST /api/tasks/text-to-video", () => {
 
   it("refuses an entitled account that has used its monthly allowance", async () => {
     enableDemoProvider();
-    countTasksByUserSince.mockResolvedValue(50); // Plus allows 50 per month.
+    countTasksByOrgSince.mockResolvedValue(50); // Plus allows 50 per month.
 
     const req = new Request("http://test", {
       method: "POST",
@@ -205,8 +234,8 @@ describe("POST /api/tasks/text-to-video", () => {
 
   it("lets an unlimited tier past the quota check", async () => {
     enableDemoProvider();
-    listSubscriptionsByUserUuid.mockResolvedValue([subscriptionOn("max")]);
-    countTasksByUserSince.mockResolvedValue(10_000);
+    listSubscriptionsByOrg.mockResolvedValue([subscriptionOn("max")]);
+    countTasksByOrgSince.mockResolvedValue(10_000);
 
     const req = new Request("http://test", {
       method: "POST",

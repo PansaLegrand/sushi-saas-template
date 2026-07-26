@@ -264,6 +264,39 @@ export const ERROR_CATALOG = {
     defaultMessage: "This reservation can no longer be cancelled online.",
   },
 
+  // ------------------------------------------------------- organizations
+  ORG_MEMBER_NOT_FOUND: {
+    statusCode: 404,
+    defaultMessage: "That member is not part of this team.",
+  },
+  ORG_LAST_OWNER: {
+    statusCode: 409,
+    defaultMessage:
+      "This is the only owner. Make someone else an owner first.",
+  },
+  ORG_CANNOT_LEAVE_LAST: {
+    statusCode: 409,
+    defaultMessage:
+      "This is your only workspace. Join or create another one before leaving.",
+  },
+  ORG_ALREADY_MEMBER: {
+    statusCode: 409,
+    defaultMessage: "That person is already on this team.",
+  },
+  ORG_INVITATION_NOT_FOUND: {
+    statusCode: 404,
+    defaultMessage: "This invitation is invalid or has already been used.",
+  },
+  ORG_INVITATION_EXPIRED: {
+    statusCode: 410,
+    defaultMessage: "This invitation has expired. Ask for a new one.",
+  },
+  ORG_INVITATION_WRONG_ACCOUNT: {
+    statusCode: 403,
+    defaultMessage:
+      "This invitation was sent to a different email address. Sign in with that address to accept it.",
+  },
+
   // -------------------------------------------------------------- system
   FEATURE_DISABLED: {
     statusCode: 403,

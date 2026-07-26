@@ -4,7 +4,7 @@ import { respData, respNoAuth } from "@/lib/resp";
 import { respCode, respError } from "@/lib/errors/response";
 import { toAppError } from "@/lib/errors/app-error";
 import { parseJsonBody } from "@/lib/http/request";
-import { getUserUuid } from "@/services/user";
+import { getOrgContext } from "@/services/authz";
 import { findFileByUuid, updateFileByUuid } from "@/models/file";
 import { getStorageAdapter } from "@/services/storage";
 import { notifySlackError } from "@/integrations/slack";
@@ -23,13 +23,13 @@ export async function POST(req: Request) {
   if (limited) return limited;
 
   try {
-    const userUuid = await getUserUuid(req);
-    if (!userUuid) return respNoAuth();
+    const ctx = await getOrgContext(req);
+    if (!ctx) return respNoAuth();
 
     const { fileUuid } = await parseJsonBody(req, CompleteUploadSchema);
 
-    const file = await findFileByUuid(fileUuid);
-    if (!file || file.user_uuid !== userUuid) {
+    const file = await findFileByUuid(fileUuid, ctx.orgUuid);
+    if (!file) {
       return respCode("STORAGE_FILE_NOT_FOUND");
     }
 
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     // Basic size match validation
     if (file.size && head.size && head.size !== file.size) {
       // Update anyway with head values but report mismatch
-      await updateFileByUuid(file.uuid, {
+      await updateFileByUuid(file.uuid, ctx.orgUuid, {
         size: head.size,
         etag: head.etag ?? null,
         content_type: head.contentType ?? file.content_type,
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
       return respCode("STORAGE_SIZE_MISMATCH");
     }
 
-    const updated = await updateFileByUuid(file.uuid, {
+    const updated = await updateFileByUuid(file.uuid, ctx.orgUuid, {
       size: head.size || file.size,
       etag: head.etag ?? null,
       content_type: head.contentType ?? file.content_type,

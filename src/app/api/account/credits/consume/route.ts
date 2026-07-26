@@ -9,9 +9,9 @@ import { rateLimitOrThrow } from "@/lib/rate-limit";
 import {
   CreditsTransType,
   decreaseCredits,
-  getUserCreditSummary,
+  getOrgCreditSummary,
 } from "@/services/credit";
-import { getUserUuid } from "@/services/user";
+import { getOrgContext } from "@/services/authz";
 
 const ConsumeCreditsSchema = z.object({
   credits: z.unknown().optional(),
@@ -29,8 +29,8 @@ export async function POST(req: Request) {
   if (limited) return limited;
 
   try {
-    const userUuid = await getUserUuid(req);
-    if (!userUuid) {
+    const ctx = await getOrgContext(req);
+    if (!ctx) {
       return respNoAuth();
     }
 
@@ -45,12 +45,13 @@ export async function POST(req: Request) {
     }
 
     await decreaseCredits({
-      user_uuid: userUuid,
+      org_uuid: ctx.orgUuid,
+      user_uuid: ctx.userUuid,
       trans_type: CreditsTransType.MockUsage,
       credits,
     });
 
-    const summary = await getUserCreditSummary(userUuid, {
+    const summary = await getOrgCreditSummary(ctx.orgUuid, {
       includeLedger: false,
       includeExpiring: false,
     });

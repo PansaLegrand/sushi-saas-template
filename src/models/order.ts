@@ -3,13 +3,18 @@ import { db } from "@/db";
 import { asc, desc, eq, gte } from "drizzle-orm";
 import { and } from "drizzle-orm";
 
+import { scopedToOrg } from "./organization";
+
 export enum OrderStatus {
   Created = "created",
   Paid = "paid",
   Deleted = "deleted",
 }
 
-export async function insertOrder(data: typeof orders.$inferInsert) {
+/** `org_uuid` is required: an order that belongs to no tenant can never be read back. */
+export type OrderInsert = typeof orders.$inferInsert & { org_uuid: string };
+
+export async function insertOrder(data: OrderInsert) {
   if (data.created_at && typeof data.created_at === "string") {
     data.created_at = new Date(data.created_at);
   }
@@ -25,6 +30,13 @@ export async function insertOrder(data: typeof orders.$inferInsert) {
   return order;
 }
 
+/**
+ * Lookup by `order_no`, which is globally unique.
+ *
+ * Unscoped by necessity: Stripe callbacks and webhooks arrive holding only this
+ * identifier. Callers that then act on behalf of a signed-in user must compare
+ * the row's `org_uuid` against their own context.
+ */
 export async function findOrderByOrderNo(
   order_no: string
 ): Promise<typeof orders.$inferSelect | undefined> {
@@ -37,14 +49,17 @@ export async function findOrderByOrderNo(
   return order;
 }
 
-export async function getFirstPaidOrderByUserUuid(
-  user_uuid: string
+export async function getFirstPaidOrderByOrg(
+  orgUuid: string
 ): Promise<typeof orders.$inferSelect | undefined> {
   const [order] = await db()
     .select()
     .from(orders)
     .where(
-      and(eq(orders.user_uuid, user_uuid), eq(orders.status, OrderStatus.Paid))
+      and(
+        scopedToOrg(orders.org_uuid, orgUuid),
+        eq(orders.status, OrderStatus.Paid)
+      )
     )
     .orderBy(asc(orders.created_at))
     .limit(1);
@@ -133,14 +148,17 @@ export async function updateOrderSubscription(
   return order;
 }
 
-export async function getOrdersByUserUuid(
-  user_uuid: string
+export async function getOrdersByOrg(
+  orgUuid: string
 ): Promise<(typeof orders.$inferSelect)[] | undefined> {
   const data = await db()
     .select()
     .from(orders)
     .where(
-      and(eq(orders.user_uuid, user_uuid), eq(orders.status, OrderStatus.Paid))
+      and(
+        scopedToOrg(orders.org_uuid, orgUuid),
+        eq(orders.status, OrderStatus.Paid)
+      )
     )
     .orderBy(desc(orders.created_at));
 

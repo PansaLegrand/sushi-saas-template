@@ -3,7 +3,8 @@ import { findUserById, findUserByUuid } from "@/models/user";
 import type { CreditSummary } from "@/types/credit";
 import type { UserProfile } from "@/types/user";
 
-import { getUserCreditSummary } from "./credit";
+import { getOrgContext } from "./authz";
+import { getOrgCreditSummary } from "./credit";
 
 interface CreditOptions {
   includeLedger?: boolean;
@@ -54,16 +55,19 @@ export async function getUserProfile(
   req: Request,
   options: CreditOptions = {}
 ): Promise<UserProfile | null> {
-  const userUuid = await getUserUuid(req);
-  if (!userUuid) {
+  // The profile carries a credit balance, and a balance belongs to an
+  // organization rather than to a person, so the profile needs both identities.
+  const ctx = await getOrgContext(req);
+  if (!ctx) {
     return null;
   }
 
-  return getUserProfileByUuid(userUuid, options);
+  return getUserProfileByUuid(ctx.userUuid, ctx.orgUuid, options);
 }
 
 export async function getUserProfileByUuid(
   userUuid: string,
+  orgUuid: string,
   options: CreditOptions = {}
 ): Promise<UserProfile | null> {
   const dbUser = await findUserByUuid(userUuid);
@@ -71,7 +75,7 @@ export async function getUserProfileByUuid(
     return null;
   }
 
-  const credits: CreditSummary = await getUserCreditSummary(userUuid, {
+  const credits: CreditSummary = await getOrgCreditSummary(orgUuid, {
     includeLedger: options.includeLedger,
     ledgerLimit: options.creditLedgerLimit,
   });

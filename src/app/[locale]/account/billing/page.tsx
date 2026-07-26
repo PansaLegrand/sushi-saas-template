@@ -6,7 +6,7 @@ import { buildMetadata, defaultMetaFallbacks } from "@/lib/seo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { describePlans, getPlanSnapshot } from "@/services/entitlements";
-import { getUserUuidFromHeaders } from "@/services/user";
+import { getOrgContextFromHeaders } from "@/services/authz";
 import type { LimitValue, PlanLimit, PlanSnapshot, Tier } from "@/types/plan";
 
 export async function generateMetadata({
@@ -118,15 +118,16 @@ function describeStatus(
 
 export default async function BillingPage({ params }: { params: Promise<{ locale: string }> }) {
   const requestHeaders = await headers();
-  const userUuid = await getUserUuidFromHeaders(requestHeaders);
-  if (!userUuid) redirect("/login");
+  // The plan belongs to the organization being acted in, not to the person.
+  const ctx = await getOrgContextFromHeaders(requestHeaders);
+  if (!ctx) redirect("/login");
 
   const { locale } = await params;
 
   // A Server Component calls the service directly. Fetching our own
   // /api/account/plan from here would turn an in-process call into an HTTP
   // round trip against ourselves — see the frontend rules in AGENTS.md.
-  const snapshot = await getPlanSnapshot(userUuid);
+  const snapshot = await getPlanSnapshot(ctx.orgUuid);
   const plans = describePlans();
   const status = snapshot.subscription ? describeStatus(snapshot.subscription) : null;
 

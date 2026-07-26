@@ -10,7 +10,6 @@
   "AUTH_INVALID_TOKEN": "此链接无效或已过期，请重新获取。",
   "AUTH_PASSWORD_TOO_SHORT": "密码长度不足。",
   "ACCOUNT_NOT_FOUND": "未找到该账户。",
-
   "REQUEST_INVALID": "请求无效。",
   "REQUEST_MALFORMED_JSON": "请求内容不是有效的 JSON。",
   "REQUEST_VALIDATION_FAILED": "部分字段填写有误，请检查。",
@@ -18,41 +17,41 @@
   "REQUEST_ORIGIN_REJECTED": "请求来自未被识别的来源。",
   "REQUEST_RATE_LIMITED": "请求过于频繁，请稍后再试。",
   "RESOURCE_NOT_FOUND": "未找到。",
-
   "CREDITS_INSUFFICIENT": "积分不足，无法完成此操作。",
   "CREDITS_INVALID_AMOUNT": "积分数量无效。",
   "CREDITS_GRANT_LIMIT_EXCEEDED": "超出单次发放的上限。",
   "CREDITS_GRANT_FAILED": "积分发放未能完成。",
   "CREDITS_TRANSACTION_NOT_FOUND": "未找到该积分流水记录。",
-
   "ORDER_INVALID_PRODUCT": "该商品当前不可购买。",
   "ORDER_CREATE_FAILED": "订单创建失败，请重试。",
   "PAYMENT_SESSION_FAILED": "支付服务暂时不可用，请稍后重试。",
   "PAYMENT_WEBHOOK_INVALID_SIGNATURE": "无法验证 webhook 签名。",
-
   "PLAN_UPGRADE_REQUIRED": "当前方案不包含此功能。",
   "PLAN_LIMIT_EXCEEDED": "已达到当前方案的上限。",
-
   "STORAGE_FILE_NOT_FOUND": "未找到该文件。",
   "STORAGE_OBJECT_MISSING": "存储中的文件已丢失。",
   "STORAGE_FILE_TOO_LARGE": "文件过大。",
   "STORAGE_SIZE_MISMATCH": "上传的文件大小与预期不一致。",
   "STORAGE_UPLOAD_FAILED": "上传未能完成。",
-
   "TASK_NOT_FOUND": "未找到该任务。",
   "TASK_PROMPT_REQUIRED": "请输入提示词。",
   "TASK_CREATE_FAILED": "任务创建失败，请重试。",
   "TASK_PROVIDER_FAILED": "生成服务调用失败，请重试。",
-
   "RESERVATION_NOT_FOUND": "未找到该预约。",
   "RESERVATION_SLOT_UNAVAILABLE": "该时间段已被占用。",
   "RESERVATION_AVAILABILITY_FAILED": "无法加载可预约时间，请重试。",
   "RESERVATION_CREATE_FAILED": "预约创建失败，请重试。",
   "RESERVATION_HOLD_EXPIRED": "你的时段占用已过期，请重新选择时间。",
   "RESERVATION_CANCEL_WINDOW_PASSED": "该预约已超过可在线取消的时限。",
-
   "FEATURE_DISABLED": "该功能未开启。",
   "SERVICE_UNAVAILABLE": "服务暂时不可用，请稍后重试。",
   "SERVER_ERROR": "服务器出错了，请稍后重试。",
-  "NETWORK_UNAVAILABLE": "无法连接服务器，请检查网络后重试。"
+  "NETWORK_UNAVAILABLE": "无法连接服务器，请检查网络后重试。",
+  "ORG_MEMBER_NOT_FOUND": "该成员不属于此团队。",
+  "ORG_LAST_OWNER": "这是唯一的所有者。请先将其他人设为所有者。",
+  "ORG_ALREADY_MEMBER": "该用户已在此团队中。",
+  "ORG_INVITATION_NOT_FOUND": "此邀请无效或已被使用。",
+  "ORG_INVITATION_EXPIRED": "此邀请已过期，请索取新的邀请。",
+  "ORG_INVITATION_WRONG_ACCOUNT": "此邀请发送至其他邮箱地址。请使用该地址登录后接受。",
+  "ORG_CANNOT_LEAVE_LAST": "这是您唯一的工作区。请先加入或创建另一个工作区再退出。"
 }

@@ -71,13 +71,19 @@ describe("createTextToVideoTask", () => {
     mocks.refundCreditsForTransaction.mockResolvedValue("refund_credit-trans-1");
     mocks.generateTextToVideo.mockResolvedValue({ outputUrl: "/test.mp4" });
     mocks.updateTaskStatus.mockImplementation(
-      async (uuid: string, status: string, fields: Record<string, unknown> = {}) =>
+      async (
+        uuid: string,
+        _orgUuid: string,
+        status: string,
+        fields: Record<string, unknown> = {}
+      ) =>
         task({ uuid, status, ...fields, updated_at: new Date("2026-01-01T00:00:01.000Z") })
     );
   });
 
   it("creates a task, spends credits, and marks the task succeeded", async () => {
     const result = await createTextToVideoTask({
+      orgUuid: "org-test",
       userUuid: "u-test",
       input: { prompt: "hello", seconds: 8, aspectRatio: "landscape" },
       idempotencyKey: "idem-1",
@@ -90,7 +96,9 @@ describe("createTextToVideoTask", () => {
         idempotency_key: "idem-1",
       })
     );
+    // The spend is attributed to the member but drawn from the org's balance.
     expect(mocks.decreaseCredits).toHaveBeenCalledWith({
+      org_uuid: "org-test",
       user_uuid: "u-test",
       trans_type: "task_text_to_video",
       credits: 8,
@@ -102,6 +110,7 @@ describe("createTextToVideoTask", () => {
     });
     expect(mocks.updateTaskStatus).toHaveBeenCalledWith(
       "task-1",
+      "org-test",
       "succeeded",
       expect.objectContaining({ output_url: "/test.mp4" })
     );
@@ -114,6 +123,7 @@ describe("createTextToVideoTask", () => {
     mocks.findTaskByIdempotencyKey.mockResolvedValue(existing);
 
     const result = await createTextToVideoTask({
+      orgUuid: "org-test",
       userUuid: "u-test",
       input: { prompt: "hello", seconds: 8, aspectRatio: "landscape" },
       idempotencyKey: "idem-1",
@@ -121,6 +131,7 @@ describe("createTextToVideoTask", () => {
 
     expect(result.task).toBe(existing);
     expect(mocks.findTaskByIdempotencyKey).toHaveBeenCalledWith({
+      org_uuid: "org-test",
       user_uuid: "u-test",
       type: "text_to_video",
       idempotency_key: "idem-1",
@@ -135,7 +146,8 @@ describe("createTextToVideoTask", () => {
 
     await expect(
       createTextToVideoTask({
-        userUuid: "u-test",
+        orgUuid: "org-test",
+      userUuid: "u-test",
         input: { prompt: "hello", seconds: 8, aspectRatio: "landscape" },
         idempotencyKey: "idem-1",
       })
@@ -145,11 +157,13 @@ describe("createTextToVideoTask", () => {
     });
 
     expect(mocks.refundCreditsForTransaction).toHaveBeenCalledWith({
+      org_uuid: "org-test",
       user_uuid: "u-test",
       original_trans_no: "credit-trans-1",
     });
     expect(mocks.updateTaskStatus).toHaveBeenCalledWith(
       "task-1",
+      "org-test",
       "failed",
       expect.objectContaining({
         credits_trans_no: "credit-trans-1",
@@ -161,7 +175,8 @@ describe("createTextToVideoTask", () => {
   it("rejects overlong idempotency keys before inserting a task", async () => {
     await expect(
       createTextToVideoTask({
-        userUuid: "u-test",
+        orgUuid: "org-test",
+      userUuid: "u-test",
         input: { prompt: "hello", seconds: 8, aspectRatio: "landscape" },
         idempotencyKey: "x".repeat(256),
       })

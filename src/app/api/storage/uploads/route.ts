@@ -4,9 +4,9 @@ import { respData, respNoAuth } from "@/lib/resp";
 import { respCode, respError } from "@/lib/errors/response";
 import { toAppError } from "@/lib/errors/app-error";
 import { parseJsonBody } from "@/lib/http/request";
-import { getUserUuid } from "@/services/user";
+import { getOrgContext } from "@/services/authz";
 import { getSnowId } from "@/lib/hash";
-import { insertFile, sumFileBytesByUser } from "@/models/file";
+import { insertFile, sumFileBytesByOrg } from "@/models/file";
 import { enforceLimit, limitOf, requireEntitlement } from "@/services/entitlements";
 import { getStorageAdapter } from "@/services/storage";
 import { getAppEnv } from "@/lib/env";
@@ -41,8 +41,9 @@ export async function POST(req: Request) {
   try {
     const requestId = requestIdFromHeaders(req.headers);
     const log = baseLogger.child({ request_id: requestId, route: "/api/storage/uploads" });
-    const userUuid = await getUserUuid(req);
-    if (!userUuid) return respNoAuth();
+    const ctx = await getOrgContext(req);
+    if (!ctx) return respNoAuth();
+    const userUuid = ctx.userUuid;
 
     // Accept both JSON and multipart/form-data for convenience
     let payload: Partial<CreateUploadRequest> &
@@ -118,9 +119,9 @@ export async function POST(req: Request) {
     // accept at all, whatever anyone is paying. The plan limit is a product
     // decision. Keeping them separate means raising a tier's allowance never
     // silently raises what the server will accept from an unpaid account.
-    await requireEntitlement(userUuid, "storage.upload");
+    await requireEntitlement(ctx.orgUuid, "storage.upload");
 
-    const planMaxMb = await limitOf(userUuid, "storage.maxFileMb");
+    const planMaxMb = await limitOf(ctx.orgUuid, "storage.maxFileMb");
     const effectiveMaxMb =
       planMaxMb === null ? DEFAULT_MAX_UPLOAD_MB : Math.min(DEFAULT_MAX_UPLOAD_MB, planMaxMb);
     const maxBytes = effectiveMaxMb * 1024 * 1024;
@@ -135,8 +136,8 @@ export async function POST(req: Request) {
     // this upload would add, at creation time only — a user who downgrades
     // below what they already hold keeps their files and is simply refused new
     // ones. Nothing here deletes data because a plan changed.
-    const usedBytes = await sumFileBytesByUser(userUuid);
-    await enforceLimit(userUuid, "storage.totalMb", {
+    const usedBytes = await sumFileBytesByOrg(ctx.orgUuid);
+    await enforceLimit(ctx.orgUuid, "storage.totalMb", {
       current: Math.round(usedBytes / (1024 * 1024)),
       adding: Math.ceil(Number(size) / (1024 * 1024)),
     });
@@ -148,6 +149,7 @@ export async function POST(req: Request) {
     // Reserve a record in DB with status 'uploading'
     const fileUuid = getSnowId();
     await insertFile({
+      org_uuid: ctx.orgUuid,
       uuid: fileUuid,
       user_uuid: userUuid,
       provider: storage.provider,

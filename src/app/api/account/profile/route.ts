@@ -4,7 +4,8 @@ import { requireSameOrigin } from "@/lib/origin";
 import { respData, respNoAuth } from "@/lib/resp";
 import { respCode, respError } from "@/lib/errors/response";
 import { parseJsonBody } from "@/lib/http/request";
-import { getUserProfileByUuid, getUserUuid } from "@/services/user";
+import { getUserProfileByUuid } from "@/services/user";
+import { getOrgContext } from "@/services/authz";
 
 const UserInfoSchema = z.object({
   includeCreditLedger: z.boolean().optional(),
@@ -16,8 +17,8 @@ export async function POST(req: Request) {
   if (invalidOrigin) return invalidOrigin;
 
   try {
-    const userUuid = await getUserUuid(req);
-    if (!userUuid) {
+    const ctx = await getOrgContext(req);
+    if (!ctx) {
       return respNoAuth();
     }
 
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
       defaultValue: {},
     });
 
-    const profile = await getUserProfileByUuid(userUuid, {
+    const profile = await getUserProfileByUuid(ctx.userUuid, ctx.orgUuid, {
       includeLedger: payload.includeCreditLedger,
       creditLedgerLimit: payload.creditLedgerLimit,
     });

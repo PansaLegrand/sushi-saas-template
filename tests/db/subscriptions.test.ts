@@ -22,7 +22,7 @@ import {
   endSubscription,
   findSubscriptionByStripeId,
   insertManualSubscription,
-  listSubscriptionsByUserUuid,
+  listSubscriptionsByOrg,
   upsertStripeSubscription,
 } from "@/models/subscription";
 
@@ -31,6 +31,8 @@ const STRIPE_SUB_ID = "sub_stripe_test";
 function baseInput(overrides: Partial<Parameters<typeof upsertStripeSubscription>[0]> = {}) {
   return {
     uuid: `uuid-${Math.random().toString(36).slice(2)}`,
+    // The plan belongs to the org; the user is recorded for attribution only.
+    org_uuid: "org-1",
     user_uuid: "u-1",
     stripe_subscription_id: STRIPE_SUB_ID,
     stripe_customer_id: "cus_1",
@@ -62,7 +64,7 @@ describeDb("subscriptions", () => {
     await upsertStripeSubscription(input);
     await upsertStripeSubscription({ ...input, uuid: "uuid-second" });
 
-    const rows = await listSubscriptionsByUserUuid("u-1");
+    const rows = await listSubscriptionsByOrg("org-1");
     expect(rows).toHaveLength(1);
     // The row keeps the identity it was created with — a redelivery must not
     // hand it a new uuid that other tables might already reference.
@@ -126,11 +128,11 @@ describeDb("subscriptions", () => {
     await upsertStripeSubscription(baseInput({ status: SubscriptionStatus.Canceled }));
 
     expect(
-      await listSubscriptionsByUserUuid("u-1", {
+      await listSubscriptionsByOrg("org-1", {
         statuses: [SubscriptionStatus.Active, SubscriptionStatus.Trialing],
       })
     ).toHaveLength(0);
-    expect(await listSubscriptionsByUserUuid("u-1")).toHaveLength(1);
+    expect(await listSubscriptionsByOrg("org-1")).toHaveLength(1);
   });
 
   it("stores a comped subscription with no Stripe id", async () => {
@@ -138,6 +140,7 @@ describeDb("subscriptions", () => {
     // comps do not collide with each other.
     await insertManualSubscription({
       uuid: "comp-1",
+      org_uuid: "org-2",
       user_uuid: "u-2",
       tier: "max",
       status: SubscriptionStatus.Active,
@@ -145,18 +148,20 @@ describeDb("subscriptions", () => {
     });
     await insertManualSubscription({
       uuid: "comp-2",
+      org_uuid: "org-3",
       user_uuid: "u-3",
       tier: "max",
       status: SubscriptionStatus.Active,
     });
 
-    expect(await listSubscriptionsByUserUuid("u-2")).toHaveLength(1);
-    expect(await listSubscriptionsByUserUuid("u-3")).toHaveLength(1);
+    expect(await listSubscriptionsByOrg("org-2")).toHaveLength(1);
+    expect(await listSubscriptionsByOrg("org-3")).toHaveLength(1);
   });
 
   it("ends a subscription without deleting the record", async () => {
     await insertManualSubscription({
       uuid: "comp-1",
+      org_uuid: "org-2",
       user_uuid: "u-2",
       tier: "max",
       status: SubscriptionStatus.Active,
@@ -166,6 +171,6 @@ describeDb("subscriptions", () => {
 
     expect(ended?.status).toBe(SubscriptionStatus.Canceled);
     expect(ended?.ended_at).toBeInstanceOf(Date);
-    expect(await listSubscriptionsByUserUuid("u-2")).toHaveLength(1);
+    expect(await listSubscriptionsByOrg("org-2")).toHaveLength(1);
   });
 });

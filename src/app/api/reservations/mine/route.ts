@@ -1,21 +1,22 @@
-import { listUserReservationsWithService } from "@/models/reservation";
-import { ReservationsConfig } from "@/config/reservations";
-import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+
+import { listOrgReservationsWithService } from "@/models/reservation";
+import { ReservationsConfig } from "@/config/reservations";
 import { respData } from "@/lib/resp";
 import { respCode, respError } from "@/lib/errors/response";
+import { getOrgContextFromHeaders } from "@/services/authz";
 
 export async function GET() {
   if (!ReservationsConfig.enabled) return respCode("RESOURCE_NOT_FOUND");
 
   try {
-    const h = await headers();
-    const session = await auth.api.getSession({ headers: h });
-    if (!session) return respCode("AUTH_REQUIRED");
-    const user = session.user as any;
-    const uuid: string | undefined = user?.uuid;
-    if (!uuid) return respCode("AUTH_REQUIRED");
-    const list = await listUserReservationsWithService(uuid);
+    // Resolves the session and the acting organization together. The previous
+    // version read `session.user.uuid` directly, which skipped the id-to-uuid
+    // fallback in the user service and had no tenant scope at all.
+    const ctx = await getOrgContextFromHeaders(await headers());
+    if (!ctx) return respCode("AUTH_REQUIRED");
+
+    const list = await listOrgReservationsWithService(ctx.orgUuid);
     return respData({ reservations: list });
   } catch (error) {
     return respError(error, {

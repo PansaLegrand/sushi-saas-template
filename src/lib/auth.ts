@@ -1,13 +1,14 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
-import { captcha } from "better-auth/plugins";
+import { captcha, organization } from "better-auth/plugins";
 import { createFieldAttribute } from "better-auth/db";
 
 import { randomUUID } from "node:crypto";
 
 import { db } from "@/db";
 import { CAPTCHA_PROTECTED_ENDPOINTS } from "@/lib/captcha";
+import { absoluteWithLocale } from "@/config/auth";
 import { getAppEnv, isProductionRuntime } from "@/lib/env";
 import { findUserById } from "@/models/user";
 import {
@@ -17,6 +18,7 @@ import {
 } from "@/services/auth-events";
 import { CreditsAmount } from "@/services/credit";
 import { enqueueJobSafe } from "@/services/jobs";
+import { ensurePersonalOrganization } from "@/services/organizations";
 import { sendResetPasswordEmail, sendVerifyEmail } from "@/services/email/send";
 import * as schema from "@/db/schema";
 
@@ -81,6 +83,121 @@ const captchaPlugins = (() => {
   ];
 })();
 
+/** 72 hours. Referenced by both the plugin and the email that quotes it. */
+const INVITATION_EXPIRES_IN_SECONDS = 72 * 60 * 60;
+
+/**
+ * Tenancy.
+ *
+ * Roles are the plugin's defaults — `owner`, `admin`, `member` — and they govern
+ * *membership* operations only: who may invite, remove, or change a role. They
+ * deliberately say nothing about who may delete a file or spend a credit. That
+ * is `can()` in `src/services/authz`, which is a separate axis from plan
+ * entitlements. Three checks, three questions:
+ *
+ *   can(ctx, "file:delete", file)      → does this member's role allow it
+ *   hasEntitlement(plan, "storage")    → does this org's plan include it
+ *   auth.api.hasPermission(...)        → may they manage the membership itself
+ *
+ * Teams and dynamic access control are both off. Each is additive later — the
+ * plugin creates their tables only when the option is enabled — so leaving them
+ * off costs nothing and keeps three tables out of a fresh install.
+ */
+const organizationPlugin = organization({
+  // The tables live in `src/db/schema.ts` under the repo's snake_case
+  // convention, so every logical field needs an explicit mapping. A missing
+  // entry fails at runtime on first write, not at build time.
+  //
+  // `modelName` here is the *export key* in `@/db/schema` — the Drizzle adapter
+  // resolves it as `schema[modelName]` — not the SQL table name. The SQL name
+  // comes from the `pgTable(...)` call itself, so `orgMembers` below is the
+  // export that backs the `org_members` table.
+  schema: {
+    organization: {
+      modelName: "organizations",
+      fields: {
+        createdAt: "created_at",
+      },
+      additionalFields: {
+        uuid: createFieldAttribute("string", {
+          unique: true,
+          input: false,
+          fieldName: "uuid",
+        }),
+        stripe_customer_id: createFieldAttribute("string", {
+          required: false,
+          input: false,
+          fieldName: "stripe_customer_id",
+        }),
+        is_personal: createFieldAttribute("boolean", {
+          required: false,
+          input: false,
+          fieldName: "is_personal",
+        }),
+      },
+    },
+    member: {
+      modelName: "orgMembers",
+      fields: {
+        organizationId: "organization_id",
+        userId: "user_id",
+        createdAt: "created_at",
+      },
+    },
+    invitation: {
+      modelName: "orgInvitations",
+      fields: {
+        organizationId: "organization_id",
+        inviterId: "inviter_id",
+        expiresAt: "expires_at",
+      },
+    },
+    session: {
+      fields: {
+        activeOrganizationId: "active_organization_id",
+      },
+    },
+  },
+
+  // Whoever creates an org owns it. Ownership transfer is an explicit action,
+  // never an implicit consequence of someone else being promoted to admin.
+  creatorRole: "owner",
+
+  /** Long enough to survive a weekend, short enough that a leaked link expires. */
+  invitationExpiresIn: INVITATION_EXPIRES_IN_SECONDS,
+
+  // Re-inviting the same address supersedes the pending invitation rather than
+  // stacking a second one. Two live invitations for one email means two accept
+  // links, and whichever is clicked second fails confusingly.
+  cancelPendingInvitationsOnReInvite: true,
+
+  sendInvitationEmail: async ({ id, email, organization, inviter }) => {
+    // Queued, not sent inline: the invite request should not fail because
+    // Resend is briefly down, and a serverless instance can freeze before an
+    // un-awaited send completes. The job table gives retries and a record.
+    await enqueueJobSafe(
+      "org_invitation_email",
+      {
+        to: email,
+        url: absoluteWithLocale(undefined, `/invitations/${id}`),
+        organizationName: organization.name,
+        inviterName: inviter.user?.name || undefined,
+        expiresInHours: INVITATION_EXPIRES_IN_SECONDS / 3600,
+      },
+      { dedupeKey: `org_invitation_email:${id}` }
+    );
+  },
+
+  organizationCreation: {
+    beforeCreate: async ({ organization: org }) => {
+      // `organizations.uuid` is NOT NULL and is what every application table
+      // references. Generating it here rather than in a database default keeps
+      // one rule: Better Auth owns `id`, the app owns `uuid`.
+      return { data: { ...org, uuid: randomUUID() } };
+    },
+  },
+});
+
 export const auth = betterAuth({
   appName: getAppEnv().NEXT_PUBLIC_APP_NAME,
   baseURL: getAppEnv().BETTER_AUTH_URL,
@@ -120,6 +237,7 @@ export const auth = betterAuth({
       updatedAt: "updated_at",
       ipAddress: "ip_address",
       userAgent: "user_agent",
+      activeOrganizationId: "active_organization_id",
     },
   },
   account: {
@@ -200,7 +318,9 @@ export const auth = betterAuth({
     },
   },
   // Captcha first: its onRequest hook must reject before any handler runs.
-  plugins: [...captchaPlugins, nextCookies()],
+  // `nextCookies` stays last — it wraps responses, so anything registered after
+  // it would not get its cookies written.
+  plugins: [...captchaPlugins, organizationPlugin, nextCookies()],
   telemetry: {
     enabled: false,
   },
@@ -231,7 +351,16 @@ export const auth = betterAuth({
         after: async (created, context) => {
           const info = describeAuthRequest(context);
           const email = (created as any).email as string | undefined;
-          const name = (created as any).nickname as string | undefined;
+          // Better Auth hands hooks its *logical* model, so the display name
+          // arrives as `name` even though it is stored in the `nickname`
+          // column. Reading only the column name yielded undefined here, which
+          // silently addressed every welcome email to nobody and named every
+          // personal organization after the email local part instead of the
+          // person. Both spellings are accepted so a future mapping change
+          // cannot reintroduce it.
+          const name =
+            ((created as any).name as string | undefined) ||
+            ((created as any).nickname as string | undefined);
           const userUuid = (created as any).uuid as string | undefined;
 
           await recordAuthEvent({
@@ -241,6 +370,30 @@ export const auth = betterAuth({
             email,
             info,
           });
+
+          // Every user gets an organization, immediately.
+          //
+          // Deliberately here and not at email verification, where signup
+          // credits are granted. Credits wait because an unverified address
+          // costs an attacker nothing; an org is not a payout, it is the thing
+          // that makes the account addressable at all. A user without one has
+          // no scope to read or write in, so creating it late would mean
+          // supporting a "user exists but owns nothing" state everywhere.
+          //
+          // Failure is logged rather than thrown: rejecting here would fail the
+          // signup for a user whose row is already committed. `getOrgContext()`
+          // repairs the gap on the next request instead.
+          if ((created as any).id) {
+            try {
+              await ensurePersonalOrganization({
+                id: (created as any).id as string,
+                email,
+                nickname: name,
+              });
+            } catch (e) {
+              console.error("failed to create personal organization", e);
+            }
+          }
 
           // Queued rather than sent inline: work not awaited by the response
           // can be dropped when a serverless instance freezes, and the job

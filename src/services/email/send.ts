@@ -122,3 +122,32 @@ export async function sendReservationConfirmedEmail(
       : undefined,
   });
 }
+
+export async function sendOrgInvitationEmail(
+  to: string,
+  opts: {
+    url: string;
+    organizationName: string;
+    inviterName?: string;
+    expiresInHours?: number;
+  }
+) {
+  const { default: OrgInvitation } = await import("./templates/org-invitation");
+  const html = await render(
+    OrgInvitation({
+      url: opts.url,
+      organizationName: opts.organizationName,
+      inviterName: opts.inviterName,
+      expiresInHours: opts.expiresInHours,
+    })
+  );
+
+  return sendMail({
+    to,
+    // The organization is in the subject line so the recipient can tell a real
+    // invitation from a generic one before opening it.
+    subject: `You have been invited to join ${opts.organizationName}`,
+    html,
+    text: `Open this link to join ${opts.organizationName}: ${opts.url}`,
+  });
+}

@@ -1,8 +1,8 @@
 import { isCreditsPlaygroundEnabled } from "@/lib/demo-flags";
 import { respData, respNoAuth } from "@/lib/resp";
 import { respCode, respError } from "@/lib/errors/response";
-import { getTasksByUserUuid } from "@/models/task";
-import { getUserUuid } from "@/services/user";
+import { getTasksByOrg } from "@/models/task";
+import { getOrgContext } from "@/services/authz";
 
 export async function GET(req: Request) {
   if (!isCreditsPlaygroundEnabled()) {
@@ -10,10 +10,10 @@ export async function GET(req: Request) {
   }
 
   try {
-    const userUuid = await getUserUuid(req);
-    if (!userUuid) return respNoAuth();
+    const ctx = await getOrgContext(req);
+    if (!ctx) return respNoAuth();
 
-    const tasks = await getTasksByUserUuid(userUuid, 1, 1);
+    const tasks = await getTasksByOrg(ctx.orgUuid, 1, 1);
     const task = tasks && tasks.length > 0 ? tasks[0] : null;
 
     return respData({

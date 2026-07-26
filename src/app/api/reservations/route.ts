@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { ReservationsConfig } from "@/config/reservations";
 import { createReservationAndCheckout } from "@/services/reservations";
-import { getUserUuid } from "@/services/user";
+import { getOrgContext } from "@/services/authz";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { respData, respNoAuth } from "@/lib/resp";
@@ -30,14 +30,15 @@ export async function POST(req: Request) {
   if (limited) return limited;
 
   try {
-    const user_uuid = await getUserUuid(req);
-    if (!user_uuid) return respNoAuth();
+    const ctx = await getOrgContext(req);
+    if (!ctx) return respNoAuth();
 
     const body = await parseJsonBody(req, CreateReservationSchema);
 
     const result = await createReservationAndCheckout({
       locale: body.locale,
-      user_uuid,
+      org_uuid: ctx.orgUuid,
+      user_uuid: ctx.userUuid,
       service_id: body.service_id,
       start_at: body.start_at,
       timezone: body.timezone,

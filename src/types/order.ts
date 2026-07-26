@@ -2,6 +2,14 @@ export interface Order {
   id?: number;
   order_no: string;
   created_at?: Date | null;
+  /**
+   * The tenant the order belongs to, and whose balance its credits land in.
+   *
+   * Nullable only because rows predating tenancy exist until migration 0015
+   * makes the column NOT NULL; every write path sets it.
+   */
+  org_uuid?: string | null;
+  /** The member who checked out. Attribution, not ownership. */
   user_uuid: string;
   user_email: string;
   amount: number;

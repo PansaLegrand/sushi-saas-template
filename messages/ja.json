@@ -201,5 +201,57 @@
     "notFoundTitle": "ページが見つかりません",
     "notFoundDescription": "お探しのページは存在しないか、移動されました。",
     "digest": "参照番号"
+  },
+  "team": {
+    "title": "チーム",
+    "subtitle": "{name} で作業できるメンバー。",
+    "personalNotice": "これはあなたの個人ワークスペースです。誰かを招待すると共有チームになります。",
+    "membersHeading": "メンバー",
+    "invitationsHeading": "保留中の招待",
+    "invite": "招待",
+    "inviteEmailLabel": "メールアドレス",
+    "inviteRoleLabel": "ロール",
+    "inviteSubmit": "招待を送信",
+    "inviteSending": "送信中…",
+    "inviteSent": "{email} に招待を送信しました。",
+    "noInvitations": "保留中の招待はありません。",
+    "cancelInvitation": "取り消す",
+    "invitationCanceled": "招待を取り消しました。",
+    "expires": "{date} に期限切れ",
+    "you": "あなた",
+    "remove": "削除",
+    "removeConfirmTitle": "{name} を削除しますか？",
+    "removeConfirmBody": "このチームへのアクセスがすぐに失われます。作成したものは残ります。",
+    "removeConfirm": "削除",
+    "removed": "{name} を削除しました。",
+    "leave": "チームを退出",
+    "leaveConfirmTitle": "{name} を退出しますか？",
+    "leaveConfirmBody": "すぐにアクセスできなくなります。再参加には新しい招待が必要です。",
+    "leaveConfirm": "退出",
+    "left": "チームを退出しました。",
+    "cancel": "キャンセル",
+    "roleChanged": "{name} は {role} になりました。",
+    "joined": "{date} に参加",
+    "roles": {
+      "owner": "オーナー",
+      "admin": "管理者",
+      "member": "メンバー"
+    },
+    "roleHelp": {
+      "owner": "請求とチーム削除を含むすべての権限。",
+      "admin": "メンバーの招待と管理ができます。",
+      "member": "ワークスペースを利用できます。"
+    },
+    "invitation": {
+      "title": "{name} に参加",
+      "body": "{name} への参加に招待されています。承諾すると、このチームのワークスペースと共有枠にアクセスできます。",
+      "accept": "招待を承諾",
+      "decline": "辞退",
+      "accepting": "参加中…",
+      "accepted": "{name} に参加しました。",
+      "declined": "招待を辞退しました。",
+      "signInFirst": "この招待を承諾するにはサインインしてください。",
+      "signIn": "サインイン"
+    }
   }
 }

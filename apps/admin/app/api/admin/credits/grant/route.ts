@@ -11,11 +11,12 @@ import { respData } from "@/lib/resp";
 import { respCode, respError } from "@/lib/errors/response";
 import { parseJsonBody } from "@/lib/http/request";
 import { findCreditByTransNo } from "@/models/credit";
+import { findPersonalOrganizationByUserUuid } from "@/models/organization";
 import { findUserByUuid } from "@/models/user";
 import {
   CreditsTransType,
   increaseCredits,
-  getUserCreditSummary,
+  getOrgCreditSummary,
 } from "@/services/credit";
 
 interface AdminGrantRequest {
@@ -117,12 +118,17 @@ export async function POST(req: Request) {
     const target = await findUserByUuid(userUuid);
     if (!target) return respCode("ACCOUNT_NOT_FOUND");
 
+    // A grant lands in the recipient's personal workspace balance.
+    const targetOrg = await findPersonalOrganizationByUserUuid(userUuid);
+    if (!targetOrg) return respCode("ACCOUNT_NOT_FOUND");
+
     // Fast path for a retry we have already applied.
     let replayed = Boolean(await findCreditByTransNo(transNo));
 
     if (!replayed) {
       try {
         await increaseCredits({
+          org_uuid: targetOrg.uuid,
           user_uuid: userUuid,
           trans_type: CreditsTransType.SystemAdd,
           credits,
@@ -140,7 +146,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const summary = await getUserCreditSummary(userUuid, {
+    const summary = await getOrgCreditSummary(targetOrg.uuid, {
       includeLedger: true,
       ledgerLimit: 50,
     });

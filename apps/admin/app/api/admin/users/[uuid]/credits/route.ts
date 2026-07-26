@@ -2,7 +2,8 @@ import { requireAdminRead } from "@admin/lib/authz";
 import { respData } from "@/lib/resp";
 import { respCode, respError } from "@/lib/errors/response";
 import { findUserByUuid } from "@/models/user";
-import { getUserCreditSummary } from "@/services/credit";
+import { getOrgCreditSummary } from "@/services/credit";
+import { findPersonalOrganizationByUserUuid } from "@/models/organization";
 
 export async function GET(
   _req: Request,
@@ -24,7 +25,12 @@ export async function GET(
     const user = await findUserByUuid(uuid);
     if (!user) return respCode("ACCOUNT_NOT_FOUND");
 
-    const summary = await getUserCreditSummary(uuid, {
+    // Credits pool at the organization, so an admin looking at "this user's
+    // credits" is really looking at their personal workspace's balance.
+    const org = await findPersonalOrganizationByUserUuid(uuid);
+    if (!org) return respCode("ACCOUNT_NOT_FOUND");
+
+    const summary = await getOrgCreditSummary(org.uuid, {
       includeLedger: true,
       ledgerLimit: 100,
     });

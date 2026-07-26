@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { getUserUuid } from "@/services/user";
+import { getOrgContext } from "@/services/authz";
 import { insertOrder, OrderStatus, updateOrderSession } from "@/models/order";
 import { respData, respNoAuth } from "@/lib/resp";
 import { respCode, respError } from "@/lib/errors/response";
@@ -102,12 +102,12 @@ export async function POST(req: Request) {
       : undefined;
 
     // get signed user
-    const user_uuid = await getUserUuid(req);
-    if (!user_uuid) {
+    const ctx = await getOrgContext(req);
+    if (!ctx) {
       return respNoAuth("no auth, please sign-in");
     }
 
-    const user = await findUserByUuid(user_uuid);
+    const user = await findUserByUuid(ctx.userUuid);
     const user_email = user?.email;
     if (!user_email) {
       return respCode("ACCOUNT_NOT_FOUND");
@@ -143,7 +143,8 @@ export async function POST(req: Request) {
     const order = {
       order_no: order_no,
       created_at: new Date(created_at),
-      user_uuid: user_uuid,
+      org_uuid: ctx.orgUuid,
+      user_uuid: ctx.userUuid,
       user_email: user_email,
       amount: amount,
       interval: interval,
@@ -174,7 +175,7 @@ export async function POST(req: Request) {
     log.info({
       event: "checkout.session.created",
       order_no,
-      user_id: user_uuid,
+      user_id: ctx.userUuid,
       product_id,
       interval,
       currency,
@@ -261,6 +262,9 @@ async function stripeCheckout({
       user_email: order.user_email,
       credits: order.credits,
       user_uuid: order.user_uuid,
+      // Stamped so subscription webhooks attribute the plan to the right
+      // tenant without falling back to a guess.
+      org_uuid: order.org_uuid ?? "",
     },
     mode: is_subscription ? "subscription" : "payment",
     success_url: `${getAppEnv().NEXT_PUBLIC_WEB_URL}/api/pay/callback/stripe?locale=${locale}&session_id={CHECKOUT_SESSION_ID}&order_no=${order.order_no}`,

@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PAST_DUE_GRACE_DAYS } from "@/config/plans";
 
-const listSubscriptionsByUserUuid = vi.fn();
+const listSubscriptionsByOrg = vi.fn();
 
 vi.mock("@/models/subscription", async () => {
   const actual = await vi.importActual<typeof import("@/models/subscription")>(
@@ -22,8 +22,8 @@ vi.mock("@/models/subscription", async () => {
     ...actual,
     // Only the read path is mocked: the status constants stay real, so a typo
     // in a status string fails here rather than passing against a fake.
-    listSubscriptionsByUserUuid: (...args: unknown[]) =>
-      listSubscriptionsByUserUuid(...args),
+    listSubscriptionsByOrg: (...args: unknown[]) =>
+      listSubscriptionsByOrg(...args),
   };
 });
 
@@ -40,6 +40,14 @@ import {
   tierForPriceIds,
 } from "@/services/entitlements";
 import { SubscriptionStatus, type SubscriptionRow } from "@/models/subscription";
+import { asOrgUuid } from "@/models/organization";
+
+/**
+ * The subject of an entitlement is an organization, not a person. Branded so
+ * that passing a user uuid here is a compile error rather than a silent
+ * free-tier answer.
+ */
+const ORG = asOrgUuid("org-1");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -49,6 +57,7 @@ function row(overrides: Partial<SubscriptionRow> = {}): SubscriptionRow {
   return {
     id: 1,
     uuid: "sub-1",
+    org_uuid: "org-1",
     user_uuid: "u-1",
     stripe_subscription_id: "sub_stripe_1",
     stripe_customer_id: "cus_1",
@@ -71,12 +80,12 @@ function row(overrides: Partial<SubscriptionRow> = {}): SubscriptionRow {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  listSubscriptionsByUserUuid.mockResolvedValue([]);
+  listSubscriptionsByOrg.mockResolvedValue([]);
 });
 
 describe("resolvePlan", () => {
   it("puts a user with no subscription on the free tier", async () => {
-    const resolved = await resolvePlan("u-1");
+    const resolved = await resolvePlan(ORG);
 
     expect(resolved.tier).toBe("free");
     expect(resolved.subscription).toBeNull();
@@ -86,42 +95,42 @@ describe("resolvePlan", () => {
     const resolved = await resolvePlan(null);
 
     expect(resolved.tier).toBe("free");
-    expect(listSubscriptionsByUserUuid).not.toHaveBeenCalled();
+    expect(listSubscriptionsByOrg).not.toHaveBeenCalled();
   });
 
   it("grants the tier of an active subscription", async () => {
-    listSubscriptionsByUserUuid.mockResolvedValue([row({ tier: "plus" })]);
+    listSubscriptionsByOrg.mockResolvedValue([row({ tier: "plus" })]);
 
-    expect((await resolvePlan("u-1")).tier).toBe("plus");
+    expect((await resolvePlan(ORG)).tier).toBe("plus");
   });
 
   it("keeps access for a subscription cancelled at period end", async () => {
     // The user already paid for the rest of the period. Cutting them off the
     // moment they click cancel is taking money for nothing.
-    listSubscriptionsByUserUuid.mockResolvedValue([
+    listSubscriptionsByOrg.mockResolvedValue([
       row({ tier: "max", cancel_at_period_end: true }),
     ]);
 
-    expect((await resolvePlan("u-1")).tier).toBe("max");
+    expect((await resolvePlan(ORG)).tier).toBe("max");
   });
 
   it("drops a subscription whose period has ended", async () => {
-    listSubscriptionsByUserUuid.mockResolvedValue([
+    listSubscriptionsByOrg.mockResolvedValue([
       row({ tier: "max", current_period_end: new Date(Date.now() - DAY_MS) }),
     ]);
 
-    expect((await resolvePlan("u-1")).tier).toBe("free");
+    expect((await resolvePlan(ORG)).tier).toBe("free");
   });
 
   it("takes the highest tier when a user holds more than one", async () => {
     // A comped Max alongside a paid Plus is a real situation. Taking the most
     // recently updated row instead of the best one would silently downgrade.
-    listSubscriptionsByUserUuid.mockResolvedValue([
+    listSubscriptionsByOrg.mockResolvedValue([
       row({ uuid: "sub-plus", tier: "plus" }),
       row({ uuid: "sub-max", tier: "max", source: "manual", stripe_subscription_id: null }),
     ]);
 
-    const resolved = await resolvePlan("u-1");
+    const resolved = await resolvePlan(ORG);
 
     expect(resolved.tier).toBe("max");
     expect(resolved.subscription?.uuid).toBe("sub-max");
@@ -130,17 +139,17 @@ describe("resolvePlan", () => {
   it("ignores a tier that is no longer in the catalog", async () => {
     // Written by a previous deploy, or by a tier that was renamed. It must not
     // resolve to anything rather than crash or fall through to a guess.
-    listSubscriptionsByUserUuid.mockResolvedValue([row({ tier: "enterprise" })]);
+    listSubscriptionsByOrg.mockResolvedValue([row({ tier: "enterprise" })]);
 
-    expect((await resolvePlan("u-1")).tier).toBe("free");
+    expect((await resolvePlan(ORG)).tier).toBe("free");
   });
 
   it("honours a comp with no end date", async () => {
-    listSubscriptionsByUserUuid.mockResolvedValue([
+    listSubscriptionsByOrg.mockResolvedValue([
       row({ tier: "max", source: "manual", current_period_end: null }),
     ]);
 
-    expect((await resolvePlan("u-1")).tier).toBe("max");
+    expect((await resolvePlan(ORG)).tier).toBe("max");
   });
 });
 
@@ -197,14 +206,14 @@ describe("isEntitling", () => {
 
 describe("features", () => {
   it("answers from the resolved plan", async () => {
-    expect(await can("u-1", "tasks.text_to_video")).toBe(false);
+    expect(await can(ORG, "tasks.text_to_video")).toBe(false);
 
-    listSubscriptionsByUserUuid.mockResolvedValue([row({ tier: "plus" })]);
-    expect(await can("u-1", "tasks.text_to_video")).toBe(true);
+    listSubscriptionsByOrg.mockResolvedValue([row({ tier: "plus" })]);
+    expect(await can(ORG, "tasks.text_to_video")).toBe(true);
   });
 
   it("throws a catalogued, upgrade-shaped error when a feature is missing", async () => {
-    await expect(requireEntitlement("u-1", "tasks.text_to_video")).rejects.toMatchObject({
+    await expect(requireEntitlement(ORG, "tasks.text_to_video")).rejects.toMatchObject({
       code: "PLAN_UPGRADE_REQUIRED",
       statusCode: 403,
       details: {
@@ -218,9 +227,9 @@ describe("features", () => {
   });
 
   it("returns rather than throws when the feature is included", async () => {
-    listSubscriptionsByUserUuid.mockResolvedValue([row({ tier: "max" })]);
+    listSubscriptionsByOrg.mockResolvedValue([row({ tier: "max" })]);
 
-    await expect(requireEntitlement("u-1", "tasks.text_to_video")).resolves.toMatchObject({
+    await expect(requireEntitlement(ORG, "tasks.text_to_video")).resolves.toMatchObject({
       tier: "max",
     });
   });
@@ -250,15 +259,15 @@ describe("limits", () => {
   });
 
   it("reads the cap from the resolved plan", async () => {
-    expect(await limitOf("u-1", "storage.maxFileMb")).toBe(5);
+    expect(await limitOf(ORG, "storage.maxFileMb")).toBe(5);
 
-    listSubscriptionsByUserUuid.mockResolvedValue([row({ tier: "max" })]);
-    expect(await limitOf("u-1", "tasks.perMonth")).toBeNull();
+    listSubscriptionsByOrg.mockResolvedValue([row({ tier: "max" })]);
+    expect(await limitOf(ORG, "tasks.perMonth")).toBeNull();
   });
 
   it("throws with the numbers needed to explain itself", async () => {
     await expect(
-      enforceLimit("u-1", "storage.totalMb", { current: 100, adding: 10 })
+      enforceLimit(ORG, "storage.totalMb", { current: 100, adding: 10 })
     ).rejects.toMatchObject({
       code: "PLAN_LIMIT_EXCEEDED",
       statusCode: 403,
@@ -268,14 +277,14 @@ describe("limits", () => {
 
   it("allows a request that exactly reaches the cap", async () => {
     await expect(
-      enforceLimit("u-1", "storage.totalMb", { current: 90, adding: 10 })
+      enforceLimit(ORG, "storage.totalMb", { current: 90, adding: 10 })
     ).resolves.toBeUndefined();
   });
 });
 
 describe("getPlanSnapshot", () => {
   it("serializes the free plan with no subscription", async () => {
-    const snapshot = await getPlanSnapshot("u-1");
+    const snapshot = await getPlanSnapshot(ORG);
 
     expect(snapshot).toMatchObject({ tier: "free", subscription: null });
     expect(snapshot.features["storage.upload"]).toBe(true);
@@ -283,11 +292,11 @@ describe("getPlanSnapshot", () => {
 
   it("serializes dates as ISO strings so the payload survives JSON", async () => {
     const periodEnd = new Date(Date.now() + 10 * DAY_MS);
-    listSubscriptionsByUserUuid.mockResolvedValue([
+    listSubscriptionsByOrg.mockResolvedValue([
       row({ tier: "plus", current_period_end: periodEnd, cancel_at_period_end: true }),
     ]);
 
-    const snapshot = await getPlanSnapshot("u-1");
+    const snapshot = await getPlanSnapshot(ORG);
 
     expect(snapshot.subscription).toEqual({
       status: "active",

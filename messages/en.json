@@ -201,5 +201,57 @@
     "notFoundTitle": "Page not found",
     "notFoundDescription": "The page you are looking for does not exist or has moved.",
     "digest": "Reference"
+  },
+  "team": {
+    "title": "Team",
+    "subtitle": "People who can work in {name}.",
+    "personalNotice": "This is your personal workspace. Invite someone and it becomes a shared team.",
+    "membersHeading": "Members",
+    "invitationsHeading": "Pending invitations",
+    "invite": "Invite",
+    "inviteEmailLabel": "Email address",
+    "inviteRoleLabel": "Role",
+    "inviteSubmit": "Send invitation",
+    "inviteSending": "Sending…",
+    "inviteSent": "Invitation sent to {email}.",
+    "noInvitations": "No pending invitations.",
+    "cancelInvitation": "Cancel",
+    "invitationCanceled": "Invitation withdrawn.",
+    "expires": "Expires {date}",
+    "you": "you",
+    "remove": "Remove",
+    "removeConfirmTitle": "Remove {name}?",
+    "removeConfirmBody": "They lose access to this team immediately. Anything they created stays.",
+    "removeConfirm": "Remove",
+    "removed": "{name} was removed.",
+    "leave": "Leave team",
+    "leaveConfirmTitle": "Leave {name}?",
+    "leaveConfirmBody": "You lose access to this team immediately. You will need a new invitation to return.",
+    "leaveConfirm": "Leave",
+    "left": "You left the team.",
+    "cancel": "Cancel",
+    "roleChanged": "{name} is now {role}.",
+    "joined": "Joined {date}",
+    "roles": {
+      "owner": "Owner",
+      "admin": "Admin",
+      "member": "Member"
+    },
+    "roleHelp": {
+      "owner": "Full control, including billing and deleting the team.",
+      "admin": "Can invite and manage members.",
+      "member": "Can use the workspace."
+    },
+    "invitation": {
+      "title": "Join {name}",
+      "body": "You have been invited to join {name}. Accepting gives you access to that team's workspace and shared allowance.",
+      "accept": "Accept invitation",
+      "decline": "Decline",
+      "accepting": "Joining…",
+      "accepted": "You joined {name}.",
+      "declined": "Invitation declined.",
+      "signInFirst": "Sign in to accept this invitation.",
+      "signIn": "Sign in"
+    }
   }
 }

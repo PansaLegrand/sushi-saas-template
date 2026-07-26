@@ -201,5 +201,57 @@
     "notFoundTitle": "页面不存在",
     "notFoundDescription": "你访问的页面不存在或已被移动。",
     "digest": "参考编号"
+  },
+  "team": {
+    "title": "团队",
+    "subtitle": "可以在 {name} 中协作的成员。",
+    "personalNotice": "这是您的个人工作区。邀请他人后，它将成为共享团队。",
+    "membersHeading": "成员",
+    "invitationsHeading": "待处理的邀请",
+    "invite": "邀请",
+    "inviteEmailLabel": "邮箱地址",
+    "inviteRoleLabel": "角色",
+    "inviteSubmit": "发送邀请",
+    "inviteSending": "发送中…",
+    "inviteSent": "邀请已发送至 {email}。",
+    "noInvitations": "没有待处理的邀请。",
+    "cancelInvitation": "撤回",
+    "invitationCanceled": "邀请已撤回。",
+    "expires": "{date} 过期",
+    "you": "您",
+    "remove": "移除",
+    "removeConfirmTitle": "移除 {name}？",
+    "removeConfirmBody": "他们将立即失去对该团队的访问权限。其创建的内容会保留。",
+    "removeConfirm": "移除",
+    "removed": "已移除 {name}。",
+    "leave": "退出团队",
+    "leaveConfirmTitle": "退出 {name}？",
+    "leaveConfirmBody": "您将立即失去访问权限，需要新的邀请才能重新加入。",
+    "leaveConfirm": "退出",
+    "left": "您已退出该团队。",
+    "cancel": "取消",
+    "roleChanged": "{name} 现在是{role}。",
+    "joined": "{date} 加入",
+    "roles": {
+      "owner": "所有者",
+      "admin": "管理员",
+      "member": "成员"
+    },
+    "roleHelp": {
+      "owner": "完全控制权，包括账单和删除团队。",
+      "admin": "可以邀请和管理成员。",
+      "member": "可以使用工作区。"
+    },
+    "invitation": {
+      "title": "加入 {name}",
+      "body": "您受邀加入 {name}。接受后即可访问该团队的工作区与共享额度。",
+      "accept": "接受邀请",
+      "decline": "拒绝",
+      "accepting": "加入中…",
+      "accepted": "您已加入 {name}。",
+      "declined": "已拒绝邀请。",
+      "signInFirst": "请登录后接受此邀请。",
+      "signIn": "登录"
+    }
   }
 }

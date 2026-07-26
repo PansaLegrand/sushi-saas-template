@@ -29,6 +29,33 @@ vi.mock("@/services/user", () => ({
   getUserUuid: mocks.getUserUuid,
 }));
 
+// The routes resolve their tenant through `getOrgContext`, which pulls in the
+// real Better Auth instance (and therefore a real database) if left unmocked.
+vi.mock("@/services/authz", () => ({
+  getOrgContext: vi
+    .fn()
+    .mockResolvedValue({
+      userId: "id-test",
+      userUuid: "u-test",
+      orgId: "id-org-test",
+      orgUuid: "org-test",
+      orgSlug: "test-org",
+      role: "owner",
+    }),
+  getOrgContextFromHeaders: vi
+    .fn()
+    .mockResolvedValue({
+      userId: "id-test",
+      userUuid: "u-test",
+      orgId: "id-org-test",
+      orgUuid: "org-test",
+      orgSlug: "test-org",
+      role: "owner",
+    }),
+  can: () => true,
+}));
+
+
 import { POST as createReservation } from "@/app/api/reservations/route";
 
 function request(body: unknown) {

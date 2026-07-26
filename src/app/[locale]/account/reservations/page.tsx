@@ -2,11 +2,11 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { auth } from "@/lib/auth";
-import { listUserReservationsWithService } from "@/models/reservation";
+import { listOrgReservationsWithService } from "@/models/reservation";
 import { ReservationsConfig } from "@/config/reservations";
 import { buildMetadata, defaultMetaFallbacks } from "@/lib/seo";
 import { buildGoogleCalendarUrl } from "@/services/reservations/google";
-import { findUserByEmail } from "@/models/user";
+import { getOrgContextFromHeaders } from "@/services/authz";
 
 export async function generateMetadata({
   params,
@@ -37,18 +37,14 @@ async function getSession() {
 
 export default async function MyReservationsPage() {
   if (!ReservationsConfig.enabled) redirect("/");
-  const session = await getSession();
-  if (!session) redirect("/login");
+  // Resolves session and tenant in one call. The previous version fell back to
+  // looking the account up by email, which `users` only makes unique per
+  // sign-in provider — so a person with both a password and a Google account
+  // could be resolved to the wrong row.
+  const ctx = await getOrgContextFromHeaders(await headers());
+  if (!ctx) redirect("/login");
 
-  const user = session.user as any;
-  let userUuid: string | undefined = user?.uuid;
-  if (!userUuid && user?.email) {
-    const dbUser = await findUserByEmail(user.email);
-    userUuid = dbUser?.uuid;
-  }
-  if (!userUuid) redirect("/login");
-
-  const reservations = await listUserReservationsWithService(userUuid);
+  const reservations = await listOrgReservationsWithService(ctx.orgUuid);
   const sorted = reservations.sort((a, b) => new Date(a.start_at as any).getTime() - new Date(b.start_at as any).getTime());
 
   return (

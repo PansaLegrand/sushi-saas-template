@@ -71,7 +71,15 @@ export async function handleCheckoutSession(
   );
 
   if (order.credits && order.credits > 0) {
+    if (!order.org_uuid) {
+      // Refusing beats crediting a guessed tenant: the payment is recorded, so
+      // this is recoverable by hand, whereas granting to the wrong balance is
+      // not.
+      throw new Error(`paid order ${order.order_no} has no organization`);
+    }
+
     await increaseCredits({
+      org_uuid: order.org_uuid,
       user_uuid: order.user_uuid,
       trans_type: CreditsTransType.OrderPay,
       credits: order.credits,

@@ -9,7 +9,7 @@ import {
   CreditsTransType,
   decreaseCredits,
 } from "@/services/credit";
-import { getUserUuid } from "@/services/user";
+import { getOrgContext } from "@/services/authz";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 
 const PingSchema = z.object({
@@ -24,15 +24,16 @@ export async function POST(req: Request) {
   if (limited) return limited;
 
   try {
-    const userUuid = await getUserUuid(req);
-    if (!userUuid) {
+    const ctx = await getOrgContext(req);
+    if (!ctx) {
       return respNoAuth();
     }
 
     const payload = await parseJsonBody(req, PingSchema);
 
     await decreaseCredits({
-      user_uuid: userUuid,
+      org_uuid: ctx.orgUuid,
+      user_uuid: ctx.userUuid,
       trans_type: CreditsTransType.Ping,
       credits: CreditsAmount.PingCost,
     });

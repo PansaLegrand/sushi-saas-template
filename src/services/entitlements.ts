@@ -1,3 +1,4 @@
+import type { OrgUuid } from "@/models/organization";
 import { cache } from "react";
 
 import {
@@ -12,7 +13,7 @@ import {
 import { AppError } from "@/lib/errors/app-error";
 import {
   SubscriptionStatus,
-  listSubscriptionsByUserUuid,
+  listSubscriptionsByOrg,
   type SubscriptionRow,
 } from "@/models/subscription";
 import type {
@@ -30,8 +31,12 @@ import type {
  * Everything above this file — routes, services, pages, components — asks in
  * terms of a capability:
  *
- *     await requireEntitlement(userUuid, "tasks.text_to_video");
- *     await enforceLimit(userUuid, "storage.totalMb", { current, adding });
+ *     await requireEntitlement(ctx.orgUuid, "tasks.text_to_video");
+ *     await enforceLimit(ctx.orgUuid, "storage.totalMb", { current, adding });
+ *
+ * Keyed on the organization, not the member: the plan is bought by the tenant,
+ * so joining an org on the max tier grants the max tier, and one member leaving
+ * does not downgrade anyone else.
  *
  * and never in terms of a tier. That is enforced, not merely encouraged:
  * `tests/unit/architecture.test.ts` fails the build if any other file imports
@@ -117,11 +122,11 @@ function isExpired(row: SubscriptionRow, now: Date): boolean {
  * before — which is what the admin plan route does.
  */
 export const resolvePlan = cache(async function resolvePlan(
-  userUuid: string | null | undefined
+  orgUuid: OrgUuid | null | undefined
 ): Promise<ResolvedPlan> {
-  if (!userUuid) return freePlan();
+  if (!orgUuid) return freePlan();
 
-  const rows = await listSubscriptionsByUserUuid(userUuid, {
+  const rows = await listSubscriptionsByOrg(orgUuid, {
     statuses: CANDIDATE_STATUSES,
   });
 
@@ -153,10 +158,10 @@ function freePlan(): ResolvedPlan {
 
 /** Does this user's plan include `feature`? */
 export async function can(
-  userUuid: string | null | undefined,
+  orgUuid: OrgUuid | null | undefined,
   feature: PlanFeature
 ): Promise<boolean> {
-  const { plan } = await resolvePlan(userUuid);
+  const { plan } = await resolvePlan(orgUuid);
   return plan.features[feature];
 }
 
@@ -169,10 +174,10 @@ export async function can(
  * feature key, nothing else.
  */
 export async function requireEntitlement(
-  userUuid: string | null | undefined,
+  orgUuid: OrgUuid | null | undefined,
   feature: PlanFeature
 ): Promise<ResolvedPlan> {
-  const resolved = await resolvePlan(userUuid);
+  const resolved = await resolvePlan(orgUuid);
   if (resolved.plan.features[feature]) return resolved;
 
   throw new AppError("PLAN_UPGRADE_REQUIRED", {
@@ -199,10 +204,10 @@ export function lowestTierWith(feature: PlanFeature): Tier | null {
 
 /** This user's cap for `limit`. `null` means unlimited. */
 export async function limitOf(
-  userUuid: string | null | undefined,
+  orgUuid: OrgUuid | null | undefined,
   limit: PlanLimit
 ): Promise<LimitValue> {
-  const { plan } = await resolvePlan(userUuid);
+  const { plan } = await resolvePlan(orgUuid);
   return plan.limits[limit];
 }
 
@@ -229,11 +234,11 @@ export function isWithinLimit(max: LimitValue, usage: LimitUsage): boolean {
  * changed, and nothing should: see `docs/plans.md`.
  */
 export async function enforceLimit(
-  userUuid: string | null | undefined,
+  orgUuid: OrgUuid | null | undefined,
   limit: PlanLimit,
   usage: LimitUsage
 ): Promise<void> {
-  const { tier, plan } = await resolvePlan(userUuid);
+  const { tier, plan } = await resolvePlan(orgUuid);
   const max = plan.limits[limit];
 
   if (isWithinLimit(max, usage)) return;
@@ -273,9 +278,9 @@ export function lowestTierAllowing(limit: PlanLimit, usage: LimitUsage): Tier | 
  * from a second copy of the rules that can drift.
  */
 export async function getPlanSnapshot(
-  userUuid: string | null | undefined
+  orgUuid: OrgUuid | null | undefined
 ): Promise<PlanSnapshot> {
-  const { tier, plan, subscription } = await resolvePlan(userUuid);
+  const { tier, plan, subscription } = await resolvePlan(orgUuid);
 
   return {
     tier,

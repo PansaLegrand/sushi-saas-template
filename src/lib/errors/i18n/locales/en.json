@@ -10,7 +10,6 @@
   "AUTH_INVALID_TOKEN": "This link is invalid or has expired. Request a new one.",
   "AUTH_PASSWORD_TOO_SHORT": "That password is too short.",
   "ACCOUNT_NOT_FOUND": "Account not found.",
-
   "REQUEST_INVALID": "The request is invalid.",
   "REQUEST_MALFORMED_JSON": "The request body is not valid JSON.",
   "REQUEST_VALIDATION_FAILED": "Some fields need attention.",
@@ -18,41 +17,41 @@
   "REQUEST_ORIGIN_REJECTED": "This request came from an unrecognized origin.",
   "REQUEST_RATE_LIMITED": "Too many requests. Please wait a moment and try again.",
   "RESOURCE_NOT_FOUND": "Not found.",
-
   "CREDITS_INSUFFICIENT": "You do not have enough credits for this.",
   "CREDITS_INVALID_AMOUNT": "The credit amount is invalid.",
   "CREDITS_GRANT_LIMIT_EXCEEDED": "That exceeds the maximum a single grant may issue.",
   "CREDITS_GRANT_FAILED": "The credit grant could not be completed.",
   "CREDITS_TRANSACTION_NOT_FOUND": "That credit transaction was not found.",
-
   "ORDER_INVALID_PRODUCT": "That product is not available.",
   "ORDER_CREATE_FAILED": "We could not start your order. Please try again.",
   "PAYMENT_SESSION_FAILED": "The payment provider is unavailable. Please try again shortly.",
   "PAYMENT_WEBHOOK_INVALID_SIGNATURE": "The webhook signature could not be verified.",
-
   "PLAN_UPGRADE_REQUIRED": "Your plan does not include this feature.",
   "PLAN_LIMIT_EXCEEDED": "You have reached the limit for your plan.",
-
   "STORAGE_FILE_NOT_FOUND": "That file was not found.",
   "STORAGE_OBJECT_MISSING": "The stored file is missing.",
   "STORAGE_FILE_TOO_LARGE": "That file is too large.",
   "STORAGE_SIZE_MISMATCH": "The uploaded file did not match the expected size.",
   "STORAGE_UPLOAD_FAILED": "The upload could not be completed.",
-
   "TASK_NOT_FOUND": "That task was not found.",
   "TASK_PROMPT_REQUIRED": "Please enter a prompt.",
   "TASK_CREATE_FAILED": "The task could not be created. Please try again.",
   "TASK_PROVIDER_FAILED": "The generation service failed. Please try again.",
-
   "RESERVATION_NOT_FOUND": "That reservation was not found.",
   "RESERVATION_SLOT_UNAVAILABLE": "That time slot is no longer available.",
   "RESERVATION_AVAILABILITY_FAILED": "Availability could not be loaded. Please try again.",
   "RESERVATION_CREATE_FAILED": "The reservation could not be created. Please try again.",
   "RESERVATION_HOLD_EXPIRED": "Your hold on this slot expired. Please pick a time again.",
   "RESERVATION_CANCEL_WINDOW_PASSED": "This reservation can no longer be cancelled online.",
-
   "FEATURE_DISABLED": "This feature is not enabled.",
   "SERVICE_UNAVAILABLE": "The service is temporarily unavailable. Please try again shortly.",
   "SERVER_ERROR": "Something went wrong on our end. Please try again.",
-  "NETWORK_UNAVAILABLE": "Could not reach the server. Check your connection and try again."
+  "NETWORK_UNAVAILABLE": "Could not reach the server. Check your connection and try again.",
+  "ORG_MEMBER_NOT_FOUND": "That member is not part of this team.",
+  "ORG_LAST_OWNER": "This is the only owner. Make someone else an owner first.",
+  "ORG_ALREADY_MEMBER": "That person is already on this team.",
+  "ORG_INVITATION_NOT_FOUND": "This invitation is invalid or has already been used.",
+  "ORG_INVITATION_EXPIRED": "This invitation has expired. Ask for a new one.",
+  "ORG_INVITATION_WRONG_ACCOUNT": "This invitation was sent to a different email address. Sign in with that address to accept it.",
+  "ORG_CANNOT_LEAVE_LAST": "This is your only workspace. Join or create another one before leaving."
 }
