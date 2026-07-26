@@ -27,6 +27,11 @@ Admin roles are stored in `users.role`:
 - `admin_ro` can read admin data.
 - `admin_rw` can read admin data and perform write actions.
 
+Admin users must also enable Better Auth two-factor authentication before the
+admin console authorizes them. Without MFA, a signed-in admin role is redirected
+to `/mfa-required`; after enabling two-factor auth from the public account page,
+they can complete the admin `/two-factor` challenge and continue.
+
 The admin guard lives in `apps/admin/lib/authz.ts` and loads the current role from the database. Do not trust role values from the client.
 
 Admin sign-in goes through the same `/sign-in/email` endpoint as the public app, so the Cloudflare Turnstile challenge applies here too. `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` must be set for this app as well, or admin login will be rejected with `Missing CAPTCHA response`.
@@ -60,6 +65,8 @@ Shared auth, database schema, product models, and service integrations stay in `
 - `/reservations`
 - `/affiliates`
 - `/audit`
+- `/mfa-required`
+- `/two-factor`
 - `/api/admin/users`
 - `/api/admin/orders`
 - `/api/admin/users/[uuid]/credits`
@@ -72,7 +79,7 @@ Shared auth, database schema, product models, and service integrations stay in `
 - Use a dedicated admin origin, for example `https://admin.example.com`.
 - Set `NEXT_PUBLIC_ADMIN_WEB_URL` to that origin.
 - Keep `DATABASE_URL`, `BETTER_AUTH_SECRET`, and other shared secrets aligned with the public web app.
-- Assign `admin_ro` or `admin_rw` manually in the database for trusted operators.
+- Assign `admin_ro` or `admin_rw` manually in the database for trusted operators, then have each admin enable two-factor auth before opening the console.
 - Keep new admin write actions behind `requireAdminWrite()` and same-origin protection, and record them with `writeAdminAuditLog()`.
 - Set `ADMIN_MAX_CREDIT_GRANT` to a sane ceiling for your product (defaults to 100000).
 - `apps/admin/middleware.ts` sends `noindex` and `no-store` on every admin response; keep the RBAC gate in the layout and route handlers rather than moving it into middleware.

@@ -20,13 +20,15 @@ Starter Next.js prêt pour la production : authentification, facturation, inte
   <sub>Aussi : Drizzle ORM, Better Auth, Stripe, next‑intl, Fumadocs & plus</sub>
   <br/>
   <br/>
-  <a href="https://sushi-templates.com" target="_blank" rel="noreferrer noopener" style="display:inline-block;padding:10px 14px;border-radius:8px;background:#111;color:#fff;text-decoration:none;">Visiter le site</a>
+  <a href="https://www.sushi-templates.com" target="_blank" rel="noreferrer noopener" style="display:inline-block;padding:10px 14px;border-radius:8px;background:#111;color:#fff;text-decoration:none;">Visiter le site</a>
   &nbsp;&nbsp;
-  <a href="https://sushi-templates.com/fr/blogs/quick-start" target="_blank" rel="noreferrer noopener" style="display:inline-block;padding:10px 14px;border-radius:8px;border:1px solid #ddd;text-decoration:none;">En savoir plus</a>
+  <a href="https://www.sushi-templates.com/fr/docs/quick-start" target="_blank" rel="noreferrer noopener" style="display:inline-block;padding:10px 14px;border-radius:8px;border:1px solid #ddd;text-decoration:none;">En savoir plus</a>
   <br/>
 </p>
 
 </div>
+
+> Note : cette traduction est un résumé. Le README anglais est la référence la plus complète et à jour.
 
 
 ## Pourquoi choisir Sushi SaaS
@@ -56,7 +58,7 @@ Starter Next.js prêt pour la production : authentification, facturation, inte
 ## Vitrine
 
 - DojoClip — https://dojoclip.com — Édition vidéo dans le navigateur avec sous‑titres multilingues.
-- Sushi Templates — https://sushi-templates.com — Exemple en production sur Vercel.
+- Sushi Templates — https://www.sushi-templates.com — Site de documentation du projet, pas une vitrine en production.
 
 
 ## Besoin d’aide ?

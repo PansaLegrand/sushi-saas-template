@@ -50,12 +50,12 @@ Ordered. Take the top item.
      supports it) as the dev default, keeping Docker as the production-shaped
      opt-in.
 
-2. [ ] [P0] Unblock first sign-in without an email provider
-   - `requireEmailVerification: true` plus no `RESEND_API_KEY` means signup
-     succeeds and sign-in is then impossible. The send throws, the error is
-     logged, and the account is stranded.
-   - In development, print the verification URL to the console instead of
-     failing. Do not weaken the production path.
+2. [x] [P0] Unblock first sign-in without an email provider
+   - Development and test builds now detect a missing email provider and log
+     verification/password-reset links through the app logger instead of
+     stranding the account.
+   - Production still requires a real provider and preserves the fail-closed
+     path.
 
 3. [ ] [P0] Add error tracking and structured production logs
    - Today a production failure leaves pino on stdout and nothing else. The
@@ -64,12 +64,13 @@ Ordered. Take the top item.
    - Smallest useful version: Sentry plus one pass replacing stray
      `console.log` in services with the existing logger.
 
-4. [ ] [P0] Require MFA for admin roles
-   - `apps/admin` authenticates against the same user table as customers, so an
-     admin account is protected by a password and a captcha, and credential
-     stuffing against the *public* login page reaches the admin console.
-   - Better Auth ships a `two-factor` plugin. Require it when
-     `users.role != 'user'`.
+4. [x] [P0] Require MFA for admin roles
+   - Better Auth two-factor auth is wired into the public app and admin app.
+     Users can enable/disable authenticator-app MFA from their account page,
+     with backup codes shown during setup.
+   - `apps/admin` now blocks `admin_ro` and `admin_rw` users until
+     `users.two_factor_enabled` is true, and sends them to a setup-required
+     page instead of the admin console.
 
 5. [ ] [P1] Promote the first admin without SQL
    - Every user signs up as `role='user'`; the only path to admin is a manual
@@ -164,6 +165,13 @@ database that already holds real rows:
   Stripe customers onto their personal orgs. Without it, the next portal visit
   mints a *second* Stripe customer and strands the first one's card, invoices,
   and subscription.
+
+Migration `0017` adds admin MFA support:
+
+- **`0017` adds `users.two_factor_enabled` and the Better Auth `two_factor`
+  table.** Run it before enforcing admin access on a deployed database. Existing
+  admin users will be redirected to the MFA setup-required page until they
+  enable two-factor auth from the public account page.
 
 ---
 

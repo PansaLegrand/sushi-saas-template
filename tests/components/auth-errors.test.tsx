@@ -29,6 +29,11 @@ describe("resolveAuthError", () => {
     expect(fr).toMatch(/existe déjà/i);
   });
 
+  it("maps two-factor plugin failures to catalogued copy", () => {
+    expect(resolveAuthError({ code: "INVALID_CODE" })).toMatch(/two-factor code/i);
+    expect(resolveAuthError({ message: "Invalid backup code" })).toMatch(/two-factor code/i);
+  });
+
   it("never passes an unrecognized message through to the user", () => {
     const leaked = "connect ECONNREFUSED 10.0.0.4:5432";
     const shown = resolveAuthError({ message: leaked });

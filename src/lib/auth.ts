@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
-import { captcha, organization } from "better-auth/plugins";
+import { captcha, organization, twoFactor } from "better-auth/plugins";
 import { createFieldAttribute } from "better-auth/db";
 
 import { randomUUID } from "node:crypto";
@@ -20,6 +20,11 @@ import { CreditsAmount } from "@/services/credit";
 import { enqueueJobSafe } from "@/services/jobs";
 import { ensurePersonalOrganization } from "@/services/organizations";
 import { sendResetPasswordEmail, sendVerifyEmail } from "@/services/email/send";
+import {
+  hasEmailProviderConfigured,
+  logDevAuthEmailLink,
+  type AuthEmailLinkKind,
+} from "@/services/email/dev-auth-links";
 import * as schema from "@/db/schema";
 
 const database = db();
@@ -53,6 +58,38 @@ const socialProviders = (() => {
   }
   return {} as const;
 })();
+
+async function sendAuthEmailOrLogDevLink(input: {
+  kind: AuthEmailLinkKind;
+  email: string;
+  url: string;
+  send: () => Promise<unknown>;
+}) {
+  if (!isProductionRuntime() && !hasEmailProviderConfigured()) {
+    logDevAuthEmailLink({
+      kind: input.kind,
+      email: input.email,
+      url: input.url,
+      reason: "email_provider_missing",
+    });
+    return;
+  }
+
+  try {
+    await input.send();
+  } catch (error) {
+    const loggedDevLink = logDevAuthEmailLink({
+      kind: input.kind,
+      email: input.email,
+      url: input.url,
+      reason: "email_send_failed",
+    });
+
+    if (!loggedDevLink) {
+      console.error(`failed to send ${input.kind} email`, error);
+    }
+  }
+}
 
 /**
  * Turnstile challenge on the credential and mail-sending endpoints.
@@ -198,6 +235,24 @@ const organizationPlugin = organization({
   },
 });
 
+const twoFactorPlugin = twoFactor({
+  issuer: getAppEnv().NEXT_PUBLIC_APP_NAME,
+  schema: {
+    user: {
+      fields: {
+        twoFactorEnabled: "two_factor_enabled",
+      },
+    },
+    twoFactor: {
+      modelName: "twoFactor",
+      fields: {
+        userId: "user_id",
+        backupCodes: "backup_codes",
+      },
+    },
+  },
+});
+
 export const auth = betterAuth({
   appName: getAppEnv().NEXT_PUBLIC_APP_NAME,
   baseURL: getAppEnv().BETTER_AUTH_URL,
@@ -271,11 +326,12 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: true,
     sendResetPassword: async ({ user, url }, _request) => {
-      try {
-        await sendResetPasswordEmail(user.email, url);
-      } catch (e) {
-        console.error("failed to send reset password email", e);
-      }
+      await sendAuthEmailOrLogDevLink({
+        kind: "password_reset",
+        email: user.email,
+        url,
+        send: () => sendResetPasswordEmail(user.email, url),
+      });
     },
     onPasswordReset: async ({ user }, _request) => {
       console.log(`Password reset completed for ${user.email}`);
@@ -287,11 +343,12 @@ export const auth = betterAuth({
     autoSignInAfterVerification: true,
     expiresIn: 60 * 60,
     sendVerificationEmail: async ({ user, url }, _request) => {
-      try {
-        await sendVerifyEmail(user.email, url);
-      } catch (e) {
-        console.error("failed to send verification email", e);
-      }
+      await sendAuthEmailOrLogDevLink({
+        kind: "verification",
+        email: user.email,
+        url,
+        send: () => sendVerifyEmail(user.email, url),
+      });
     },
     afterEmailVerification: async (user, request) => {
       const info = describeAuthRequest({ request, path: "/verify-email" });
@@ -320,7 +377,7 @@ export const auth = betterAuth({
   // Captcha first: its onRequest hook must reject before any handler runs.
   // `nextCookies` stays last — it wraps responses, so anything registered after
   // it would not get its cookies written.
-  plugins: [...captchaPlugins, organizationPlugin, nextCookies()],
+  plugins: [...captchaPlugins, organizationPlugin, twoFactorPlugin, nextCookies()],
   telemetry: {
     enabled: false,
   },

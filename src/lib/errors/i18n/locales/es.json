@@ -9,6 +9,7 @@
   "AUTH_USER_ALREADY_EXISTS": "Ya existe una cuenta con ese correo.",
   "AUTH_INVALID_TOKEN": "Este enlace no es válido o ha caducado. Solicita uno nuevo.",
   "AUTH_PASSWORD_TOO_SHORT": "Esa contraseña es demasiado corta.",
+  "AUTH_INVALID_TWO_FACTOR_CODE": "Ese código de dos factores no es válido o ha caducado.",
   "ACCOUNT_NOT_FOUND": "Cuenta no encontrada.",
   "REQUEST_INVALID": "La solicitud no es válida.",
   "REQUEST_MALFORMED_JSON": "El cuerpo de la solicitud no es un JSON válido.",

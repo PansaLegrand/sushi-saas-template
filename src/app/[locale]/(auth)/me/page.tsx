@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { buildMetadata, defaultMetaFallbacks } from "@/lib/seo";
 import LogoutButton from "@/components/auth/logout-button";
 import FeedbackModal from "@/components/feedback/feedback-modal";
+import TwoFactorSetupPanel from "@/components/auth/two-factor-setup-panel";
 
 export async function generateMetadata({
   params,
@@ -81,6 +82,8 @@ export default async function ProfilePage() {
           <LogoutButton />
         </div>
       </section>
+
+      <TwoFactorSetupPanel initialEnabled={Boolean((user as any).twoFactorEnabled)} />
     </main>
   );
 }

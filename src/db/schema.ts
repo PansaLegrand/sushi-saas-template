@@ -8,6 +8,7 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { randomUUID } from "node:crypto";
 
 // Users table
 export const users = pgTable(
@@ -31,6 +32,9 @@ export const users = pgTable(
     invited_by: varchar({ length: 255 }).notNull().default(""),
     is_affiliate: boolean().notNull().default(false),
     email_verified: boolean().notNull().default(false),
+    // Better Auth two-factor plugin. Admin roles are required to enable this
+    // before the admin console authorizes them.
+    two_factor_enabled: boolean().notNull().default(false),
     // Role-based access control: "user" | "admin_ro" | "admin_rw"
     role: varchar({ length: 50 }).notNull().default("user"),
     // Denormalized from auth_events so "when was this user last active" does
@@ -113,6 +117,22 @@ export const verifications = pgTable(
       table.value
     ),
     index("verifications_expires_at_idx").on(table.expires_at),
+  ]
+);
+
+// Two-factor secrets and backup codes (Better Auth `two-factor` plugin)
+export const twoFactor = pgTable(
+  "two_factor",
+  {
+    id: varchar({ length: 255 })
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    user_id: varchar({ length: 255 }).notNull(),
+    secret: text().notNull(),
+    backup_codes: text().notNull(),
+  },
+  (table) => [
+    uniqueIndex("two_factor_user_id_unique_idx").on(table.user_id),
   ]
 );
 

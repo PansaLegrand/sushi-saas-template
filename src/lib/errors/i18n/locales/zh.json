@@ -9,6 +9,7 @@
   "AUTH_USER_ALREADY_EXISTS": "该邮箱已注册。",
   "AUTH_INVALID_TOKEN": "此链接无效或已过期，请重新获取。",
   "AUTH_PASSWORD_TOO_SHORT": "密码长度不足。",
+  "AUTH_INVALID_TWO_FACTOR_CODE": "该双重验证代码无效或已过期。",
   "ACCOUNT_NOT_FOUND": "未找到该账户。",
   "REQUEST_INVALID": "请求无效。",
   "REQUEST_MALFORMED_JSON": "请求内容不是有效的 JSON。",

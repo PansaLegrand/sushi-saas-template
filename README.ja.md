@@ -20,13 +20,15 @@
   <sub>さらに: Drizzle ORM, Better Auth, Stripe, next‑intl, Fumadocs など</sub>
   <br/>
   <br/>
-  <a href="https://sushi-templates.com" target="_blank" rel="noreferrer noopener" style="display:inline-block;padding:10px 14px;border-radius:8px;background:#111;color:#fff;text-decoration:none;">サイトを見る</a>
+  <a href="https://www.sushi-templates.com" target="_blank" rel="noreferrer noopener" style="display:inline-block;padding:10px 14px;border-radius:8px;background:#111;color:#fff;text-decoration:none;">サイトを見る</a>
   &nbsp;&nbsp;
-  <a href="https://sushi-templates.com/ja/blogs/quick-start" target="_blank" rel="noreferrer noopener" style="display:inline-block;padding:10px 14px;border-radius:8px;border:1px solid #ddd;text-decoration:none;">詳しく見る</a>
+  <a href="https://www.sushi-templates.com/ja/docs/quick-start" target="_blank" rel="noreferrer noopener" style="display:inline-block;padding:10px 14px;border-radius:8px;border:1px solid #ddd;text-decoration:none;">詳しく見る</a>
   <br/>
 </p>
 
 </div>
+
+> 注: この翻訳は概要です。最新かつ最も詳しい内容は英語の README を参照してください。
 
 
 ## Sushi SaaS を選ぶ理由
@@ -56,7 +58,7 @@
 ## ショーケース
 
 - DojoClip — https://dojoclip.com — ブラウザで動く動画編集。多言語字幕に強み。
-- Sushi Templates — https://sushi-templates.com — Vercel にデプロイされた実例。
+- Sushi Templates — https://www.sushi-templates.com — プロジェクトのドキュメントサイトであり、ライブショーケースではありません。
 
 
 ## サポートが必要ですか？

@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SignOutButton } from "@admin/components/sign-out-button";
-import { getAdminContext } from "@admin/lib/authz";
+import { getAdminContext, getAdminIdentity } from "@admin/lib/authz";
 
 export default async function AdminLayout({
   children,
@@ -11,6 +11,10 @@ export default async function AdminLayout({
 }) {
   const admin = await getAdminContext();
   if (!admin) {
+    const identity = await getAdminIdentity();
+    if (identity && !identity.mfaEnabled) {
+      redirect("/mfa-required");
+    }
     redirect("/login");
   }
 

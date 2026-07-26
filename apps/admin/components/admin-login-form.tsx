@@ -34,7 +34,7 @@ export function AdminLoginForm() {
     setSubmitting(true);
 
     try {
-      const { error } = await signIn.email({
+      const { data, error } = await signIn.email({
         email,
         password,
         callbackURL: "/",
@@ -43,6 +43,11 @@ export function AdminLoginForm() {
 
       if (error) {
         setErrorMessage(resolveAuthError(error));
+        return;
+      }
+
+      if ((data as any)?.twoFactorRedirect) {
+        router.replace("/two-factor");
         return;
       }
 

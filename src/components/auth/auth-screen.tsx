@@ -87,7 +87,7 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
 
     try {
       if (mode === "signIn") {
-        const { error } = await signIn.email({
+        const { data, error } = await signIn.email({
           email: form.email,
           password: form.password,
           callbackURL: buildPath(),
@@ -96,6 +96,8 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
 
         if (error) {
           setErrorMessage(resolveAuthError(error, locale));
+        } else if ((data as any)?.twoFactorRedirect) {
+          router.replace(buildPath("/two-factor"));
         } else {
           router.replace(buildPath());
         }

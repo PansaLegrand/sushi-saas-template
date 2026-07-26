@@ -20,13 +20,15 @@
   <sub>此外：Drizzle ORM、Better Auth、Stripe、next‑intl、Fumadocs 等</sub>
   <br/>
   <br/>
-  <a href="https://sushi-templates.com" target="_blank" rel="noreferrer noopener" style="display:inline-block;padding:10px 14px;border-radius:8px;background:#111;color:#fff;text-decoration:none;">访问网站</a>
+  <a href="https://www.sushi-templates.com" target="_blank" rel="noreferrer noopener" style="display:inline-block;padding:10px 14px;border-radius:8px;background:#111;color:#fff;text-decoration:none;">访问网站</a>
   &nbsp;&nbsp;
-  <a href="https://sushi-templates.com/zh/blogs/quick-start" target="_blank" rel="noreferrer noopener" style="display:inline-block;padding:10px 14px;border-radius:8px;border:1px solid #ddd;text-decoration:none;">了解更多</a>
+  <a href="https://www.sushi-templates.com/zh/docs/quick-start" target="_blank" rel="noreferrer noopener" style="display:inline-block;padding:10px 14px;border-radius:8px;border:1px solid #ddd;text-decoration:none;">了解更多</a>
   <br/>
 </p>
 
 </div>
+
+> 注：本翻译是概览，最新且最完整的说明以英文 README 为准。
 
 
 ## 为什么选择 Sushi SaaS
@@ -56,7 +58,7 @@
 ## 案例
 
 - DojoClip — https://dojoclip.com — 基于浏览器的视频编辑，支持多语言字幕。
-- Sushi Templates — https://sushi-templates.com — 部署在 Vercel 的在线示例。
+- Sushi Templates — https://www.sushi-templates.com — 项目的文档站点，不再作为在线案例展示。
 
 
 ## 需要帮助？

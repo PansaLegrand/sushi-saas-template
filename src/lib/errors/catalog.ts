@@ -91,6 +91,18 @@ export const ERROR_CATALOG = {
     defaultMessage: "That password is too short.",
     legacyCodes: ["PASSWORD_TOO_SHORT", "Password too short"],
   },
+  AUTH_INVALID_TWO_FACTOR_CODE: {
+    statusCode: 400,
+    defaultMessage: "That two-factor code is invalid or expired.",
+    legacyCodes: [
+      "INVALID_CODE",
+      "Invalid code",
+      "TOTP not enabled",
+      "OTP has expired",
+      "Invalid backup code",
+      "Too many attempts. Please request a new code.",
+    ],
+  },
   ACCOUNT_NOT_FOUND: {
     statusCode: 404,
     defaultMessage: "Account not found.",

@@ -26,6 +26,7 @@ vi.mock("@/models/user", () => ({
 
 import {
   getAdminContext,
+  getAdminIdentity,
   requireAdminRead,
   requireAdminWrite,
 } from "@admin/lib/authz";
@@ -45,6 +46,7 @@ function dbUser(overrides: Record<string, unknown> = {}) {
     uuid: "u-admin",
     email: "admin@example.com",
     role: "admin_rw",
+    two_factor_enabled: true,
     ...overrides,
   };
 }
@@ -74,6 +76,7 @@ describe("admin authorization", () => {
       userUuid: "u-admin",
       email: "admin@example.com",
       role: "admin_rw",
+      mfaEnabled: true,
     });
 
     expect(mocks.findUserByUuid).toHaveBeenCalledWith("u-admin");
@@ -91,6 +94,7 @@ describe("admin authorization", () => {
       userUuid: "u-admin",
       email: "admin@example.com",
       role: "admin_ro",
+      mfaEnabled: true,
     });
 
     expect(mocks.findUserById).toHaveBeenCalledWith("id-admin");
@@ -108,6 +112,26 @@ describe("admin authorization", () => {
     mocks.findUserByUuid.mockResolvedValue(dbUser({ id: "id-other" }));
 
     await expect(getAdminContext()).resolves.toBeNull();
+  });
+
+  it("does not authorize an admin role until MFA is enabled", async () => {
+    mocks.getSession.mockResolvedValue({ user: sessionUser() });
+    mocks.findUserByUuid.mockResolvedValue(dbUser({ two_factor_enabled: false }));
+
+    await expect(getAdminContext()).resolves.toBeNull();
+  });
+
+  it("returns the admin identity even when MFA setup is still required", async () => {
+    mocks.getSession.mockResolvedValue({ user: sessionUser() });
+    mocks.findUserByUuid.mockResolvedValue(dbUser({ two_factor_enabled: false }));
+
+    await expect(getAdminIdentity()).resolves.toEqual({
+      userId: "id-admin",
+      userUuid: "u-admin",
+      email: "admin@example.com",
+      role: "admin_rw",
+      mfaEnabled: false,
+    });
   });
 
   it("does not authorize from email-only session data", async () => {
@@ -131,6 +155,18 @@ describe("admin authorization", () => {
 
     expect(result).not.toBeInstanceOf(Response);
     expect((result as any).role).toBe("admin_ro");
+  });
+
+  it("returns 403 from admin gates when MFA is missing", async () => {
+    mocks.getSession.mockResolvedValue({ user: sessionUser() });
+    mocks.findUserByUuid.mockResolvedValue(dbUser({ two_factor_enabled: false }));
+
+    const result = await requireAdminRead();
+    const payload = await (result as Response).json();
+
+    expect(result).toBeInstanceOf(Response);
+    expect((result as Response).status).toBe(403);
+    expect(payload.code).toBe(-3);
   });
 
   it("blocks read-only admins from write gates", async () => {

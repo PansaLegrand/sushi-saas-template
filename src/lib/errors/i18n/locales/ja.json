@@ -9,6 +9,7 @@
   "AUTH_USER_ALREADY_EXISTS": "このメールアドレスのアカウントは既に存在します。",
   "AUTH_INVALID_TOKEN": "このリンクは無効か、有効期限が切れています。再度お試しください。",
   "AUTH_PASSWORD_TOO_SHORT": "パスワードが短すぎます。",
+  "AUTH_INVALID_TWO_FACTOR_CODE": "2要素認証コードが無効、または期限切れです。",
   "ACCOUNT_NOT_FOUND": "アカウントが見つかりません。",
   "REQUEST_INVALID": "リクエストが不正です。",
   "REQUEST_MALFORMED_JSON": "リクエスト本文が有効な JSON ではありません。",
