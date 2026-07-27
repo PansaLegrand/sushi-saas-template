@@ -6,6 +6,7 @@ import { buildMetadata, defaultMetaFallbacks } from "@/lib/seo";
 import LogoutButton from "@/components/auth/logout-button";
 import FeedbackModal from "@/components/feedback/feedback-modal";
 import TwoFactorSetupPanel from "@/components/auth/two-factor-setup-panel";
+import { findUserByUuid } from "@/models/user";
 
 export async function generateMetadata({
   params,
@@ -45,6 +46,18 @@ export default async function ProfilePage() {
 
   const { user, session } = result;
 
+  // The two-factor panel exists to satisfy the admin-console MFA requirement
+  // (see apps/admin/lib/authz.ts). Regular users never reach that console, so
+  // showing them the setup form is confusing noise — gate it on an admin role.
+  //
+  // Resolve the role from the database rather than the session copy: like the
+  // admin authz path, the session field can be stale or absent, which would
+  // silently hide the panel from a genuine admin.
+  const userUuid = (user as any).uuid as string | undefined;
+  const dbUser = userUuid ? await findUserByUuid(userUuid) : undefined;
+  const role = dbUser?.role;
+  const isAdmin = role === "admin_ro" || role === "admin_rw";
+
   return (
     <main className="mx-auto flex min-h-[calc(100vh-6rem)] max-w-2xl flex-col gap-8 px-4 py-16">
       <header className="space-y-2">
@@ -83,7 +96,11 @@ export default async function ProfilePage() {
         </div>
       </section>
 
-      <TwoFactorSetupPanel initialEnabled={Boolean((user as any).twoFactorEnabled)} />
+      {isAdmin ? (
+        <TwoFactorSetupPanel
+          initialEnabled={Boolean((dbUser as any).two_factor_enabled)}
+        />
+      ) : null}
     </main>
   );
 }
