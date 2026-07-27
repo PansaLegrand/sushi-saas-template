@@ -1,6 +1,7 @@
 import { getLocale, getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
+import { localePath } from "@/i18n/locale";
 
 /**
  * Root 404 — the one an unmatched URL actually reaches.
@@ -25,7 +26,7 @@ export default async function NotFound() {
         {t("notFoundDescription")}
       </p>
       <Button asChild className="mt-2">
-        <a href={`/${locale}`}>{t("home")}</a>
+        <a href={localePath(locale)}>{t("home")}</a>
       </Button>
     </main>
   );

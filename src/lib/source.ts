@@ -4,10 +4,11 @@ import { loader } from "fumadocs-core/source";
 import { icons } from "lucide-react";
 import type { I18nConfig } from "fumadocs-core/i18n";
 import { createElement } from "react";
+import { defaultLocale, locales } from "@/i18n/locale";
 
 export const i18n: I18nConfig = {
-  defaultLanguage: "en",
-  languages: ["en", "zh", "es", "fr", "ja"],
+  defaultLanguage: defaultLocale,
+  languages: locales,
   // Our content lives in per-locale folders like `en/...`, `zh/...`
   parser: "dir",
 };

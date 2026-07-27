@@ -4,8 +4,10 @@ import {
   setRequestLocale,
 } from "next-intl/server";
 import { AppContextProvider } from "@/providers/app-context";
+import { isEnabledLocale, normalizeLocale } from "@/i18n/locale";
 import { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
+import { notFound } from "next/navigation";
 import { ThemeProvider } from "@/providers/theme";
 import {
   appName,
@@ -19,7 +21,9 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  setRequestLocale(locale);
+  if (!isEnabledLocale(locale)) notFound();
+  const normalizedLocale = normalizeLocale(locale);
+  setRequestLocale(normalizedLocale);
 
   const t = await getTranslations();
   const keywordsRaw =
@@ -50,7 +54,7 @@ export async function generateMetadata({
       description,
       url: baseUrlFallback,
       siteName: appName,
-      locale,
+      locale: normalizedLocale,
     },
     twitter: {
       card: "summary_large_image",
@@ -68,7 +72,8 @@ export default async function LocaleLayout({
   params: Promise<{ locale: string }>;
 }>) {
   const { locale } = await params;
-  setRequestLocale(locale);
+  if (!isEnabledLocale(locale)) notFound();
+  setRequestLocale(normalizeLocale(locale));
 
   const messages = await getMessages();
 

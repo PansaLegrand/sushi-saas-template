@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAppEnv } from "@/lib/env";
+import { absoluteLocaleUrl } from "@/i18n/locale";
 import { logger } from "@/lib/logger/server";
 
 export async function GET(req: Request) {
@@ -25,10 +26,10 @@ export async function GET(req: Request) {
     redirectUrl = env.NEXT_PUBLIC_PAY_FAIL_URL || "/";
   }
 
-  // Build absolute URL and prefix with locale for app routes
+  // Build absolute URL and prefix with locale for non-default app routes.
   const base = env.NEXT_PUBLIC_WEB_URL;
   const isAbsolute = /^https?:\/\//i.test(redirectUrl);
   const path = redirectUrl.startsWith("/") ? redirectUrl : `/${redirectUrl}`;
-  const target = isAbsolute ? redirectUrl : `${base}/${locale}${path}`;
+  const target = isAbsolute ? redirectUrl : absoluteLocaleUrl(base, locale, path);
   return NextResponse.redirect(target, { status: 303 });
 }

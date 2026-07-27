@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { findUserByInviteCode } from "@/models/user";
 import { AffiliateConfig } from "@/config/affiliate";
 import { getAppEnv } from "@/lib/env";
+import { absoluteLocaleUrl } from "@/i18n/locale";
 
 export async function GET(_req: Request, ctx: any) {
   const { inviteCode, locale } = await (ctx?.params || {}) as {
@@ -12,7 +13,7 @@ export async function GET(_req: Request, ctx: any) {
   try {
     const inviter = await findUserByInviteCode(inviteCode);
     const base = getAppEnv().NEXT_PUBLIC_WEB_URL;
-    const redirectTo = new URL(`/${locale}/signup`, base);
+    const redirectTo = absoluteLocaleUrl(base, locale, "/signup");
 
     const res = NextResponse.redirect(redirectTo);
 
@@ -30,6 +31,6 @@ export async function GET(_req: Request, ctx: any) {
     return res;
   } catch (e) {
     const base = getAppEnv().NEXT_PUBLIC_WEB_URL;
-    return NextResponse.redirect(new URL(`/${locale}`, base));
+    return NextResponse.redirect(absoluteLocaleUrl(base, locale));
   }
 }

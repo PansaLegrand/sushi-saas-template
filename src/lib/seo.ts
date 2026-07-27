@@ -13,7 +13,7 @@ const normalizeKeywords = (keywords?: string | string[]): string[] | undefined =
     .filter(Boolean);
 };
 
-import { defaultLocale, localePrefix, locales } from "@/i18n/locale";
+import { absoluteLocaleUrl, locales } from "@/i18n/locale";
 import type { Metadata } from "next";
 import { getAppEnv } from "@/lib/env";
 
@@ -46,23 +46,11 @@ export function buildMetadata({
 }: BuildMetadataOptions): Metadata {
   const baseUrl = normalizeBaseUrl(FALLBACK_BASE_URL);
   const trimmedPath = normalizePath(path);
-  const isHome = trimmedPath === "";
-
-  const prefixForLocale = (loc: string) => {
-    // With localePrefix === "always", keep the locale segment even for the default locale.
-    if (localePrefix === "always" || loc !== defaultLocale) {
-      return `/${loc}`;
-    }
-    return "";
-  };
-
-  const localizedPath = `${prefixForLocale(locale)}${trimmedPath}`;
-  const canonicalUrl = `${baseUrl}${isHome && localizedPath === "" ? "" : localizedPath}`;
+  const canonicalUrl = absoluteLocaleUrl(baseUrl, locale, trimmedPath || "/");
 
   const languages: Record<string, string> = {};
   for (const loc of locales) {
-    const localized = `${prefixForLocale(loc)}${trimmedPath}`;
-    languages[loc] = `${baseUrl}${localized || ""}`;
+    languages[loc] = absoluteLocaleUrl(baseUrl, loc, trimmedPath || "/");
   }
 
   return {

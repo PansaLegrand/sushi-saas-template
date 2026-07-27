@@ -1,8 +1,7 @@
 import "@/app/globals.css";
 
 import { getLocale, setRequestLocale } from "next-intl/server";
-import { defaultLocale, localePrefix, locales } from "@/i18n/locale";
-import { cn } from "@/lib/utils";
+import { absoluteLocaleUrl, defaultLocale, locales } from "@/i18n/locale";
 import { baseUrlFallback } from "@/lib/seo";
 
 export default async function RootLayout({
@@ -15,11 +14,7 @@ export default async function RootLayout({
 
   const webUrl = baseUrlFallback;
   const googleAdsenseCode = process.env.NEXT_PUBLIC_GOOGLE_ADCODE || "";
-  const localeHref = (loc: string) => {
-    const prefix =
-      localePrefix === "always" || loc !== defaultLocale ? `/${loc}` : "";
-    return `${webUrl}${prefix}`;
-  };
+  const localeHref = (loc: string) => absoluteLocaleUrl(webUrl, loc);
 
   return (
     <html lang={locale} suppressHydrationWarning>

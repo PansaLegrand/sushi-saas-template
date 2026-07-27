@@ -26,6 +26,7 @@ import {
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { localePath } from "@/i18n/locale";
 import { resolveErrorMessage } from "@/lib/errors/client";
 import type { MemberView, OrgRoleName, TeamView } from "@/types/team";
 
@@ -123,7 +124,9 @@ export default function TeamManager({ initial }: { initial: TeamView }) {
                     toast.success(t("left"));
                     // The caller is no longer in this organization, so there is
                     // nothing left on this screen to re-render.
-                    startTransition(() => router.replace(`/${locale}/account/billing`));
+                    startTransition(() =>
+                      router.replace(localePath(locale, "/account/billing"))
+                    );
                     return null;
                   }
 

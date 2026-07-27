@@ -14,7 +14,7 @@ tags: [database, Drizzle, Postgres]
 author: "Pansa Legrand"
 publishedAt: "2025-09-29T00:00:00.000Z"
 updatedAt: "2025-09-29T00:00:00.000Z"
-canonical: "https://www.sushi-templates.com/en/blogs/database-setup"
+canonical: "https://www.sushi-templates.com/docs/database-setup"
 ---
 
 The database is the center of a modern SaaS. Every real feature — authentication, billing, credits, storage, usage tracking, even demo modules — flows through the database. In Chinese, we sometimes joke we are “CRUD engineers”: create, read, update, delete is the core daily work. As the schema grows, treating the database as the foundation keeps the rest of the app predictable.
@@ -165,7 +165,7 @@ create a minimal `files` row through `POST /api/storage/uploads`, then
 
 ## 8. Try the auth flow
 
-Once migrations are applied, restart `pnpm dev`, open `/en/signup`, and create a
+Once migrations are applied, restart `pnpm dev`, open `/signup`, and create a
 user. You should be redirected to the home page and a new record should appear
 in `users` and `sessions`.
 

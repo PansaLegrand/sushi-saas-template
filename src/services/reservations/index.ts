@@ -15,6 +15,7 @@ import { getAppEnv } from "@/lib/env";
 import { AppError } from "@/lib/errors/app-error";
 import { insertOrder, OrderStatus, updateOrderSession } from "@/models/order";
 import { findUserByUuid } from "@/models/user";
+import { absoluteLocaleUrl } from "@/i18n/locale";
 
 // Generate availability slots for a given date in the user's timezone.
 export async function getAvailabilityForDate(params: {
@@ -183,10 +184,12 @@ export async function createReservationAndCheckout(params: {
   // Build Stripe Checkout
   const client = newStripeClient();
   const webUrl = getAppEnv().NEXT_PUBLIC_WEB_URL;
-  const successUrl = `${webUrl}/${params.locale}/reserve?reservation_no=${encodeURIComponent(
-    reservation.reservation_no
-  )}&success=1`;
-  const cancelUrl = `${webUrl}/${params.locale}/reserve?canceled=1`;
+  const successUrl = absoluteLocaleUrl(
+    webUrl,
+    params.locale,
+    `/reserve?reservation_no=${encodeURIComponent(reservation.reservation_no)}&success=1`
+  );
+  const cancelUrl = absoluteLocaleUrl(webUrl, params.locale, "/reserve?canceled=1");
 
   const options: Stripe.Checkout.SessionCreateParams = {
     payment_method_types: ["card"],

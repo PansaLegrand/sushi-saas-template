@@ -1,6 +1,6 @@
 import { blogSource as source } from "@/lib/source";
 import type { Metadata } from "next";
-import { locales as supportedLocales } from "@/i18n/locale";
+import { absoluteLocaleUrl, locales as supportedLocales } from "@/i18n/locale";
 import { baseUrlFallback } from "@/lib/seo";
 import Script from "next/script";
 import {
@@ -41,7 +41,7 @@ export default async function DocsContentPage(props: {
   const fm: any = page.data;
   const canonicalUrl =
     normalizeCanonical(fm.canonical as string | undefined) ??
-    `${base}/${params.locale ?? "en"}/blogs/${slugPath}`;
+    absoluteLocaleUrl(base, params.locale, `/blogs/${slugPath}`);
   const authors = Array.isArray(fm.authors)
     ? fm.authors
     : fm.author
@@ -119,7 +119,7 @@ export async function generateMetadata(props: {
 
   const canonical =
     normalizeCanonical(fm.canonical as string | undefined) ??
-    `${base}/${params.locale ?? "en"}/blogs/${slugPath}`;
+    absoluteLocaleUrl(base, params.locale, `/blogs/${slugPath}`);
 
   const keywords: string[] | undefined = Array.isArray(fm.keywords)
     ? fm.keywords
@@ -145,7 +145,7 @@ export async function generateMetadata(props: {
   for (const loc of supportedLocales) {
     const localized = source.getPage(params.slug, loc);
     if (localized) {
-      languages[loc] = `${base}/${loc}/blogs/${slugPath}`;
+      languages[loc] = absoluteLocaleUrl(base, loc, `/blogs/${slugPath}`);
     }
   }
 

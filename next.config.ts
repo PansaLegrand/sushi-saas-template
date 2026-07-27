@@ -1,6 +1,7 @@
 import createNextIntlPlugin from "next-intl/plugin";
 import { createMDX as createFumadocsMDX } from "fumadocs-mdx/next";
 import { securityHeadersRoute } from "./src/config/security-headers.js";
+import { defaultLocale, locales } from "./src/i18n/locale";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
@@ -33,12 +34,15 @@ const nextConfig = {
   },
   async redirects() {
     return MOVED_TO_DOCS.flatMap((slug) => [
-      // Locale-prefixed, e.g. /en/blogs/quick-start
-      {
-        source: `/:locale/blogs/${slug}`,
-        destination: `/:locale/docs/${slug}`,
+      // Locale-prefixed legacy links, e.g. /en/blogs/quick-start.
+      ...locales.map((locale) => ({
+        source: `/${locale}/blogs/${slug}`,
+        destination:
+          locale === defaultLocale
+            ? `/docs/${slug}`
+            : `/${locale}/docs/${slug}`,
         permanent: true,
-      },
+      })),
       // Unprefixed, in case anything links without a locale
       {
         source: `/blogs/${slug}`,

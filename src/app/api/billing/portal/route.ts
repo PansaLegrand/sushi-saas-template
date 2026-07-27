@@ -7,6 +7,7 @@ import { findOrganizationByUuid } from "@/models/organization";
 import { findUserByUuid } from "@/models/user";
 import { getOrCreateCustomerIdForOrg } from "@/services/stripe";
 import { getAppEnv, getRequiredEnv } from "@/lib/env";
+import { absoluteLocaleUrl } from "@/i18n/locale";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { respData } from "@/lib/resp";
@@ -22,7 +23,7 @@ const BillingPortalSchema = z.object({
 function withLocaleReturnUrl(locale: string | null | undefined) {
   const base = getAppEnv().NEXT_PUBLIC_WEB_URL;
   const loc = locale && locale.length > 0 ? locale : "en";
-  return `${base}/${loc}/account/billing`;
+  return absoluteLocaleUrl(base, loc, "/account/billing");
 }
 
 export async function GET(req: NextRequest) {

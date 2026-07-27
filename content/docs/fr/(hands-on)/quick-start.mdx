@@ -39,7 +39,7 @@ pnpm dev
 
 Routes utiles :
 
-- Landing : `/en`, `/zh`, `/es`, `/fr`, `/ja`
+- Landing : `/`, `/zh`, `/es`, `/fr`, `/ja`
 - Santé : `/api/health` (retourne `{ status: "ok" }`)
 - Docs (MDX) : `/:locale/blogs/quick-start`
 
@@ -48,15 +48,17 @@ Routes utiles :
 ## Internationalisation (next-intl)
 
 - Messages dans `messages/*.json`
-- Locales dans `src/i18n/locale.ts` (`locales`, `defaultLocale`, `localePrefix`)
+- Locales incluses dans `src/i18n/locale.ts` ; les locales actives se règlent avec `NEXT_PUBLIC_LOCALES`
+- Anglais seul : `NEXT_PUBLIC_LOCALES=en` ; anglais et espagnol : `NEXT_PUBLIC_LOCALES=en,es`
 - Middleware : `src/middleware.ts` (préfixe `/:locale/...`)
 - Chargement des messages : `src/i18n/request.ts`
 
 Ajouter une langue :
 
 1) Créer `messages/<locale>.json`
-2) Ajouter le code dans `locales` (`src/i18n/locale.ts`)
-3) Redémarrer le serveur
+2) Ajouter le code dans `availableLocales` (`src/i18n/locale.ts`)
+3) Inclure le code dans `NEXT_PUBLIC_LOCALES`
+4) Redémarrer le serveur
 
 ---
 
@@ -114,6 +116,8 @@ NEXT_PUBLIC_AUTH_BASE_URL=http://localhost:3000
 NEXT_PUBLIC_APP_NAME=Sushi SaaS
 NEXT_PUBLIC_PROJECT_NAME=sushi-saas-template
 NEXT_PUBLIC_DEFAULT_THEME=system           # system | light | dark
+NEXT_PUBLIC_DEFAULT_LOCALE=en
+NEXT_PUBLIC_LOCALES=en,zh,es,fr,ja         # "en" for English-only; "en,es" for English + Spanish
 NEXT_PUBLIC_LOCALE_DETECTION=false         # "true" to auto-detect browser locale
 # Toggle auth entirely (default enabled unless set to "false")
 NEXT_PUBLIC_AUTH_ENABLED=true
@@ -259,6 +263,6 @@ BETTER_AUTH_URL=http://localhost:3000
 
 ## Dépannage
 
-- `/zh` reste en anglais : vérifier `localePrefix = "always"` et redémarrer
+- Si une route de langue renvoie 404, ajouter le code à `NEXT_PUBLIC_LOCALES` et redémarrer
 - “Unknown module type” (MDX) : vérifier le plugin Fumadocs (log `[MDX] types generated`)
 - 404 docs : vérifier `content/docs/<locale>/...` et le slug

@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { authClient } from "@/lib/auth-client";
+import { localePath } from "@/i18n/locale";
 import { resolveAuthError } from "@/lib/errors/auth-client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -39,7 +40,7 @@ export function TwoFactorVerifyForm() {
         return;
       }
 
-      router.replace(locale ? `/${locale}` : "/");
+      router.replace(localePath(locale));
       router.refresh();
     } catch {
       setErrorMessage(resolveAuthError(null, locale));

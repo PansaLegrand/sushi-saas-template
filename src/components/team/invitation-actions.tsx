@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { acceptInvitation, declineInvitation } from "@/api/team";
 import { Button } from "@/components/ui/button";
+import { localePath } from "@/i18n/locale";
 import { resolveErrorMessage } from "@/lib/errors/client";
 
 /**
@@ -48,7 +49,7 @@ export default function InvitationActions({
           act(
             () => acceptInvitation(id),
             t("accepted", { name: organizationName }),
-            `/${locale}/account/team`
+            localePath(locale, "/account/team")
           )
         }
       >
@@ -58,7 +59,7 @@ export default function InvitationActions({
         variant="outline"
         disabled={busy}
         onClick={() =>
-          act(() => declineInvitation(id), t("declined"), `/${locale}`)
+          act(() => declineInvitation(id), t("declined"), localePath(locale))
         }
       >
         {t("decline")}

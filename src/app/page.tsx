@@ -1,9 +1,8 @@
-import { redirect } from "next/navigation";
+import LocaleHomePage from "./[locale]/page";
+import { setRequestLocale } from "next-intl/server";
 import { defaultLocale } from "@/i18n/locale";
 
 export default function RootPage() {
-  // With localePrefix set to "always", we serve content under /:locale
-  // Redirect visitors from "/" to the default locale landing.
-  const target = `/${defaultLocale}`;
-  redirect(target);
+  setRequestLocale(defaultLocale);
+  return <LocaleHomePage />;
 }

@@ -5,7 +5,7 @@ import { buildReservationICS } from "@/services/reservations/ics";
 import { buildGoogleCalendarUrl } from "@/services/reservations/google";
 import { ReservationsConfig } from "@/config/reservations";
 import { getPricingConfig } from "@/config/pricing";
-import { locales } from "@/i18n/locale";
+import { absoluteLocaleUrl, locales } from "@/i18n/locale";
 import { OrderStatus } from "@/models/order";
 import { insertRenewalOrderWithGrant } from "@/models/fulfillment";
 import { CreditsTransType } from "@/services/credit";
@@ -150,7 +150,11 @@ export async function POST(req: Request) {
                   end,
                   title: `Reservation: ${svc?.title ?? "Service"}`,
                   description: `Reservation #${reservationNo} — ${svc?.title ?? "Service"}`,
-                  url: `${getAppEnv().NEXT_PUBLIC_WEB_URL}/en/reserve?reservation_no=${reservationNo}`,
+                  url: absoluteLocaleUrl(
+                    getAppEnv().NEXT_PUBLIC_WEB_URL,
+                    "en",
+                    `/reserve?reservation_no=${reservationNo}`
+                  ),
                 });
                 const googleUrl = buildGoogleCalendarUrl({
                   title: `Reservation: ${svc?.title ?? "Service"}`,
@@ -394,7 +398,7 @@ export async function POST(req: Request) {
         if (invoice.customer_email) {
           const amountDue = typeof invoice.amount_due === "number" ? invoice.amount_due / 100 : undefined;
           const manageUrlBase = getAppEnv().NEXT_PUBLIC_WEB_URL;
-          const manageUrl = `${manageUrlBase}/en/account/billing`;
+          const manageUrl = absoluteLocaleUrl(manageUrlBase, "en", "/account/billing");
           await enqueueJob(
             "payment_failed_email",
             {

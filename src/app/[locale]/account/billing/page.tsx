@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { describePlans, getPlanSnapshot } from "@/services/entitlements";
 import { getOrgContextFromHeaders } from "@/services/authz";
+import { localePath } from "@/i18n/locale";
 import type { LimitValue, PlanLimit, PlanSnapshot, Tier } from "@/types/plan";
 
 export async function generateMetadata({
@@ -160,7 +161,7 @@ export default async function BillingPage({ params }: { params: Promise<{ locale
               <Button>Manage billing</Button>
             </Link>
           ) : (
-            <Link href={`/${locale}/pricing`} prefetch={false}>
+            <Link href={localePath(locale, "/pricing")} prefetch={false}>
               <Button>See plans</Button>
             </Link>
           )}

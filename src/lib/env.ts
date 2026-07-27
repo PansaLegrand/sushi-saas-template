@@ -113,6 +113,8 @@ const RawEnvSchema = z.object({
   NEXT_PUBLIC_PROJECT_NAME: envString,
   NEXT_PUBLIC_AUTH_ENABLED: envBoolean(true),
   NEXT_PUBLIC_DEFAULT_THEME: envString,
+  NEXT_PUBLIC_DEFAULT_LOCALE: envString,
+  NEXT_PUBLIC_LOCALES: envString,
   NEXT_PUBLIC_LOCALE_DETECTION: envBoolean(false),
 
   DATABASE_URL: envString,

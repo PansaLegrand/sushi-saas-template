@@ -1,5 +1,5 @@
 import { source } from "@/lib/source";
-import { locales as supportedLocales, localeNames } from "@/i18n/locale";
+import { localeNames, locales as supportedLocales, normalizeLocale } from "@/i18n/locale";
 import { RootProvider } from "fumadocs-ui/provider";
 import { DocsLayout } from "fumadocs-ui/layouts/notebook";
 import "fumadocs-ui/css/style.css";
@@ -8,7 +8,7 @@ export default async function DocsCollectionLayout({
   params,
 }: Readonly<{ children: React.ReactNode; params: Promise<{ locale?: string }> }>) {
   const { locale } = await params;
-  const lang = (locale && supportedLocales.includes(locale as any) ? locale : "en") as string;
+  const lang = normalizeLocale(locale);
 
   const uiLocales = supportedLocales.map((loc) => ({ name: localeNames[loc] ?? loc, locale: loc }));
 

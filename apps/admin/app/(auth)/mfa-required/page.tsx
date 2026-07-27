@@ -1,11 +1,12 @@
 import Link from "next/link";
 
+import { absoluteLocaleUrl } from "@/i18n/locale";
 import { getAppEnv } from "@/lib/env";
 import { getAdminIdentity } from "@admin/lib/authz";
 
 export default async function AdminMfaRequiredPage() {
   const identity = await getAdminIdentity();
-  const accountUrl = new URL("/en/me", getAppEnv().NEXT_PUBLIC_WEB_URL).toString();
+  const accountUrl = absoluteLocaleUrl(getAppEnv().NEXT_PUBLIC_WEB_URL, "en", "/me");
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/30 px-4">

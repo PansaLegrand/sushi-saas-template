@@ -1,5 +1,5 @@
 import { source } from "@/lib/source";
-import { locales as supportedLocales } from "@/i18n/locale";
+import { normalizeLocale } from "@/i18n/locale";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { buildMetadata, defaultMetaFallbacks } from "@/lib/seo";
@@ -9,7 +9,7 @@ type Params = { locale?: string };
 
 export async function generateMetadata(props: { params: Promise<Params> }) {
   const { locale } = await props.params;
-  const lang = (locale && supportedLocales.includes(locale as any) ? locale : "en") as string;
+  const lang = normalizeLocale(locale);
   const tMeta = await getTranslations();
   const tBlogs = await getTranslations("docs");
   const keywords =
@@ -28,7 +28,7 @@ export async function generateMetadata(props: { params: Promise<Params> }) {
 
 export default async function DocsIndexPage(props: { params: Promise<Params> }) {
   const { locale } = await props.params;
-  const lang = (locale && supportedLocales.includes(locale as any) ? locale : "en") as string;
+  const lang = normalizeLocale(locale);
   const t = await getTranslations("docs");
 
   // Build the order based on the sidebar tree (from _meta.json),

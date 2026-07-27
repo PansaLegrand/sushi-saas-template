@@ -39,7 +39,7 @@ pnpm dev
 
 常用地址：
 
-- 首页（多语言）：`/en`、`/zh`、`/es`、`/fr`、`/ja`
+- 首页（多语言）：`/`、`/zh`、`/es`、`/fr`、`/ja`
 - 健康检查：`/api/health`（返回 `{ status: "ok" }`）
 - 文档（MDX）：`/:locale/blogs/quick-start`
 
@@ -48,15 +48,17 @@ pnpm dev
 ## 国际化（next-intl）
 
 - 文案在 `messages/*.json`
-- 语言列表在 `src/i18n/locale.ts`（配置 `locales`、`defaultLocale`、`localePrefix`）
+- 内置语言在 `src/i18n/locale.ts`；启用哪些语言由 `NEXT_PUBLIC_LOCALES` 控制
+- 只启用英文：`NEXT_PUBLIC_LOCALES=en`；启用英文和西班牙语：`NEXT_PUBLIC_LOCALES=en,es`
 - 中间件位于 `src/middleware.ts`，路由前缀为 `/:locale/...`
 - 文案加载在 `src/i18n/request.ts`
 
 新增语言步骤：
 
 1）新增 `messages/<locale>.json`
-2）在 `src/i18n/locale.ts` 的 `locales` 中加入该语言
-3）重启开发服务
+2）在 `src/i18n/locale.ts` 的 `availableLocales` 中加入该语言
+3）把该语言加入 `NEXT_PUBLIC_LOCALES`
+4）重启开发服务
 
 ---
 
@@ -114,6 +116,8 @@ NEXT_PUBLIC_AUTH_BASE_URL=http://localhost:3000
 NEXT_PUBLIC_APP_NAME=Sushi SaaS
 NEXT_PUBLIC_PROJECT_NAME=sushi-saas-template
 NEXT_PUBLIC_DEFAULT_THEME=system           # system | light | dark
+NEXT_PUBLIC_DEFAULT_LOCALE=en
+NEXT_PUBLIC_LOCALES=en,zh,es,fr,ja         # "en" for English-only; "en,es" for English + Spanish
 NEXT_PUBLIC_LOCALE_DETECTION=false         # "true" to auto-detect browser locale
 # Toggle auth entirely (default enabled unless set to "false")
 NEXT_PUBLIC_AUTH_ENABLED=true
@@ -260,6 +264,6 @@ NEXT_PUBLIC_AUTH_BASE_URL=http://localhost:3000
 
 ## 排错
 
-- `/zh` 仍是英文：检查 `localePrefix = "always"` 并重启
+- 语言路由 404：把该语言代码加入 `NEXT_PUBLIC_LOCALES` 并重启
 - MDX 报 “Unknown module type”：确认已启用 Fumadocs 插件并重启（日志含 `[MDX] types generated`）
 - 文档 404：确认文件在 `content/docs/<locale>/...` 且路径与访问的 slugs 一致

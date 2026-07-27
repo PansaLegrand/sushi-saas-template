@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 import { signIn, signUp, useSession } from "@/lib/auth-client";
-import { AUTH_ROUTES } from "@/config/auth";
+import { AUTH_ROUTES, withLocale } from "@/config/auth";
 import { captchaHeaders } from "@/lib/captcha";
 import { resolveAuthError } from "@/lib/errors/auth-client";
 import {
@@ -53,16 +53,7 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
   }, [initialMode]);
 
   const buildPath = useCallback(
-    (path: string = "") => {
-      const prefix = locale ? `/${locale}` : "";
-      const suffix = path
-        ? path.startsWith("/")
-          ? path
-          : `/${path}`
-        : "";
-      const full = `${prefix}${suffix}`;
-      return full || "/";
-    },
+    (path: string = "") => withLocale(locale, path || AUTH_ROUTES.defaultCallback),
     [locale]
   );
 

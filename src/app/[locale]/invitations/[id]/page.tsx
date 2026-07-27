@@ -5,6 +5,7 @@ import { getTranslations } from "next-intl/server";
 
 import InvitationActions from "@/components/team/invitation-actions";
 import { Button } from "@/components/ui/button";
+import { localePath } from "@/i18n/locale";
 import { auth } from "@/lib/auth";
 import { buildMetadata, defaultMetaFallbacks } from "@/lib/seo";
 import { findInvitationById } from "@/models/organization";
@@ -75,9 +76,12 @@ export default async function InvitationPage({
             {/* The invitation is bound to the invited address, so send them to
                 sign in and come straight back to this link. */}
             <Link
-              href={`/${locale}/login?callbackUrl=${encodeURIComponent(
-                `/${locale}/invitations/${id}`
-              )}`}
+              href={localePath(
+                locale,
+                `/login?callbackUrl=${encodeURIComponent(
+                  localePath(locale, `/invitations/${id}`)
+                )}`
+              )}
             >
               {t("signIn")}
             </Link>

@@ -1,3 +1,5 @@
+import { localePath } from "@/i18n/locale";
+
 export const AUTH_ROUTES = {
   login: "/login",
   signup: "/signup",
@@ -9,10 +11,7 @@ export const AUTH_ROUTES = {
 export type AuthRouteKey = keyof typeof AUTH_ROUTES;
 
 export function withLocale(locale: string | undefined, path: string) {
-  const prefix = locale ? `/${locale}` : "";
-  const suffix = path.startsWith("/") ? path : `/${path}`;
-  const full = `${prefix}${suffix}`;
-  return full || "/";
+  return localePath(locale, path);
 }
 
 export function absoluteWithLocale(

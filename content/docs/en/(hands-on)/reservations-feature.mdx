@@ -16,7 +16,7 @@ tags: [reservations, Stripe, calendar]
 author: "Pansa Legrand"
 publishedAt: "2025-09-29T00:00:00.000Z"
 updatedAt: "2025-09-29T00:00:00.000Z"
-canonical: "https://www.sushi-templates.com/en/blogs/reservations-feature"
+canonical: "https://www.sushi-templates.com/docs/reservations-feature"
 ---
 
 # Reservations (Demo Feature)
@@ -78,7 +78,7 @@ stripe listen --forward-to localhost:3000/api/pay/webhook/stripe
 pnpm dev
 ```
 
-Visit `/en/reserve` to try the flow. A demo service is auto‑seeded by default. Tweak hours/timezone in `src/config/reservations.ts`.
+Visit `/reserve` to try the flow. A demo service is auto‑seeded by default. Tweak hours/timezone in `src/config/reservations.ts`.
 
 ## Usage
 
@@ -86,7 +86,7 @@ Visit `/en/reserve` to try the flow. A demo service is auto‑seeded by default.
 2. Enter contact info → Stripe Checkout opens
 3. On success, you return to the calendar with a confirmation banner
 4. You receive an email with an ICS attachment and a Google Calendar link
-5. Review bookings at `/en/account/reservations`
+5. Review bookings at `/account/reservations`
 
 ## Customization
 

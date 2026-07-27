@@ -1,5 +1,5 @@
 import { getRequestConfig } from "next-intl/server";
-import { routing } from "./routing";
+import { normalizeLocale } from "./locale";
 
 export default getRequestConfig(async ({ locale, requestLocale }) => {
   let resolved = locale;
@@ -9,16 +9,7 @@ export default getRequestConfig(async ({ locale, requestLocale }) => {
     } catch {}
   }
 
-  const norm = (resolved ?? "").toString().toLowerCase();
-  let normalized = norm;
-  if (norm.startsWith("zh")) normalized = "zh";
-  else if (norm.startsWith("es")) normalized = "es";
-  else if (norm.startsWith("fr")) normalized = "fr";
-  else if (norm.startsWith("ja")) normalized = "ja";
-
-  if (!routing.locales.includes(normalized as any)) {
-    normalized = routing.defaultLocale as string;
-  }
+  const normalized = normalizeLocale(resolved);
 
   try {
     const messages = (await import(`../../messages/${normalized}.json`)).default;

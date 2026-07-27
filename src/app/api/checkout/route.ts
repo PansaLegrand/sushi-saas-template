@@ -18,6 +18,7 @@ import { getAppEnv } from "@/lib/env";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { buildIntroDiscounts, getOrCreateCustomerIdForOrg } from "@/services/stripe";
+import { absoluteLocaleUrl } from "@/i18n/locale";
 import { logger as baseLogger, requestIdFromHeaders } from "@/lib/logger/server";
 
 const CheckoutSchema = z.object({
@@ -46,7 +47,7 @@ export async function POST(req: Request) {
     let cancel_url = `${env.NEXT_PUBLIC_PAY_CANCEL_URL || env.NEXT_PUBLIC_WEB_URL}`;
     if (cancel_url && cancel_url.startsWith("/")) {
       // relative url
-      cancel_url = `${env.NEXT_PUBLIC_WEB_URL}/${locale}${cancel_url}`;
+      cancel_url = absoluteLocaleUrl(env.NEXT_PUBLIC_WEB_URL, locale, cancel_url);
     }
     if (!product_id) {
       return respCode("REQUEST_MISSING_FIELD", {

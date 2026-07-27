@@ -14,7 +14,7 @@ tags: [setup, i18n, MDX]
 author: "Pansa Legrand"
 publishedAt: "2025-09-29T00:00:00.000Z"
 updatedAt: "2025-09-29T00:00:00.000Z"
-canonical: "https://www.sushi-templates.com/en/blogs/quick-start"
+canonical: "https://www.sushi-templates.com/docs/quick-start"
 ---
 
 ## Before You Begin
@@ -39,31 +39,33 @@ pnpm dev
 
 Open these URLs:
 
-- Landing: `/en`, `/zh`, `/es`, `/fr`, `/ja`
+- Landing: `/`, `/zh`, `/es`, `/fr`, `/ja`
 - Health: `/api/health` (returns `{ status: "ok" }`)
-- Docs (MDX): `/:locale/blogs/quick-start`
+- Docs (MDX): `/docs/quick-start` or `/:locale/docs/quick-start`
 
 ---
 
 ## Internationalization (next-intl)
 
 - Messages live in `messages/*.json`.
-- Locales are declared in `src/i18n/locale.ts` (set `locales`, `defaultLocale`, `localePrefix`).
+- Bundled locales are declared in `src/i18n/locale.ts`; enabled locales are controlled by `NEXT_PUBLIC_LOCALES`.
+- Use `NEXT_PUBLIC_LOCALES=en` for English only, or `NEXT_PUBLIC_LOCALES=en,es` for English and Spanish.
 - Middleware is configured in `src/middleware.ts` and routes `/:locale/...`.
 - Message loading is handled in `src/i18n/request.ts`.
 
 To add a language:
 
 1) Add `messages/<locale>.json`
-2) Add the code to `locales` in `src/i18n/locale.ts`
-3) Restart dev
+2) Add the code to `availableLocales` in `src/i18n/locale.ts`
+3) Include the code in `NEXT_PUBLIC_LOCALES`
+4) Restart dev
 
 ---
 
 ## Docs via MDX (Fumadocs)
 
 MDX docs live under `content/docs/<locale>/...`. Pages are available at
-`/:locale/blogs/<slugs>`.
+`/docs/<slugs>` for English and `/:locale/docs/<slugs>` for other languages.
 
 - The dev script generates `.source/index.ts` automatically.
 - MDX/Frontmatter is parsed by the Fumadocs Next plugin configured in
@@ -76,7 +78,7 @@ mkdir -p content/docs/en
 echo "---\ntitle: My Page\n---\n\n# Hello" > content/docs/en/my-page.mdx
 ```
 
-Visit `/en/blogs/my-page`.
+Visit `/docs/my-page`.
 
 ---
 
@@ -116,6 +118,8 @@ NEXT_PUBLIC_AUTH_BASE_URL=http://localhost:3000
 NEXT_PUBLIC_APP_NAME=Sushi SaaS
 NEXT_PUBLIC_PROJECT_NAME=sushi-saas-template
 NEXT_PUBLIC_DEFAULT_THEME=system           # system | light | dark
+NEXT_PUBLIC_DEFAULT_LOCALE=en
+NEXT_PUBLIC_LOCALES=en,zh,es,fr,ja         # "en" for English-only; "en,es" for English + Spanish
 NEXT_PUBLIC_LOCALE_DETECTION=false         # "true" to auto-detect browser locale
 # Toggle auth entirely (default enabled unless set to "false")
 NEXT_PUBLIC_AUTH_ENABLED=true
@@ -264,7 +268,7 @@ BETTER_AUTH_URL=http://localhost:3000
 
 ## Troubleshooting
 
-- If `/zh` renders English, ensure `localePrefix = "always"` and restart.
+- If a locale route 404s, add that code to `NEXT_PUBLIC_LOCALES` and restart.
 - If MDX says "Unknown module type", verify the Fumadocs plugin is enabled in
   `next.config.ts` and restart (it prints `[MDX] types generated`).
 - If docs 404, ensure the file is inside `content/docs/<locale>/...` and slugs
