@@ -33,6 +33,10 @@ export async function GET(
     const summary = await getOrgCreditSummary(org.uuid, {
       includeLedger: true,
       ledgerLimit: 100,
+      // Admin surface: include `actor` and `metadata`. This is the screen where
+      // "why does this org have this balance" gets answered, and without the
+      // actor the answer is a guess.
+      includeAudit: true,
     });
     return respData(summary);
   } catch (e) {

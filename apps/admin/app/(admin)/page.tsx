@@ -3,6 +3,7 @@ import { listAdminPaidOrders, listAdminUsers } from "@admin/lib/data";
 import GrantCreditsPanel from "@admin/components/grant-credits";
 import ManagePlanPanel from "@admin/components/manage-plan";
 import { describePlans } from "@/services/entitlements";
+import { countStripeWebhookEventsByStatus } from "@/models/stripe-webhook-event";
 import Link from "next/link";
 
 export default async function AdminHomePage() {
@@ -10,10 +11,15 @@ export default async function AdminHomePage() {
   // Layout already guards; this is a type-safety fallback.
   const canWrite = admin?.role === "admin_rw";
 
-  const [users, orders] = await Promise.all([
+  const [users, orders, webhookStatuses] = await Promise.all([
     listAdminUsers(1, 20),
     listAdminPaidOrders(1, 20),
+    countStripeWebhookEventsByStatus(),
   ]);
+
+  // Surfaced on the overview rather than only on its own page: a queue you have
+  // to navigate to is a queue you check when you already suspect a problem.
+  const needsAction = webhookStatuses.action_required ?? 0;
 
   // Resolved server-side so the console offers exactly the tiers the catalog
   // defines, rather than a hardcoded list that drifts from it.
@@ -43,6 +49,22 @@ export default async function AdminHomePage() {
           <Link href="/affiliates" className="text-sm underline">View all</Link>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">Review attribution, paid referrals, and rewards.</p>
+      </section>
+
+      <section
+        className={`rounded-lg border p-4 ${
+          needsAction > 0 ? "border-destructive/40 bg-destructive/5" : ""
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-medium">Stripe Events</h2>
+          <Link href="/stripe-events" className="text-sm underline">View all</Link>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {needsAction > 0
+            ? `${needsAction} event${needsAction === 1 ? "" : "s"} need a decision — these do not retry on their own.`
+            : "Webhook deliveries, and anything parked for a human. Nothing needs attention."}
+        </p>
       </section>
 
       <section className="rounded-lg border p-4">

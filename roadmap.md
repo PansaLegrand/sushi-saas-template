@@ -710,6 +710,58 @@ place. Full reasoning in [docs/organizations.md](docs/organizations.md).
 
 ---
 
+## Catching the Admin Console Up
+
+From an audit on 2026-07-28. The admin app's last *functional* change predates the
+tenancy and billing work: across items 4–6 it gained one argument. Its foundation
+is sound — MFA gate, `admin_ro`/`admin_rw`, enforced CSP, an explicit column
+allowlist so `signin_ip` and `stripe_customer_id` never reach a browser, audit
+logging, real test coverage. What lagged is **scope**, not quality.
+
+Two shipped on 2026-07-28:
+
+- [x] **Ledger audit columns reach the UI.** `balance_after`, `actor`, and
+  `metadata` now render in the admin credits panel. They are **opt-in** via
+  `includeAudit`, because `getOrgCreditSummary` also feeds the customer's own
+  account page and `actor` can read `admin:<uuid>` while `metadata` carries Stripe
+  event ids. `balanceAfter` ships to everyone — it is the org's own arithmetic, and
+  a ledger you cannot check is one you have to trust.
+- [x] **A Stripe events page.** `action_required` was a status with no console:
+  the only surfaces were a Slack message and a CLI script. Now a filterable list
+  with the parked reason and the receipt ids, plus a count on the overview.
+  **Read-only deliberately** — the obvious next feature is a replay button, and
+  that is a write path into billing needing `admin_rw`, an audit entry, and a
+  decision about replaying a half-applied event. The `payload` column is never
+  selected: it holds the whole Stripe object, including a customer's email and
+  address, and a payload nobody fetches cannot leak.
+
+Still open, in the order I would take them:
+
+14. [ ] [P1] Make admin org-aware, not personal-workspace-only
+    - Every admin billing path resolves `findPersonalOrganizationByUserUuid`:
+      credits, plan snapshot, comps. Since tenancy shipped, users belong to team
+      orgs with pooled credits and org-scoped Stripe customers, and **admin cannot
+      see or act on any of them.** There is no org list or search anywhere.
+    - This is the one that decides whether admin works for a B2B product at all,
+      and it is the largest of the group. Worth settling the B2B-or-not question
+      before spending the effort — the same question gates item 10.
+15. [ ] [P1] Show Stripe subscription state
+    - Admin can comp a tier and read a plan snapshot, but nothing shows Stripe
+      status, current period, or `cancel_at_period_end`. "I cancelled and I am
+      still being charged" is unanswerable from the console today, which is the
+      exact question the `subscriptions` table was added to answer.
+16. [ ] [P2] Resolve and replay parked events from the console
+    - The write half of the events page. Needs `admin_rw`, an audit log entry, and
+      idempotency thinking: replaying a partially-applied event is not obviously
+      safe, which is why the read-only view shipped first.
+17. [ ] [P2] Thicken the orders table
+    - `select()` on paid orders with no org column, no link to the credit row that
+      fulfilled it, no status filter. It now holds `renewal:<sub>:<period>` numbers
+      and UUIDv7 ids beside old numeric ones, unexplained.
+18. [ ] [P2] Surface reconciliation in the console
+    - `pnpm reconcile:stripe --local-only` already computes the findings. Nothing
+      shows them to someone who does not run CLI commands.
+
 ## Technical Debt Worth Scheduling
 
 These are not product features, but they are unfinished pieces of starter
@@ -739,6 +791,15 @@ hardening passes rather than one giant schema rewrite.
   - Fix is a column: `stripe_payment_intent_id` on `orders`, written at checkout
     and indexed. Recorded here rather than only in step 4's notes, because a
     sub-bullet on a shipped item is where a known gap goes to be forgotten.
+- [P1] Bring `apps/admin` under the architecture rules
+  - `apps/admin/lib/data.ts` imports `@/db` directly. The rule "calls `db()` only
+    from the model layer" scans `FILES = sourceFiles(SRC)` — `src/` only — so
+    admin is exempt **by accident of a path, not by decision.**
+  - Cross-tenant reads genuinely are legitimate in an admin console, so the answer
+    is probably an explicit allowlisted exemption rather than a refactor. Either
+    way it should be written down and tested, not left to the reach of a regex.
+  - The logger rule already walks `apps/admin/app` and `apps/admin/lib`, so the
+    walker exists; only the layering rules stop at `src/`.
 - [P1] Add foreign keys in expand/contract passes
   - There are no foreign keys anywhere. Start with high-value references such
     as `credits.user_uuid`, `tasks.user_uuid`, and tenant `org_uuid` columns,

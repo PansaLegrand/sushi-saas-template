@@ -24,6 +24,7 @@ import {
   markStripeWebhookEventActionRequired,
   markStripeWebhookEventCompleted,
   markStripeWebhookEventFailed,
+  listStripeWebhookEvents,
 } from "@/models/stripe-webhook-event";
 import { extractWebhookReceipt } from "@/services/stripe/receipt";
 
@@ -265,6 +266,55 @@ describeDb("stripe webhook events (real database)", () => {
       .where(eq(stripeWebhookEvents.status, "action_required"));
 
     expect(needsAction.map((row) => row.event_id)).toEqual(["evt_invoice_1"]);
+  });
+
+  it("lists events for the admin console without their payloads", async () => {
+    // The payload holds the whole Stripe object — for a checkout session that
+    // includes the customer's email and address. The console answers its
+    // questions from the denormalized columns instead, and a payload nobody
+    // fetches is a payload that cannot leak into a browser.
+    await claim(invoicePaidEvent());
+
+    const [row] = await listStripeWebhookEvents({});
+
+    expect(row).toMatchObject({
+      event_id: "evt_invoice_1",
+      stripe_invoice_id: "in_100",
+      stripe_customer_id: "cus_100",
+    });
+    expect("payload" in row!).toBe(false);
+  });
+
+  it("filters the list by status", async () => {
+    await claim(invoicePaidEvent());
+    await markStripeWebhookEventActionRequired("evt_invoice_1", "unmapped_price");
+    await claim(invoicePaidEvent({ id: "evt_done" }));
+    await markStripeWebhookEventCompleted("evt_done");
+
+    const parked = await listStripeWebhookEvents({ status: "action_required" });
+    const done = await listStripeWebhookEvents({ status: "completed" });
+    const all = await listStripeWebhookEvents({});
+
+    expect(parked.map((r) => r.event_id)).toEqual(["evt_invoice_1"]);
+    expect(done.map((r) => r.event_id)).toEqual(["evt_done"]);
+    expect(all).toHaveLength(2);
+  });
+
+  it("orders by arrival, not by last update", async () => {
+    // An operator scanning this asks "what came in". Sorting by `updated_at`
+    // would reshuffle the page every time the sweep or a retry touched a row.
+    await claim(invoicePaidEvent({ id: "evt_first" }));
+    await claim(invoicePaidEvent({ id: "evt_second" }));
+    await db()
+      .update(stripeWebhookEvents)
+      .set({ received_at: new Date(Date.now() - 60_000) })
+      .where(eq(stripeWebhookEvents.event_id, "evt_second"));
+    // Touch the older row, which would move it to the top under the wrong sort.
+    await markStripeWebhookEventActionRequired("evt_second", "unmapped_price");
+
+    const rows = await listStripeWebhookEvents({});
+
+    expect(rows.map((r) => r.event_id)).toEqual(["evt_first", "evt_second"]);
   });
 
   it("records a test-mode event as livemode false, not as unknown", async () => {

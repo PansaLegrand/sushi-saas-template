@@ -37,6 +37,15 @@ interface CreditSummaryOptions {
   ledgerLimit?: number;
   includeLedger?: boolean;
   includeExpiring?: boolean;
+  /**
+   * Include `actor` and `metadata` on each ledger row. **Admin surfaces only.**
+   *
+   * Off by default, so a new caller has to ask for the internal fields rather
+   * than inherit them — the failure mode being guarded is a customer-facing
+   * route that quietly starts returning `admin:<uuid>` because someone widened a
+   * shared DTO.
+   */
+  includeAudit?: boolean;
 }
 
 /**
@@ -99,15 +108,49 @@ function toIsoString(value?: Date | null): string | null {
   return value ? value.toISOString() : null;
 }
 
-function buildLedgerEntry(row: CreditRow): CreditLedgerEntry {
-  return {
+/**
+ * Parse `metadata_json` defensively.
+ *
+ * The column is `text` and rows predating migration 0018 hold null. A malformed
+ * value must not take down the whole ledger view — the point of the audit
+ * columns is to be readable during an incident, which is exactly when a
+ * half-written row is most likely to be the thing you are looking at.
+ */
+function parseMetadata(value: string | null): Record<string, unknown> | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function buildLedgerEntry(
+  row: CreditRow,
+  includeAudit: boolean
+): CreditLedgerEntry {
+  const entry: CreditLedgerEntry = {
     transNo: row.trans_no,
     transType: row.trans_type,
     credits: row.credits,
     createdAt: toIsoString(row.created_at) ?? new Date().toISOString(),
     orderNo: row.order_no,
     expiredAt: toIsoString(row.expired_at),
+    balanceAfter: row.balance_after,
   };
+
+  // `actor` and `metadata` are added only for an admin caller. `actor` can name
+  // an admin by uuid and `metadata` carries Stripe event ids — neither belongs
+  // in the response to the customer whose ledger this is.
+  if (includeAudit) {
+    entry.actor = row.actor;
+    entry.metadata = parseMetadata(row.metadata_json);
+  }
+
+  return entry;
 }
 
 function isExpiredGrant(row: CreditRow, now: Date): boolean {
@@ -148,6 +191,7 @@ export async function getOrgCreditSummary(
   const ledgerLimit = Math.max(options.ledgerLimit ?? DEFAULT_LEDGER_LIMIT, 1);
   const includeLedger = options.includeLedger ?? true;
   const includeExpiring = options.includeExpiring ?? true;
+  const includeAudit = options.includeAudit ?? false;
 
   let ledgerCount = 0;
 
@@ -168,11 +212,11 @@ export async function getOrgCreditSummary(
     }
 
     if (includeExpiring && willExpireSoon(row, now) && !expiredGrant) {
-      summary.expiringSoon.push(buildLedgerEntry(row));
+      summary.expiringSoon.push(buildLedgerEntry(row, includeAudit));
     }
 
     if (includeLedger && ledgerCount < ledgerLimit) {
-      summary.ledger.push(buildLedgerEntry(row));
+      summary.ledger.push(buildLedgerEntry(row, includeAudit));
       ledgerCount += 1;
     }
   }

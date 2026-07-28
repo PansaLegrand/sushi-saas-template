@@ -132,18 +132,45 @@ export default function GrantCreditsPanel({ canWrite }: Props) {
                   <th className="py-2 pr-4">When</th>
                   <th className="py-2 pr-4">Type</th>
                   <th className="py-2 pr-4">Credits</th>
+                  {/* The running total after the row. Counts expired grants, so
+                      it will not match the Balance card above — that one is what
+                      is spendable today. */}
+                  <th className="py-2 pr-4">Balance after</th>
+                  {/* Who caused it, which is not the same as who it credits. */}
+                  <th className="py-2 pr-4">Actor</th>
                   <th className="py-2 pr-4">Order</th>
+                  <th className="py-2 pr-4">Context</th>
                   <th className="py-2 pr-4">Expires</th>
                   <th className="py-2 pr-4">Trans</th>
                 </tr>
               </thead>
               <tbody>
                 {(summary.ledger ?? []).map((l) => (
-                  <tr key={l.transNo} className="border-t">
+                  <tr key={l.transNo} className="border-t align-top">
                     <td className="py-2 pr-4 font-mono text-xs">{l.createdAt}</td>
                     <td className="py-2 pr-4">{l.transType}</td>
                     <td className="py-2 pr-4">{l.credits}</td>
+                    {/* A dash, not a zero: rows written before migration 0018
+                        have no running total, and showing 0 would read as a
+                        drained balance rather than as absent. */}
+                    <td className="py-2 pr-4 font-mono text-xs">
+                      {l.balanceAfter ?? "—"}
+                    </td>
+                    <td className="py-2 pr-4 font-mono text-xs">
+                      {l.actor ?? "—"}
+                    </td>
                     <td className="py-2 pr-4 font-mono text-xs">{l.orderNo || "—"}</td>
+                    <td className="py-2 pr-4 font-mono text-[10px]">
+                      {l.metadata ? (
+                        <span className="whitespace-pre-wrap break-all">
+                          {Object.entries(l.metadata)
+                            .map(([key, value]) => `${key}=${String(value)}`)
+                            .join("\n")}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className="py-2 pr-4 font-mono text-xs">{l.expiredAt || "—"}</td>
                     <td className="py-2 pr-4 font-mono text-[10px]">{l.transNo}</td>
                   </tr>

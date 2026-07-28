@@ -1,4 +1,4 @@
-import { and, asc, eq, lt, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { stripeWebhookEvents } from "@/db/schema";
 
@@ -224,6 +224,67 @@ export async function findStripeWebhookEventsByInvoiceId(
     .from(stripeWebhookEvents)
     .where(eq(stripeWebhookEvents.stripe_invoice_id, invoiceId))
     .orderBy(asc(stripeWebhookEvents.received_at));
+}
+
+/**
+ * A page of webhook events, newest first, optionally filtered by status.
+ *
+ * Deliberately in the model layer rather than in `apps/admin/lib/data.ts`. That
+ * file holds a parallel query layer the architecture rules do not reach, and
+ * this query is about to be the operator's main view onto billing — the last
+ * thing it should be is unpoliced.
+ *
+ * `payload` is **not** selected. It holds the whole Stripe object, which for a
+ * checkout session includes the customer's email and address. The denormalized
+ * columns from migration 0019 answer the operational questions without shipping
+ * personal data to a browser, and a payload nobody needs is a payload that
+ * cannot leak.
+ */
+export async function listStripeWebhookEvents({
+  status,
+  page = 1,
+  limit = 50,
+}: {
+  status?: string;
+  page?: number;
+  limit?: number;
+}): Promise<Omit<StripeWebhookEventRow, "payload">[]> {
+  const offset = (Math.max(page, 1) - 1) * limit;
+
+  const query = db()
+    .select({
+      id: stripeWebhookEvents.id,
+      event_id: stripeWebhookEvents.event_id,
+      event_type: stripeWebhookEvents.event_type,
+      status: stripeWebhookEvents.status,
+      attempts: stripeWebhookEvents.attempts,
+      last_error: stripeWebhookEvents.last_error,
+      received_at: stripeWebhookEvents.received_at,
+      processed_at: stripeWebhookEvents.processed_at,
+      updated_at: stripeWebhookEvents.updated_at,
+      stripe_object_id: stripeWebhookEvents.stripe_object_id,
+      stripe_customer_id: stripeWebhookEvents.stripe_customer_id,
+      stripe_invoice_id: stripeWebhookEvents.stripe_invoice_id,
+      stripe_subscription_id: stripeWebhookEvents.stripe_subscription_id,
+      livemode: stripeWebhookEvents.livemode,
+      api_version: stripeWebhookEvents.api_version,
+      request_id: stripeWebhookEvents.request_id,
+    })
+    .from(stripeWebhookEvents)
+    .$dynamic();
+
+  const rows = await (status
+    ? query.where(eq(stripeWebhookEvents.status, status))
+    : query
+  )
+    // `received_at` rather than `updated_at`: an operator scanning this is
+    // asking "what arrived", and sorting by update time reshuffles the list
+    // every time the sweep or a retry touches a row.
+    .orderBy(desc(stripeWebhookEvents.received_at))
+    .limit(limit)
+    .offset(offset);
+
+  return rows;
 }
 
 /** Row counts per status, for the cron sweep's summary and the health check. */

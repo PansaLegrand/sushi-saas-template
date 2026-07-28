@@ -156,6 +156,9 @@ export async function POST(req: Request) {
     const summary = await getOrgCreditSummary(targetOrg.uuid, {
       includeLedger: true,
       ledgerLimit: 50,
+      // The grant just written shows up in this ledger, so the admin can see
+      // their own `admin:<uuid>` on it and confirm it landed as intended.
+      includeAudit: true,
     });
 
     if (!replayed) {

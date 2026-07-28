@@ -513,6 +513,76 @@ describeDb("credit ledger (real database)", () => {
     expect(refund!.actor).toBe("system:credit_refund");
   });
 
+  it("withholds actor and metadata from a caller that did not ask for them", async () => {
+    // `getOrgCreditSummary` feeds both the customer's own account page and the
+    // admin console. `actor` can name an admin by uuid and `metadata` carries
+    // Stripe event ids and idempotency keys — so the default has to be the safe
+    // one, and a new customer-facing caller must not inherit the internal fields
+    // by widening a shared DTO.
+    await increaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.SystemAdd,
+      credits: 40,
+      actor: "admin:admin-uuid-9",
+      metadata: { idempotency_key: "secret-key" },
+    });
+
+    const summary = await getOrgCreditSummary(ORG);
+    const [row] = summary.ledger;
+
+    expect(row).toBeDefined();
+    expect(row!.actor).toBeUndefined();
+    expect(row!.metadata).toBeUndefined();
+    // The running balance is the org's own number, so it is not withheld — a
+    // ledger whose arithmetic you cannot check is one you have to take on faith.
+    expect(row!.balanceAfter).toBe(40);
+    // Belt and braces: nothing anywhere in the serialized response.
+    expect(JSON.stringify(summary)).not.toContain("admin-uuid-9");
+    expect(JSON.stringify(summary)).not.toContain("secret-key");
+  });
+
+  it("includes actor and metadata for an admin caller", async () => {
+    await increaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.SystemAdd,
+      credits: 40,
+      actor: "admin:admin-uuid-9",
+      metadata: { idempotency_key: "grant-1" },
+    });
+
+    const summary = await getOrgCreditSummary(ORG, { includeAudit: true });
+    const [row] = summary.ledger;
+
+    expect(row!.actor).toBe("admin:admin-uuid-9");
+    expect(row!.metadata).toEqual({ idempotency_key: "grant-1" });
+  });
+
+  it("survives a metadata value that is not valid JSON", async () => {
+    // The column is `text`. A malformed value must not take down the whole
+    // ledger view — an incident is exactly when a half-written row is most
+    // likely to be the thing being looked at.
+    await db()
+      .insert(creditsTable)
+      .values({
+        trans_no: "bad-metadata",
+        created_at: new Date(),
+        org_uuid: ORG,
+        user_uuid: USER,
+        trans_type: CreditsTransType.SystemAdd,
+        credits: 5,
+        order_no: "",
+        actor: "system:test",
+        metadata_json: "{not json",
+      });
+
+    const summary = await getOrgCreditSummary(ORG, { includeAudit: true });
+
+    expect(summary.balance).toBe(5);
+    expect(summary.ledger[0]!.metadata).toBeNull();
+  });
+
   it("leaves the audit columns null on a row written outside the model layer", async () => {
     // Stands in for pre-0018 history. A null means "written before this
     // existed", which a reconciliation script must treat as out of scope rather
