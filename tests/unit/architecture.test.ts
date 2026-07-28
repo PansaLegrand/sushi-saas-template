@@ -9,7 +9,7 @@
  * reported as a file path a reader can go and open.
  */
 import { describe, expect, it } from "vitest";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 
 const ROOT = resolve(__dirname, "../..");
@@ -517,6 +517,25 @@ describe("conventions", () => {
     ).map(({ path }) => path);
 
     expect(offenders).toEqual([]);
+  });
+
+  it("serves every page through the [locale] segment", () => {
+    // `localePrefix` is "as-needed": the default locale has no prefix, so `/`
+    // and `/blogs` are English while `/es/blogs` is Spanish. That is done by the
+    // middleware rewriting `/blogs` to `/en/blogs` internally — which only works
+    // if no physical route shadows it.
+    //
+    // A `src/app/page.tsx` did exactly that, and the failure was not a wrong
+    // page: it broke `next build`. Next tried to prerender `/` outside the
+    // `[locale]` segment, where next-intl has no locale context, and threw an
+    // error with an empty message. Lint and every test still passed, so only the
+    // build caught it — which is why this rule exists at the tier that runs
+    // first.
+    //
+    // Layouts, error boundaries, and `not-found.tsx` at the root are fine and
+    // required. It is specifically a *page* that must not sit there.
+    expect(existsSync(join(SRC, "app/page.tsx"))).toBe(false);
+    expect(existsSync(join(SRC, "app/page.jsx"))).toBe(false);
   });
 
   it("generates record ids without a coordinated worker id", () => {
