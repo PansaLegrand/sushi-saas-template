@@ -163,6 +163,26 @@ describe("layering", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("confines the billing catalog to its adapters", () => {
+    // Checkout and renewals go through the billing-catalog service; UI copy is
+    // derived in config/pricing, and config/plans derives Stripe entitlement
+    // mappings from the same source. No route should read commercial terms
+    // directly.
+    const ALLOWED = new Set([
+      "src/config/billing.ts",
+      "src/config/plans.ts",
+      "src/config/pricing.ts",
+      "src/services/billing-catalog.ts",
+    ]);
+
+    const offenders = FILES.filter(
+      ({ path, body }) =>
+        !ALLOWED.has(path) && importsModule(body, "@/config/billing")
+    ).map(({ path }) => path);
+
+    expect(offenders).toEqual([]);
+  });
+
   it("never branches on a tier name", () => {
     // The other half of the rule above: `PlanSnapshot["tier"]` is a string
     // union, so a component can compare against a literal without importing

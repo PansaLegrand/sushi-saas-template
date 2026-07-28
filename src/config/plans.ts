@@ -5,9 +5,13 @@ import type {
   PlanLimit,
   Tier,
 } from "@/types/plan";
+import {
+  PLAN_MONTHLY_CREDITS,
+  billingPriceIdsForTier,
+} from "@/config/billing";
 
 /**
- * The plan catalog — what each tier costs you to honour, in one place.
+ * The entitlement catalog — the capabilities and limits each tier receives.
  *
  * This is the file a clone edits. Renaming a tier, moving a feature from Max
  * down to Plus, raising a storage cap, adding a fourth tier: all of it is a
@@ -25,8 +29,9 @@ import type {
  *   2. Fill it in for every tier below — TypeScript will not let you skip one.
  *   3. Guard the call site with `requireEntitlement` / `enforceLimit`.
  *
- * Nothing here does I/O. Price IDs come from the environment because they
- * differ per Stripe account, but they are read once at module load.
+ * Nothing here does I/O. Price mappings and advertised credit allowances are
+ * derived from the commercial catalog in `src/config/billing.ts`, so checkout,
+ * renewals, and entitlement sync cannot drift apart.
  */
 
 /** Reads better than a bare `null` in the table below. */
@@ -54,45 +59,11 @@ export const DEFAULT_TIER: Tier = "free";
  */
 export const PAST_DUE_GRACE_DAYS = 7;
 
-/**
- * Price IDs are per-Stripe-account, so they come from the environment.
- *
- * `process.env.X` is spelled out rather than looked up dynamically because Next
- * inlines `NEXT_PUBLIC_*` at build time by static analysis — a computed key
- * would be `undefined` in the browser bundle.
- *
- * The `LAUNCH`/`SCALE` names are the ones this kit shipped before tiers
- * existed; they are honoured as fallbacks so an existing deployment keeps
- * working without touching its environment. New setups should use the tier
- * names.
- */
-function priceIds(...values: Array<string | undefined>): readonly string[] {
-  return values.filter((value): value is string => Boolean(value?.trim()));
-}
-
-const PLUS_PRICE_IDS = priceIds(
-  process.env.NEXT_PUBLIC_STRIPE_PRICE_PLUS_MONTHLY,
-  process.env.NEXT_PUBLIC_STRIPE_PRICE_PLUS_YEARLY,
-  process.env.NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY,
-  process.env.NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY,
-  process.env.NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY_CNY,
-  process.env.NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY_CNY
-);
-
-const MAX_PRICE_IDS = priceIds(
-  process.env.NEXT_PUBLIC_STRIPE_PRICE_MAX_MONTHLY,
-  process.env.NEXT_PUBLIC_STRIPE_PRICE_MAX_YEARLY,
-  process.env.NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY,
-  process.env.NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY,
-  process.env.NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY_CNY,
-  process.env.NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY_CNY
-);
-
 export const PLANS = {
   free: {
     rank: 0,
     name: "Free",
-    includedMonthlyCredits: 50,
+    includedMonthlyCredits: PLAN_MONTHLY_CREDITS.free,
     features: {
       "storage.upload": true,
       "tasks.text_to_video": false,
@@ -109,7 +80,7 @@ export const PLANS = {
   plus: {
     rank: 1,
     name: "Plus",
-    includedMonthlyCredits: 500,
+    includedMonthlyCredits: PLAN_MONTHLY_CREDITS.plus,
     features: {
       "storage.upload": true,
       "tasks.text_to_video": true,
@@ -119,13 +90,13 @@ export const PLANS = {
       "storage.totalMb": 5_000,
       "tasks.perMonth": 50,
     },
-    priceIds: PLUS_PRICE_IDS,
+    priceIds: billingPriceIdsForTier("plus"),
   },
 
   max: {
     rank: 2,
     name: "Max",
-    includedMonthlyCredits: 2_500,
+    includedMonthlyCredits: PLAN_MONTHLY_CREDITS.max,
     features: {
       "storage.upload": true,
       "tasks.text_to_video": true,
@@ -135,7 +106,7 @@ export const PLANS = {
       "storage.totalMb": 50_000,
       "tasks.perMonth": UNLIMITED,
     },
-    priceIds: MAX_PRICE_IDS,
+    priceIds: billingPriceIdsForTier("max"),
   },
 } as const satisfies Record<Tier, PlanDefinition>;
 

@@ -10,20 +10,19 @@ import Stripe from "stripe";
 import { findOrganizationByUuid } from "@/models/organization";
 import { findUserByUuid } from "@/models/user";
 import { newId } from "@/lib/ids";
-import { getPricingPage } from "@/services/page";
-import { PricingItem } from "@/types/blocks/pricing";
 import { newStripeClient } from "@/integrations/stripe";
 import { Order } from "@/types/order";
 import { getAppEnv } from "@/lib/env";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
-import { buildIntroDiscounts, getOrCreateCustomerIdForOrg } from "@/services/stripe";
+import { getOrCreateCustomerIdForOrg } from "@/services/stripe";
+import { findPurchasableBillingProduct } from "@/services/billing-catalog";
 import { absoluteLocaleUrl } from "@/i18n/locale";
 import { logger as baseLogger, requestIdFromHeaders } from "@/lib/logger/server";
 
 const CheckoutSchema = z.object({
   product_id: z.string().trim().optional(),
-  currency: z.string().trim().optional(),
+  currency: z.enum(["usd", "cny"]).optional(),
   locale: z.string().trim().optional(),
 });
 
@@ -40,7 +39,7 @@ export async function POST(req: Request) {
     const start = Date.now();
     const body = await parseJsonBody(req, CheckoutSchema);
     const product_id = body.product_id;
-    let currency = body.currency;
+    const requestedCurrency = body.currency ?? "usd";
     const locale = body.locale || "en";
 
     const env = getAppEnv();
@@ -55,54 +54,6 @@ export async function POST(req: Request) {
       });
     }
 
-    // validate checkout params
-    const page = await getPricingPage(locale);
-    if (!page || !page.pricing || !page.pricing.items) {
-      return respCode("ORDER_INVALID_PRODUCT");
-    }
-
-    const item = page.pricing.items.find(
-      (item: PricingItem) => item.product_id === product_id
-    );
-
-    if (!item || !item.amount || !item.interval || !item.currency) {
-      return respCode("ORDER_INVALID_PRODUCT");
-    }
-
-    let { amount, interval, valid_months, credits, product_name } = item;
-    const trial_days = (item as any).trial_days as number | undefined;
-    const intro_price_cents = (item as any).intro_price_cents as number | undefined;
-    const intro_months = (item as any).intro_months as number | undefined;
-
-    if (!["year", "month", "one-time"].includes(interval)) {
-      return respCode("ORDER_INVALID_PRODUCT");
-    }
-
-    if (interval === "year" && valid_months !== 12) {
-      return respCode("ORDER_INVALID_PRODUCT");
-    }
-
-    if (interval === "month" && valid_months !== 1) {
-      return respCode("ORDER_INVALID_PRODUCT");
-    }
-
-    if (currency === "cny") {
-      if (!item.cn_amount) {
-        return respCode("ORDER_INVALID_PRODUCT");
-      }
-      amount = item.cn_amount;
-    } else {
-      currency = item.currency;
-    }
-
-    const is_subscription = interval === "month" || interval === "year";
-
-    // Prefer using Stripe Price IDs for subscriptions when provided.
-    // Choose price id by currency variant if present.
-    const resolvedPriceId = is_subscription
-      ? (currency === "cny" ? (item as any).cn_price_id : (item as any).price_id) || undefined
-      : undefined;
-
     // get signed user
     const ctx = await getOrgContext(req);
     if (!ctx) {
@@ -116,6 +67,28 @@ export async function POST(req: Request) {
     if (!can(ctx, "billing:manage")) {
       return respCode("BILLING_OWNER_ONLY");
     }
+
+    // Resolve every commercial term on the server from the canonical catalog.
+    // A subscription without a stable Stripe Price cannot later be mapped to a
+    // tier or renewal grant, so there is deliberately no inline-price fallback.
+    const selection = findPurchasableBillingProduct(
+      product_id,
+      requestedCurrency
+    );
+    if (!selection) {
+      return respCode("ORDER_INVALID_PRODUCT");
+    }
+
+    const { product, price, stripePriceId } = selection;
+    const {
+      id: canonicalProductId,
+      name: product_name,
+      interval,
+      validMonths: valid_months,
+      credits,
+    } = product;
+    const { amount, currency } = price;
+    const is_subscription = interval === "month" || interval === "year";
 
     const user = await findUserByUuid(ctx.userUuid);
     const user_email = user?.email;
@@ -162,7 +135,7 @@ export async function POST(req: Request) {
       status: OrderStatus.Created,
       credits: credits || 0,
       currency: currency,
-      product_id: product_id,
+      product_id: canonicalProductId,
       product_name: product_name,
       valid_months: valid_months,
     };
@@ -173,12 +146,7 @@ export async function POST(req: Request) {
       order: order as any,
       locale,
       cancel_url,
-      priceId: resolvedPriceId,
-      promo: {
-        trial_days: trial_days && trial_days > 0 ? trial_days : undefined,
-        intro_price_cents: intro_price_cents && intro_price_cents > 0 ? intro_price_cents : undefined,
-        intro_months: intro_months && intro_months > 0 ? intro_months : undefined,
-      },
+      priceId: stripePriceId,
       request_id,
     });
 
@@ -186,7 +154,7 @@ export async function POST(req: Request) {
       event: "checkout.session.created",
       order_no,
       user_id: ctx.userUuid,
-      product_id,
+      product_id: canonicalProductId,
       interval,
       currency,
       is_subscription: interval === "month" || interval === "year",
@@ -210,18 +178,12 @@ async function stripeCheckout({
   locale,
   cancel_url,
   priceId,
-  promo,
   request_id,
 }: {
   order: Order;
   locale: string;
   cancel_url: string;
-  priceId?: string;
-  promo?: {
-    trial_days?: number;
-    intro_price_cents?: number;
-    intro_months?: number;
-  };
+  priceId: string;
   request_id?: string;
 }) {
   const log = baseLogger.child({ request_id, route: "/api/checkout" });
@@ -230,35 +192,12 @@ async function stripeCheckout({
 
   const client = newStripeClient();
 
-  // If a Price ID is provided (subscriptions), reference it directly.
-  // Otherwise fall back to inline price_data.
-  let lineItems: Stripe.Checkout.SessionCreateParams.LineItem[];
-  if (is_subscription && priceId) {
-    lineItems = [
-      {
-        price: priceId,
-        quantity: 1,
-      },
-    ];
-  } else {
-    lineItems = [
-      {
-        price_data: {
-          currency: order.currency || "usd",
-          product_data: {
-            name: order.product_name || "",
-          },
-          unit_amount: order.amount,
-          recurring: is_subscription
-            ? {
-                interval: order.interval as any,
-              }
-            : undefined,
-        },
-        quantity: 1,
-      },
-    ];
-  }
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
+    {
+      price: priceId,
+      quantity: 1,
+    },
+  ];
 
   let options: Stripe.Checkout.SessionCreateParams = {
     payment_method_types: ["card"],
@@ -318,9 +257,6 @@ async function stripeCheckout({
     options.subscription_data = {
       metadata: options.metadata,
     };
-    if (promo?.trial_days && promo.trial_days > 0) {
-      (options.subscription_data as any).trial_period_days = promo.trial_days;
-    }
   }
 
   if (order.currency === "cny" && !is_subscription) {
@@ -339,26 +275,6 @@ async function stripeCheckout({
       setup_future_usage: "off_session",
       metadata: options.metadata,
     } as Stripe.Checkout.SessionCreateParams.PaymentIntentData;
-  }
-
-  // Introductory price: apply a one-time coupon to the first invoice
-  if (is_subscription && promo?.intro_months && promo.intro_months > 0 && promo.intro_price_cents) {
-    try {
-      const discounts = await buildIntroDiscounts({
-        currency: (order.currency || "usd") as string,
-        baseAmount: order.amount,
-        introAmount: promo.intro_price_cents,
-      });
-      if (discounts && discounts.length > 0) {
-        (options as any).discounts = discounts;
-        // Stripe Checkout requires choosing between explicit discounts and
-        // allow_promotion_codes; remove the latter when discounts are set.
-        delete (options as any).allow_promotion_codes;
-      }
-    } catch (e) {
-      // Non-fatal; continue without discount if it fails
-      log.warn({ event: "checkout.discount.apply_failed", message: (e as any)?.message });
-    }
   }
 
   const session = await client

@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   markStripeWebhookEventActionRequired: vi.fn(),
   isProductionRuntime: vi.fn(() => false),
   syncStripeSubscription: vi.fn(),
+  findBillingProductByPriceId: vi.fn(),
 }));
 
 vi.mock("stripe", () => {
@@ -39,6 +40,10 @@ vi.mock("@/models/stripe-webhook-event", () => ({
 
 vi.mock("@/services/subscriptions", () => ({
   syncStripeSubscription: mocks.syncStripeSubscription,
+}));
+
+vi.mock("@/services/billing-catalog", () => ({
+  findBillingProductByPriceId: mocks.findBillingProductByPriceId,
 }));
 
 vi.mock("@/services/email/send", () => ({
@@ -121,6 +126,7 @@ describe("POST /api/pay/webhook/stripe", () => {
     mocks.isProductionRuntime.mockReturnValue(false);
     mocks.markStripeWebhookEventActionRequired.mockResolvedValue(undefined);
     mocks.syncStripeSubscription.mockResolvedValue({ status: "applied" });
+    mocks.findBillingProductByPriceId.mockReturnValue(undefined);
   });
 
   it("claims and completes a new Stripe event", async () => {
@@ -345,7 +351,7 @@ describe("POST /api/pay/webhook/stripe", () => {
             data: [
               {
                 period: { start: 1767225600, end: 1769904000 },
-                // Not in src/config/pricing.ts under any locale.
+                // Not in src/config/billing.ts.
                 price: { id: "price_not_in_catalog", nickname: "Looks Legitimate" },
               },
             ],

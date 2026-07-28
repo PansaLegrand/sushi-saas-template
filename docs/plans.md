@@ -6,7 +6,8 @@ anywhere needs a null check before asking what someone may do.
 
 ```
 src/types/plan.ts        the vocabulary: tier names, feature keys, limit keys
-src/config/plans.ts      the catalog: what each tier costs you to honour
+src/config/billing.ts    prices, intervals, credits, and Stripe Price mappings
+src/config/plans.ts      capabilities and limits for each tier
 src/services/entitlements.ts   the only module that reads the catalog
 src/models/subscription.ts     typed CRUD over the subscriptions table
 src/services/subscriptions.ts  keeps the table in step with Stripe
@@ -60,9 +61,11 @@ browser.
 
 ## Adding a tier
 
-Add it to `Tier` in `src/types/plan.ts`, add its entry to `PLANS` with a fresh
-`rank`, list its Stripe price IDs, and add its name to `TIER_LITERALS` in the
-architecture test. Nothing else changes.
+Add it to `Tier` in `src/types/plan.ts`, add its capabilities to `PLANS` with a
+fresh `rank`, add its commercial products to `src/config/billing.ts`, and add
+its name to `TIER_LITERALS` in the architecture test. The billing catalog is
+the one source for amounts, intervals, credit grants, and Stripe Price IDs;
+`config/plans.ts` derives its price-to-tier mapping from it.
 
 ## Where tiers come from
 
@@ -74,7 +77,7 @@ questions and must not be merged. Answering "is this user on a paid plan" from
 which gets slower as the log grows and gets the answer wrong the moment
 someone cancels mid-period.
 
-`resolvePlan` reads every live subscription for the user and takes the
+`resolvePlan` reads every live subscription for the organization and takes the
 **highest-ranked entitling** one. A user can legitimately hold two — a comped
 Max alongside a paid Plus — and taking the most recent instead of the best
 would quietly downgrade them.
@@ -156,13 +159,29 @@ They are different mechanisms and the boundary is worth stating:
   how large a file, how many generations this month.
 - **Credits meter consumption** inside a capability you already have.
 
-`includedMonthlyCredits` in the catalog is what each tier advertises, rendered
-on the billing screen. Paid credits are granted by the order flow, whose
-amounts come from `src/config/pricing.ts` — this kit does **not** grant from
-the catalog as well, because two grant paths means double-granting. If you want
-the free tier to receive a monthly allowance, add a job handler that calls
-`increaseCredits` and enqueue it from the cron route; see
-`src/services/jobs/handlers.ts`.
+`PLAN_MONTHLY_CREDITS` in `src/config/billing.ts` is the single source for both
+the billing screen and paid credit grants. Monthly products grant that amount;
+yearly products grant twelve months upfront. Checkout stores the catalog grant
+on the order, and webhook replay-safe fulfillment writes it to the ledger once.
+
+The free tier advertises zero monthly credits because the kit does not run a
+recurring free allowance job. Signup credits are a separate one-time onboarding
+grant. If you add a monthly free allowance, add a job handler that calls
+`increaseCredits`, enqueue it from the cron route, and then update
+`PLAN_MONTHLY_CREDITS.free`.
+
+## Stripe Price contract
+
+Every recurring product must use a pre-created Stripe Price. Production startup
+requires Plus and Max monthly/yearly Price IDs and rejects values that do not
+look like `price_...`. Checkout never falls back to inline `price_data`: an
+inline recurring Price cannot be mapped reliably when subscription and renewal
+webhooks arrive.
+
+New checkouts use the server-only `STRIPE_PRICE_*` variables. Legacy
+`NEXT_PUBLIC_*` variables remain mapped so existing deployments and
+grandfathered subscriptions keep their tier and renewal grant. CNY variants are
+optional and appear in the UI only when their Price ID is configured.
 
 ## What is deliberately not here
 
@@ -173,5 +192,5 @@ the free tier to receive a monthly allowance, add a job handler that calls
   stay silent.
 - **Proration display.** Stripe's billing portal handles plan changes and shows
   the proration; the billing page links to it rather than reimplementing it.
-- **Seats and per-organization billing.** Tiers here are per user. See the
-  roadmap.
+- **Seat-based pricing.** Billing is per organization, but the catalog does not
+  multiply prices or limits by member count. See the roadmap.

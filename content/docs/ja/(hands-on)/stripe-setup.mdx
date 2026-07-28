@@ -68,7 +68,7 @@ canonical: "https://www.sushi-templates.com/ja/blogs/stripe-setup"
 
 ## エンドポイント
 
-- `/api/checkout` (POST): `src/config/pricing.ts` を元に検証し、Checkout セッションを作成、注文を `created` で保存。
+- `/api/checkout` (POST): `src/config/billing.ts` から商品を解決し、設定済み Price ID で Checkout セッションを作成、注文を `created` で保存。
 - `/api/pay/callback/stripe` (GET): Stripe からのリダイレクト用。最終処理は行いません。
 - `/api/pay/webhook/stripe` (POST): 署名検証後、`checkout.session.completed` を処理して付与。
 
@@ -139,7 +139,7 @@ stripe trigger checkout_session_completed
 
 ## 実装メモ
 
-- プラン: `src/config/pricing.ts` に定義（型安全）。
+- 商用条件は `src/config/billing.ts` に集約し、`src/config/pricing.ts` は表示カードをそこから生成します。
 - `handleCheckoutSession` は一括・サブスク両対応（サブスクは最新請求書から PaymentIntent を取得）。
 
 ## 請求とサブスクリプション
@@ -200,25 +200,25 @@ Stripe で価格 ID を見つける手順
 2) 価格テーブルの行末「︙」(三点) をクリック → 「価格 ID をコピー」。
 3) `price_...` で始まります。`prod_...`（製品 ID）と混同しないでください。
 
-環境変数（任意だが推奨）
+環境変数（本番では必須）
 
 ```bash
-# プランと Stripe 価格をマッピング。空ならインライン price_data にフォールバック
-NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY=price_...
-NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY=price_...
-NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY=price_...
-NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY=price_...
+STRIPE_PRICE_PLUS_MONTHLY=price_...
+STRIPE_PRICE_PLUS_YEARLY=price_...
+STRIPE_PRICE_MAX_MONTHLY=price_...
+STRIPE_PRICE_MAX_YEARLY=price_...
 # CNY 価格（任意）
-NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY_CNY=price_...
-NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY_CNY=price_...
-NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY_CNY=price_...
-NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY_CNY=price_...
+STRIPE_PRICE_PLUS_MONTHLY_CNY=price_...
+STRIPE_PRICE_PLUS_YEARLY_CNY=price_...
+STRIPE_PRICE_MAX_MONTHLY_CNY=price_...
+STRIPE_PRICE_MAX_YEARLY_CNY=price_...
 ```
 
-価格 ID の有無による動作
+価格 ID の動作
 
-- サブスクプランに Price ID があれば、Checkout はそれを直接使用します。
-- 無い場合は、`src/config/pricing.ts` の金額でインライン `price_data` を使ってセッションを作成します（安全なフォールバック）。
+- Checkout は必ず設定済み Price ID を使用し、定期価格のインラインフォールバックは行いません。
+- 必須の USD Price ID が未設定または不正な場合、本番サーバーは起動時に失敗します。
+- 既存サブスクリプション向けに旧 `NEXT_PUBLIC_*` 変数も引き続き対応します。
 
 ---
 
@@ -227,7 +227,7 @@ NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY_CNY=price_...
 本テンプレートは更新時のクレジット自動付与に対応しています：
 
 - Webhook `invoice.payment_succeeded`（`billing_reason=subscription_cycle` の場合）で、当該期間の更新注文を作成し、プランのクレジットを付与します。
-- 冪等性：同一 `(subscription_id, period_start)` の注文が既にあればスキップします。
+- 冪等性：期間から導出した注文・台帳キーにより再送は安全で、不足した付与も修復できます。
 - 初回購入は引き続き `checkout.session.completed` で処理します。二重付与を避けるため、サイクル外の請求書は無視します。
 
 ---

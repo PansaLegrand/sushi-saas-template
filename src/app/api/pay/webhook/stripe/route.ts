@@ -4,8 +4,7 @@ import { markReservationConfirmed, getServiceById } from "@/models/reservation";
 import { buildReservationICS } from "@/services/reservations/ics";
 import { buildGoogleCalendarUrl } from "@/services/reservations/google";
 import { ReservationsConfig } from "@/config/reservations";
-import { getPricingConfig } from "@/config/pricing";
-import { absoluteLocaleUrl, locales } from "@/i18n/locale";
+import { absoluteLocaleUrl } from "@/i18n/locale";
 import { OrderStatus } from "@/models/order";
 import { insertRenewalOrderWithGrant } from "@/models/fulfillment";
 import { CreditsTransType } from "@/services/credit";
@@ -34,6 +33,7 @@ import {
 } from "@/services/stripe/action-required";
 import { respCode } from "@/lib/errors/response";
 import { logger } from "@/lib/logger/server";
+import { findBillingProductByPriceId } from "@/services/billing-catalog";
 
 const IDEMPOTENT_STRIPE_EVENTS = new Set([
   "checkout.session.completed",
@@ -307,21 +307,7 @@ export async function POST(req: Request) {
           });
         }
 
-        // Resolve the plan from configured price IDs
-        function findPlanByPriceId(id?: string) {
-          if (!id) return undefined;
-          // Search across locales (price IDs should be the same per currency)
-          for (const loc of locales) {
-            const cfg = getPricingConfig(loc);
-            const item = cfg.items?.find((it: any) => it?.price_id === id || it?.cn_price_id === id);
-            if (item) return item as any;
-          }
-          // Fallback: try default locale
-          const en = getPricingConfig("en");
-          return en.items?.find((it: any) => it?.price_id === id || it?.cn_price_id === id) as any;
-        }
-
-        const plan = findPlanByPriceId(priceId);
+        const catalogEntry = findBillingProductByPriceId(priceId);
 
         // The case this status exists for, and it was not a `break` — it was
         // worse. `plan` was resolved and never checked, so `credits` fell back to
@@ -330,10 +316,10 @@ export async function POST(req: Request) {
         // plausible, and marked the event completed. The customer paid, received
         // no credits, and nothing anywhere said so.
         //
-        // Not retriable: the price is missing from `src/config/pricing.ts` and
+        // Not retriable: the price is missing from `src/config/billing.ts` and
         // three days of Stripe retries will not add it. Someone has to either map
         // the price or refund the invoice.
-        if (!plan) {
+        if (!catalogEntry) {
           throw new ActionRequiredError("unmapped_price", {
             stripe_price_id: priceId,
             stripe_invoice_id: invoice.id,
@@ -399,9 +385,10 @@ export async function POST(req: Request) {
 
         const amount = typeof invoice.amount_paid === "number" ? invoice.amount_paid : 0;
         const currency = (invoice.currency || "usd") as string;
-        const product_name = (plan?.product_name as string | undefined) ?? line?.price?.nickname ?? "Subscription";
-        const product_id = (plan?.product_id as string | undefined) ?? priceId ?? "subscription";
-        const credits = (plan?.credits as number | undefined) ?? 0;
+        const { product } = catalogEntry;
+        const product_name = product.name;
+        const product_id = product.id;
+        const credits = product.credits;
 
         // Derived from the billing period, so the insert below is idempotent
         // under the existing unique index on `orders.order_no`.
@@ -426,7 +413,7 @@ export async function POST(req: Request) {
               currency,
               product_id,
               product_name,
-              valid_months: plan?.valid_months ?? (interval === "year" ? 12 : 1),
+              valid_months: product.validMonths,
               sub_id: subId,
               sub_interval_count: line?.quantity ?? 1,
               sub_cycle_anchor: undefined,

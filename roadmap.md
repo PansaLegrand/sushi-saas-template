@@ -402,7 +402,7 @@ whatever the item names.
         a documented status. 13 new tests; 453 green.
         - **The motivating case was worse than a `return`.** `plan` was resolved
           from the price id and then *never checked*, so `credits` fell through to
-          `?? 0`. A renewal on a price missing from `src/config/pricing.ts`
+          `?? 0`. A renewal on a price missing from the billing catalog
           recorded a **paid order granting nothing** — product name taken from the
           Stripe nickname, so the order looked plausible — and marked the event
           completed. The customer paid, got no credits, and nothing said so. Found

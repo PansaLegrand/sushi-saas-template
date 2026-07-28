@@ -81,6 +81,7 @@ choice, so a deploy cannot silently end up unprotected:
 | `BETTER_AUTH_SECRET` | Session signing. `openssl rand -base64 32` |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` | Bot protection on auth endpoints. Opt out only with `NEXT_PUBLIC_CAPTCHA_ENABLED=false` |
 | `CRON_SECRET` | Guards `/api/cron/jobs`. `openssl rand -hex 32` |
+| `STRIPE_PRICE_{PLUS,MAX}_{MONTHLY,YEARLY}` | Stable recurring Prices used by checkout, entitlement sync, and renewal grants |
 
 **Required for the features that use them**: `RESEND_API_KEY` + `EMAIL_FROM`
 (password reset, welcome, payment, reservation mail), `STRIPE_PRIVATE_KEY` +
@@ -248,7 +249,10 @@ curl -H "Authorization: Bearer $CRON_SECRET" https://your-domain.com/api/cron/jo
 Point a Stripe webhook at `https://your-domain.com/api/pay/webhook/stripe` and
 set `STRIPE_WEBHOOK_SECRET` from that endpoint's signing secret — the value
 differs between the CLI and each deployed endpoint. Subscribe at minimum to
-`checkout.session.completed`.
+`checkout.session.completed`, `invoice.payment_succeeded`,
+`invoice.payment_failed`, `customer.subscription.created`,
+`customer.subscription.updated`, `customer.subscription.deleted`,
+`charge.refunded`, and `charge.dispute.created`.
 
 ---
 
@@ -278,6 +282,7 @@ lands. See the email service guide in `/docs`.
 - [ ] Real Turnstile keys set on **both** the web and admin projects
 - [ ] Resend domain verified (SPF + DKIM + DMARC), `EMAIL_FROM` on that domain
 - [ ] Stripe webhook endpoint created, `STRIPE_WEBHOOK_SECRET` set from it
+- [ ] Plus/Max monthly/yearly Stripe Price IDs configured and copied into the matching `STRIPE_PRICE_*` variables
 - [ ] `NEXT_PUBLIC_WEB_URL`, `BETTER_AUTH_URL`, `NEXT_PUBLIC_ADMIN_WEB_URL` set to real origins
 - [ ] Cron scheduled against `/api/cron/jobs`
 - [ ] Demo flags absent

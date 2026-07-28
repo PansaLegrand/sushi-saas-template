@@ -66,8 +66,9 @@ export type PlanDefinition = {
   name: string;
   /**
    * Credits this tier includes per month, for display on pricing and billing
-   * screens. See `docs/plans.md` for why this is documentation rather than an
-   * automatic grant: paid credits already arrive with the order.
+   * screens. Paid product grants are derived from the same value in
+   * `src/config/billing.ts`; the free tier remains zero until a recurring grant
+   * job is configured.
    */
   includedMonthlyCredits: number;
   features: Record<PlanFeature, boolean>;

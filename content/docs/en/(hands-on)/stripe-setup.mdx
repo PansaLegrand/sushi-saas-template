@@ -77,8 +77,8 @@ While specifics vary by provider and platform, the general flow is:
 ## Endpoints
 
 - `/api/checkout` (POST):
-  - Validates the selected plan against `src/config/pricing.ts`.
-  - Creates a Stripe Checkout session (inline price data; no Stripe Products required).
+  - Resolves the selected product against `src/config/billing.ts`.
+  - Creates a Stripe Checkout session with its configured Stripe Price ID.
   - Inserts an `orders` row with status `created` and returns `checkout_url`.
 
 - `/api/pay/callback/stripe` (GET):
@@ -176,7 +176,7 @@ Tip: Start with the official guide — https://docs.stripe.com/get-started
 
 ## Implementation Details
 
-- Plans live in `src/config/pricing.ts`. Values are typed (`Pricing`), shared by the pricing page and `/api/checkout`.
+- Commercial terms live in `src/config/billing.ts`; `src/config/pricing.ts` derives display cards from that catalog.
 - Orders are stored in `orders`; credit movements in `credits`.
 - The webhook verifies signatures using the raw request body and `STRIPE_WEBHOOK_SECRET`.
 - `handleCheckoutSession` supports both one-time and subscription checkouts:
@@ -204,25 +204,25 @@ Finding your Price IDs in Stripe
 2) In the Prices table, click the 3 dots at the end of the row → “Copy price ID”.
 3) It begins with `price_...` — don’t confuse it with the Product ID (`prod_...`).
 
-Environment variables (optional but recommended)
+Environment variables (required in production)
 
 ```bash
-# Map your plan config to Stripe Prices; if empty, checkout falls back to inline prices
-NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY=price_...
-NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY=price_...
-NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY=price_...
-NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY=price_...
+STRIPE_PRICE_PLUS_MONTHLY=price_...
+STRIPE_PRICE_PLUS_YEARLY=price_...
+STRIPE_PRICE_MAX_MONTHLY=price_...
+STRIPE_PRICE_MAX_YEARLY=price_...
 # Optional CNY variants
-NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY_CNY=price_...
-NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY_CNY=price_...
-NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY_CNY=price_...
-NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY_CNY=price_...
+STRIPE_PRICE_PLUS_MONTHLY_CNY=price_...
+STRIPE_PRICE_PLUS_YEARLY_CNY=price_...
+STRIPE_PRICE_MAX_MONTHLY_CNY=price_...
+STRIPE_PRICE_MAX_YEARLY_CNY=price_...
 ```
 
-Behavior with/without Price IDs
+Price ID behavior
 
-- If a Price ID is set for a subscription plan, Checkout uses it directly.
-- If not, Checkout creates the session with inline `price_data` using amounts from `src/config/pricing.ts` (safe fallback).
+- Checkout always uses a configured Stripe Price ID; there is no inline recurring-price fallback.
+- Production startup fails when a required USD Price ID is missing or malformed.
+- Legacy `NEXT_PUBLIC_*` variables remain supported for grandfathered subscriptions.
 
 ---
 
@@ -231,7 +231,7 @@ Behavior with/without Price IDs
 This template handles renewals automatically:
 
 - Webhook `invoice.payment_succeeded` (with `billing_reason=subscription_cycle`) creates a renewal Order and grants plan credits for the period.
-- Idempotency: we skip if an Order already exists for the same `(subscription_id, period_start)`.
+- Idempotency: the period-derived order and ledger keys make replay safe and repair a missing grant.
 - Initial purchase still uses `checkout.session.completed`; we avoid double‑crediting by ignoring non‑cycle invoices.
 
 ---

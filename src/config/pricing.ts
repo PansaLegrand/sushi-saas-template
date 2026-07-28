@@ -1,75 +1,27 @@
-import type { Pricing } from "@/types/blocks/pricing";
-import { FREE_TRIAL_DAYS, INTRO_BASE_USD_CENTS, INTRO_FIRST_MONTH_USD_CENTS } from "@/config/billing";
+import {
+  BILLING_PRODUCTS,
+  PLAN_MONTHLY_CREDITS,
+  type BillingProduct,
+  type BillingProductId,
+} from "@/config/billing";
+import type { Pricing, PricingItem } from "@/types/blocks/pricing";
 
-const sharedMonthlyPlans = [
-  // Demo: Starter plan with trial and intro options
-  {
-    title: "Starter (Trial)",
-    description: "One-month free trial, then $20/mo.",
-    label: "Trial",
-    price: "$20",
-    currency: "usd",
-    unit: "/month",
-    features_title: "Includes",
-    features: [
-      "One-month free trial",
-      "Core features to get started",
-    ],
-    button: {
-      title: "Start free trial",
-      icon: "Play",
-    },
-    tip: `Free for ${FREE_TRIAL_DAYS} days, cancel anytime` as any,
-    interval: "month" as const,
-    product_id: "starter-monthly-trial",
-    product_name: "Starter Monthly (Trial)",
-    amount: INTRO_BASE_USD_CENTS, // standard price after trial
-    credits: 100,
-    valid_months: 1,
-    group: "monthly",
-    // Promotions
-    trial_days: FREE_TRIAL_DAYS,
-  },
-  {
-    title: "Starter (Intro $5)",
-    description: "First month $5, then $20/mo.",
-    label: "Intro",
-    price: "$20",
-    currency: "usd",
-    unit: "/month",
-    features_title: "Includes",
-    features: [
-      "First month only $5",
-      "Reverts to $20 after",
-    ],
-    button: {
-      title: "Try for $5",
-      icon: "Coins",
-    },
-    tip: "One-month introductory price",
-    interval: "month" as const,
-    product_id: "starter-monthly-intro",
-    product_name: "Starter Monthly (Intro)",
-    amount: INTRO_BASE_USD_CENTS, // standard ongoing price
-    credits: 100,
-    valid_months: 1,
-    group: "monthly",
-    // Promotions
-    intro_price_cents: INTRO_FIRST_MONTH_USD_CENTS,
-    intro_months: 1,
-  },
-  {
+type ProductPresentation = Omit<
+  PricingItem,
+  "interval" | "product_id" | "product_name" | "currency" | "amount" | "cn_amount"
+>;
+
+const PRODUCT_PRESENTATION: Record<BillingProductId, ProductPresentation> = {
+  "plus-monthly": {
     title: "Plus",
     description:
       "Everything you need to validate v1 with auth, docs, and health monitoring.",
     label: "Popular",
-    price: "$29",
     original_price: "$39",
-    currency: "usd",
     unit: "/month",
     features_title: "Plus includes",
     features: [
-      "200 AI credits every month",
+      `${PLAN_MONTHLY_CREDITS.plus} AI credits every month`,
       "Better Auth flows",
       "Fumadocs blog + MDX",
       "Email onboarding templates",
@@ -80,29 +32,17 @@ const sharedMonthlyPlans = [
     },
     tip: "Cancel anytime. Credits reset every month.",
     is_featured: true,
-    interval: "month" as const,
-    product_id: "launch-monthly",
-    product_name: "Plus Monthly",
-    amount: 2_900,
-    cn_amount: 19_900,
-    credits: 200,
-    valid_months: 1,
     group: "monthly",
-    // Optional Stripe Price IDs; set via NEXT_PUBLIC_* so they’re safe to expose.
-    price_id: process.env.NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY,
-    cn_price_id: process.env.NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY_CNY,
   },
-  {
+  "max-monthly": {
     title: "Max",
     description:
       "Switch on higher limits, priority support, and bulk credit pools.",
     label: "Teams",
-    price: "$79",
-    currency: "usd",
     unit: "/month",
     features_title: "Max includes",
     features: [
-      "800 AI credits every month",
+      `${PLAN_MONTHLY_CREDITS.max} AI credits every month`,
       "Higher generation and storage limits",
       "Slack + email support",
       "Role-based access control",
@@ -112,30 +52,16 @@ const sharedMonthlyPlans = [
       icon: "Sparkle",
     },
     tip: "Great for teams that are onboarding paying users.",
-    interval: "month" as const,
-    product_id: "scale-monthly",
-    product_name: "Max Monthly",
-    amount: 7_900,
-    cn_amount: 54_900,
-    credits: 800,
-    valid_months: 1,
     group: "monthly",
-    price_id: process.env.NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY,
-    cn_price_id: process.env.NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY_CNY,
   },
-];
-
-const sharedYearlyPlans = [
-  {
+  "plus-yearly": {
     title: "Plus",
     description: "Pay once, stay shipped with 12 months of runway credits.",
-    price: "$299",
     original_price: "$348",
-    currency: "usd",
     unit: "/year",
     features_title: "Yearly perks",
     features: [
-      "2400 AI credits upfront",
+      `${PLAN_MONTHLY_CREDITS.plus * 12} AI credits upfront`,
       "Free migration review",
       "Annual roadmap session",
     ],
@@ -143,27 +69,16 @@ const sharedYearlyPlans = [
       title: "Plan launch",
       icon: "Calendar",
     },
-    interval: "year" as const,
-    product_id: "launch-yearly",
-    product_name: "Plus Yearly",
-    amount: 29_900,
-    cn_amount: 208_800,
-    credits: 2_400,
-    valid_months: 12,
     group: "yearly",
-    price_id: process.env.NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY,
-    cn_price_id: process.env.NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY_CNY,
   },
-  {
+  "max-yearly": {
     title: "Max",
     description: "Unlock top-tier credits with annual savings baked in.",
-    price: "$799",
     original_price: "$948",
-    currency: "usd",
     unit: "/year",
     features_title: "Max yearly includes",
     features: [
-      "9600 AI credits upfront",
+      `${PLAN_MONTHLY_CREDITS.max * 12} AI credits upfront`,
       "Success architect onboarding",
       "Quarterly review workshops",
     ],
@@ -171,18 +86,36 @@ const sharedYearlyPlans = [
       title: "Go annual",
       icon: "Layers",
     },
-    interval: "year" as const,
-    product_id: "scale-yearly",
-    product_name: "Max Yearly",
-    amount: 79_900,
-    cn_amount: 551_900,
-    credits: 9_600,
-    valid_months: 12,
     group: "yearly",
-    price_id: process.env.NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY,
-    cn_price_id: process.env.NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY_CNY,
   },
-];
+};
+
+function formatUsd(amount: number): string {
+  return `$${amount / 100}`;
+}
+
+function pricingItem(product: BillingProduct): PricingItem {
+  const usd = product.prices.usd;
+  if (!usd) {
+    // USD is the catalog's default display currency. Production validation
+    // separately requires its Stripe Price ID; this guards code edits that
+    // remove the variant altogether.
+    throw new Error(`billing product "${product.id}" has no USD price`);
+  }
+
+  return {
+    ...PRODUCT_PRESENTATION[product.id],
+    price: formatUsd(usd.amount),
+    interval: product.interval,
+    product_id: product.id,
+    product_name: product.name,
+    amount: usd.amount,
+    cn_amount: product.prices.cny?.stripePriceIds[0]
+      ? product.prices.cny.amount
+      : undefined,
+    currency: usd.currency,
+  };
+}
 
 const SHARED_GROUPS: Pricing["groups"] = [
   {
@@ -206,7 +139,7 @@ const BASE_PRICING: Pricing = {
   description:
     "Pick a sandbox package and keep your credits topped up for production.",
   groups: SHARED_GROUPS,
-  items: [...sharedMonthlyPlans, ...sharedYearlyPlans],
+  items: BILLING_PRODUCTS.map(pricingItem),
 };
 
 const LOCALE_OVERRIDES: Partial<Record<string, Partial<Pricing>>> = {

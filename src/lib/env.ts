@@ -153,6 +153,32 @@ const RawEnvSchema = z.object({
   NEXT_PUBLIC_PAY_SUCCESS_URL: envString,
   NEXT_PUBLIC_PAY_FAIL_URL: envString,
   NEXT_PUBLIC_PAY_CANCEL_URL: envString,
+  STRIPE_PRICE_PLUS_MONTHLY: envString,
+  STRIPE_PRICE_PLUS_YEARLY: envString,
+  STRIPE_PRICE_MAX_MONTHLY: envString,
+  STRIPE_PRICE_MAX_YEARLY: envString,
+  STRIPE_PRICE_PLUS_MONTHLY_CNY: envString,
+  STRIPE_PRICE_PLUS_YEARLY_CNY: envString,
+  STRIPE_PRICE_MAX_MONTHLY_CNY: envString,
+  STRIPE_PRICE_MAX_YEARLY_CNY: envString,
+  // Deprecated public aliases. Billing configuration is server-owned.
+  NEXT_PUBLIC_STRIPE_PRICE_PLUS_MONTHLY: envString,
+  NEXT_PUBLIC_STRIPE_PRICE_PLUS_YEARLY: envString,
+  NEXT_PUBLIC_STRIPE_PRICE_MAX_MONTHLY: envString,
+  NEXT_PUBLIC_STRIPE_PRICE_MAX_YEARLY: envString,
+  NEXT_PUBLIC_STRIPE_PRICE_PLUS_MONTHLY_CNY: envString,
+  NEXT_PUBLIC_STRIPE_PRICE_PLUS_YEARLY_CNY: envString,
+  NEXT_PUBLIC_STRIPE_PRICE_MAX_MONTHLY_CNY: envString,
+  NEXT_PUBLIC_STRIPE_PRICE_MAX_YEARLY_CNY: envString,
+  // Legacy aliases retained for grandfathered Stripe subscriptions.
+  NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY: envString,
+  NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY: envString,
+  NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY: envString,
+  NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY: envString,
+  NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY_CNY: envString,
+  NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY_CNY: envString,
+  NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY_CNY: envString,
+  NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY_CNY: envString,
 
   STORAGE_PROVIDER: envStorageProvider,
   STORAGE_ENDPOINT: envUrl,
@@ -319,6 +345,14 @@ function getMissingProductionEnv(raw: RawEnv, env: AppEnv): string[] {
       missing.push(name);
     }
   };
+  const requireOneOf = (
+    values: Array<string | undefined>,
+    name: string
+  ) => {
+    if (!values.some(Boolean)) {
+      missing.push(name);
+    }
+  };
 
   requireRaw(raw.NEXT_PUBLIC_WEB_URL, "NEXT_PUBLIC_WEB_URL");
 
@@ -336,6 +370,38 @@ function getMissingProductionEnv(raw: RawEnv, env: AppEnv): string[] {
   requireResolved(env.BETTER_AUTH_SECRET, "BETTER_AUTH_SECRET (or AUTH_SECRET)");
   requireRaw(raw.STRIPE_PRIVATE_KEY, "STRIPE_PRIVATE_KEY");
   requireRaw(raw.STRIPE_WEBHOOK_SECRET, "STRIPE_WEBHOOK_SECRET");
+  requireOneOf(
+    [
+      raw.STRIPE_PRICE_PLUS_MONTHLY,
+      raw.NEXT_PUBLIC_STRIPE_PRICE_PLUS_MONTHLY,
+      raw.NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY,
+    ],
+    "STRIPE_PRICE_PLUS_MONTHLY (or a legacy NEXT_PUBLIC alias)"
+  );
+  requireOneOf(
+    [
+      raw.STRIPE_PRICE_PLUS_YEARLY,
+      raw.NEXT_PUBLIC_STRIPE_PRICE_PLUS_YEARLY,
+      raw.NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY,
+    ],
+    "STRIPE_PRICE_PLUS_YEARLY (or a legacy NEXT_PUBLIC alias)"
+  );
+  requireOneOf(
+    [
+      raw.STRIPE_PRICE_MAX_MONTHLY,
+      raw.NEXT_PUBLIC_STRIPE_PRICE_MAX_MONTHLY,
+      raw.NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY,
+    ],
+    "STRIPE_PRICE_MAX_MONTHLY (or a legacy NEXT_PUBLIC alias)"
+  );
+  requireOneOf(
+    [
+      raw.STRIPE_PRICE_MAX_YEARLY,
+      raw.NEXT_PUBLIC_STRIPE_PRICE_MAX_YEARLY,
+      raw.NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY,
+    ],
+    "STRIPE_PRICE_MAX_YEARLY (or a legacy NEXT_PUBLIC alias)"
+  );
   requireRaw(raw.RESEND_API_KEY, "RESEND_API_KEY");
   requireRaw(raw.EMAIL_FROM, "EMAIL_FROM");
   // Fail closed: a captcha that silently is not running is the exact failure
@@ -354,6 +420,64 @@ function getMissingProductionEnv(raw: RawEnv, env: AppEnv): string[] {
   requireResolved(env.STORAGE_SECRET_KEY, "STORAGE_SECRET_KEY (or S3_SECRET_ACCESS_KEY)");
 
   return missing;
+}
+
+function getInvalidProductionEnv(raw: RawEnv): string[] {
+  if (!isProductionRuntime() || raw.NEXT_PUBLIC_SITE_MODE === "site") {
+    return [];
+  }
+
+  const invalid: string[] = [];
+  const stripePrices = {
+    STRIPE_PRICE_PLUS_MONTHLY: raw.STRIPE_PRICE_PLUS_MONTHLY,
+    STRIPE_PRICE_PLUS_YEARLY: raw.STRIPE_PRICE_PLUS_YEARLY,
+    STRIPE_PRICE_MAX_MONTHLY: raw.STRIPE_PRICE_MAX_MONTHLY,
+    STRIPE_PRICE_MAX_YEARLY: raw.STRIPE_PRICE_MAX_YEARLY,
+    STRIPE_PRICE_PLUS_MONTHLY_CNY: raw.STRIPE_PRICE_PLUS_MONTHLY_CNY,
+    STRIPE_PRICE_PLUS_YEARLY_CNY: raw.STRIPE_PRICE_PLUS_YEARLY_CNY,
+    STRIPE_PRICE_MAX_MONTHLY_CNY: raw.STRIPE_PRICE_MAX_MONTHLY_CNY,
+    STRIPE_PRICE_MAX_YEARLY_CNY: raw.STRIPE_PRICE_MAX_YEARLY_CNY,
+    NEXT_PUBLIC_STRIPE_PRICE_PLUS_MONTHLY:
+      raw.NEXT_PUBLIC_STRIPE_PRICE_PLUS_MONTHLY,
+    NEXT_PUBLIC_STRIPE_PRICE_PLUS_YEARLY:
+      raw.NEXT_PUBLIC_STRIPE_PRICE_PLUS_YEARLY,
+    NEXT_PUBLIC_STRIPE_PRICE_MAX_MONTHLY:
+      raw.NEXT_PUBLIC_STRIPE_PRICE_MAX_MONTHLY,
+    NEXT_PUBLIC_STRIPE_PRICE_MAX_YEARLY:
+      raw.NEXT_PUBLIC_STRIPE_PRICE_MAX_YEARLY,
+    NEXT_PUBLIC_STRIPE_PRICE_PLUS_MONTHLY_CNY:
+      raw.NEXT_PUBLIC_STRIPE_PRICE_PLUS_MONTHLY_CNY,
+    NEXT_PUBLIC_STRIPE_PRICE_PLUS_YEARLY_CNY:
+      raw.NEXT_PUBLIC_STRIPE_PRICE_PLUS_YEARLY_CNY,
+    NEXT_PUBLIC_STRIPE_PRICE_MAX_MONTHLY_CNY:
+      raw.NEXT_PUBLIC_STRIPE_PRICE_MAX_MONTHLY_CNY,
+    NEXT_PUBLIC_STRIPE_PRICE_MAX_YEARLY_CNY:
+      raw.NEXT_PUBLIC_STRIPE_PRICE_MAX_YEARLY_CNY,
+    NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY:
+      raw.NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY,
+    NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY:
+      raw.NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY,
+    NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY:
+      raw.NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY,
+    NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY:
+      raw.NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY,
+    NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY_CNY:
+      raw.NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY_CNY,
+    NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY_CNY:
+      raw.NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY_CNY,
+    NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY_CNY:
+      raw.NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY_CNY,
+    NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY_CNY:
+      raw.NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY_CNY,
+  };
+
+  for (const [name, value] of Object.entries(stripePrices)) {
+    if (value && !/^price_[A-Za-z0-9]+$/.test(value)) {
+      invalid.push(`${name} (must be a Stripe Price ID beginning with price_)`);
+    }
+  }
+
+  return invalid;
 }
 
 export function validateAppEnv(): AppEnv {
@@ -377,8 +501,9 @@ export function validateAppEnv(): AppEnv {
   // — two failed deploys for one bad config file.
   const missing = getMissingProductionEnv(parsed.data, env);
   const forbidden = getForbiddenProductionEnv(env);
+  const invalid = getInvalidProductionEnv(parsed.data);
 
-  if (missing.length > 0 || forbidden.length > 0) {
+  if (missing.length > 0 || forbidden.length > 0 || invalid.length > 0) {
     const sections: string[] = [];
     if (missing.length > 0) {
       sections.push(
@@ -392,10 +517,16 @@ export function validateAppEnv(): AppEnv {
         )}`
       );
     }
+    if (invalid.length > 0) {
+      sections.push(
+        `Invalid production environment variables:\n- ${invalid.join("\n- ")}`
+      );
+    }
 
     throw new EnvValidationError(sections.join("\n\n"), [
       ...missing,
       ...forbidden,
+      ...invalid,
     ]);
   }
 

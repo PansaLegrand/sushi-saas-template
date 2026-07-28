@@ -68,7 +68,7 @@ canonical: "https://www.sushi-templates.com/zh/blogs/stripe-setup"
 
 ## 接口说明
 
-- `/api/checkout` (POST)：校验 `src/config/pricing.ts` 的计划，创建 Checkout 会话，保存订单 `created`。
+- `/api/checkout` (POST)：从 `src/config/billing.ts` 解析商品，使用已配置的 Price ID 创建 Checkout 会话，并保存订单 `created`。
 - `/api/pay/callback/stripe` (GET)：Stripe 成功页的跳转目标；不再做入账逻辑。
 - `/api/pay/webhook/stripe` (POST)：校验签名，处理 `checkout.session.completed`，完成入账与积分增加。
 
@@ -141,7 +141,7 @@ stripe trigger checkout_session_completed
 
 ## 实现细节
 
-- 套餐定义：`src/config/pricing.ts`（强类型、前后端共用）。
+- 商业条款集中在 `src/config/billing.ts`；`src/config/pricing.ts` 从中生成展示卡片。
 - `handleCheckoutSession` 同时支持一次性与订阅（订阅场景从最新账单获取 PaymentIntent）。
 - 可扩展处理 `invoice.payment_succeeded` 实现订阅续费时自动充值积分。
 
@@ -166,25 +166,25 @@ Stripe 将“售卖的内容”和“定价方式”分离：
 2) 在“价格（Prices）”表中，点击该行末尾的省略号（三点） → 复制价格 ID。
 3) 价格 ID 以 `price_...` 开头；不要与产品 ID（`prod_...`）混淆。
 
-环境变量（可选但推荐）
+环境变量（生产环境必需）
 
 ```bash
-# 把计划配置映射到 Stripe 的价格；留空则回退为内联 price_data
-NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY=price_...
-NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY=price_...
-NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY=price_...
-NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY=price_...
+STRIPE_PRICE_PLUS_MONTHLY=price_...
+STRIPE_PRICE_PLUS_YEARLY=price_...
+STRIPE_PRICE_MAX_MONTHLY=price_...
+STRIPE_PRICE_MAX_YEARLY=price_...
 # 可选人民币价格
-NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY_CNY=price_...
-NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY_CNY=price_...
-NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY_CNY=price_...
-NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY_CNY=price_...
+STRIPE_PRICE_PLUS_MONTHLY_CNY=price_...
+STRIPE_PRICE_PLUS_YEARLY_CNY=price_...
+STRIPE_PRICE_MAX_MONTHLY_CNY=price_...
+STRIPE_PRICE_MAX_YEARLY_CNY=price_...
 ```
 
-有/无价格 ID 的行为
+价格 ID 的行为
 
-- 若订阅计划配置了 Price ID，Checkout 将直接引用该 `price_...`。
-- 若未配置，Checkout 会使用 `src/config/pricing.ts` 的金额通过内联 `price_data` 创建会话（安全回退）。
+- Checkout 始终使用已配置的 Price ID，不再创建内联周期价格。
+- 必需的 USD Price ID 缺失或格式错误时，生产服务会在启动时失败。
+- 旧的 `NEXT_PUBLIC_*` 变量仍用于兼容已有订阅。
 
 ---
 
@@ -195,7 +195,7 @@ NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY_CNY=price_...
 - Webhook 处理 `invoice.payment_succeeded`，当且仅当 `billing_reason=subscription_cycle` 时：
   - 创建当期的续费订单（Order）。
   - 根据计划发放当期积分，过期时间对齐账单周期（+24h 宽限）。
-- 幂等：若同一 `(subscription_id, period_start)` 已有订单，则跳过。
+- 幂等：由账期派生的订单和账本键保证重放安全，并可修复缺失的积分发放。
 - 首次购买仍由 `checkout.session.completed` 处理；为避免重复发放，非续费账单会被忽略。
 
 ---

@@ -13,6 +13,30 @@ const ENV_KEYS = [
   "AUTH_SECRET",
   "STRIPE_PRIVATE_KEY",
   "STRIPE_WEBHOOK_SECRET",
+  "STRIPE_PRICE_PLUS_MONTHLY",
+  "STRIPE_PRICE_PLUS_YEARLY",
+  "STRIPE_PRICE_MAX_MONTHLY",
+  "STRIPE_PRICE_MAX_YEARLY",
+  "STRIPE_PRICE_PLUS_MONTHLY_CNY",
+  "STRIPE_PRICE_PLUS_YEARLY_CNY",
+  "STRIPE_PRICE_MAX_MONTHLY_CNY",
+  "STRIPE_PRICE_MAX_YEARLY_CNY",
+  "NEXT_PUBLIC_STRIPE_PRICE_PLUS_MONTHLY",
+  "NEXT_PUBLIC_STRIPE_PRICE_PLUS_YEARLY",
+  "NEXT_PUBLIC_STRIPE_PRICE_MAX_MONTHLY",
+  "NEXT_PUBLIC_STRIPE_PRICE_MAX_YEARLY",
+  "NEXT_PUBLIC_STRIPE_PRICE_PLUS_MONTHLY_CNY",
+  "NEXT_PUBLIC_STRIPE_PRICE_PLUS_YEARLY_CNY",
+  "NEXT_PUBLIC_STRIPE_PRICE_MAX_MONTHLY_CNY",
+  "NEXT_PUBLIC_STRIPE_PRICE_MAX_YEARLY_CNY",
+  "NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY",
+  "NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY",
+  "NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY",
+  "NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY",
+  "NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY_CNY",
+  "NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_YEARLY_CNY",
+  "NEXT_PUBLIC_STRIPE_PRICE_SCALE_MONTHLY_CNY",
+  "NEXT_PUBLIC_STRIPE_PRICE_SCALE_YEARLY_CNY",
   "RESEND_API_KEY",
   "EMAIL_FROM",
   "STORAGE_BUCKET",
@@ -52,6 +76,10 @@ function setProductionEnv() {
   vi.stubEnv("BETTER_AUTH_SECRET", "secret");
   vi.stubEnv("STRIPE_PRIVATE_KEY", "sk_live_test");
   vi.stubEnv("STRIPE_WEBHOOK_SECRET", "whsec_test");
+  vi.stubEnv("STRIPE_PRICE_PLUS_MONTHLY", "price_1PlusMonth");
+  vi.stubEnv("STRIPE_PRICE_PLUS_YEARLY", "price_1PlusYear");
+  vi.stubEnv("STRIPE_PRICE_MAX_MONTHLY", "price_1MaxMonth");
+  vi.stubEnv("STRIPE_PRICE_MAX_YEARLY", "price_1MaxYear");
   vi.stubEnv("RESEND_API_KEY", "re_test");
   vi.stubEnv("EMAIL_FROM", "App <app@example.com>");
   vi.stubEnv("STORAGE_BUCKET", "bucket");
@@ -165,6 +193,53 @@ describe("typed environment validation", () => {
     expect(env.STORAGE_MAX_UPLOAD_MB).toBe(50);
     expect(env.ENABLE_DEMO_FEATURES).toBe(true);
     expect(env.ENABLE_TEXT2VIDEO_MOCK).toBe(true);
+  });
+
+  it("requires a stable Stripe Price for every purchasable plan", async () => {
+    setProductionEnv();
+    delete process.env.STRIPE_PRICE_PLUS_YEARLY;
+
+    const { EnvValidationError, validateAppEnv } = await loadEnvModule();
+
+    expect(() => validateAppEnv()).toThrow(EnvValidationError);
+    try {
+      validateAppEnv();
+    } catch (error) {
+      expect((error as any).issues).toContain(
+        "STRIPE_PRICE_PLUS_YEARLY (or a legacy NEXT_PUBLIC alias)"
+      );
+    }
+  });
+
+  it("accepts legacy plan-price aliases for existing deployments", async () => {
+    setProductionEnv();
+    delete process.env.STRIPE_PRICE_PLUS_MONTHLY;
+    vi.stubEnv(
+      "NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY",
+      "price_1LegacyPlusMonth"
+    );
+
+    const { validateAppEnv } = await loadEnvModule();
+
+    expect(validateAppEnv().NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY).toBe(
+      "price_1LegacyPlusMonth"
+    );
+  });
+
+  it("rejects values that are not Stripe Price IDs", async () => {
+    setProductionEnv();
+    vi.stubEnv("STRIPE_PRICE_MAX_YEARLY", "prod_not_a_price");
+
+    const { EnvValidationError, validateAppEnv } = await loadEnvModule();
+
+    expect(() => validateAppEnv()).toThrow(EnvValidationError);
+    try {
+      validateAppEnv();
+    } catch (error) {
+      expect((error as any).issues).toContain(
+        "STRIPE_PRICE_MAX_YEARLY (must be a Stripe Price ID beginning with price_)"
+      );
+    }
   });
 
   it("supports legacy S3 aliases for storage credentials", async () => {
