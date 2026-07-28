@@ -30,6 +30,7 @@
     "gen:sitemap": "node scripts/generate-sitemap.mjs",
     "setup": "node scripts/setup-dev.mjs",
     "admin:promote": "node scripts/admin-promote.mjs",
+    "reconcile:stripe": "tsx scripts/reconcile-stripe-billing.ts",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:generate": "drizzle-kit generate --config src/db/config.ts",

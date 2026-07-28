@@ -1,4 +1,4 @@
-import { and, eq, lt, sql } from "drizzle-orm";
+import { and, asc, eq, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { stripeWebhookEvents } from "@/db/schema";
 
@@ -173,6 +173,72 @@ export async function markStripeWebhookEventActionRequired(
       updated_at: new Date(),
     })
     .where(eq(stripeWebhookEvents.event_id, eventId));
+}
+
+export type StripeWebhookEventRow = typeof stripeWebhookEvents.$inferSelect;
+
+/**
+ * Events that are not going to resolve on their own.
+ *
+ * `action_required` never will, by definition. `failed` is the harder half: it
+ * looks transient, but Stripe stops redelivering after roughly three days, so a
+ * `failed` row older than that is permanently stuck with nothing left to retry it
+ * — and it looks identical to one that will succeed on the next delivery. Age is
+ * the only thing that separates them, which is why this takes a cutoff.
+ */
+export async function findStuckStripeWebhookEvents({
+  failedBefore,
+  limit = 50,
+}: {
+  failedBefore: Date;
+  limit?: number;
+}): Promise<StripeWebhookEventRow[]> {
+  return db()
+    .select()
+    .from(stripeWebhookEvents)
+    .where(
+      or(
+        eq(stripeWebhookEvents.status, "action_required"),
+        and(
+          eq(stripeWebhookEvents.status, "failed"),
+          lt(stripeWebhookEvents.updated_at, failedBefore)
+        )
+      )
+    )
+    .orderBy(asc(stripeWebhookEvents.updated_at))
+    .limit(limit);
+}
+
+/**
+ * Every event recorded for one Stripe invoice.
+ *
+ * The query migration 0019's `stripe_invoice_id` index exists for, and what
+ * reconciliation uses to ask "did we ever receive this invoice's event". Against
+ * `payload` alone this was a full scan and a JSON parse per row.
+ */
+export async function findStripeWebhookEventsByInvoiceId(
+  invoiceId: string
+): Promise<StripeWebhookEventRow[]> {
+  return db()
+    .select()
+    .from(stripeWebhookEvents)
+    .where(eq(stripeWebhookEvents.stripe_invoice_id, invoiceId))
+    .orderBy(asc(stripeWebhookEvents.received_at));
+}
+
+/** Row counts per status, for the cron sweep's summary and the health check. */
+export async function countStripeWebhookEventsByStatus(): Promise<
+  Record<string, number>
+> {
+  const rows = await db()
+    .select({
+      status: stripeWebhookEvents.status,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(stripeWebhookEvents)
+    .groupBy(stripeWebhookEvents.status);
+
+  return Object.fromEntries(rows.map((row) => [row.status, row.count]));
 }
 
 export async function markStripeWebhookEventFailed(

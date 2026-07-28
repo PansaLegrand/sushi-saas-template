@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, gt, gte, isNull } from "drizzle-orm";
 
 import { db } from "@/db";
 import { credits, orders } from "@/db/schema";
@@ -165,6 +165,46 @@ export async function insertRenewalOrderWithGrant(input: {
       credit_granted,
     };
   });
+}
+
+/**
+ * Paid orders that promised credits and have no ledger row.
+ *
+ * The exact state item 4's bug produced, asked as a query. It belongs in this
+ * file because this file is what guarantees it cannot happen going forward — and
+ * a guarantee nobody audits is a belief.
+ *
+ * Keys on `credits.order_no` rather than reconstructing a `trans_no`. The
+ * trans_no formats live in `src/services/stripe/idempotency.ts` and would drift
+ * from a copy here; `order_no` is what the ledger row actually carries.
+ */
+export async function findPaidOrdersMissingCredits(input: {
+  since: Date;
+  limit?: number;
+}): Promise<
+  { order_no: string; org_uuid: string; credits: number; paid_at: Date | null }[]
+> {
+  const rows = await db()
+    .select({
+      order_no: orders.order_no,
+      org_uuid: orders.org_uuid,
+      credits: orders.credits,
+      paid_at: orders.paid_at,
+    })
+    .from(orders)
+    .leftJoin(credits, eq(credits.order_no, orders.order_no))
+    .where(
+      and(
+        eq(orders.status, OrderStatus.Paid),
+        gt(orders.credits, 0),
+        gte(orders.paid_at, input.since),
+        isNull(credits.id)
+      )
+    )
+    .orderBy(desc(orders.paid_at))
+    .limit(input.limit ?? 100);
+
+  return rows;
 }
 
 /**

@@ -144,10 +144,28 @@ describe("enqueueJobSafe", () => {
   it("never throws into the caller when the insert fails", async () => {
     insertJob.mockRejectedValueOnce(new Error("db down"));
 
-    // An auth hook must not fail a signup because queueing broke.
+    // An auth hook must not fail a signup because queueing broke. It reports
+    // `false` rather than nothing, so a caller that tells someone "I queued an
+    // alert" can tell the difference between having done so and not.
     await expect(
       enqueueJobSafe("welcome_email", { email: "a@example.com" })
-    ).resolves.toBeUndefined();
+    ).resolves.toBe(false);
+  });
+
+  it("reports whether a job was actually created", async () => {
+    // `insertJob` returns undefined when a dedupe key already had a job, so a
+    // successful call is not the same as a created job. The Stripe sweep reports
+    // "alerted" from this: within one dedupe window the message is suppressed,
+    // and claiming to have sent it would be a lie told to whoever is on call.
+    insertJob.mockResolvedValueOnce({ uuid: "job-1" });
+    await expect(
+      enqueueJobSafe("welcome_email", { email: "a@example.com" })
+    ).resolves.toBe(true);
+
+    insertJob.mockResolvedValueOnce(undefined);
+    await expect(
+      enqueueJobSafe("welcome_email", { email: "a@example.com" })
+    ).resolves.toBe(false);
   });
 
   it("passes the dedupe key through", async () => {

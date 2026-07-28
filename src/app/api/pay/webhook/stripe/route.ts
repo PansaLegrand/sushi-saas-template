@@ -14,6 +14,7 @@ import {
   subscriptionPeriodTransNo,
 } from "@/services/stripe/idempotency";
 import { extractWebhookReceipt } from "@/services/stripe/receipt";
+import { assessRefund } from "@/services/stripe/refund";
 import { updateAffiliateForOrder } from "@/services/affiliate";
 import { syncStripeSubscription } from "@/services/subscriptions";
 import { findPersonalOrganizationByUserUuid } from "@/models/organization";
@@ -579,18 +580,19 @@ export async function POST(req: Request) {
       // the funds are already debited, and the dispute may still be won, so
       // clawing back a tier mid-dispute can be wrong in both directions.
       //
-      // So this raises the alert and leaves the call to a human. What it must
-      // not do is stay silent, which is what happens when the event is not
-      // handled at all.
+      // So this hands the call to a human — as an `action_required` row carrying
+      // the computed shortfall, which a reconciliation sweep can find, *and* an
+      // immediate alert. Both, because they fail differently: a Slack message is
+      // something someone scrolls past, and a database row is something nobody
+      // looks at unless told to. The one thing it must never be is silent.
       //
-      // Planned successor, decided rather than pending: an `action_required` row
-      // carrying the computed shortfall, which a reconciliation script can find
-      // — a Slack message is something someone scrolls past. Credits are still
-      // never reversed automatically. See "Refund handling" under item 5 in
-      // roadmap.md for the full spec.
+      // Credits are still never reversed automatically. See "Refund handling"
+      // under item 5 in roadmap.md.
       case "charge.refunded":
       case "charge.dispute.created": {
         const charge = event.data.object as Stripe.Charge | Stripe.Dispute;
+        const assessment = await assessRefund(newStripeClient().stripe(), event);
+
         await enqueueJob(
           "slack_error",
           {
@@ -604,11 +606,30 @@ export async function POST(req: Request) {
               amount:
                 typeof charge.amount === "number" ? charge.amount / 100 : undefined,
               currency: charge.currency,
+              ...assessment,
             },
           },
           { dedupeKey: `slack_error:${event.id}:${event.type}` }
         );
-        break;
+
+        // Thrown after the alert is queued, so both happen. Parking rather than
+        // completing is the point: money moved back out and the entitlement it
+        // paid for is still in place, which is a discrepancy until someone
+        // resolves it — and `completed` would have claimed otherwise.
+        throw new ActionRequiredError(
+          event.type === "charge.refunded" ? "charge_refunded" : "charge_disputed",
+          {
+            charge_id: assessment.charge_id,
+            resolution: assessment.resolution,
+            order_no: assessment.order_no,
+            grant_trans_no: assessment.grant_trans_no,
+            granted_credits: assessment.granted_credits,
+            current_balance: assessment.current_balance,
+            // The number the decision turns on: how much of the grant can no
+            // longer be taken back because it has already been spent.
+            shortfall: assessment.shortfall,
+          }
+        );
       }
 
       default:

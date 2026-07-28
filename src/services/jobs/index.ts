@@ -31,19 +31,27 @@ export interface EnqueueOptions {
  * Prefer this over `queueMicrotask`/`setTimeout` for anything that must
  * actually happen: on serverless the instance can be frozen as soon as the
  * response is sent, silently dropping un-awaited work.
+ *
+ * Returns whether a job was actually created. With a `dedupeKey`, `false` means
+ * an identical job already existed and this call was a no-op — which is the
+ * mechanism working, not a failure. Most callers can ignore it; a caller that
+ * reports "I alerted someone" cannot, because it would be claiming credit for a
+ * message the dedupe key suppressed.
  */
 export async function enqueueJob<T extends JobType>(
   type: T,
   payload: JobPayloads[T],
   options: EnqueueOptions = {}
-): Promise<void> {
-  await insertJob({
+): Promise<boolean> {
+  const row = await insertJob({
     type,
     payload,
     runAt: options.runAt,
     maxAttempts: options.maxAttempts,
     dedupeKey: options.dedupeKey,
   });
+
+  return Boolean(row);
 }
 
 /**
@@ -55,11 +63,12 @@ export async function enqueueJobSafe<T extends JobType>(
   type: T,
   payload: JobPayloads[T],
   options: EnqueueOptions = {}
-): Promise<void> {
+): Promise<boolean> {
   try {
-    await enqueueJob(type, payload, options);
+    return await enqueueJob(type, payload, options);
   } catch (e) {
     logger.error({ err: e, job_type: type }, "failed to enqueue job");
+    return false;
   }
 }
 

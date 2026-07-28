@@ -76,14 +76,21 @@ take a customer's money and grant them nothing, and it does so silently.
 References between items are by name rather than by number from here on,
 because positional references in this file have already gone stale twice.
 
-Item 4 shipped on 2026-07-26. **Item 5 is the top of the queue, and only its
-step 4 is left.** On 2026-07-28: step 5 shipped first because it touches no
-schema, the open refund decision was settled, steps 1 and 2 shipped as migrations
-`0018` and `0019`, and step 3 shipped with no migration. All are recorded under
-the item, including a live defect step 3 found — an unmapped price recorded a paid
-order granting zero credits. Step 4 has no open design left in it: the
-reconciliation script and cron sweep now have both the `action_required` status to
-query and the refund spec to implement.
+Items 4 and 5 both shipped. **Item 6 is the top of the queue.**
+
+Item 5 was finished on 2026-07-28, all five steps plus its open refund decision.
+It went out of order on purpose: step 5 first because it touches no schema, then
+the decision, then 1 → 4. Two things worth carrying forward rather than leaving
+buried in the step notes:
+
+- **Reading for step 3 found a live defect of the same class item 4 fixed.** An
+  unmapped price recorded a *paid order granting zero credits* — `plan` was
+  resolved and never checked, so `credits` fell through to `?? 0`. Item 4 looked at
+  the transaction boundary; nobody had looked at what happens when the catalog
+  lookup misses. Worth assuming there are more of these than the two found so far.
+- **`pnpm reconcile:stripe` now exists to answer the question directly** rather
+  than by reading code. It is in the release checklist, and its `--local-only`
+  mode needs no Stripe key.
 
 1. [x] [P0] Route every production failure through the logger
    - Swept all 20 stray `console.*` calls in server code onto `src/lib/logger`,
@@ -249,7 +256,7 @@ query and the refund spec to implement.
      reconciliation, and refund reversal. They are item 5. This item is scoped
      to stop losing money and to prove it with tests.
 
-5. [ ] [P1] Give Stripe money movement an auditable record
+5. [x] [P1] Give Stripe money movement an auditable record
    - Follows item 4 and depends on nothing else. Item 4 stops the bleeding;
      this is what makes the next discrepancy findable instead of anecdotal.
    - Credit ledger columns: `balance_after`, `actor`, `metadata`. A credits row
@@ -424,8 +431,59 @@ query and the refund spec to implement.
           as permanent (an `order_no` in metadata matching no order), but that is
           a separate pass over a different file, and this step is scoped to the
           sites that were silently completing.
-     4. Reconciliation script + a cron sweep over `failed` and
-        `action_required`.
+     4. [x] Reconciliation script + a cron sweep over `failed` and
+        `action_required`. **Done 2026-07-28**, no migration. 29 new tests; 482
+        green. Three parts:
+        - **`pnpm reconcile:stripe`** — `scripts/reconcile-stripe-billing.ts`.
+          Checks a paid order with no ledger row (item 4's bug shape), a
+          `balance_after` that disagrees with the ledger (step 1's payoff), and a
+          paid Stripe invoice with no recorded event (step 2's payoff, via the
+          `stripe_invoice_id` index). Exits 1 on error.
+        - **Written in TypeScript, run through `tsx`**, unlike the `.mjs` scripts
+          beside it. The logic lives in `src/services/stripe/reconcile.ts` where
+          the database tier tests it; a `.mjs` script would re-implement the same
+          SQL and drift from it silently, which is the exact failure this script
+          exists to catch. `tsx` was already a devDependency.
+        - `--local-only` needs no Stripe key, so the checks that caught this kit's
+          two real defects run in CI and on a laptop. Without a key it warns and
+          degrades rather than pretending to have checked Stripe.
+        - **Warnings exit 0 deliberately.** A parked event is a human's queue, and
+          a check that blocks every deploy until someone maps a price is a check
+          that gets switched off. Only `error` — money and entitlement actually
+          disagreeing — fails the run.
+        - **Cron sweep** in `src/services/stripe/sweep.ts`, on the existing
+          five-minute cron. `action_required` is stuck by definition; a `failed`
+          row is only stuck once Stripe has given up, so the cutoff is four days —
+          three plus margin — because under that it is a transient blip Stripe is
+          still retrying. Alerts are bucketed to the hour: an unfixed problem
+          should keep reminding you, not train you to ignore the channel.
+        - The sweep **does not retry anything**, on purpose. A `failed` row past
+          its retries needs the stored payload replayed through the handler, and a
+          parked one needs a human decision first. Both are real features; neither
+          is "notice the problem", which is what this is.
+        - **Refund handling, implementing the settled spec.** `charge.refunded`
+          and `charge.dispute.created` now compute the reversal — grant, current
+          balance, shortfall — park the event as `action_required`, *and* keep the
+          immediate Slack alert. Both, because they fail differently: a message is
+          scrolled past, a row is not looked at unless something says to.
+        - Computed **at write time**, since the shortfall is the decision being
+          handed over and recomputing it a day later gives a different answer once
+          the balance has moved. Uses the spendable balance, not the ledger total:
+          expired credits cannot be taken back.
+        - `findCreditByOrderNo` finally has a caller — kept unused through item 4
+          for exactly this.
+        - Fell out of the work: **`enqueueJob` returned `void`, so a deduped
+          insert was indistinguishable from a created one.** It now returns
+          whether a job was created, because the sweep reports "alerted" and would
+          otherwise take credit for a message the dedupe key suppressed.
+        - **Known gap, honestly recorded rather than guessed at:** a refund on a
+          *one-off checkout* charge cannot be resolved to an order. Orders store
+          `stripe_session_id`, the charge carries `payment_intent`, and nothing
+          links them. Renewals resolve fine through the invoice. Such a refund is
+          still parked, with `resolution: "order_unresolved"` — which is itself the
+          information a human needs. Closing it means adding
+          `stripe_payment_intent_id` to `orders`; tracked under *Technical Debt
+          Worth Scheduling*.
      5. [x] Cached Stripe client, `livemode` rejection. Independent of the rest;
         pick it up any time. **Done 2026-07-28** — taken first for exactly that
         reason. Details under *Stripe client polish* above. **Step 1 is now the
@@ -631,6 +689,18 @@ hardening passes rather than one giant schema rewrite.
     The fix is the same shape: unique index, then let the insert conflict.
   - Sweep duplicates before adding the index; a paid order that already earned
     two rewards will block the migration.
+- [P1] Link a Stripe charge to its order for one-off payments
+  - Item 5 step 4 can resolve a refund back to its order for **renewals**, through
+    the invoice's subscription and period. A one-off checkout charge has no
+    invoice: `orders` stores `stripe_session_id`, the charge carries
+    `payment_intent`, and nothing joins them.
+  - The consequence is bounded rather than silent — such a refund is still parked
+    as `action_required` with `resolution: "order_unresolved"`, so a human sees it
+    — but they get no grant, balance, or shortfall, which is the arithmetic the
+    row exists to hand over.
+  - Fix is a column: `stripe_payment_intent_id` on `orders`, written at checkout
+    and indexed. Recorded here rather than only in step 4's notes, because a
+    sub-bullet on a shipped item is where a known gap goes to be forgotten.
 - [P1] Add foreign keys in expand/contract passes
   - There are no foreign keys anywhere. Start with high-value references such
     as `credits.user_uuid`, `tasks.user_uuid`, and tenant `org_uuid` columns,

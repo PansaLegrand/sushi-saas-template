@@ -49,6 +49,18 @@ pnpm db:check:prod
   read/write guards on the affected admin surface.
 - Billing changes: open the billing portal, cancel or update a subscription in
   Stripe test mode, and verify the webhook result.
+- Billing changes: run the reconciliation check against the target database and
+  confirm it exits zero.
+
+  ```bash
+  pnpm reconcile:stripe --days 30
+  ```
+
+  It compares Stripe against this database — a paid order with no ledger row, a
+  running balance that disagrees with the ledger, a paid invoice no event was ever
+  recorded for. Errors exit 1; warnings (an event already parked for a human) exit
+  0 on purpose, so the check never blocks a release on someone else's queue. With
+  no `STRIPE_PRIVATE_KEY` it runs local checks only and says so.
 - Confirm `STRIPE_WEBHOOK_SECRET` in production is the **live-mode** endpoint's
   signing secret, not the test-mode one. The webhook rejects any non-live event
   with a 400 in production, so a test-mode secret makes every delivery fail

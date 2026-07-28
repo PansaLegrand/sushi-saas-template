@@ -220,6 +220,63 @@ export async function insertSpendCreditIfSufficient({
 }
 
 /**
+ * Ledger rows whose `balance_after` disagrees with the ledger.
+ *
+ * This is what the column was added for. The invariant is that within an
+ * organization, ordered by insertion, `balance_after` equals the running sum of
+ * `credits` — so a row where it does not means two writes computed the total
+ * against the same stale read, which no constraint can catch because no
+ * constraint was violated.
+ *
+ * Computed with a window function rather than in TypeScript: the whole point is
+ * to compare against what the database actually holds, and pulling every ledger
+ * row into the process to add them up would not scale past a small tenant.
+ *
+ * Rows with a null `balance_after` are skipped — they predate migration 0018 and
+ * have no claim to check. They still *count toward* the running sum, which is
+ * correct: `lockOrgAndSumLedger` sums every row, so the first row written after
+ * 0018 legitimately carries a total that includes the untracked history.
+ */
+export async function findLedgerBalanceDrift(limit = 100): Promise<
+  {
+    id: number;
+    trans_no: string;
+    org_uuid: string;
+    credits: number;
+    balance_after: number | null;
+    expected_balance_after: number;
+  }[]
+> {
+  const rows = await db().execute(sql`
+    select id, trans_no, org_uuid, credits, balance_after, expected_balance_after
+    from (
+      select
+        id,
+        trans_no,
+        org_uuid,
+        credits,
+        balance_after,
+        sum(credits) over (partition by org_uuid order by id)::int
+          as expected_balance_after
+      from credits
+    ) as running
+    where balance_after is not null
+      and balance_after <> expected_balance_after
+    order by org_uuid, id
+    limit ${limit}
+  `);
+
+  return rows as unknown as {
+    id: number;
+    trans_no: string;
+    org_uuid: string;
+    credits: number;
+    balance_after: number | null;
+    expected_balance_after: number;
+  }[];
+}
+
+/**
  * Lookup by `trans_no`, which is globally unique.
  *
  * Unscoped on purpose: this resolves a transaction the caller already holds an
