@@ -136,13 +136,50 @@ describeDb("credit ledger (real database)", () => {
         credits: 25,
         actor: `user:${USER}`,
       })
-    ).rejects.toMatchObject({ code: "CREDITS_INSUFFICIENT" });
+    ).rejects.toMatchObject({
+      code: "CREDITS_INSUFFICIENT",
+      // The numbers that turn "not enough credits" into "buy 15 more". They
+      // come out of the refusing transaction itself, so they cannot disagree
+      // with the decision they explain.
+      details: { required: 25, available: 10, shortfall: 15 },
+    });
 
     // The guard has to hold at the row level, not just in the return value:
     // a rejected spend that still inserted a negative row would corrupt the
     // balance silently.
     expect(await countRows()).toBe(1);
     expect((await getOrgCreditSummary(ORG)).balance).toBe(10);
+  });
+
+  it("counts spends, not just grants, when reporting the balance available", async () => {
+    await increaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.SystemAdd,
+      credits: 10,
+      actor: "system:test",
+    });
+    await decreaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.Ping,
+      credits: 7,
+      actor: `user:${USER}`,
+    });
+
+    // 3 left, not the 10 that were granted. Summing grants alone is the obvious
+    // wrong implementation and produces copy that contradicts the refusal.
+    await expect(
+      decreaseCredits({
+        org_uuid: ORG,
+        user_uuid: USER,
+        trans_type: CreditsTransType.Ping,
+        credits: 5,
+        actor: `user:${USER}`,
+      })
+    ).rejects.toMatchObject({
+      details: { required: 5, available: 3, shortfall: 2 },
+    });
   });
 
   it("serializes concurrent spends so one balance cannot be spent twice", async () => {

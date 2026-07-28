@@ -112,6 +112,20 @@ export async function insertCredit(
   });
 }
 
+/**
+ * What a spend attempt did, and — when it did nothing — why.
+ *
+ * `available` is the balance the refusal was actually based on: computed inside
+ * the transaction, under the advisory lock, from the same rows that failed to
+ * cover the cost. Reading it again afterwards would be both an extra query and
+ * a slightly different number, since a concurrent grant can land in between.
+ * Callers turn it into "you need 4 more credits", which is only honest if it is
+ * the number that did the refusing.
+ */
+export type SpendOutcome =
+  | { ok: true; row: CreditRow }
+  | { ok: false; available: number };
+
 export async function insertSpendCreditIfSufficient({
   org_uuid,
   user_uuid,
@@ -130,7 +144,7 @@ export async function insertSpendCreditIfSufficient({
   created_at: Date;
   actor: CreditActor;
   metadata_json?: string | null;
-}): Promise<CreditRow | undefined> {
+}): Promise<SpendOutcome> {
   return db().transaction(async (tx) => {
     // Serialize spends per ORGANIZATION, not per user.
     //
@@ -180,7 +194,9 @@ export async function insertSpendCreditIfSufficient({
     }
 
     if (balance < amount) {
-      return undefined;
+      // Clamped: a balance can go negative through a refund of an expired
+      // grant, and "you have -3 credits" is not a sentence worth showing.
+      return { ok: false, available: Math.max(balance, 0) };
     }
 
     let accumulated = 0;
@@ -215,7 +231,15 @@ export async function insertSpendCreditIfSufficient({
       })
       .returning();
 
-    return credit;
+    if (!credit) {
+      // Unreachable: `insert ... returning` returns the row it wrote. Worth
+      // saying out loud anyway, because the old signature folded this case into
+      // "insufficient" — which would have told a user with money that they were
+      // broke, and hidden a real failure behind a plausible one.
+      throw new Error(`spend insert returned no row for org ${org_uuid}`);
+    }
+
+    return { ok: true, row: credit };
   });
 }
 

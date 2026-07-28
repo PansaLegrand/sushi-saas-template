@@ -110,7 +110,6 @@
       "errorTitle": "タスクに失敗しました",
       "errorDetails": "サインインし、十分なクレジットがあることを確認してください。",
       "errorGeneric": "タスクの作成に失敗しました",
-      "insufficientCredits": "クレジットが不足しています。",
       "errorNotSignedIn": "サインインが必要です",
       "notSignedInTitle": "サインインが必要",
       "notSignedInDesc": "タスクを作成するには、サインアップまたはログインしてください。",
@@ -201,6 +200,28 @@
     "notFoundTitle": "ページが見つかりません",
     "notFoundDescription": "お探しのページは存在しないか、移動されました。",
     "digest": "参照番号"
+  },
+  "billing": {
+    "prompt": {
+      "creditsTitle": "クレジットが不足しています",
+      "creditsDescription": "この操作に必要なクレジットが残高を上回っています。",
+      "creditsShortfall": "実行するには、あと {shortfall} クレジット必要です。",
+      "balance": "現在の残高は {available} クレジットです。",
+      "featureTitle": "現在のプランには含まれていません",
+      "featureDescription": "この機能は現在のプランには含まれていません。",
+      "featureDescriptionTier": "この機能は {tier} 以上のプランでご利用いただけます。",
+      "limitTitle": "プランの上限に達しました",
+      "limitDescription": "現在のプランで利用できる上限に達しました。",
+      "limitDescriptionTier": "{tier} にアップグレードすると、この上限が引き上げられます。",
+      "viewPlans": "プランを見る",
+      "manageBilling": "お支払いの管理",
+      "dismiss": "後で",
+      "tiers": {
+        "free": "無料",
+        "plus": "Plus",
+        "max": "Max"
+      }
+    }
   },
   "team": {
     "title": "チーム",

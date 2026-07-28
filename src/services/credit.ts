@@ -273,7 +273,7 @@ export async function decreaseCredits({
   }
 
   try {
-    const created = await insertSpendCreditIfSufficient({
+    const outcome = await insertSpendCreditIfSufficient({
       trans_no: newId(),
       created_at: new Date(getIsoTimestr()),
       org_uuid,
@@ -284,14 +284,21 @@ export async function decreaseCredits({
       metadata_json: serializeMetadata(metadata),
     });
 
-    if (!created) {
+    if (!outcome.ok) {
+      // The numbers come back from the refusing transaction itself, so this
+      // costs no extra query and cannot disagree with the decision it explains.
+      // The UI turns them into "you need 4 more credits" and a link to pricing.
       throw new AppError("CREDITS_INSUFFICIENT", {
         message: `org ${org_uuid} has insufficient credits for ${credits}`,
-        details: { required: credits },
+        details: {
+          required: credits,
+          available: outcome.available,
+          shortfall: Math.max(credits - outcome.available, 0),
+        },
       });
     }
 
-    return created.trans_no;
+    return outcome.row.trans_no;
   } catch (error) {
     logger.error(
       { err: error, org_uuid, user_uuid, trans_type, credits },

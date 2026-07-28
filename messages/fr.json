@@ -110,7 +110,6 @@
       "errorTitle": "Échec de la tâche",
       "errorDetails": "Assurez-vous d’être connecté et d’avoir assez de crédits.",
       "errorGeneric": "Échec de création de la tâche",
-      "insufficientCredits": "Crédits insuffisants.",
       "errorNotSignedIn": "Connexion requise",
       "notSignedInTitle": "Connexion requise",
       "notSignedInDesc": "Veuillez vous inscrire ou vous connecter pour créer une tâche.",
@@ -201,6 +200,28 @@
     "notFoundTitle": "Page introuvable",
     "notFoundDescription": "La page que vous cherchez n'existe pas ou a été déplacée.",
     "digest": "Référence"
+  },
+  "billing": {
+    "prompt": {
+      "creditsTitle": "Vous n’avez plus de crédits",
+      "creditsDescription": "Cette action coûte plus de crédits qu’il ne vous en reste.",
+      "creditsShortfall": "Il vous {shortfall, plural, one {manque # crédit} other {manque # crédits}} pour lancer cette action.",
+      "balance": "Votre solde est de {available, plural, one {# crédit} other {# crédits}}.",
+      "featureTitle": "Non inclus dans votre formule",
+      "featureDescription": "Votre formule actuelle n’inclut pas cette fonctionnalité.",
+      "featureDescriptionTier": "Cette fonctionnalité est disponible à partir de la formule {tier}.",
+      "limitTitle": "Vous avez atteint la limite de votre formule",
+      "limitDescription": "Vous avez atteint ce que votre formule actuelle permet.",
+      "limitDescriptionTier": "Passer à la formule {tier} relève cette limite.",
+      "viewPlans": "Voir les formules",
+      "manageBilling": "Gérer la facturation",
+      "dismiss": "Plus tard",
+      "tiers": {
+        "free": "Gratuit",
+        "plus": "Plus",
+        "max": "Max"
+      }
+    }
   },
   "team": {
     "title": "Équipe",

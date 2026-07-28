@@ -105,7 +105,6 @@
       "errorTitle": "Task failed",
       "errorDetails": "Ensure you are signed in and have enough credits.",
       "errorGeneric": "Failed to create task",
-      "insufficientCredits": "You don’t have enough credits.",
       "errorNotSignedIn": "Sign in required",
       "notSignedInTitle": "Sign in required",
       "notSignedInDesc": "Please sign up or log in to create a task.",
@@ -201,6 +200,28 @@
     "notFoundTitle": "Page not found",
     "notFoundDescription": "The page you are looking for does not exist or has moved.",
     "digest": "Reference"
+  },
+  "billing": {
+    "prompt": {
+      "creditsTitle": "You’re out of credits",
+      "creditsDescription": "This action costs more credits than you have left.",
+      "creditsShortfall": "You need {shortfall, plural, one {# more credit} other {# more credits}} to run this.",
+      "balance": "Your balance is {available, plural, one {# credit} other {# credits}}.",
+      "featureTitle": "Not included in your plan",
+      "featureDescription": "Your current plan doesn’t include this feature.",
+      "featureDescriptionTier": "This feature is available on {tier} and above.",
+      "limitTitle": "You’ve reached your plan’s limit",
+      "limitDescription": "You’ve reached what your current plan allows.",
+      "limitDescriptionTier": "Upgrading to {tier} raises this limit.",
+      "viewPlans": "View plans",
+      "manageBilling": "Manage billing",
+      "dismiss": "Not now",
+      "tiers": {
+        "free": "Free",
+        "plus": "Plus",
+        "max": "Max"
+      }
+    }
   },
   "team": {
     "title": "Team",

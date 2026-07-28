@@ -5,13 +5,27 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { getCreditSummary } from "@/api/credits";
 import { createTextToVideoTask, getTask } from "@/api/tasks";
+import { BillingPromptDialog } from "@/components/billing/billing-prompt-dialog";
+import { useBillingPrompt } from "@/components/billing/use-billing-prompt";
 import { ErrorBanner } from "@/components/errors/error-banner";
+import { buttonVariants } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import { isClientApiError, resolveErrorMessage } from "@/lib/errors/client";
+import { cn } from "@/lib/utils";
 
 export default function TextToVideoClientPage() {
   const t = useTranslations("tasks.textToVideo");
+  const tBilling = useTranslations("billing.prompt");
   const locale = useLocale();
+  // Destructured rather than held as one object: `prompt` and `clear` are
+  // stable, so `submit` below stays memoized. Depending on the hook's return
+  // object would rebuild the callback on every render.
+  const {
+    prompt: promptBilling,
+    clear: clearBilling,
+    block: billingBlock,
+    dialogProps: billingDialogProps,
+  } = useBillingPrompt();
   const [prompt, setPrompt] = useState<string>("");
   const [seconds, setSeconds] = useState<string>("8");
   const [aspect, setAspect] = useState<string>("landscape");
@@ -43,6 +57,7 @@ export default function TextToVideoClientPage() {
     setOutputUrl(null);
     setTaskUuid(null);
     setCreditsUsed(null);
+    clearBilling();
 
     try {
       const data = await createTextToVideoTask({
@@ -55,22 +70,25 @@ export default function TextToVideoClientPage() {
       setTaskUuid(data.task.uuid);
       setCreditsUsed(data.task.creditsUsed);
     } catch (error) {
-      // Two failures get feature-specific copy from `messages/`; everything else
-      // resolves through the catalog. Both branches read the stable code rather
-      // than sniffing the message text, which used to mean a copy edit on the
-      // server silently disabled the "insufficient credits" case here.
+      // Order matters. Sign-in gets feature-specific copy; anything the billing
+      // prompt recognizes (out of credits, plan too low, limit reached) becomes
+      // a dialog with somewhere to go; everything else resolves through the
+      // catalog. No branch sniffs message text — a copy edit on the server used
+      // to silently disable the "insufficient credits" case here.
       if (isClientApiError(error) && error.code === "AUTH_REQUIRED") {
         setIsAuthed(false);
         setErrorMessage(t("errorNotSignedIn"));
-      } else if (isClientApiError(error) && error.code === "CREDITS_INSUFFICIENT") {
-        setErrorMessage(t("insufficientCredits"));
+      } else if (promptBilling(error)) {
+        // The dialog is the moment; the banner is the trace it leaves behind,
+        // so dismissing the modal does not strand the user with no way back.
+        setErrorMessage(resolveErrorMessage(error, locale));
       } else {
         setErrorMessage(resolveErrorMessage(error, locale, "TASK_CREATE_FAILED"));
       }
     } finally {
       setIsSubmitting(false);
     }
-  }, [prompt, seconds, aspect, t, locale]);
+  }, [prompt, seconds, aspect, t, locale, promptBilling, clearBilling]);
 
   const refreshTask = useCallback(async () => {
     if (!taskUuid) return;
@@ -108,9 +126,21 @@ export default function TextToVideoClientPage() {
         <ErrorBanner
           title={t("errorTitle")}
           message={errorMessage}
-          details={[t("errorDetails")]} 
+          details={[t("errorDetails")]}
+          action={
+            billingBlock ? (
+              <Link
+                href="/pricing"
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+              >
+                {tBilling("viewPlans")}
+              </Link>
+            ) : null
+          }
         />
       ) : null}
+
+      <BillingPromptDialog {...billingDialogProps} />
 
       {!isAuthed ? (
         <section className="rounded-lg border border-border bg-muted/30 p-4">

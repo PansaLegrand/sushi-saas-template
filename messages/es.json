@@ -110,7 +110,6 @@
       "errorTitle": "La tarea falló",
       "errorDetails": "Asegúrate de iniciar sesión y tener créditos suficientes.",
       "errorGeneric": "Error al crear la tarea",
-      "insufficientCredits": "No tienes suficientes créditos.",
       "errorNotSignedIn": "Se requiere iniciar sesión",
       "notSignedInTitle": "Se requiere iniciar sesión",
       "notSignedInDesc": "Regístrate o inicia sesión para crear una tarea.",
@@ -201,6 +200,28 @@
     "notFoundTitle": "Página no encontrada",
     "notFoundDescription": "La página que buscas no existe o se ha movido.",
     "digest": "Referencia"
+  },
+  "billing": {
+    "prompt": {
+      "creditsTitle": "Te has quedado sin créditos",
+      "creditsDescription": "Esta acción cuesta más créditos de los que te quedan.",
+      "creditsShortfall": "Te {shortfall, plural, one {falta # crédito} other {faltan # créditos}} para ejecutar esto.",
+      "balance": "Tu saldo es de {available, plural, one {# crédito} other {# créditos}}.",
+      "featureTitle": "No incluido en tu plan",
+      "featureDescription": "Tu plan actual no incluye esta función.",
+      "featureDescriptionTier": "Esta función está disponible a partir del plan {tier}.",
+      "limitTitle": "Has alcanzado el límite de tu plan",
+      "limitDescription": "Has alcanzado lo que permite tu plan actual.",
+      "limitDescriptionTier": "Cambiar al plan {tier} aumenta este límite.",
+      "viewPlans": "Ver planes",
+      "manageBilling": "Gestionar facturación",
+      "dismiss": "Ahora no",
+      "tiers": {
+        "free": "Gratis",
+        "plus": "Plus",
+        "max": "Max"
+      }
+    }
   },
   "team": {
     "title": "Equipo",

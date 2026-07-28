@@ -105,7 +105,6 @@
       "errorTitle": "任务失败",
       "errorDetails": "请确保已登录并拥有足够积分。",
       "errorGeneric": "创建任务失败",
-      "insufficientCredits": "你的积分不足。",
       "errorNotSignedIn": "需要登录",
       "notSignedInTitle": "需要登录",
       "notSignedInDesc": "请注册或登录后再创建任务。",
@@ -201,6 +200,28 @@
     "notFoundTitle": "页面不存在",
     "notFoundDescription": "你访问的页面不存在或已被移动。",
     "digest": "参考编号"
+  },
+  "billing": {
+    "prompt": {
+      "creditsTitle": "积分不足",
+      "creditsDescription": "此操作所需的积分超过了你的剩余额度。",
+      "creditsShortfall": "还需要 {shortfall} 个积分才能执行此操作。",
+      "balance": "当前余额：{available} 个积分。",
+      "featureTitle": "当前套餐不包含此功能",
+      "featureDescription": "你当前的套餐不包含此功能。",
+      "featureDescriptionTier": "此功能需要 {tier} 及以上套餐。",
+      "limitTitle": "已达到套餐上限",
+      "limitDescription": "你已达到当前套餐允许的上限。",
+      "limitDescriptionTier": "升级到 {tier} 可提高此上限。",
+      "viewPlans": "查看套餐",
+      "manageBilling": "管理账单",
+      "dismiss": "暂不",
+      "tiers": {
+        "free": "免费版",
+        "plus": "Plus",
+        "max": "Max"
+      }
+    }
   },
   "team": {
     "title": "团队",
