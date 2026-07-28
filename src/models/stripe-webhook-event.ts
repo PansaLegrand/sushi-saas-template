@@ -4,6 +4,19 @@ import { stripeWebhookEvents } from "@/db/schema";
 
 const PROCESSING_STALE_MS = 15 * 60 * 1000;
 
+/**
+ * Statuses a delivery may reclaim.
+ *
+ * `failed` is transient by assumption — the database was down, the network
+ * blipped — so a redelivery should try again. `action_required` is *not*
+ * transient, and it is reclaimable for a different reason: the automatic retries
+ * have already been stopped with a 200, so the only delivery that reaches here
+ * is one a human triggered from the Stripe dashboard after fixing the cause.
+ * Refusing it would mean the fix could not be applied to the event that found
+ * the problem.
+ */
+const RECLAIMABLE_STATUSES = ["failed", "action_required"] as const;
+
 export type StripeWebhookClaimStatus = "claimed" | "completed" | "processing";
 
 /**
@@ -82,8 +95,11 @@ export async function claimStripeWebhookEvent({
   }
 
   const staleBefore = new Date(now.getTime() - PROCESSING_STALE_MS);
+  const reclaimable = (RECLAIMABLE_STATUSES as readonly string[]).includes(
+    existing.status
+  );
   const canRetry =
-    existing.status === "failed" ||
+    reclaimable ||
     (existing.status === "processing" &&
       existing.updated_at &&
       existing.updated_at < staleBefore);
@@ -110,8 +126,10 @@ export async function claimStripeWebhookEvent({
     .where(
       and(
         eq(stripeWebhookEvents.event_id, eventId),
-        existing.status === "failed"
-          ? eq(stripeWebhookEvents.status, "failed")
+        // Guards against losing a race with another delivery between the read
+        // above and this write: whatever made the row claimable must still hold.
+        reclaimable
+          ? eq(stripeWebhookEvents.status, existing.status)
           : lt(stripeWebhookEvents.updated_at, staleBefore)
       )
     )
@@ -130,6 +148,29 @@ export async function markStripeWebhookEventCompleted(eventId: string) {
       processed_at: now,
       updated_at: now,
       last_error: null,
+    })
+    .where(eq(stripeWebhookEvents.event_id, eventId));
+}
+
+/**
+ * Park an event that needs a human, with the reason a human will read.
+ *
+ * Separate from `markStripeWebhookEventFailed` because the two mean opposite
+ * things to whoever is looking: a failure is expected to clear on retry, and this
+ * is expected not to. The reason lands in `last_error` — the column holds "why
+ * this row is not completed", which covers a thrown error and a human-decision
+ * case alike, and renaming it would be a migration for no gain.
+ */
+export async function markStripeWebhookEventActionRequired(
+  eventId: string,
+  reason: string
+) {
+  await db()
+    .update(stripeWebhookEvents)
+    .set({
+      status: "action_required",
+      last_error: reason.slice(0, 4000),
+      updated_at: new Date(),
     })
     .where(eq(stripeWebhookEvents.event_id, eventId));
 }

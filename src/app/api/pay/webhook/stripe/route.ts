@@ -23,9 +23,14 @@ import { getAppEnv, getRequiredEnv, isProductionRuntime } from "@/lib/env";
 import { newStripeClient } from "@/integrations/stripe";
 import {
   claimStripeWebhookEvent,
+  markStripeWebhookEventActionRequired,
   markStripeWebhookEventCompleted,
   markStripeWebhookEventFailed,
 } from "@/models/stripe-webhook-event";
+import {
+  ActionRequiredError,
+  isActionRequired,
+} from "@/services/stripe/action-required";
 import { respCode } from "@/lib/errors/response";
 import { logger } from "@/lib/logger/server";
 
@@ -155,6 +160,11 @@ export async function POST(req: Request) {
           } catch (e) {
             // Non-fatal: `customer.subscription.created` still carries the same
             // object, so a failure here costs latency, not entitlement.
+            //
+            // The sync's own `unmapped` result is deliberately ignored here for
+            // the same reason. It is raised as `action_required` from the
+            // dedicated subscription case, where it is the whole point of the
+            // event rather than an optimization on top of a completed checkout.
             logger.warn(
               {
                 err: e,
@@ -264,8 +274,17 @@ export async function POST(req: Request) {
 
         const stripe = newStripeClient().stripe();
 
+        // Everything below that cannot be resolved raises `ActionRequiredError`
+        // rather than `break`ing. A bare `break` here fell through to
+        // `markStripeWebhookEventCompleted` — so an invoice this app could not
+        // provision was recorded as successfully handled, and the customer's
+        // money sat in Stripe with nothing to show for it and no alert.
         const subId = (invoice.subscription as string) || "";
-        if (!subId) break;
+        if (!subId) {
+          throw new ActionRequiredError("renewal_invoice_without_subscription", {
+            stripe_invoice_id: invoice.id,
+          });
+        }
 
         // Period boundaries from the first subscription line
         const line = invoice.lines?.data?.find((l) => (l as any).type !== "invoiceitem") || invoice.lines?.data?.[0];
@@ -280,7 +299,12 @@ export async function POST(req: Request) {
         // pre-check that used to live here skipped the grant whenever the order
         // existed — which meant a cycle whose order was written but whose
         // credits were not could never be repaired.
-        if (!periodStart) break;
+        if (!periodStart) {
+          throw new ActionRequiredError("renewal_invoice_without_period", {
+            stripe_invoice_id: invoice.id,
+            stripe_subscription_id: subId,
+          });
+        }
 
         // Resolve the plan from configured price IDs
         function findPlanByPriceId(id?: string) {
@@ -297,6 +321,24 @@ export async function POST(req: Request) {
         }
 
         const plan = findPlanByPriceId(priceId);
+
+        // The case this status exists for, and it was not a `break` — it was
+        // worse. `plan` was resolved and never checked, so `credits` fell back to
+        // `?? 0` further down: an unmapped price recorded a *paid order granting
+        // nothing*, product name taken from the Stripe nickname so it looked
+        // plausible, and marked the event completed. The customer paid, received
+        // no credits, and nothing anywhere said so.
+        //
+        // Not retriable: the price is missing from `src/config/pricing.ts` and
+        // three days of Stripe retries will not add it. Someone has to either map
+        // the price or refund the invoice.
+        if (!plan) {
+          throw new ActionRequiredError("unmapped_price", {
+            stripe_price_id: priceId,
+            stripe_invoice_id: invoice.id,
+            stripe_subscription_id: subId,
+          });
+        }
 
         // Resolve user identity
         let userUuid = (invoice as any).metadata?.user_uuid as string | undefined;
@@ -320,7 +362,17 @@ export async function POST(req: Request) {
           const userUuids = await getUserUuidsByEmail(userEmail);
           userUuid = userUuids?.length === 1 ? userUuids[0] : undefined;
         }
-        if (!userUuid) break; // cannot provision without user
+        // Cannot provision without a user. Every resolution path above has been
+        // tried — invoice metadata, subscription metadata, the customer's email,
+        // then a unique email match — so this is a payment that cannot be
+        // attributed to anyone, which is a person's problem and not a retry's.
+        if (!userUuid) {
+          throw new ActionRequiredError("renewal_user_unresolved", {
+            stripe_invoice_id: invoice.id,
+            stripe_subscription_id: subId,
+            stripe_customer_email: userEmail,
+          });
+        }
 
         // Credits pool at the organization. Metadata set by our checkout wins;
         // otherwise fall back to the payer's personal workspace, which is
@@ -329,7 +381,16 @@ export async function POST(req: Request) {
           ((invoice as any).metadata?.org_uuid as string | undefined) ||
           (await findPersonalOrganizationByUserUuid(userUuid))?.uuid;
 
-        if (!orgUuid) break; // cannot provision without a tenant
+        // Cannot provision without a tenant. A user with no personal
+        // organization means the signup backfill did not run for them, which is a
+        // data repair rather than a transient fault.
+        if (!orgUuid) {
+          throw new ActionRequiredError("renewal_org_unresolved", {
+            stripe_invoice_id: invoice.id,
+            stripe_subscription_id: subId,
+            user_id: userUuid,
+          });
+        }
 
         // Compute expiry: use period end + 24h grace similar to checkout route
         const graceMs = 24 * 60 * 60 * 1000;
@@ -479,7 +540,30 @@ export async function POST(req: Request) {
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
-        await syncStripeSubscription(subscription, new Date(event.created * 1000));
+        const synced = await syncStripeSubscription(
+          subscription,
+          new Date(event.created * 1000)
+        );
+
+        // `syncStripeSubscription` already classifies its own failures and
+        // returns them, so the policy decision — which classifications a human
+        // has to resolve — is made here, next to the statuses it writes, rather
+        // than pushed down into the service.
+        //
+        // All three `unmapped` reasons are configuration or data problems: a
+        // price missing from the catalog, a Stripe customer with no local user, a
+        // user with no organization. Previously each of these logged an error and
+        // let the event complete, so an entitlement that never applied looked
+        // exactly like one that did.
+        if (synced.status === "unmapped") {
+          throw new ActionRequiredError(`subscription_${synced.reason}`, {
+            stripe_subscription_id: subscription.id,
+            stripe_customer_id:
+              typeof subscription.customer === "string"
+                ? subscription.customer
+                : subscription.customer?.id,
+          });
+        }
         break;
       }
 
@@ -536,6 +620,29 @@ export async function POST(req: Request) {
         await markStripeWebhookEventCompleted(event.id);
       }
     } catch (error) {
+      // An event that needs a human is not a failure to retry. Park it and
+      // answer 200, which is what stops Stripe's three days of retries — the
+      // condition will not have changed by the last one. Recovery is a person
+      // fixing the cause and replaying, or step 4's reconciliation sweep.
+      if (isActionRequired(error)) {
+        if (claimedEvent) {
+          await markStripeWebhookEventActionRequired(event.id, error.describe());
+        }
+
+        logger.error(
+          {
+            event: "pay.webhook_action_required",
+            stripe_event_id: event.id,
+            stripe_event_type: event.type,
+            reason: error.reason,
+            ...error.detail,
+          },
+          "stripe webhook needs manual action"
+        );
+
+        return new Response("action required", { status: 200 });
+      }
+
       if (claimedEvent) {
         await markStripeWebhookEventFailed(event.id, error);
       }

@@ -7,7 +7,9 @@ const mocks = vi.hoisted(() => ({
   claimStripeWebhookEvent: vi.fn(),
   markStripeWebhookEventCompleted: vi.fn(),
   markStripeWebhookEventFailed: vi.fn(),
+  markStripeWebhookEventActionRequired: vi.fn(),
   isProductionRuntime: vi.fn(() => false),
+  syncStripeSubscription: vi.fn(),
 }));
 
 vi.mock("stripe", () => {
@@ -32,6 +34,11 @@ vi.mock("@/models/stripe-webhook-event", () => ({
   claimStripeWebhookEvent: mocks.claimStripeWebhookEvent,
   markStripeWebhookEventCompleted: mocks.markStripeWebhookEventCompleted,
   markStripeWebhookEventFailed: mocks.markStripeWebhookEventFailed,
+  markStripeWebhookEventActionRequired: mocks.markStripeWebhookEventActionRequired,
+}));
+
+vi.mock("@/services/subscriptions", () => ({
+  syncStripeSubscription: mocks.syncStripeSubscription,
 }));
 
 vi.mock("@/services/email/send", () => ({
@@ -112,6 +119,8 @@ describe("POST /api/pay/webhook/stripe", () => {
     mocks.handleCheckoutSession.mockResolvedValue(undefined);
     mocks.enqueueJob.mockResolvedValue(undefined);
     mocks.isProductionRuntime.mockReturnValue(false);
+    mocks.markStripeWebhookEventActionRequired.mockResolvedValue(undefined);
+    mocks.syncStripeSubscription.mockResolvedValue({ status: "applied" });
   });
 
   it("claims and completes a new Stripe event", async () => {
@@ -243,6 +252,134 @@ describe("POST /api/pay/webhook/stripe", () => {
 
     expect(res.status).toBe(200);
     expect(mocks.handleCheckoutSession).toHaveBeenCalledTimes(1);
+  });
+
+  // ------------------------------------------------------- action_required
+  // A permanent condition is neither a success nor a retriable failure. The
+  // distinction that matters to Stripe is the status code: 200 stops the retries,
+  // 500 keeps them coming for three days over a condition that will not change.
+
+  function subscriptionEvent(id: string) {
+    return {
+      id,
+      type: "customer.subscription.updated",
+      livemode: false,
+      created: 1767225600,
+      data: { object: { object: "subscription", id: "sub_1", customer: "cus_1" } },
+    };
+  }
+
+  it("parks an unmapped subscription as action_required and stops the retries", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.constructEvent.mockReturnValue(subscriptionEvent("evt_unmapped"));
+    mocks.syncStripeSubscription.mockResolvedValue({
+      status: "unmapped",
+      reason: "no-tier",
+    });
+
+    const res = await stripeWebhook(request());
+
+    // 200, not 500: the price is missing from the catalog, and Stripe redelivering
+    // for three days will not add it.
+    expect(res.status).toBe(200);
+    expect(mocks.markStripeWebhookEventActionRequired).toHaveBeenCalledWith(
+      "evt_unmapped",
+      expect.stringContaining("subscription_no-tier")
+    );
+    // Neither of the other two outcomes: not a success, not a retriable failure.
+    expect(mocks.markStripeWebhookEventCompleted).not.toHaveBeenCalled();
+    expect(mocks.markStripeWebhookEventFailed).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  it("records the identifiers an operator needs to act on", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.constructEvent.mockReturnValue(subscriptionEvent("evt_unmapped_detail"));
+    mocks.syncStripeSubscription.mockResolvedValue({
+      status: "unmapped",
+      reason: "no-user",
+    });
+
+    await stripeWebhook(request());
+
+    // The reason alone is not actionable — "no user" for *which* subscription.
+    const [, reason] =
+      mocks.markStripeWebhookEventActionRequired.mock.calls[0] ?? [];
+    expect(reason).toContain("sub_1");
+    expect(reason).toContain("cus_1");
+    consoleError.mockRestore();
+  });
+
+  it("completes a subscription event that applied cleanly", async () => {
+    mocks.constructEvent.mockReturnValue(subscriptionEvent("evt_applied"));
+    mocks.syncStripeSubscription.mockResolvedValue({ status: "applied" });
+
+    const res = await stripeWebhook(request());
+
+    expect(res.status).toBe(200);
+    expect(mocks.markStripeWebhookEventCompleted).toHaveBeenCalledWith("evt_applied");
+    expect(mocks.markStripeWebhookEventActionRequired).not.toHaveBeenCalled();
+  });
+
+  it("parks a renewal on a price that is not in the plan catalog", async () => {
+    // The regression this status was added for, and it was never a skip: `plan`
+    // was resolved and never checked, so `credits` fell through to `?? 0`. The
+    // renewal recorded a paid order granting nothing, took the product name from
+    // the Stripe price nickname so it looked plausible, and completed the event.
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.constructEvent.mockReturnValue({
+      id: "evt_renewal_unmapped",
+      type: "invoice.payment_succeeded",
+      livemode: false,
+      created: 1767225600,
+      data: {
+        object: {
+          object: "invoice",
+          id: "in_1",
+          billing_reason: "subscription_cycle",
+          subscription: "sub_1",
+          customer: "cus_1",
+          amount_paid: 2900,
+          currency: "usd",
+          lines: {
+            data: [
+              {
+                period: { start: 1767225600, end: 1769904000 },
+                // Not in src/config/pricing.ts under any locale.
+                price: { id: "price_not_in_catalog", nickname: "Looks Legitimate" },
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    const res = await stripeWebhook(request());
+
+    expect(res.status).toBe(200);
+    expect(mocks.markStripeWebhookEventActionRequired).toHaveBeenCalledWith(
+      "evt_renewal_unmapped",
+      expect.stringContaining("unmapped_price")
+    );
+    // The price is what someone has to go and map, so it has to be in the row.
+    const [, reason] =
+      mocks.markStripeWebhookEventActionRequired.mock.calls[0] ?? [];
+    expect(reason).toContain("price_not_in_catalog");
+    expect(mocks.markStripeWebhookEventCompleted).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  it("completes a stale subscription event rather than parking it", async () => {
+    // A stale event is an ordering artifact, not a problem: newer state already
+    // won. Parking it would fill the queue with rows needing no action.
+    mocks.constructEvent.mockReturnValue(subscriptionEvent("evt_stale"));
+    mocks.syncStripeSubscription.mockResolvedValue({ status: "stale" });
+
+    const res = await stripeWebhook(request());
+
+    expect(res.status).toBe(200);
+    expect(mocks.markStripeWebhookEventCompleted).toHaveBeenCalledWith("evt_stale");
+    expect(mocks.markStripeWebhookEventActionRequired).not.toHaveBeenCalled();
   });
 
   it("marks claimed events failed when handling throws", async () => {

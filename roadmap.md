@@ -76,12 +76,14 @@ take a customer's money and grant them nothing, and it does so silently.
 References between items are by name rather than by number from here on,
 because positional references in this file have already gone stale twice.
 
-Item 4 shipped on 2026-07-26. **Item 5 is the top of the queue**, and is now
-mostly done. On 2026-07-28: its step 5 shipped first because it touches no
-schema, its open refund decision was settled, and steps 1 and 2 shipped as
-migrations `0018` and `0019`. All are recorded under the item. **Its step 3 is
-the top of the queue** — `action_required` — and step 4 follows it, already fully
-specified by the refund decision. Step 3 is the last one with open design in it.
+Item 4 shipped on 2026-07-26. **Item 5 is the top of the queue, and only its
+step 4 is left.** On 2026-07-28: step 5 shipped first because it touches no
+schema, the open refund decision was settled, steps 1 and 2 shipped as migrations
+`0018` and `0019`, and step 3 shipped with no migration. All are recorded under
+the item, including a live defect step 3 found — an unmapped price recorded a paid
+order granting zero credits. Step 4 has no open design left in it: the
+reconciliation script and cron sweep now have both the `action_required` status to
+query and the refund spec to implement.
 
 1. [x] [P0] Route every production failure through the logger
    - Swept all 20 stray `console.*` calls in server code onto `src/lib/logger`,
@@ -260,11 +262,13 @@ specified by the refund decision. Step 3 is the last one with open design in it.
      plus `livemode`, `api_version`, and `request_id`. The payload is `text`
      today, so "every event for this subscription" is a full scan and a JSON
      parse.
-   - Add `action_required` alongside `processing | completed | failed`. "This
+   - [x] Add `action_required` alongside `processing | completed | failed`. "This
      price is not in the plan catalog" is not transient and three days of Stripe
      retries will not fix it. Without this status the reconciliation script
      below has nothing to query, and a human-decision case is indistinguishable
-     from a transient blip.
+     from a transient blip. **Shipped — step 3 below, which also records that an
+     unmapped price was not merely skipped: it recorded a paid order granting
+     zero credits.**
    - Reconciliation script: walk recent paid Stripe invoices, assert a local
      order, credit row, and webhook receipt for each, and exit nonzero on
      drift. Model: `dojo-video-web`'s `scripts/reconcile-stripe-billing.js`.
@@ -377,9 +381,49 @@ specified by the refund decision. Step 3 is the last one with open design in it.
           block writes while they build, which means webhook deliveries 500 and
           Stripe retries. Milliseconds on a small table; on a large one, create
           them by hand with `CONCURRENTLY` first.
-     3. `action_required` status, and the handful of `return` sites in the
+     3. [x] `action_required` status, and the handful of `return` sites in the
         webhook that should use it instead of throwing — an unmapped price is
-        the motivating case.
+        the motivating case. **Done 2026-07-28**, no migration: `status` is a
+        `varchar` and the allowed values live in a comment, so this is code plus
+        a documented status. 13 new tests; 453 green.
+        - **The motivating case was worse than a `return`.** `plan` was resolved
+          from the price id and then *never checked*, so `credits` fell through to
+          `?? 0`. A renewal on a price missing from `src/config/pricing.ts`
+          recorded a **paid order granting nothing** — product name taken from the
+          Stripe nickname, so the order looked plausible — and marked the event
+          completed. The customer paid, got no credits, and nothing said so. Found
+          while reading for this step; it is the same class of defect as item 4,
+          in a place item 4 did not look.
+        - Six sites converted, all previously bare `break`s that fell through to
+          `markStripeWebhookEventCompleted`: renewal invoice with no subscription,
+          no period, unmapped price, unresolvable user, unresolvable org, and all
+          three `unmapped` results from `syncStripeSubscription`. Every one of them
+          recorded "handled" for work that did not happen.
+        - **200, not 500.** The status code is the whole mechanism: 500 keeps
+          Stripe retrying for three days over a condition that will not change,
+          and 200 stops it. `ActionRequiredError` in
+          `src/services/stripe/action-required.ts` is what the route branches on.
+        - Still **reclaimable by a deliberate replay**, like `failed`. The
+          automatic retries are already stopped, so the only delivery that arrives
+          is one a human triggered after fixing the cause — refusing it would mean
+          the fix could not be applied to the event that found the problem.
+        - `reason` is short and stable (`unmapped_price`), the identifiers go in
+          `detail`, and `describe()` renders one line into `last_error`. A sweep
+          groups by the reason, so it must not vary with the specifics; absent
+          fields are dropped rather than printed as `undefined`.
+        - `last_error` is reused rather than a new column added: it holds "why
+          this row is not completed", which covers a thrown error and a
+          human-decision case alike. Renaming it would be a migration for no gain.
+        - Policy stays in the route, next to the statuses it writes.
+          `syncStripeSubscription` keeps returning its typed result and the route
+          decides which classifications need a human — `stale` completes, since a
+          stale event is an ordering artifact and parking it would fill the queue
+          with rows needing no action.
+        - Deliberately left alone: `handleCheckoutSession` throws `AppError` for
+          its own unresolvable cases, so they still 500 and retry. Some are just
+          as permanent (an `order_no` in metadata matching no order), but that is
+          a separate pass over a different file, and this step is scoped to the
+          sites that were silently completing.
      4. Reconciliation script + a cron sweep over `failed` and
         `action_required`.
      5. [x] Cached Stripe client, `livemode` rejection. Independent of the rest;

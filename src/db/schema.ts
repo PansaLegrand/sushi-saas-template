@@ -257,6 +257,13 @@ export const stripeWebhookEvents = pgTable(
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     event_id: varchar({ length: 255 }).notNull().unique(),
     event_type: varchar({ length: 255 }).notNull(),
+    // `processing` | `completed` | `failed` | `action_required`.
+    //
+    // The last one is not a failure: it is a permanent condition a human has to
+    // resolve, such as a price missing from the plan catalog. `failed` is
+    // retried automatically; `action_required` answers Stripe 200 to stop the
+    // retries, and is reclaimable only by a deliberate replay. Written by
+    // `src/models/stripe-webhook-event.ts`, with the reason in `last_error`.
     status: varchar({ length: 32 }).notNull().default("processing"),
     attempts: integer().notNull().default(1),
     payload: text(),

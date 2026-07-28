@@ -21,6 +21,7 @@ import { db } from "@/db";
 import { stripeWebhookEvents } from "@/db/schema";
 import {
   claimStripeWebhookEvent,
+  markStripeWebhookEventActionRequired,
   markStripeWebhookEventCompleted,
   markStripeWebhookEventFailed,
 } from "@/models/stripe-webhook-event";
@@ -214,6 +215,56 @@ describeDb("stripe webhook events (real database)", () => {
     expect(row?.stripe_invoice_id).toBeNull();
     expect(row?.stripe_subscription_id).toBeNull();
     expect(row?.request_id).toBeNull();
+  });
+
+  it("parks an event as action_required with the reason on the row", async () => {
+    await claim(invoicePaidEvent());
+    await markStripeWebhookEventActionRequired(
+      "evt_invoice_1",
+      "unmapped_price (stripe_price_id=price_x)"
+    );
+
+    const row = await rowFor("evt_invoice_1");
+
+    expect(row?.status).toBe("action_required");
+    expect(row?.last_error).toContain("price_x");
+    // Not completed: the work did not happen, and `processed_at` staying null is
+    // what keeps that visible.
+    expect(row?.processed_at).toBeNull();
+  });
+
+  it("lets a deliberate replay reclaim an action_required event", async () => {
+    // Stripe's automatic retries were stopped with a 200, so the only delivery
+    // that reaches here is one a human triggered after fixing the cause.
+    // Refusing it would mean the fix could never be applied to the event that
+    // found the problem.
+    await claim(invoicePaidEvent());
+    await markStripeWebhookEventActionRequired("evt_invoice_1", "unmapped_price");
+
+    expect(await claim(invoicePaidEvent())).toBe("claimed");
+
+    const row = await rowFor("evt_invoice_1");
+    expect(row?.status).toBe("processing");
+    expect(row?.attempts).toBe(2);
+    // The old reason is cleared, or a resolved event would still read as broken.
+    expect(row?.last_error).toBeNull();
+  });
+
+  it("keeps action_required distinct from completed for a sweep to find", async () => {
+    // What step 4's reconciliation sweep queries. If parking an event had reused
+    // `completed`, there would be nothing to select.
+    await claim(invoicePaidEvent());
+    await markStripeWebhookEventActionRequired("evt_invoice_1", "unmapped_price");
+
+    await claim(invoicePaidEvent({ id: "evt_ok" }));
+    await markStripeWebhookEventCompleted("evt_ok");
+
+    const needsAction = await db()
+      .select()
+      .from(stripeWebhookEvents)
+      .where(eq(stripeWebhookEvents.status, "action_required"));
+
+    expect(needsAction.map((row) => row.event_id)).toEqual(["evt_invoice_1"]);
   });
 
   it("records a test-mode event as livemode false, not as unknown", async () => {
