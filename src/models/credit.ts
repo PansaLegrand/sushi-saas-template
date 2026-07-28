@@ -1,6 +1,6 @@
 import { credits } from "@/db/schema";
 import { db } from "@/db";
-import { desc, eq, and, gte, asc, isNull, or, sql } from "drizzle-orm";
+import { desc, eq, and, gte, asc, inArray, isNull, or, sql } from "drizzle-orm";
 
 import { scopedToOrg } from "./organization";
 
@@ -298,6 +298,27 @@ export async function findLedgerBalanceDrift(limit = 100): Promise<
     balance_after: number | null;
     expected_balance_after: number;
   }[];
+}
+
+/**
+ * The ledger rows for a page of orders, in one query.
+ *
+ * Backs the console's "did this order's credits actually land" column, which is
+ * the per-row version of the check reconciliation runs in bulk. Fetched
+ * separately rather than as a LEFT JOIN on the order list: an order with two
+ * ledger rows would duplicate the order in a joined result and quietly corrupt
+ * the pagination, and "two grants for one order" is exactly the anomaly this is
+ * meant to reveal rather than hide.
+ *
+ * Unscoped, like the other `trans_no`/`order_no` lookups here — the caller is
+ * the admin console, which is cross-tenant by design.
+ */
+export async function findCreditsByOrderNos(
+  orderNos: string[]
+): Promise<(typeof credits.$inferSelect)[]> {
+  if (orderNos.length === 0) return [];
+
+  return db().select().from(credits).where(inArray(credits.order_no, orderNos));
 }
 
 /**

@@ -13,6 +13,29 @@ export function hasEmailProviderConfigured(): boolean {
   return Boolean(env.RESEND_API_KEY && env.EMAIL_FROM);
 }
 
+/**
+ * Should this auth link go to the log instead of an inbox?
+ *
+ * Two independent reasons, both local-only:
+ *
+ * 1. **No provider configured.** The original case — a fresh clone would
+ *    otherwise strand the first account behind a verification email it can
+ *    never send.
+ * 2. **`AUTH_DEV_EMAIL_LINKS=true`.** The case that only shows up later: once a
+ *    real `RESEND_API_KEY` is in `.env`, every local signup and password reset
+ *    starts sending real mail to a real inbox. This opts back out without
+ *    deleting the key, so the same `.env` can do both.
+ *
+ * Never true in production, whatever the flag says — and `validateAppEnv()`
+ * refuses to boot a production runtime with the flag set, so this is the second
+ * of two locks rather than the only one.
+ */
+export function shouldLogAuthLinkInsteadOfSending(): boolean {
+  if (isProductionRuntime()) return false;
+
+  return !hasEmailProviderConfigured() || getAppEnv().AUTH_DEV_EMAIL_LINKS;
+}
+
 export function logDevAuthEmailLink(input: {
   kind: AuthEmailLinkKind;
   email: string;
@@ -21,6 +44,11 @@ export function logDevAuthEmailLink(input: {
 }): boolean {
   if (isProductionRuntime()) return false;
 
+  // Single line, URL last. The dev logger runs plain Pino with no `pino-pretty`
+  // transport, so the message is read inside a JSON string — a multi-line block
+  // arrives as literal `\n` escapes, which is harder to read than the thing it
+  // was trying to improve. The URL is also its own `url` field, so
+  // `pnpm dev | grep dev_link` gets it without the surrounding noise.
   logger.info(
     {
       event: "auth.email.dev_link",
@@ -29,7 +57,7 @@ export function logDevAuthEmailLink(input: {
       url: input.url,
       reason: input.reason,
     },
-    `[dev auth] ${LABELS[input.kind]} link for ${input.email}: ${input.url}`
+    `[dev auth] ${LABELS[input.kind]} link for ${input.email} -> ${input.url}`
   );
 
   return true;

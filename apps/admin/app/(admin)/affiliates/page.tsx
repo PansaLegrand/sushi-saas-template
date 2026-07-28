@@ -1,16 +1,32 @@
 import { getAdminContext } from "@admin/lib/authz";
-import { listAdminAffiliates } from "@admin/lib/data";
+import { countAdminAffiliates, listAdminAffiliates } from "@admin/lib/data";
+import { Pager } from "@admin/components/pager";
 
-export default async function AdminAffiliatesPage() {
+const PAGE_SIZE = 100;
+
+export default async function AdminAffiliatesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   // Layout guards admin, this is a safety net.
   const admin = await getAdminContext();
   if (!admin) return null;
 
-  const rows = (await listAdminAffiliates(1, 100)) ?? [];
+  const { page: rawPage } = await searchParams;
+  const page = Math.max(Number.parseInt(rawPage ?? "1", 10) || 1, 1);
+
+  const [rows, total] = await Promise.all([
+    listAdminAffiliates(page, PAGE_SIZE),
+    countAdminAffiliates(),
+  ]);
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Affiliates</h1>
+      <header className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Affiliates</h1>
+        <p className="text-sm text-muted-foreground">Total: {total}</p>
+      </header>
 
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-sm">
@@ -26,6 +42,13 @@ export default async function AdminAffiliatesPage() {
             </tr>
           </thead>
           <tbody>
+            {rows.length === 0 && (
+              <tr className="border-t">
+                <td className="p-3 text-muted-foreground" colSpan={7}>
+                  No affiliate activity.
+                </td>
+              </tr>
+            )}
             {rows.map((r) => (
               <tr key={`${r.id}`} className="border-t">
                 <td className="py-2 pr-4">
@@ -46,6 +69,14 @@ export default async function AdminAffiliatesPage() {
           </tbody>
         </table>
       </div>
+
+      <Pager
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={total}
+        unit="referrals"
+        href={(target) => `/affiliates?page=${target}`}
+      />
     </div>
   );
 }

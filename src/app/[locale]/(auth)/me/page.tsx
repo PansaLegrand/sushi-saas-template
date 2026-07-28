@@ -7,6 +7,7 @@ import LogoutButton from "@/components/auth/logout-button";
 import FeedbackModal from "@/components/feedback/feedback-modal";
 import TwoFactorSetupPanel from "@/components/auth/two-factor-setup-panel";
 import { findUserByUuid } from "@/models/user";
+import { getPasswordCredentialState } from "@/services/user";
 
 export async function generateMetadata({
   params,
@@ -58,6 +59,12 @@ export default async function ProfilePage() {
   const role = dbUser?.role;
   const isAdmin = role === "admin_ro" || role === "admin_rw";
 
+  // Only for admins: this is two extra queries, and nobody else sees the panel
+  // that consumes them.
+  const credentialState = isAdmin
+    ? await getPasswordCredentialState(await headers())
+    : null;
+
   return (
     <main className="mx-auto flex min-h-[calc(100vh-6rem)] max-w-2xl flex-col gap-8 px-4 py-16">
       <header className="space-y-2">
@@ -99,6 +106,12 @@ export default async function ProfilePage() {
       {isAdmin ? (
         <TwoFactorSetupPanel
           initialEnabled={Boolean((dbUser as any).two_factor_enabled)}
+          // Resolved server-side because the browser has no way to ask: Better
+          // Auth's session carries no hint that an account is provider-only, so
+          // without this the panel would demand a password a Google user does
+          // not have and cannot create.
+          initialHasPassword={credentialState?.hasPassword ?? true}
+          providers={credentialState?.providers ?? []}
         />
       ) : null}
     </main>

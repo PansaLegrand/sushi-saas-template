@@ -8,6 +8,7 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 
 // Users table
@@ -40,12 +41,30 @@ export const users = pgTable(
     // Denormalized from auth_events so "when was this user last active" does
     // not require scanning the event table.
     last_signin_at: timestamp({ withTimezone: true }),
+
+    // Suspension. A timestamp rather than a boolean-plus-date pair, because two
+    // columns can disagree and one cannot: null is "not banned", and the value
+    // is when it happened. Re-banning an already-banned account keeps the
+    // original — the first ban is the fact, later ones are noise.
+    //
+    // This blocks sign-in, not existence. The row, the ledger, and the uploads
+    // all stay: a ban is an abuse control, and destroying the evidence is the
+    // opposite of what it is for. Erasure is a separate, policy-driven path.
+    banned_at: timestamp({ withTimezone: true }),
+    ban_reason: varchar({ length: 500 }),
+    /** `users.uuid` of the admin who banned. Empty for a system ban. */
+    banned_by: varchar({ length: 255 }).notNull().default(""),
   },
   (table) => [
     uniqueIndex("email_provider_unique_idx").on(
       table.email,
       table.signin_provider
     ),
+    // Partial: only banned rows are indexed, so the admin console's "who is
+    // suspended" list stays cheap without paying for an index over every user.
+    index("users_banned_at_idx")
+      .on(table.banned_at)
+      .where(sql`${table.banned_at} is not null`),
   ]
 );
 
@@ -257,13 +276,20 @@ export const stripeWebhookEvents = pgTable(
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     event_id: varchar({ length: 255 }).notNull().unique(),
     event_type: varchar({ length: 255 }).notNull(),
-    // `processing` | `completed` | `failed` | `action_required`.
+    // `processing` | `completed` | `failed` | `action_required` | `resolved`.
     //
-    // The last one is not a failure: it is a permanent condition a human has to
-    // resolve, such as a price missing from the plan catalog. `failed` is
+    // `action_required` is not a failure: it is a permanent condition a human
+    // has to resolve, such as a price missing from the plan catalog. `failed` is
     // retried automatically; `action_required` answers Stripe 200 to stop the
     // retries, and is reclaimable only by a deliberate replay. Written by
     // `src/models/stripe-webhook-event.ts`, with the reason in `last_error`.
+    //
+    // `resolved` is the human's terminal answer to one of those, recorded from
+    // the admin console: the work was done outside this system — a refund
+    // reversed by hand, a dispute accepted — and the row should stop being a
+    // work order. Terminal like `completed`, and deliberately so: a later
+    // redelivery from Stripe is acknowledged and *not* re-run, because undoing
+    // a person's decision by resending a webhook is the wrong default.
     status: varchar({ length: 32 }).notNull().default("processing"),
     attempts: integer().notNull().default(1),
     payload: text(),
@@ -296,6 +322,17 @@ export const stripeWebhookEvents = pgTable(
     // The API call or dashboard action that caused the event. Null for events
     // Stripe raised on its own, which is most of them.
     request_id: varchar({ length: 255 }),
+
+    // ------------------------------------------------- the human's resolution
+    // Set only when an admin closes a parked event from the console. Kept on the
+    // row rather than only in `admin_audit_logs` because the question "why is
+    // this one closed" is asked while reading this table, and an answer that
+    // lives in another table is one nobody goes and gets.
+    resolved_at: timestamp({ withTimezone: true }),
+    /** `users.uuid` of the admin who resolved it. */
+    resolved_by: varchar({ length: 255 }),
+    /** Required at the API. A resolution with no reason is a row nobody can audit. */
+    resolution_note: text(),
   },
   (table) => [
     index("stripe_webhook_events_status_idx").on(table.status),
@@ -578,6 +615,62 @@ export const authEvents = pgTable(
     index("auth_events_event_idx").on(table.event),
     index("auth_events_created_idx").on(table.created_at),
     index("auth_events_user_event_idx").on(table.user_uuid, table.event),
+  ]
+);
+
+// ---------------------------------------------------------------------------
+// Signup blocklist
+//
+// Why this is a table and not a flag on `users`: the unique index above is
+// (email, signin_provider), so one address can hold several rows. Banning the
+// account someone signed up with over a password does nothing to stop them
+// coming back through Google on the same address — the second signup is a
+// different row and sails past every check on the first.
+//
+// So the block has to live outside `users`, be keyed on the address rather than
+// the account, and be matched in a normalized form. See
+// `src/lib/email-address.ts` for what "normalized" means and what it costs.
+// ---------------------------------------------------------------------------
+export const emailBlocklist = pgTable(
+  "email_blocklist",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    uuid: varchar({ length: 255 }).notNull().unique(),
+
+    // "email" blocks one normalized address; "domain" blocks every address at
+    // a host. During a signup flood the domain entry is the one that ends it —
+    // one row for a disposable-mail provider beats four thousand address rows.
+    scope: varchar({ length: 32 }).notNull().default("email"),
+
+    /**
+     * The match key: a normalized address for `scope = "email"`, a bare
+     * lowercase host for `scope = "domain"`. Never compare against raw input —
+     * go through `normalizeEmail()` / `normalizeEmailDomain()`, which is what
+     * makes plus-aliases and dotted addresses collapse onto one row.
+     */
+    value: varchar({ length: 255 }).notNull(),
+
+    /** What was actually typed. Kept so the trail shows the address as entered. */
+    original_value: varchar({ length: 255 }).notNull().default(""),
+
+    reason: varchar({ length: 500 }),
+    /** `users.uuid` of the admin who added it. Empty for a system entry. */
+    created_by: varchar({ length: 255 }).notNull().default(""),
+
+    /** Null means permanent. A dated entry lets a flood block expire on its own. */
+    expires_at: timestamp({ withTimezone: true }),
+
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // One row per rule. Re-blocking an address must be a no-op, not a second
+    // row that has to be deleted twice before the block actually lifts.
+    uniqueIndex("email_blocklist_scope_value_unique_idx").on(
+      table.scope,
+      table.value
+    ),
+    index("email_blocklist_created_idx").on(table.created_at),
   ]
 );
 

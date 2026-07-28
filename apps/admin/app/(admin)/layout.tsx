@@ -31,6 +31,9 @@ export default async function AdminLayout({
           <Link href="/" className="text-muted-foreground hover:text-foreground">
             Overview
           </Link>
+          <Link href="/users" className="text-muted-foreground hover:text-foreground">
+            Users
+          </Link>
           <Link href="/feedbacks" className="text-muted-foreground hover:text-foreground">
             Feedbacks
           </Link>
@@ -40,11 +43,20 @@ export default async function AdminLayout({
           <Link href="/affiliates" className="text-muted-foreground hover:text-foreground">
             Affiliates
           </Link>
+          <Link href="/orders" className="text-muted-foreground hover:text-foreground">
+            Orders
+          </Link>
           <Link href="/organizations" className="text-muted-foreground hover:text-foreground">
             Organizations
           </Link>
+          <Link href="/moderation" className="text-muted-foreground hover:text-foreground">
+            Moderation
+          </Link>
           <Link href="/stripe-events" className="text-muted-foreground hover:text-foreground">
             Stripe Events
+          </Link>
+          <Link href="/reconciliation" className="text-muted-foreground hover:text-foreground">
+            Reconciliation
           </Link>
           <Link href="/audit" className="text-muted-foreground hover:text-foreground">
             Audit Log

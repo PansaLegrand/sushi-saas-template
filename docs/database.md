@@ -227,8 +227,9 @@ graph LR
 
 | Table | Purpose | Notes |
 | --- | --- | --- |
-| `users` | Accounts | Dual id (`id`/`uuid`). `role` is `user` / `admin_ro` / `admin_rw`. `last_signin_at` is denormalized from `auth_events`. Renaming a column here means updating `src/lib/auth.ts` field mapping. |
-| `sessions` | Live sessions | Deleted on sign-out and expiry — cannot be used as a log. |
+| `users` | Accounts | Dual id (`id`/`uuid`). `role` is `user` / `admin_ro` / `admin_rw`. `last_signin_at` is denormalized from `auth_events`. `banned_at` non-null is a suspension — a timestamp rather than a boolean pair, and a re-ban never overwrites the first one (the UPDATE carries `WHERE banned_at IS NULL`). Renaming a column here means updating `src/lib/auth.ts` field mapping. |
+| `email_blocklist` | Addresses and domains barred from signing up | Enforced in the `user.create.before` hook, so it covers **OAuth signup too** — the path with no captcha in front of it. `scope` is `email` / `domain`; `value` is the *normalized* key from `src/lib/email-address.ts` (plus-suffix stripped everywhere, dots stripped for Gmail), never raw input. Unique on `(scope, value)` so a re-block is a no-op. `expires_at` null means permanent; an expired row stops matching but stays for the trail. |
+| `sessions` | Live sessions | Deleted on sign-out and expiry — cannot be used as a log. Also deleted deliberately by a ban: that is what makes a suspension take effect now rather than at cookie expiry. |
 | `accounts` | Provider linkage + password hash | Unique on `(provider_id, account_id)`. |
 | `verifications` | Email/reset tokens | Unique on `(identifier, value)`. |
 | `auth_events` | Append-only signup / signin / email_verified log | Exists because `sessions` are deleted. Answers "how often does this user sign in". |
@@ -350,6 +351,13 @@ Ordered by how much they will hurt.
    it before someone asks. Decide per table: delete, anonymize, or retain
    (`credits` and `admin_audit_logs` are financial/audit records — likely retain
    with the uuid anonymized).
+
+   **Abuse is already handled and is not this.** Suspension (`users.banned_at`
+   plus `email_blocklist`) is the answer to a bot wave, and deleting would be
+   the wrong one: it frees the address to register again and destroys the signup
+   IPs and timestamps that identify the rest of the wave. What is still missing
+   is *erasure* — a person asking for their data back — which is a policy
+   decision first and a query second. See `src/services/moderation.ts`.
 
 3. **`created_at` nullability is inconsistent.** Newer tables use
    `.notNull().defaultNow()`; older ones (`orders`, `credits`, `posts`,

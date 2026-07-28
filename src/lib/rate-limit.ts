@@ -2,7 +2,14 @@ import { getAppEnv } from "@/lib/env";
 import { respCode } from "@/lib/errors/response";
 import { logger } from "@/lib/logger/server";
 
-type RateLimitBucket = "auth" | "checkout" | "feedback" | "credits" | "uploads" | "tasks";
+type RateLimitBucket =
+  | "auth"
+  | "checkout"
+  | "feedback"
+  | "credits"
+  | "uploads"
+  | "tasks"
+  | "moderation";
 
 type RateLimitRule = {
   limit: number;
@@ -31,6 +38,11 @@ const RATE_LIMIT_RULES: Record<RateLimitBucket, RateLimitRule> = {
   credits: { limit: 30, windowMs: 60 * 1000 },
   uploads: { limit: 20, windowMs: 60 * 1000 },
   tasks: { limit: 10, windowMs: 60 * 1000 },
+  // Deliberately roomier than the rest. This bucket guards admin-only endpoints
+  // whose whole purpose is responding to a flood — throttling the operator
+  // fighting an abuse wave is throttling the wrong party. It exists to bound a
+  // runaway script, not to pace a human.
+  moderation: { limit: 60, windowMs: 60 * 1000 },
 };
 
 class MemoryRateLimitStore implements RateLimitStore {

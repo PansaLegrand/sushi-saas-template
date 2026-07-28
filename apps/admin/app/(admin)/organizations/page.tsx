@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { getAdminContext } from "@admin/lib/authz";
+import { Pager } from "@admin/components/pager";
 import {
   countOrganizationsForAdmin,
   listOrganizationsForAdmin,
@@ -122,27 +123,15 @@ export default async function AdminOrganizationsPage({
         </table>
       </div>
 
-      <div className="flex items-center justify-between text-sm">
-        <p className="text-muted-foreground">Page {page}</p>
-        <div className="flex gap-3">
-          {page > 1 && (
-            <Link
-              className="underline"
-              href={`/organizations?${query ? `q=${encodeURIComponent(query)}&` : ""}page=${page - 1}`}
-            >
-              Previous
-            </Link>
-          )}
-          {orgs.length === limit && (
-            <Link
-              className="underline"
-              href={`/organizations?${query ? `q=${encodeURIComponent(query)}&` : ""}page=${page + 1}`}
-            >
-              Next
-            </Link>
-          )}
-        </div>
-      </div>
+      <Pager
+        page={page}
+        pageSize={limit}
+        total={total}
+        unit="organizations"
+        href={(target) =>
+          `/organizations?${query ? `q=${encodeURIComponent(query)}&` : ""}page=${target}`
+        }
+      />
     </div>
   );
 }

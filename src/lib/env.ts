@@ -135,6 +135,19 @@ const RawEnvSchema = z.object({
   RESEND_API_KEY: envString,
   EMAIL_FROM: envString,
 
+  /**
+   * Print password-reset and verification links to the server log instead of
+   * emailing them. Local development only — `validateAppEnv()` refuses to boot
+   * a production runtime with this on, because the failure it would cause is
+   * silent and total: every reset link would go to a log file nobody is reading
+   * and no user would ever receive one.
+   *
+   * Without it, links are only logged when no provider is configured at all, so
+   * adding a real `RESEND_API_KEY` for one test means every later signup sends
+   * real mail to real inboxes.
+   */
+  AUTH_DEV_EMAIL_LINKS: envBoolean(false),
+
   STRIPE_PRIVATE_KEY: envString,
   STRIPE_WEBHOOK_SECRET: envString,
   NEXT_PUBLIC_PAY_SUCCESS_URL: envString,
@@ -268,6 +281,28 @@ function buildAppEnv(raw: RawEnv): AppEnv {
   };
 }
 
+/**
+ * Variables that are safe locally and dangerous in production.
+ *
+ * Distinct from the missing-variable check: these fail *open* rather than
+ * loudly, so nothing downstream would ever surface the mistake.
+ */
+function getForbiddenProductionEnv(env: AppEnv): string[] {
+  if (!isProductionRuntime()) {
+    return [];
+  }
+
+  const forbidden: string[] = [];
+
+  if (env.AUTH_DEV_EMAIL_LINKS) {
+    forbidden.push(
+      "AUTH_DEV_EMAIL_LINKS (would log password-reset links instead of emailing them)"
+    );
+  }
+
+  return forbidden;
+}
+
 function getMissingProductionEnv(raw: RawEnv, env: AppEnv): string[] {
   if (!isProductionRuntime()) {
     return [];
@@ -336,14 +371,32 @@ export function validateAppEnv(): AppEnv {
   }
 
   const env = buildAppEnv(parsed.data);
+
+  // Both problems in one throw. Reported separately, an operator fixes the
+  // missing variables, redeploys, and only then learns about the forbidden one
+  // — two failed deploys for one bad config file.
   const missing = getMissingProductionEnv(parsed.data, env);
-  if (missing.length > 0) {
-    throw new EnvValidationError(
-      `Missing required production environment variables:\n- ${missing.join(
-        "\n- "
-      )}`,
-      missing
-    );
+  const forbidden = getForbiddenProductionEnv(env);
+
+  if (missing.length > 0 || forbidden.length > 0) {
+    const sections: string[] = [];
+    if (missing.length > 0) {
+      sections.push(
+        `Missing required production environment variables:\n- ${missing.join("\n- ")}`
+      );
+    }
+    if (forbidden.length > 0) {
+      sections.push(
+        `Environment variables that must not be set in production:\n- ${forbidden.join(
+          "\n- "
+        )}`
+      );
+    }
+
+    throw new EnvValidationError(sections.join("\n\n"), [
+      ...missing,
+      ...forbidden,
+    ]);
   }
 
   cachedEnv = env;

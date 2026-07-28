@@ -1,14 +1,24 @@
 import { getAdminContext } from "@admin/lib/authz";
 import { countAdminFeedbacks, listAdminFeedbacks } from "@admin/lib/data";
+import { Pager } from "@admin/components/pager";
 
-export default async function AdminFeedbacksPage() {
+const PAGE_SIZE = 100;
+
+export default async function AdminFeedbacksPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const admin = await getAdminContext();
   if (!admin) {
     return null;
   }
 
+  const { page: rawPage } = await searchParams;
+  const page = Math.max(Number.parseInt(rawPage ?? "1", 10) || 1, 1);
+
   const [rows, total] = await Promise.all([
-    listAdminFeedbacks(1, 100),
+    listAdminFeedbacks(page, PAGE_SIZE),
     countAdminFeedbacks(),
   ]);
 
@@ -48,6 +58,13 @@ export default async function AdminFeedbacksPage() {
           </tbody>
         </table>
       </div>
+
+      <Pager
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={total ?? 0}
+        href={(target) => `/feedbacks?page=${target}`}
+      />
     </div>
   );
 }

@@ -9,7 +9,12 @@ import type { AdminContext } from "@admin/lib/authz";
 export type AdminAuditAction =
   | "credits.grant"
   | "plan.comp.grant"
-  | "plan.comp.revoke";
+  | "plan.comp.revoke"
+  | "user.ban"
+  | "user.unban"
+  | "blocklist.add"
+  | "blocklist.remove"
+  | "stripe_event.resolve";
 
 interface WriteAuditLogParams {
   actor: AdminContext;

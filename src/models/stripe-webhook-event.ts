@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, lt, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { stripeWebhookEvents } from "@/db/schema";
 
@@ -90,7 +90,12 @@ export async function claimStripeWebhookEvent({
     throw new Error(`Failed to claim Stripe webhook event ${eventId}`);
   }
 
-  if (existing.status === "completed") {
+  // `resolved` is terminal alongside `completed`, and the distinction matters
+  // more than it looks: an admin closed this event by hand because the work was
+  // done outside this system. Re-running it because someone pressed Resend in
+  // the Stripe dashboard would undo a person's decision with a button that gives
+  // no hint it might. Acknowledged, not reprocessed.
+  if (existing.status === "completed" || existing.status === "resolved") {
     return "completed";
   }
 
@@ -176,6 +181,63 @@ export async function markStripeWebhookEventActionRequired(
 }
 
 export type StripeWebhookEventRow = typeof stripeWebhookEvents.$inferSelect;
+
+/** Statuses an admin may close by hand. Anything else is not theirs to close. */
+export const RESOLVABLE_STATUSES = ["action_required", "failed"] as const;
+
+/**
+ * Close a parked event, because a human dealt with it.
+ *
+ * The operation the events page was missing. An `action_required` row for a
+ * refund that an operator handled by adjusting credits by hand had no way to
+ * stop being a work order: it sat in the queue and in the overview's count
+ * forever, and a queue that cannot be emptied is one people stop reading.
+ *
+ * Guarded by status in the `WHERE` rather than by a preceding read, so a
+ * double-click, or a resolve racing a redelivery that just reclaimed the row,
+ * loses cleanly instead of overwriting a `processing` or `completed` row with a
+ * human note. Returns undefined when nothing was closed — the caller reports
+ * that rather than claiming success.
+ */
+export async function resolveStripeWebhookEvent(input: {
+  eventId: string;
+  actorUuid: string;
+  note: string;
+}): Promise<StripeWebhookEventRow | undefined> {
+  const now = new Date();
+
+  const [row] = await db()
+    .update(stripeWebhookEvents)
+    .set({
+      status: "resolved",
+      resolved_at: now,
+      resolved_by: input.actorUuid,
+      resolution_note: input.note.slice(0, 4000),
+      updated_at: now,
+    })
+    .where(
+      and(
+        eq(stripeWebhookEvents.event_id, input.eventId),
+        inArray(stripeWebhookEvents.status, [...RESOLVABLE_STATUSES])
+      )
+    )
+    .returning();
+
+  return row;
+}
+
+/** One event, without its payload. For the console's resolve confirmation. */
+export async function findStripeWebhookEventById(
+  eventId: string
+): Promise<StripeWebhookEventRow | undefined> {
+  const [row] = await db()
+    .select()
+    .from(stripeWebhookEvents)
+    .where(eq(stripeWebhookEvents.event_id, eventId))
+    .limit(1);
+
+  return row;
+}
 
 /**
  * Events that are not going to resolve on their own.
@@ -269,6 +331,9 @@ export async function listStripeWebhookEvents({
       livemode: stripeWebhookEvents.livemode,
       api_version: stripeWebhookEvents.api_version,
       request_id: stripeWebhookEvents.request_id,
+      resolved_at: stripeWebhookEvents.resolved_at,
+      resolved_by: stripeWebhookEvents.resolved_by,
+      resolution_note: stripeWebhookEvents.resolution_note,
     })
     .from(stripeWebhookEvents)
     .$dynamic();

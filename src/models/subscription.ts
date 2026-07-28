@@ -186,6 +186,31 @@ export async function listSubscriptionsByOrg(
     .orderBy(desc(subscriptions.updated_at));
 }
 
+/**
+ * How many subscriptions sit in each status, across every tenant.
+ *
+ * Grouped in one query rather than counted per status, for the same reason
+ * `countStripeWebhookEventsByStatus` is: the caller is a dashboard that wants
+ * several of these numbers at once, and one `group by` beats six round trips.
+ *
+ * Which statuses *mean* something is left to the caller. `past_due` entitles
+ * during a grace period and `canceled` never does — that is a product decision
+ * living in the entitlement service, not in a counting helper.
+ */
+export async function countSubscriptionsByStatus(): Promise<
+  Record<string, number>
+> {
+  const rows = await db()
+    .select({
+      status: subscriptions.status,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(subscriptions)
+    .groupBy(subscriptions.status);
+
+  return Object.fromEntries(rows.map((row) => [row.status, row.count]));
+}
+
 export type InsertManualSubscriptionInput = {
   uuid: string;
   org_uuid: string;

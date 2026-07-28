@@ -1,13 +1,32 @@
 import { getAdminContext } from "@admin/lib/authz";
 import { countAdminAuditLogs, listAdminAuditLogs } from "@admin/lib/audit";
+import { Pager } from "@admin/components/pager";
 
-export default async function AdminAuditPage() {
+const PAGE_SIZE = 100;
+
+/**
+ * The audit trail.
+ *
+ * Paged rather than capped, and of the console's lists this is the one where
+ * that is not a convenience. It is the answer to "who changed this, and when" —
+ * asked long after the change, about an entry that is by then nowhere near the
+ * newest hundred. A compliance surface that can only show the most recent page
+ * answers every interesting question with silence.
+ */
+export default async function AdminAuditPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   // Layout guards admin, this is a safety net.
   const admin = await getAdminContext();
   if (!admin) return null;
 
+  const { page: rawPage } = await searchParams;
+  const page = Math.max(Number.parseInt(rawPage ?? "1", 10) || 1, 1);
+
   const [rows, total] = await Promise.all([
-    listAdminAuditLogs(1, 100),
+    listAdminAuditLogs(page, PAGE_SIZE),
     countAdminAuditLogs(),
   ]);
 
@@ -70,6 +89,14 @@ export default async function AdminAuditPage() {
           </tbody>
         </table>
       </div>
+
+      <Pager
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={total ?? 0}
+        unit="entries"
+        href={(target) => `/audit?page=${target}`}
+      />
     </div>
   );
 }

@@ -1,8 +1,18 @@
 import { getAdminContext } from "@admin/lib/authz";
-import { listAdminReservationsWithService } from "@admin/lib/data";
+import {
+  countAdminReservations,
+  listAdminReservationsWithService,
+} from "@admin/lib/data";
+import { Pager } from "@admin/components/pager";
 import { ReservationsConfig } from "@/config/reservations";
 
-export default async function AdminReservationsPage() {
+const PAGE_SIZE = 50;
+
+export default async function AdminReservationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const admin = await getAdminContext();
   if (!admin) {
     // Layout guards, but keep a server check
@@ -17,11 +27,22 @@ export default async function AdminReservationsPage() {
     );
   }
 
-  const reservations = await listAdminReservationsWithService(1, 50);
+  const { page: rawPage } = await searchParams;
+  const page = Math.max(Number.parseInt(rawPage ?? "1", 10) || 1, 1);
+
+  const [reservations, total] = await Promise.all([
+    listAdminReservationsWithService(page, PAGE_SIZE),
+    countAdminReservations(),
+  ]);
 
   return (
     <section className="rounded-lg border p-4">
-      <h2 className="mb-3 text-lg font-medium">Reservations (latest 50)</h2>
+      <div className="mb-3 flex items-center justify-between">
+        {/* Ordered by start time, so paging walks the calendar forward rather
+            than reading a "latest 50" that silently ended. */}
+        <h2 className="text-lg font-medium">Reservations</h2>
+        <p className="text-sm text-muted-foreground">Total: {total}</p>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="text-left text-muted-foreground">
@@ -35,6 +56,13 @@ export default async function AdminReservationsPage() {
             </tr>
           </thead>
           <tbody>
+            {reservations.length === 0 && (
+              <tr className="border-t">
+                <td className="p-3 text-muted-foreground" colSpan={6}>
+                  No reservations.
+                </td>
+              </tr>
+            )}
             {reservations.map((r) => {
               const when = new Date(r.start_at as any).toISOString();
               return (
@@ -51,6 +79,14 @@ export default async function AdminReservationsPage() {
           </tbody>
         </table>
       </div>
+
+      <Pager
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={total}
+        unit="reservations"
+        href={(target) => `/reservations?page=${target}`}
+      />
     </section>
   );
 }

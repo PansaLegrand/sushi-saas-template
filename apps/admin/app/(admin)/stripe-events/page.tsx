@@ -1,7 +1,10 @@
 import Link from "next/link";
 
 import { getAdminContext } from "@admin/lib/authz";
+import { Pager } from "@admin/components/pager";
+import ResolveStripeEvent from "@admin/components/resolve-stripe-event";
 import {
+  RESOLVABLE_STATUSES,
   countStripeWebhookEventsByStatus,
   listStripeWebhookEvents,
 } from "@/models/stripe-webhook-event";
@@ -32,6 +35,7 @@ const STATUS_FILTERS = [
   { value: "failed", label: "Failed" },
   { value: "processing", label: "Processing" },
   { value: "completed", label: "Completed" },
+  { value: "resolved", label: "Resolved" },
 ] as const;
 
 function StatusBadge({ status }: { status: string }) {
@@ -42,7 +46,7 @@ function StatusBadge({ status }: { status: string }) {
       ? "bg-destructive/10 text-destructive border-destructive/30"
       : status === "failed"
         ? "bg-amber-500/10 text-amber-700 border-amber-500/30 dark:text-amber-400"
-        : status === "completed"
+        : status === "completed" || status === "resolved"
           ? "bg-emerald-500/10 text-emerald-700 border-emerald-500/30 dark:text-emerald-400"
           : "bg-muted text-muted-foreground border-border";
 
@@ -62,6 +66,7 @@ export default async function AdminStripeEventsPage({
   // admin pages use.
   const admin = await getAdminContext();
   if (!admin) return null;
+  const canWrite = admin.role === "admin_rw";
 
   const { status: rawStatus, page: rawPage } = await searchParams;
 
@@ -81,6 +86,9 @@ export default async function AdminStripeEventsPage({
 
   const needsAction = byStatus.action_required ?? 0;
   const total = Object.values(byStatus).reduce((sum, n) => sum + n, 0);
+  // The pager counts what the filter selected, not the whole table — otherwise
+  // filtering to nine parked events offers pages of nothing.
+  const filteredTotal = status ? (byStatus[status] ?? 0) : total;
 
   const href = (value: string) =>
     value ? `/stripe-events?status=${value}` : "/stripe-events";
@@ -98,11 +106,27 @@ export default async function AdminStripeEventsPage({
       </header>
 
       {needsAction > 0 && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm">
-          <strong>{needsAction}</strong> event
-          {needsAction === 1 ? "" : "s"} need a decision. These do not retry on
-          their own — Stripe was answered 200 so the automatic retries stopped.
-          Fix the cause, then replay from the Stripe dashboard.
+        <div className="space-y-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm">
+          <p>
+            <strong>{needsAction}</strong> event
+            {needsAction === 1 ? "" : "s"} need a decision. These do not retry on
+            their own — Stripe was answered 200 so the automatic retries stopped.
+          </p>
+          {/* The two exits, and they are not interchangeable. Replay re-runs the
+              work; Resolve records that a person did it elsewhere. Saying which
+              is which here is the difference between an operator clearing the
+              queue and an operator clearing the evidence. */}
+          <p className="text-xs">
+            <strong>To re-run one:</strong> fix the cause, then press Resend in
+            the Stripe dashboard. The redelivery reclaims the row and processes
+            it against Stripe&apos;s current state — every write on that path is
+            keyed on the Stripe object, so a replay cannot double-charge or
+            double-credit.{" "}
+            <strong>If you handled it outside this system</strong> — refunded by
+            hand, accepted a dispute — use Resolve to close it with a note.
+            Resolving is final: later redeliveries are acknowledged and not
+            re-run.
+          </p>
         </div>
       )}
 
@@ -142,12 +166,13 @@ export default async function AdminStripeEventsPage({
               <th className="py-2 pr-4">Invoice</th>
               <th className="py-2 pr-4">Subscription</th>
               <th className="py-2 pr-4">Event</th>
+              <th className="py-2 pr-4"></th>
             </tr>
           </thead>
           <tbody>
             {events.length === 0 && (
               <tr className="border-t">
-                <td className="p-3 text-muted-foreground" colSpan={9}>
+                <td className="p-3 text-muted-foreground" colSpan={10}>
                   No events{status ? ` with status "${status}"` : ""}.
                 </td>
               </tr>
@@ -174,6 +199,11 @@ export default async function AdminStripeEventsPage({
                 <td className="py-2 pr-4">{event.attempts}</td>
                 <td className="py-2 pr-4 max-w-xs whitespace-pre-wrap break-words text-xs">
                   {event.last_error ?? "—"}
+                  {event.resolution_note && (
+                    <span className="mt-1 block text-muted-foreground">
+                      Resolved: {event.resolution_note}
+                    </span>
+                  )}
                 </td>
                 <td className="py-2 pr-4 font-mono text-xs">
                   {event.stripe_customer_id ?? "—"}
@@ -187,36 +217,31 @@ export default async function AdminStripeEventsPage({
                 <td className="py-2 pr-4 font-mono text-[10px]">
                   {event.event_id}
                 </td>
+                <td className="py-2 pr-4">
+                  {RESOLVABLE_STATUSES.includes(
+                    event.status as (typeof RESOLVABLE_STATUSES)[number]
+                  ) && (
+                    <ResolveStripeEvent
+                      eventId={event.event_id}
+                      canWrite={canWrite}
+                    />
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <div className="flex items-center justify-between text-sm">
-        <p className="text-muted-foreground">
-          Page {page}
-          {events.length === limit ? "" : " (end)"}
-        </p>
-        <div className="flex gap-3">
-          {page > 1 && (
-            <Link
-              className="underline"
-              href={`${href(status ?? "")}${status ? "&" : "?"}page=${page - 1}`}
-            >
-              Previous
-            </Link>
-          )}
-          {events.length === limit && (
-            <Link
-              className="underline"
-              href={`${href(status ?? "")}${status ? "&" : "?"}page=${page + 1}`}
-            >
-              Next
-            </Link>
-          )}
-        </div>
-      </div>
+      <Pager
+        page={page}
+        pageSize={limit}
+        total={filteredTotal}
+        unit="events"
+        href={(target) =>
+          `${href(status ?? "")}${status ? "&" : "?"}page=${target}`
+        }
+      />
     </div>
   );
 }

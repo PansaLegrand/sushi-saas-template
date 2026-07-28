@@ -139,6 +139,20 @@
       "when": 1785205484433,
       "tag": "0019_unique_purple_man",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1785212194482,
+      "tag": "0020_pretty_thanos",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1785221279861,
+      "tag": "0021_flawless_toad",
+      "breakpoints": true
     }
   ]
 }

@@ -71,6 +71,42 @@ export const ERROR_CATALOG = {
     defaultMessage: "That email and password do not match.",
     legacyCodes: ["INVALID_EMAIL_OR_PASSWORD", "Invalid email or password"],
   },
+  /**
+   * Re-authentication failures, as opposed to sign-in failures.
+   *
+   * Better Auth asks for the current password again before a sensitive change —
+   * enabling two-factor auth, changing a password. Uncatalogued, both of these
+   * fell through to SERVER_ERROR and told the user "something went wrong on our
+   * end, please try again", which is false and unactionable: retrying a wrong
+   * password does not help, and neither does retrying when there is no password
+   * to be right.
+   */
+  AUTH_INVALID_PASSWORD: {
+    statusCode: 400,
+    defaultMessage: "That password is incorrect.",
+    legacyCodes: ["INVALID_PASSWORD", "Invalid password"],
+  },
+  /**
+   * The account signed up through a social provider and has no password at all,
+   * so no input can satisfy a password prompt. Names the way out rather than
+   * restating the failure.
+   */
+  AUTH_PASSWORD_NOT_SET: {
+    statusCode: 400,
+    defaultMessage:
+      "This account signs in with a provider and has no password yet. Use “Forgot password” to set one first.",
+    legacyCodes: [
+      "CREDENTIAL_ACCOUNT_NOT_FOUND",
+      "Credential account not found",
+    ],
+  },
+  /** Setting a *first* password on an account that already has one. */
+  AUTH_PASSWORD_ALREADY_SET: {
+    statusCode: 409,
+    defaultMessage:
+      "This account already has a password. Use “Forgot password” to change it.",
+    legacyCodes: ["user already has a password"],
+  },
   AUTH_USER_ALREADY_EXISTS: {
     statusCode: 409,
     defaultMessage: "An account with that email already exists.",
@@ -107,6 +143,23 @@ export const ERROR_CATALOG = {
     statusCode: 404,
     defaultMessage: "Account not found.",
     legacyCodes: ["user not exist", "invalid user"],
+  },
+  /**
+   * The next two are thrown from the Better Auth hooks in `src/lib/auth.ts` and
+   * come back through its client, so `resolveAuthError` translates them like any
+   * other sign-in failure rather than putting raw English on the form.
+   *
+   * Both name support rather than explaining the rule. A wrongly-caught person
+   * needs somewhere to go, and an abuser learning exactly which of their
+   * addresses is blocked learns which one to change.
+   */
+  ACCOUNT_SUSPENDED: {
+    statusCode: 403,
+    defaultMessage: "This account has been suspended. Contact support if you think this is a mistake.",
+  },
+  ACCOUNT_SIGNUP_BLOCKED: {
+    statusCode: 403,
+    defaultMessage: "This email address cannot be used to register. Contact support if you think this is a mistake.",
   },
 
   // ------------------------------------------------------------- request

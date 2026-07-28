@@ -609,6 +609,13 @@ whatever the item names.
      personal data, and the privacy policy shipped in item 2 already makes
      retention promises that nothing implements yet. Deferred on 2026-07-26
      because the product is pre-launch and has no such users.
+   - **Scope narrowed on 2026-07-28.** What remains is *erasure on request*.
+     The abuse half is built and is a different operation: suspension
+     (`users.banned_at`, session revocation) plus an `email_blocklist` checked
+     at signup, in `src/services/moderation.ts` and `/moderation` in the admin
+     console. Deleting an abuser was always the wrong tool — it frees the
+     address to register again and destroys the evidence — so nothing about
+     erasure blocks responding to a bot wave any more.
    - The policy comes first and is a table: for every table, erase /
      anonymize / retain. Financial records (`orders`, `subscriptions`) are
      retained; `credits.user_uuid` is anonymized but the row stays;
@@ -736,8 +743,11 @@ the two that made it reachable for a team:
   selected: it holds the whole Stripe object, including a customer's email and
   address, and a payload nobody fetches cannot leak.
 
-Still open, in the order I would take them. All P2: the console can now answer
-the questions an operator actually arrives with.
+Items 14–22 all shipped on 2026-07-28. The console can now answer the questions
+an operator actually arrives with, and — with 19–22 — let them find the row to
+ask about. What is left for this section is written at the end of item 16: the
+webhook's switch statement still lives inside its route handler, which is what a
+console-side replay would need lifted out first.
 
 14. [x] [P1] Make admin org-aware, not personal-workspace-only
     - Every admin billing path resolved `findPersonalOrganizationByUserUuid`:
@@ -779,17 +789,189 @@ the questions an operator actually arrives with.
     - The plan panel calls out `cancelAtPeriodEnd` explicitly, since that is the
       case a customer complains about and the answer is "still on the tier you
       paid for, until the period ends".
-16. [ ] [P2] Resolve and replay parked events from the console
-    - The write half of the events page. Needs `admin_rw`, an audit log entry, and
-      idempotency thinking: replaying a partially-applied event is not obviously
-      safe, which is why the read-only view shipped first.
-17. [ ] [P2] Thicken the orders table
-    - `select()` on paid orders with no org column, no link to the credit row that
-      fulfilled it, no status filter. It now holds `renewal:<sub>:<period>` numbers
-      and UUIDv7 ids beside old numeric ones, unexplained.
-18. [ ] [P2] Surface reconciliation in the console
-    - `pnpm reconcile:stripe --local-only` already computes the findings. Nothing
-      shows them to someone who does not run CLI commands.
+16. [x] [P2] Resolve parked events from the console
+    - **Done 2026-07-28, and renamed: resolve, not replay.** The item asked for
+      both. Working through it, replay turned out to be a feature that already
+      exists in the right place and resolve turned out to be the one genuinely
+      missing — so the scope changed rather than the estimate.
+    - **Replay already works, from Stripe.** `action_required` is in
+      `RECLAIMABLE_STATUSES`, so pressing Resend in the Stripe dashboard reclaims
+      the row and re-runs it against a freshly signed payload and Stripe's
+      *current* state. Every write on that path derives its key from the Stripe
+      object, so a replay cannot double-charge or double-credit. What was missing
+      was nobody saying so: the console now spells out the two exits and which is
+      which.
+    - A console button replaying the **stored** payload was rejected. It would
+      run a snapshot of the past through the money path — a payload captured
+      before the operator fixed the cause is the wrong input — and it would need
+      the webhook's 600-line switch lifted out of its route first. Worth doing
+      one day for testability; not worth doing as a side effect of adding a
+      button.
+    - **Resolve was the real gap.** An `action_required` row for work a human did
+      elsewhere — refunded by hand, dispute accepted — had no way to stop being a
+      work order. It sat in the queue, in the sweep's alert, and in the overview's
+      count forever, and a queue that cannot be emptied is one people stop
+      reading. New terminal status `resolved` (migration 0021) with
+      `resolved_at`, `resolved_by`, and a **required** note.
+    - Terminal on purpose: a later redelivery is acknowledged and not re-run, so
+      Resend cannot silently undo a person's decision. `claimStripeWebhookEvent`
+      treats `resolved` like `completed`. That is a real constraint and the UI
+      says so at the point of clicking.
+    - The status guard is in the UPDATE's `WHERE`, not a preceding read, so a
+      resolve racing a redelivery that just reclaimed the row loses cleanly
+      instead of stamping a human note over a run in flight. The endpoint reports
+      that as a status conflict rather than a success — an endpoint that answers
+      200 when it changed nothing would make the queue look emptied while the row
+      stayed parked.
+17. [x] [P2] Thicken the orders table
+    - `select()` on paid orders with no org column, no link to the credit row
+      that fulfilled it, no status filter, and three coexisting order-number
+      formats with nothing explaining them.
+    - **Done 2026-07-28.** `/orders` has a status filter, search across
+      `order_no`, `sub_id`, org, user uuid and email, an org link, and a column
+      allowlist that keeps `order_detail` and `paid_detail` — raw provider
+      payloads — out of the browser.
+    - The column that justifies the page is **Granted**: `orders.credits` against
+      the ledger rows carrying that order number. A paid order promising credits
+      with none granted is item 4's defect, seen one row at a time where an
+      operator is already standing when a customer says the credits never
+      arrived. Two rows for one order is the opposite defect and is flagged too.
+    - Fetched as a second query rather than a LEFT JOIN: an order with two ledger
+      rows would duplicate the order in a joined result and corrupt the
+      pagination — hiding the exact anomaly the column exists to show.
+    - Order numbers are now labelled by shape. `renewal:<sub>:<period>` is
+      derived from the billing period so a redelivery collides instead of billing
+      twice; the rest are per-checkout ids, newer ones UUIDv7.
+18. [x] [P2] Surface reconciliation in the console
+    - `pnpm reconcile:stripe --local-only` already computed the findings and
+      showed them only to someone with a checkout, a database URL, and a
+      terminal. Wrong audience: the person who needs to know a customer paid and
+      got no credits is whoever is reading the support ticket.
+    - **Done 2026-07-28.** `/reconciliation` runs `reconcileLocalBilling()` over a
+      7/30/90-day window, grouped by finding kind with what each one means and
+      where to act on it. Read-only; it computes nothing new.
+    - **The local half only**, and the page says so rather than letting a green
+      result imply more than it checked. The Stripe half walks the invoice API,
+      needs a live secret key, and takes as long as the account is large — not
+      something to hang a page render on. It stays in the script, which is also
+      the only thing that can catch "Stripe charged them and we were never told".
+
+A second pass on 2026-07-28, after the moderation work landed, found the console
+could now *do* most of what an operator needs and still could not help them
+*find* the row to do it to. Items 19–22 are that gap. They are deliberately
+unglamorous — search, paging, a count — and **all four shipped on 2026-07-28**,
+in that order: first the one deciding whether the rest of the console is usable
+on a real user base, then the counts and searches an abuse incident leans on,
+then paging everywhere, and last the question of what the overview is for. 16–18
+remain open.
+
+19. [x] [P1] Give the console a way to find a user
+    - **The blocking gap.** `listAdminUsers` took only page and limit; the
+      overview showed the newest 20 and there was no search box, no filter, and no
+      per-user page anywhere in the app.
+    - Every user-targeting tool — grant credits, comp a plan, suspend an account
+      — takes a raw `uuid` and told the operator to "find the user's UUID on the
+      overview". For anyone outside the newest 20 that instruction resolved to
+      "open Postgres". Moderation was the sharp case: the panel that exists to end
+      an abuse wave could not locate the abuser.
+    - **Done 2026-07-28.** `/users` searches `email`, `uuid`, and `nickname`
+      through `ilike` and pages at 50, following the shape item 14 settled — a GET
+      form, so a search is a URL that pastes into a ticket. `/api/admin/users`
+      takes the same `q`. The overview keeps its latest-20 table and links here;
+      `/moderation` now points at the search rather than at the overview.
+    - Searching `uuid` matters as much as `email`: it is the value every write
+      tool takes, and a partial id from a log line is half of how an operator
+      arrives. An address search deliberately returns **every** provider's row,
+      since `users.email` is unique per `signin_provider` — seeing one row and
+      suspending it while its sibling stays open is the mistake that shape
+      prevents.
+    - Not searched: `signin_ip` (a surveillance surface with no support question
+      behind it) and `stripe_customer_id` (belongs to the org, and
+      `/organizations` already searches it).
+    - Results go through the existing column allowlist, and
+      `tests/db/admin.users.test.ts` asserts that on the row keys rather than on
+      the select list — the way it breaks is a bare `select()` added by someone
+      who needed one more column.
+    - **Known cost:** a leading-`%` `ilike` cannot use an index, so this is a
+      sequential scan per search. Identical to what `/organizations` has done
+      since item 14, and fine at starter scale. The fix when it stops being fine
+      is a trigram index (`pg_trgm`) on `email`, not a rewrite of the page.
+    - A per-user page at `/users/[uuid]` is the natural follow-on and was left
+      out: the search box alone unblocks the tools that already exist.
+20. [x] [P2] Fix the suspended-accounts count, and page the list
+    - `/moderation` rendered `Suspended accounts ({banned.length})` over a
+      `limit: 50` query, so the number silently pinned at 50 and the rest of the
+      list was unreachable — during exactly the incident the page exists for,
+      when "how many did we catch" is the question being asked.
+    - **Done 2026-07-28.** The count comes from `countAdminBannedUsers()` and the
+      table has the pager `/organizations` and `/stripe-events` already had.
+    - The count landed in `apps/admin/lib/data.ts` rather than staying in
+      `src/models/user.ts`, which reverses what the technical-debt entry below
+      originally proposed. The reason showed up while writing it: a total and its
+      rows must share a predicate, and splitting the pair across two files is how
+      they drift. All four other admin list/count pairs already live together
+      there. `listBannedUsers`/`countBannedUsers` were deleted, closing that debt
+      item outright rather than half-closing it.
+    - The blocklist had the matching hole — `listBlocklist` paged but did not
+      filter, so "is this address already blocked" was only answerable through
+      the ban panel's Load status, one address at a time. There is now a search
+      box, and **it is not a substring match**, which is the whole point: a rule
+      is stored under its normalized key, so an admin pasting
+      `a.b+spam@gmail.com` out of a signup log is hunting a row that reads
+      `ab@gmail.com`. The service normalizes the term first and searches the key,
+      the original input, *and* the domain — so a domain rule covering the
+      address surfaces too, which is the rule nobody thinks to look for. A plain
+      `ilike` would have answered "not blocked" in both cases, and that is the
+      one wrong answer this box must never give.
+    - Normalizing stayed in the service. `src/models/email-blocklist.ts` says in
+      its header that callers pass normalized values, so the model takes a
+      prepared `BlocklistSearch` — raw text for the substring half, exact keys
+      for the normalized half — rather than growing a second copy of the rule.
+21. [x] [P2] Make paging consistent across the console
+    - Only `/organizations` and `/stripe-events` paginated. `/feedbacks` and
+      `/audit` were hard-capped at 100, `/reservations` and `/affiliates` at
+      their defaults. Past the cap the data was not merely unpaginated, it was
+      invisible, with nothing on the page saying so.
+    - `/audit` was the one that mattered beyond convenience: it is the compliance
+      surface, the answer to "who changed this and when" — asked long after the
+      change, about an entry by then nowhere near the newest hundred. Retention
+      for that table is still open under Technical Debt; a log you cannot read
+      back is worse than one that grows.
+    - **Done 2026-07-28.** One `Pager` in `apps/admin/components/pager.tsx`, now
+      on all eight lists. `/audit`, `/feedbacks`, `/reservations`, and
+      `/affiliates` gained paging; the four hand-rolled copies were deleted.
+      `countAdminReservations` and `countAdminAffiliates` were added, because a
+      list without a count cannot page honestly.
+    - The shared version takes a **total** instead of guessing from
+      `rows.length === pageSize`, which every copy did and which is wrong twice:
+      it offers a Next link into an empty page whenever the total divides evenly
+      by the page size, and it can never say how much is left. It now reads
+      "Page 3 of 47 · 2310 rows" — a list that stops at its cap no longer looks
+      complete. `tests/components/pager.test.tsx` pins the even-division case
+      specifically, since it stays invisible until a table holds exactly 50 rows.
+    - `/stripe-events` picked up a real fix on the way: its pager counted the
+      whole table while the list was filtered, so filtering to nine parked events
+      offered pages of nothing. It counts the selected status now.
+22. [x] [P2] Decide whether the overview should be a dashboard
+    - **Decided 2026-07-28: no, and four tiles instead.** The bar was set by the
+      Stripe `action_required` count from item 15 — a number that changes what
+      the operator does next, placed where they already are — and only things
+      clearing it were built.
+    - Shipped: signups in the last 7 days beside the user total (a bot wave shows
+      up as a rate that does not match the product, and the tile points at
+      `/moderation`), live subscriptions with `past_due` called out (payments to
+      chase), suspended accounts (is moderation keeping up), and parked Stripe
+      events. The three that mean "act now" go red at non-zero.
+    - Rejected, and worth recording so they are not re-proposed: revenue,
+      conversion, and churn, which the Stripe dashboard renders better; and
+      **credits outstanding**, which sounded right in the original list above but
+      is a finance figure with no action attached and would need a global ledger
+      aggregate to compute honestly. A tile nobody acts on teaches people to stop
+      reading the row.
+    - `countSubscriptionsByStatus()` groups in one pass rather than counting per
+      status, matching `countStripeWebhookEventsByStatus`. Which statuses *mean*
+      something stays with the caller — `past_due` entitles during a grace period,
+      and that product decision lives in the entitlement service.
 
 ## Technical Debt Worth Scheduling
 
@@ -829,6 +1011,19 @@ hardening passes rather than one giant schema rewrite.
     way it should be written down and tested, not left to the reach of a regex.
   - The logger rule already walks `apps/admin/app` and `apps/admin/lib`, so the
     walker exists; only the layering rules stop at `src/`.
+- [x] [P2] Retire the duplicate banned-user queries in `src/models/user.ts`
+  - `listBannedUsers` and `countBannedUsers` were added alongside the moderation
+    work and were reachable only from tests; the console reads
+    `listAdminBannedUsers` in `apps/admin/lib/data.ts` instead.
+  - Not merely dead, which would have been harmless. The model pair did a bare
+    `select()` while the admin version selects through the explicit column
+    allowlist that keeps `signin_ip`, `stripe_customer_id`, and `invite_code` out
+    of the browser. Two ways to list the same rows, one without the guard, is how
+    the next page gets wired to the wrong one.
+  - **Done 2026-07-28** with item 20. Both were deleted and the count was added
+    beside `listAdminBannedUsers` instead, so the pair shares a predicate and a
+    file. See item 20 for why that beat the "keep the model one" plan recorded
+    here first.
 - [P1] Add foreign keys in expand/contract passes
   - There are no foreign keys anywhere. Start with high-value references such
     as `credits.user_uuid`, `tasks.user_uuid`, and tenant `org_uuid` columns,

@@ -72,7 +72,37 @@ describe("admin read API auth gates", () => {
 
     expect(res.status).toBe(200);
     expect(payload.code).toBe(0);
-    expect(mocks.listAdminUsers).toHaveBeenCalledWith(2, 10);
-    expect(mocks.countAdminUsers).toHaveBeenCalledTimes(1);
+    expect(mocks.listAdminUsers).toHaveBeenCalledWith({
+      query: undefined,
+      page: 2,
+      limit: 10,
+    });
+    expect(mocks.countAdminUsers).toHaveBeenCalledWith(undefined);
+  });
+
+  it("passes a search term to the list and the count alike", async () => {
+    await listUsers(
+      new Request("http://admin.test/api/admin/users?q=%20ann%40corp.example%20")
+    );
+
+    // The same term both times: a total computed from a different filter than
+    // the rows is a paginator that lies about how much is left.
+    expect(mocks.listAdminUsers).toHaveBeenCalledWith({
+      query: "ann@corp.example",
+      page: 1,
+      limit: 50,
+    });
+    expect(mocks.countAdminUsers).toHaveBeenCalledWith("ann@corp.example");
+  });
+
+  it("treats a blank search as no search rather than as an empty match", async () => {
+    await listUsers(new Request("http://admin.test/api/admin/users?q=%20%20"));
+
+    expect(mocks.listAdminUsers).toHaveBeenCalledWith({
+      query: undefined,
+      page: 1,
+      limit: 50,
+    });
+    expect(mocks.countAdminUsers).toHaveBeenCalledWith(undefined);
   });
 });

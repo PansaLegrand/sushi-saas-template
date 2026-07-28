@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { APIError } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { captcha, organization, twoFactor } from "better-auth/plugins";
 import { createFieldAttribute } from "better-auth/db";
@@ -18,11 +19,13 @@ import {
 } from "@/services/auth-events";
 import { CreditsAmount } from "@/services/credit";
 import { enqueueJobSafe } from "@/services/jobs";
+import { checkSignupAllowed, isUserIdBanned } from "@/services/moderation";
 import { ensurePersonalOrganization } from "@/services/organizations";
 import { sendResetPasswordEmail, sendVerifyEmail } from "@/services/email/send";
 import {
   hasEmailProviderConfigured,
   logDevAuthEmailLink,
+  shouldLogAuthLinkInsteadOfSending,
   type AuthEmailLinkKind,
 } from "@/services/email/dev-auth-links";
 import * as schema from "@/db/schema";
@@ -66,12 +69,14 @@ async function sendAuthEmailOrLogDevLink(input: {
   url: string;
   send: () => Promise<unknown>;
 }) {
-  if (!isProductionRuntime() && !hasEmailProviderConfigured()) {
+  if (shouldLogAuthLinkInsteadOfSending()) {
     logDevAuthEmailLink({
       kind: input.kind,
       email: input.email,
       url: input.url,
-      reason: "email_provider_missing",
+      reason: hasEmailProviderConfigured()
+        ? "dev_email_links_enabled"
+        : "email_provider_missing",
     });
     return;
   }
@@ -402,6 +407,35 @@ export const auth = betterAuth({
         before: async (data, context) => {
           const info = describeAuthRequest(context);
 
+          // The signup gate.
+          //
+          // Here rather than on `/sign-up/email` because this hook is the one
+          // point *every* signup passes through, OAuth included — and OAuth is
+          // the path with no captcha in front of it. A blocklist wired to the
+          // credential endpoint alone leaves "continue with Google" open, which
+          // is exactly how a banned address gets back in.
+          const email = (data as { email?: string }).email;
+          const check = await checkSignupAllowed(email);
+          if (!check.allowed) {
+            logger.warn(
+              {
+                event: "auth.signup_blocked",
+                reason: check.reason,
+                matched: check.matchedValue,
+                provider: info.provider,
+                ip: info.ip,
+              },
+              "signup rejected by blocklist"
+            );
+
+            // The message doubles as the catalog code so `resolveAuthError`
+            // translates it, rather than rendering this English on the form.
+            throw new APIError("FORBIDDEN", {
+              code: "ACCOUNT_SIGNUP_BLOCKED",
+              message: "ACCOUNT_SIGNUP_BLOCKED",
+            });
+          }
+
           return {
             data: {
               ...data,
@@ -484,6 +518,37 @@ export const auth = betterAuth({
     },
     session: {
       create: {
+        before: async (session, context) => {
+          // The sign-in gate.
+          //
+          // A session row is what "signed in" means, and every route in — email
+          // and password, Google, a completed second factor — ends by creating
+          // one. Checking here instead of on the sign-in endpoints is the
+          // difference between banned and banned-from-some-of-the-doors.
+          //
+          // The other half is `deleteSessionsByUserId()`, which the ban runs
+          // immediately: this stops the next sign-in, that ends the current one.
+          const userId = (session as { userId?: string }).userId;
+          if (!userId) return;
+
+          if (await isUserIdBanned(userId)) {
+            const info = describeAuthRequest(context);
+            logger.warn(
+              {
+                event: "auth.signin_blocked_banned",
+                user_id: userId,
+                provider: info.provider,
+                ip: info.ip,
+              },
+              "sign-in rejected: account suspended"
+            );
+
+            throw new APIError("FORBIDDEN", {
+              code: "ACCOUNT_SUSPENDED",
+              message: "ACCOUNT_SUSPENDED",
+            });
+          }
+        },
         after: async (session, context) => {
           // Fires once per sign-in, including OAuth. This is what makes
           // sign-in frequency answerable — session rows are deleted on

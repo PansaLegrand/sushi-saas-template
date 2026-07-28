@@ -21,10 +21,12 @@ import { db } from "@/db";
 import { stripeWebhookEvents } from "@/db/schema";
 import {
   claimStripeWebhookEvent,
+  findStuckStripeWebhookEvents,
   markStripeWebhookEventActionRequired,
   markStripeWebhookEventCompleted,
   markStripeWebhookEventFailed,
   listStripeWebhookEvents,
+  resolveStripeWebhookEvent,
 } from "@/models/stripe-webhook-event";
 import { extractWebhookReceipt } from "@/services/stripe/receipt";
 
@@ -67,9 +69,12 @@ async function claim(event: ReturnType<typeof invoicePaidEvent>) {
   });
 }
 
-describeDb("stripe webhook events (real database)", () => {
-  useCleanDatabase();
+// File-level, not per-suite: `useCleanDatabase()` registers the afterAll that
+// closes the connection, so calling it inside each describe would end the pool
+// for whichever suite runs second.
+useCleanDatabase();
 
+describeDb("stripe webhook events (real database)", () => {
   it("claims a new event and stores its receipt alongside the payload", async () => {
     expect(await claim(invoicePaidEvent())).toBe("claimed");
 
@@ -323,5 +328,144 @@ describeDb("stripe webhook events (real database)", () => {
     // `false` means test mode; `null` would mean "written before 0019". The
     // column has to keep those apart.
     expect((await rowFor("evt_test_mode_1"))?.livemode).toBe(false);
+  });
+});
+
+/**
+ * Closing a parked event by hand.
+ *
+ * The operation the events page was missing: an `action_required` row for work
+ * a human did outside this system had no way to stop being a work order. What
+ * the database has to enforce is that it is *terminal* — the guard is a `WHERE`
+ * on the update, and the interaction with a later Stripe redelivery is the part
+ * that cannot be checked in TypeScript.
+ */
+describeDb("resolving a parked stripe event", () => {
+  async function park(eventId: string, reason = "unmapped_price") {
+    await claim(invoicePaidEvent({ id: eventId }));
+    await markStripeWebhookEventActionRequired(eventId, reason);
+  }
+
+  it("closes a parked event and records who, when, and why", async () => {
+    await park("evt_parked");
+
+    const resolved = await resolveStripeWebhookEvent({
+      eventId: "evt_parked",
+      actorUuid: "u-admin",
+      note: "Refunded in Stripe on the 3rd; no credits were ever granted.",
+    });
+
+    expect(resolved?.status).toBe("resolved");
+    expect(resolved?.resolved_by).toBe("u-admin");
+    expect(resolved?.resolved_at).toBeInstanceOf(Date);
+    expect(resolved?.resolution_note).toContain("Refunded in Stripe");
+    // The original reason survives. It is why the row was parked, and the note
+    // is what was done about it — losing the first to record the second would
+    // make the trail unreadable.
+    expect(resolved?.last_error).toBe("unmapped_price");
+  });
+
+  it("closes a failed event too", async () => {
+    await claim(invoicePaidEvent({ id: "evt_failed" }));
+    await markStripeWebhookEventFailed("evt_failed", new Error("db down"));
+
+    expect(
+      (
+        await resolveStripeWebhookEvent({
+          eventId: "evt_failed",
+          actorUuid: "u-admin",
+          note: "Ran the grant by hand.",
+        })
+      )?.status
+    ).toBe("resolved");
+  });
+
+  it("refuses to close an event that is still processing", async () => {
+    // The guard is in the UPDATE's WHERE, not in a preceding read: a resolve
+    // racing a redelivery that just reclaimed the row must lose, rather than
+    // stamping a human note over a run that is in flight.
+    await claim(invoicePaidEvent({ id: "evt_busy" }));
+
+    const resolved = await resolveStripeWebhookEvent({
+      eventId: "evt_busy",
+      actorUuid: "u-admin",
+      note: "no",
+    });
+
+    expect(resolved).toBeUndefined();
+    expect((await rowFor("evt_busy"))?.status).toBe("processing");
+  });
+
+  it("refuses to close an event that already completed", async () => {
+    await claim(invoicePaidEvent({ id: "evt_done" }));
+    await markStripeWebhookEventCompleted("evt_done");
+
+    expect(
+      await resolveStripeWebhookEvent({
+        eventId: "evt_done",
+        actorUuid: "u-admin",
+        note: "no",
+      })
+    ).toBeUndefined();
+  });
+
+  it("is a no-op the second time, so a double-click cannot rewrite the note", async () => {
+    await park("evt_twice");
+    await resolveStripeWebhookEvent({
+      eventId: "evt_twice",
+      actorUuid: "u-admin",
+      note: "first",
+    });
+
+    const second = await resolveStripeWebhookEvent({
+      eventId: "evt_twice",
+      actorUuid: "u-other",
+      note: "second",
+    });
+
+    expect(second).toBeUndefined();
+    expect((await rowFor("evt_twice"))?.resolution_note).toBe("first");
+    expect((await rowFor("evt_twice"))?.resolved_by).toBe("u-admin");
+  });
+
+  it("acknowledges a later redelivery without re-running it", async () => {
+    // The behaviour that makes resolving mean something. Pressing Resend in
+    // Stripe reclaims a parked row on purpose — but a resolved row represents a
+    // decision a person made, and a webhook must not undo it.
+    await park("evt_resolved_then_resent");
+    await resolveStripeWebhookEvent({
+      eventId: "evt_resolved_then_resent",
+      actorUuid: "u-admin",
+      note: "handled by hand",
+    });
+
+    expect(await claim(invoicePaidEvent({ id: "evt_resolved_then_resent" }))).toBe(
+      "completed"
+    );
+
+    const row = await rowFor("evt_resolved_then_resent");
+    expect(row?.status).toBe("resolved");
+    // Not reclaimed, so the attempt counter did not move either.
+    expect(row?.attempts).toBe(1);
+  });
+
+  it("drops out of the stuck list once resolved", async () => {
+    // The queue actually empties. Both the sweep's alert and the overview's
+    // count read this query.
+    await park("evt_stuck");
+
+    expect(
+      await findStuckStripeWebhookEvents({ failedBefore: new Date() })
+    ).toHaveLength(1);
+
+    await resolveStripeWebhookEvent({
+      eventId: "evt_stuck",
+      actorUuid: "u-admin",
+      note: "done",
+    });
+
+    expect(
+      await findStuckStripeWebhookEvents({ failedBefore: new Date() })
+    ).toEqual([]);
   });
 });

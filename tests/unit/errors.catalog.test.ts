@@ -15,6 +15,7 @@ import {
   normalizeErrorCode,
 } from "@/lib/errors/catalog";
 import { getErrorTranslationBundles, translateErrorCode } from "@/lib/errors/i18n";
+import { resolveAuthError } from "@/lib/errors/auth-client";
 
 describe("error catalog", () => {
   it("gives every code a plausible HTTP status", () => {
@@ -66,6 +67,29 @@ describe("normalizeErrorCode", () => {
     expect(normalizeErrorCode("invalid params")).toBe("REQUEST_INVALID");
     expect(normalizeErrorCode("Email not verified")).toBe("AUTH_EMAIL_NOT_VERIFIED");
     expect(normalizeErrorCode("no auth, please sign-in")).toBe("AUTH_REQUIRED");
+  });
+
+  it("maps Better Auth's re-authentication failures", () => {
+    // Regression. Both of these were uncatalogued, so `resolveAuthError` fell
+    // through to SERVER_ERROR and the two-factor setup form told the user
+    // "something went wrong on our end, please try again" — for a wrong
+    // password, and for an account that has no password to get right. Retrying
+    // helps with neither, so the message sent people down a dead end.
+    expect(normalizeErrorCode("INVALID_PASSWORD")).toBe("AUTH_INVALID_PASSWORD");
+    expect(normalizeErrorCode("Invalid password")).toBe("AUTH_INVALID_PASSWORD");
+    expect(normalizeErrorCode("CREDENTIAL_ACCOUNT_NOT_FOUND")).toBe(
+      "AUTH_PASSWORD_NOT_SET"
+    );
+    expect(normalizeErrorCode("Credential account not found")).toBe(
+      "AUTH_PASSWORD_NOT_SET"
+    );
+
+    // Asserted through the function the form actually calls, with the exact
+    // payload Better Auth's client returned, so the guard covers the whole
+    // chain rather than the lookup in isolation.
+    expect(
+      resolveAuthError({ code: "INVALID_PASSWORD", message: "Invalid password" }, "en")
+    ).toBe("That password is incorrect.");
   });
 
   it("is case- and separator-insensitive", () => {

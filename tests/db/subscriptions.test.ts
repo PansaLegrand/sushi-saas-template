@@ -19,6 +19,7 @@ import { describeDb, useCleanDatabase } from "./setup";
 import {
   SubscriptionSource,
   SubscriptionStatus,
+  countSubscriptionsByStatus,
   endSubscription,
   findSubscriptionByStripeId,
   insertManualSubscription,
@@ -172,5 +173,34 @@ describeDb("subscriptions", () => {
     expect(ended?.status).toBe(SubscriptionStatus.Canceled);
     expect(ended?.ended_at).toBeInstanceOf(Date);
     expect(await listSubscriptionsByOrg("org-2")).toHaveLength(1);
+  });
+
+  it("groups every status in one pass, across tenants", async () => {
+    // Backs the overview's subscription tile. Counting per status would be six
+    // round trips for one row of numbers; the shape is the same one the Stripe
+    // events page already uses.
+    await upsertStripeSubscription(
+      baseInput({ stripe_subscription_id: "sub_a", status: SubscriptionStatus.Active })
+    );
+    await upsertStripeSubscription(
+      baseInput({
+        stripe_subscription_id: "sub_b",
+        org_uuid: "org-9",
+        status: SubscriptionStatus.PastDue,
+      })
+    );
+    await upsertStripeSubscription(
+      baseInput({
+        stripe_subscription_id: "sub_c",
+        org_uuid: "org-9",
+        status: SubscriptionStatus.Canceled,
+      })
+    );
+
+    const byStatus = await countSubscriptionsByStatus();
+
+    expect(byStatus).toEqual({ active: 1, past_due: 1, canceled: 1 });
+    // Absent rather than zero, which is why the overview reads it with `?? 0`.
+    expect(byStatus.trialing).toBeUndefined();
   });
 });

@@ -1,6 +1,6 @@
 import { users } from "@/db/schema";
 import { db } from "@/db";
-import { eq, gte, inArray } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, isNull } from "drizzle-orm";
 
 export async function insertUser(
   data: typeof users.$inferInsert
@@ -169,6 +169,71 @@ export async function updateUserRole(
     .returning();
 
   return user;
+}
+
+/**
+ * Suspend an account, unless it already is.
+ *
+ * The `isNull(banned_at)` predicate is the whole point: a second ban must not
+ * overwrite the first one's timestamp, reason, or author. When someone re-bans
+ * an account during an incident, "banned an hour ago for X" is the fact worth
+ * keeping and "banned just now for see above" is the one that destroys it.
+ *
+ * Returns undefined when the row was already banned or does not exist. The
+ * caller distinguishes those by looking the user up first.
+ */
+export async function markUserBanned(params: {
+  user_uuid: string;
+  reason: string | null;
+  banned_by: string;
+  when?: Date;
+}): Promise<typeof users.$inferSelect | undefined> {
+  const now = params.when ?? new Date();
+
+  const [user] = await db()
+    .update(users)
+    .set({
+      banned_at: now,
+      ban_reason: params.reason,
+      banned_by: params.banned_by,
+      updated_at: now,
+    })
+    .where(and(eq(users.uuid, params.user_uuid), isNull(users.banned_at)))
+    .returning();
+
+  return user;
+}
+
+/** Lift a suspension. Returns undefined when the account was not banned. */
+export async function markUserUnbanned(
+  user_uuid: string
+): Promise<typeof users.$inferSelect | undefined> {
+  const [user] = await db()
+    .update(users)
+    .set({
+      banned_at: null,
+      ban_reason: null,
+      banned_by: "",
+      updated_at: new Date(),
+    })
+    .where(and(eq(users.uuid, user_uuid), isNotNull(users.banned_at)))
+    .returning();
+
+  return user;
+}
+
+/**
+ * Every account sharing an email address, across providers.
+ *
+ * `users.email` is unique per `signin_provider`, so one address can hold
+ * several rows — a password account and a Google one are two rows that the same
+ * person signs in to. Banning the row an abuser happened to be using leaves the
+ * others open, so the ban service uses this to reach all of them.
+ */
+export async function findUsersByEmail(
+  email: string
+): Promise<(typeof users.$inferSelect)[]> {
+  return db().select().from(users).where(eq(users.email, email));
 }
 
 export async function updateUserStripeCustomerId(

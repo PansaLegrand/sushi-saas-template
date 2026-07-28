@@ -14,10 +14,11 @@ export async function GET(req: Request) {
       Math.max(parseInt(url.searchParams.get("limit") || "50", 10), 1),
       100
     );
+    const query = url.searchParams.get("q")?.trim() || undefined;
 
     const [rows, total] = await Promise.all([
-      listAdminUsers(page, limit),
-      countAdminUsers(),
+      listAdminUsers({ query, page, limit }),
+      countAdminUsers(query),
     ]);
 
     return respData({
