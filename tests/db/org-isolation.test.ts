@@ -124,6 +124,7 @@ describeDb("cross-tenant isolation (real database)", () => {
       user_uuid: acme.userUuid,
       trans_type: CreditsTransType.SystemAdd,
       credits: 100,
+      actor: "system:test",
     });
 
     expect((await getOrgCreditSummary(acme.orgUuid)).balance).toBe(100);
@@ -138,6 +139,7 @@ describeDb("cross-tenant isolation (real database)", () => {
       user_uuid: acme.userUuid,
       trans_type: CreditsTransType.SystemAdd,
       credits: 100,
+      actor: "system:test",
     });
 
     await expect(
@@ -146,6 +148,7 @@ describeDb("cross-tenant isolation (real database)", () => {
         user_uuid: initech.userUuid,
         trans_type: CreditsTransType.Ping,
         credits: 10,
+        actor: "system:test",
       })
     ).rejects.toThrow(/insufficient/i);
 
@@ -159,6 +162,7 @@ describeDb("cross-tenant isolation (real database)", () => {
       user_uuid: acme.userUuid,
       trans_type: CreditsTransType.SystemAdd,
       credits: 100,
+      actor: "system:test",
     });
 
     const transNo = await decreaseCredits({
@@ -166,6 +170,7 @@ describeDb("cross-tenant isolation (real database)", () => {
       user_uuid: acme.userUuid,
       trans_type: CreditsTransType.Ping,
       credits: 10,
+        actor: "system:test",
     });
 
     // `findCreditByTransNo` is unscoped by necessity, so the ownership proof
@@ -199,6 +204,7 @@ describeDb("pooled credit spend (real database)", () => {
       user_uuid: acme.userUuid,
       trans_type: CreditsTransType.SystemAdd,
       credits: 50,
+      actor: "system:test",
     });
 
     const spend = (userUuid: string) =>
@@ -207,6 +213,7 @@ describeDb("pooled credit spend (real database)", () => {
         user_uuid: userUuid,
         trans_type: CreditsTransType.Ping,
         credits: 30,
+        actor: "system:test",
       }).then(
         () => "ok" as const,
         () => "rejected" as const
@@ -234,6 +241,7 @@ describeDb("pooled credit spend (real database)", () => {
       user_uuid: acme.userUuid,
       trans_type: CreditsTransType.SystemAdd,
       credits: 100,
+      actor: "system:test",
     });
 
     await decreaseCredits({
@@ -241,6 +249,7 @@ describeDb("pooled credit spend (real database)", () => {
       user_uuid: acme.userUuid,
       trans_type: CreditsTransType.Ping,
       credits: 10,
+        actor: "system:test",
     });
 
     // Per-member quotas and usage reporting are impossible to build later if

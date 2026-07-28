@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { credits, orders } from "@/db/schema";
 
+import { type CreditActor, lockOrgAndSumLedger } from "./credit";
 import { OrderStatus, type OrderInsert } from "./order";
 import { scopedToOrg } from "./organization";
 
@@ -49,6 +50,13 @@ export type CreditGrant = {
   trans_type: string;
   credits: number;
   expired_at?: Date | null;
+  /**
+   * Who caused it. Required rather than defaulted to `stripe:webhook` even
+   * though every caller today is a webhook: a default here is how a
+   * hand-triggered backfill ends up indistinguishable from a real payment.
+   */
+  actor: CreditActor;
+  metadata_json?: string | null;
 };
 
 export type OrderRow = typeof orders.$inferSelect;
@@ -179,6 +187,13 @@ async function insertGrant(
   const { grant } = input;
   if (!grant || grant.credits <= 0) return false;
 
+  // The org lock, taken before the total is read so the row cannot land against
+  // a stale one. On a replay the insert below conflicts and the computed
+  // `balance_after` is discarded with the row it was for — which is why the lock
+  // being wasted on a no-op is acceptable and a pre-check for the conflict is
+  // still not.
+  const ledgerTotal = await lockOrgAndSumLedger(tx, input.org_uuid);
+
   const [row] = await tx
     .insert(credits)
     .values({
@@ -190,6 +205,9 @@ async function insertGrant(
       credits: grant.credits,
       order_no: input.order_no,
       expired_at: grant.expired_at ?? null,
+      actor: grant.actor,
+      metadata_json: grant.metadata_json ?? null,
+      balance_after: ledgerTotal + grant.credits,
     })
     .onConflictDoNothing({ target: credits.trans_no })
     .returning();

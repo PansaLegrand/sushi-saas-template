@@ -118,6 +118,8 @@ describe("POST /api/account/credits/consume", () => {
       user_uuid: "u-test",
       trans_type: "mock_usage",
       credits: 1,
+      // The route decides provenance, so the route is where it is pinned.
+      actor: "user:u-test",
     });
   });
 

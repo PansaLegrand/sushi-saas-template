@@ -36,6 +36,7 @@ export async function POST(req: Request) {
       user_uuid: ctx.userUuid,
       trans_type: CreditsTransType.Ping,
       credits: CreditsAmount.PingCost,
+      actor: `user:${ctx.userUuid}`,
     });
 
     return respData({

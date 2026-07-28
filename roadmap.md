@@ -77,9 +77,11 @@ References between items are by name rather than by number from here on,
 because positional references in this file have already gone stale twice.
 
 Item 4 shipped on 2026-07-26. **Item 5 is the top of the queue**, and is now
-partly done: its step 5 shipped on 2026-07-28, taken out of order because it
-touches no schema, and its open refund decision was settled the same day. Both
-are recorded under the item. Its remaining steps 1–4 are the queue.
+half done. On 2026-07-28: its step 5 shipped first because it touches no schema,
+its open refund decision was settled, and step 1 shipped as migration `0018`.
+All three are recorded under the item. **Its step 2 is the top of the queue**,
+followed by 3 and 4 — and step 4 is now fully specified, so only 2 and 3 involve
+open design.
 
 1. [x] [P0] Route every production failure through the logger
    - Swept all 20 stray `console.*` calls in server code onto `src/lib/logger`,
@@ -304,8 +306,38 @@ are recorded under the item. Its remaining steps 1–4 are the queue.
    - Order of work, smallest blast radius first. The first two are additive
      columns and can ship on their own; the script is worth little until
      `action_required` exists to give it something to query:
-     1. `balance_after`, `actor`, `metadata` on `credits` — one migration,
+     1. [x] `balance_after`, `actor`, `metadata` on `credits` — one migration,
         backfill `balance_after` as null rather than guessing history.
+        **Done 2026-07-28**, migration `0018`, three additive nullable columns
+        and no backfill. Six new database-tier tests in
+        `tests/db/credits.ledger.test.ts`; 422 tests green. What the work turned
+        up, because none of it was in the plan:
+        - **`balance_after` needed a lock, which was the whole cost of the
+          item.** It is a read-then-write, so two concurrent grants both read a
+          total of 0 and both stamp 10 for a ledger that sums to 20 — and
+          nothing throws. `insertSpendCreditIfSufficient` already held a per-org
+          advisory lock; the grant paths did not. `lockOrgAndSumLedger` in
+          `src/models/credit.ts` is now shared by all of them, including inside
+          the fulfillment transaction. Verified by deleting the lock and
+          watching the concurrency test fail with `[10, 10]`.
+        - **It is the ledger total, not the spendable balance.** Credits expire
+          without writing a row, so a spend-aware figure would drift from the
+          sum by design and a script could not tell that from real corruption.
+          The invariant is `prev.balance_after + row.credits =
+          row.balance_after`.
+        - **`actor` is not `user_uuid`.** `user_uuid` is who was credited;
+          `actor` is who decided to. On an admin grant those are two different
+          people, and only the second is accountability. Typed as a template
+          union (`` `admin:${string}` `` and friends) so an unnamespaced string
+          will not compile.
+        - `balance_after` is **omitted** from `CreditInsert` rather than
+          optional, so no caller can supply a figure it did not compute. The
+          compiler then found all nine call sites needing an `actor`; each got a
+          real one rather than a default, because a default would be applied by
+          the site that forgot to think about it.
+        - Named `metadata_json`, not `metadata`, matching `files` and `tasks`.
+          Two real writers rather than a stub column: a task spend records
+          `task_uuid`, a refund records what it reverses.
      2. Receipt fields on `stripe_webhook_events`, denormalized at write time
         from the payload already being stored.
      3. `action_required` status, and the handful of `return` sites in the
@@ -579,6 +611,14 @@ database that already holds real rows:
   Stripe customers onto their personal orgs. Without it, the next portal visit
   mints a *second* Stripe customer and strands the first one's card, invoices,
   and subscription.
+
+Migration `0018` adds the credit ledger's audit columns:
+
+- **`0018` is safe to run any time, on any database.** Three `ADD COLUMN`s with
+  no default and no `NOT NULL`: a brief lock, no table rewrite, no backfill.
+  Existing rows keep nulls in all three, which reads as "written before this
+  migration" — see the comment in the migration for why guessing history would
+  be worse than leaving it null.
 
 Migration `0017` adds admin MFA support:
 

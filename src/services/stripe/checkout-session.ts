@@ -94,6 +94,10 @@ export async function handleCheckoutSession(
             trans_type: CreditsTransType.OrderPay,
             credits: order.credits,
             expired_at: order.expired_at ?? null,
+            actor: "stripe:webhook",
+            metadata_json: JSON.stringify({
+              stripe_session_id: session.id,
+            }),
           }
         : null,
   });

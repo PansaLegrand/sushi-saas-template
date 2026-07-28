@@ -86,6 +86,7 @@ function paidArgs(orderNo: string, credits = 100) {
     grant: {
       trans_no: orderPayTransNo(orderNo),
       trans_type: "order_pay",
+      actor: "stripe:webhook" as const,
       credits,
       expired_at: new Date("2026-02-02T00:00:00.000Z"),
     },
@@ -117,6 +118,7 @@ function renewalArgs(credits = 100) {
     grant: {
       trans_no: subscriptionPeriodTransNo(SUB, PERIOD_START),
       trans_type: "order_pay",
+      actor: "stripe:webhook" as const,
       credits,
       expired_at: new Date("2026-03-02T00:00:00.000Z"),
     },

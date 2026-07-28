@@ -102,6 +102,11 @@ describe("createTextToVideoTask", () => {
       user_uuid: "u-test",
       trans_type: "task_text_to_video",
       credits: 8,
+      actor: "user:u-test",
+      // Links the spend to what it bought, which survives the task row being
+      // pruned. Asserted as the exact uuid rather than `expect.any(String)`,
+      // which would pass if the code passed the idempotency key by mistake.
+      metadata: { task_uuid: "task-1" },
     });
     expect(mocks.generateTextToVideo).toHaveBeenCalledWith({
       prompt: "hello",

@@ -12,10 +12,15 @@
  *   2. Balance arithmetic runs over rows that came back from Postgres, with
  *      real timestamptz values. Expiry in particular is a comparison against
  *      `expired_at`, and a mocked row cannot get that wrong.
+ *
+ * `balance_after` adds a third, and it is the reason these tests cannot be
+ * mocked at all: the column is only correct when the total is read under the
+ * per-org advisory lock that is still held when the row lands. A mock has no
+ * lock, so it would pass whether or not the real thing serializes.
  */
 import { beforeEach, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 
 import {
   UNIQUE_VIOLATION,
@@ -71,6 +76,15 @@ async function countRows(orgUuid = ORG): Promise<number> {
   return rows.length;
 }
 
+/** Every row for an org in insertion order — the order `balance_after` follows. */
+async function ledgerRows(orgUuid = ORG) {
+  return db()
+    .select()
+    .from(creditsTable)
+    .where(eq(creditsTable.org_uuid, orgUuid))
+    .orderBy(asc(creditsTable.id));
+}
+
 describeDb("credit ledger (real database)", () => {
   useCleanDatabase();
 
@@ -87,12 +101,14 @@ describeDb("credit ledger (real database)", () => {
       user_uuid: USER,
       trans_type: CreditsTransType.SystemAdd,
       credits: 100,
+      actor: "system:test",
     });
     await decreaseCredits({
       org_uuid: ORG,
       user_uuid: USER,
       trans_type: CreditsTransType.Ping,
       credits: 30,
+      actor: `user:${USER}`,
     });
 
     const summary = await getOrgCreditSummary(ORG);
@@ -109,14 +125,16 @@ describeDb("credit ledger (real database)", () => {
       user_uuid: USER,
       trans_type: CreditsTransType.SystemAdd,
       credits: 10,
+      actor: "system:test",
     });
 
     await expect(
       decreaseCredits({
         org_uuid: ORG,
-      user_uuid: USER,
+        user_uuid: USER,
         trans_type: CreditsTransType.Ping,
         credits: 25,
+        actor: `user:${USER}`,
       })
     ).rejects.toMatchObject({ code: "CREDITS_INSUFFICIENT" });
 
@@ -133,20 +151,23 @@ describeDb("credit ledger (real database)", () => {
       user_uuid: USER,
       trans_type: CreditsTransType.SystemAdd,
       credits: 10,
+      actor: "system:test",
     });
 
     const results = await Promise.allSettled([
       decreaseCredits({
         org_uuid: ORG,
-      user_uuid: USER,
+        user_uuid: USER,
         trans_type: CreditsTransType.Ping,
         credits: 10,
+        actor: `user:${USER}`,
       }),
       decreaseCredits({
         org_uuid: ORG,
-      user_uuid: USER,
+        user_uuid: USER,
         trans_type: CreditsTransType.Ping,
         credits: 10,
+        actor: `user:${USER}`,
       }),
     ]);
 
@@ -169,6 +190,7 @@ describeDb("credit ledger (real database)", () => {
       trans_type: CreditsTransType.NewUser,
       credits: 10,
       trans_no: transNo,
+      actor: "system:test",
     });
 
     const replay = increaseCredits({
@@ -177,6 +199,7 @@ describeDb("credit ledger (real database)", () => {
       trans_type: CreditsTransType.NewUser,
       credits: 10,
       trans_no: transNo,
+      actor: "system:test",
     }).catch((e) => e);
 
     expect(errorCode(await replay)).toBe(UNIQUE_VIOLATION);
@@ -204,6 +227,7 @@ describeDb("credit ledger (real database)", () => {
       trans_type: CreditsTransType.OrderPay,
       credits: 50,
       expired_at: daysFromNow(-1),
+      actor: "system:test",
     });
     await increaseCredits({
       org_uuid: ORG,
@@ -211,6 +235,7 @@ describeDb("credit ledger (real database)", () => {
       trans_type: CreditsTransType.OrderPay,
       credits: 20,
       expired_at: daysFromNow(30),
+      actor: "system:test",
     });
 
     const summary = await getOrgCreditSummary(ORG);
@@ -227,6 +252,7 @@ describeDb("credit ledger (real database)", () => {
       trans_type: CreditsTransType.OrderPay,
       credits: 5,
       expired_at: daysFromNow(3),
+      actor: "system:test",
     });
     await increaseCredits({
       org_uuid: ORG,
@@ -234,6 +260,7 @@ describeDb("credit ledger (real database)", () => {
       trans_type: CreditsTransType.OrderPay,
       credits: 7,
       expired_at: daysFromNow(90),
+      actor: "system:test",
     });
 
     const summary = await getOrgCreditSummary(ORG);
@@ -248,12 +275,14 @@ describeDb("credit ledger (real database)", () => {
       user_uuid: USER,
       trans_type: CreditsTransType.SystemAdd,
       credits: 100,
+      actor: "system:test",
     });
     const spendTransNo = await decreaseCredits({
       org_uuid: ORG,
       user_uuid: USER,
       trans_type: CreditsTransType.TaskTextToVideo,
       credits: 40,
+      actor: `user:${USER}`,
     });
 
     const first = await refundCreditsForTransaction({
@@ -278,12 +307,14 @@ describeDb("credit ledger (real database)", () => {
       user_uuid: USER,
       trans_type: CreditsTransType.SystemAdd,
       credits: 50,
+      actor: "system:test",
     });
     const spendTransNo = await decreaseCredits({
       org_uuid: ORG,
       user_uuid: USER,
       trans_type: CreditsTransType.Ping,
       credits: 5,
+      actor: `user:${USER}`,
     });
 
     await expect(
@@ -304,7 +335,7 @@ describeDb("credit ledger (real database)", () => {
         trans_no: "manual-negative",
         created_at: new Date(),
         org_uuid: ORG,
-      user_uuid: USER,
+        user_uuid: USER,
         trans_type: CreditsTransType.TaskAdjust,
         credits: -25,
         order_no: "",
@@ -314,5 +345,207 @@ describeDb("credit ledger (real database)", () => {
 
     expect(status.left_credits).toBe(0);
     expect(status.is_pro).toBe(false);
+  });
+
+  // ------------------------------------------------------------------- audit
+  // `balance_after`, `actor`, `metadata_json` — migration 0018.
+
+  it("stamps a running balance on every row it writes", async () => {
+    await increaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.SystemAdd,
+      credits: 100,
+      actor: "system:test",
+    });
+    await decreaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.Ping,
+      credits: 30,
+      actor: `user:${USER}`,
+    });
+    await increaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.SystemAdd,
+      credits: 5,
+      actor: "system:test",
+    });
+
+    const rows = await ledgerRows();
+
+    expect(rows.map((row) => row.balance_after)).toEqual([100, 70, 75]);
+  });
+
+  it("keeps the running balance consistent under concurrent grants", async () => {
+    // The point of the column, and the reason it needs the org lock. Without
+    // one, both grants read a total of 0 and both stamp 10 — a ledger that sums
+    // to 20 while claiming to have never exceeded 10. Nothing throws; the
+    // corruption is only visible by reading the rows back, which is what this
+    // does.
+    await Promise.all([
+      increaseCredits({
+        org_uuid: ORG,
+        user_uuid: USER,
+        trans_type: CreditsTransType.SystemAdd,
+        credits: 10,
+        trans_no: "concurrent-a",
+        actor: "system:test",
+      }),
+      increaseCredits({
+        org_uuid: ORG,
+        user_uuid: USER,
+        trans_type: CreditsTransType.SystemAdd,
+        credits: 10,
+        trans_no: "concurrent-b",
+        actor: "system:test",
+      }),
+    ]);
+
+    const rows = await ledgerRows();
+
+    expect(rows).toHaveLength(2);
+    // Order is whichever won the lock, so assert the set rather than a sequence.
+    expect(rows.map((row) => row.balance_after).sort((a, b) => a! - b!)).toEqual([
+      10, 20,
+    ]);
+
+    // The invariant a reconciliation script checks, stated directly.
+    let running = 0;
+    for (const row of rows) {
+      running += row.credits;
+      expect(row.balance_after).toBe(running);
+    }
+  });
+
+  it("counts expired grants in the running balance but not in the spendable one", async () => {
+    // The distinction the column exists on. Expiry moves the spendable balance
+    // without writing a row, so `balance_after` tracks the ledger total instead
+    // — otherwise every expiry would look like drift to a script that cannot
+    // see the clock.
+    await increaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.OrderPay,
+      credits: 50,
+      expired_at: daysFromNow(-1),
+      actor: "stripe:webhook",
+    });
+    await increaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.OrderPay,
+      credits: 20,
+      expired_at: daysFromNow(30),
+      actor: "stripe:webhook",
+    });
+
+    const rows = await ledgerRows();
+
+    expect(rows.map((row) => row.balance_after)).toEqual([50, 70]);
+    expect((await getOrgCreditSummary(ORG)).balance).toBe(20);
+  });
+
+  it("records who caused a movement, separately from who it credits", async () => {
+    // An admin grant and a Stripe payment are indistinguishable by trans_type
+    // alone — both can be SystemAdd/OrderPay against the same user — so this is
+    // the only column that answers "did someone pay for this".
+    await increaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.SystemAdd,
+      credits: 30,
+      trans_no: "by-admin",
+      actor: "admin:admin-uuid-1",
+    });
+    await increaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.OrderPay,
+      credits: 40,
+      trans_no: "by-stripe",
+      actor: "stripe:webhook",
+    });
+
+    const rows = await ledgerRows();
+
+    expect(rows.map((row) => row.actor)).toEqual([
+      "admin:admin-uuid-1",
+      "stripe:webhook",
+    ]);
+    // The recipient is unchanged by who acted — the two columns must not be
+    // conflated, which is the mistake this pair of assertions pins down.
+    expect(rows.every((row) => row.user_uuid === USER)).toBe(true);
+  });
+
+  it("stores metadata as JSON, and records what a refund reverses", async () => {
+    await increaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.SystemAdd,
+      credits: 100,
+      actor: "system:test",
+      metadata: { reason: "test seed" },
+    });
+    const spendTransNo = await decreaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.TaskTextToVideo,
+      credits: 40,
+      actor: `user:${USER}`,
+      metadata: { task_uuid: "task-1" },
+    });
+    await refundCreditsForTransaction({
+      org_uuid: ORG,
+      user_uuid: USER,
+      original_trans_no: spendTransNo,
+    });
+
+    const [grant, spend, refund] = await ledgerRows();
+
+    expect(JSON.parse(grant!.metadata_json!)).toEqual({ reason: "test seed" });
+    expect(JSON.parse(spend!.metadata_json!)).toEqual({ task_uuid: "task-1" });
+    expect(JSON.parse(refund!.metadata_json!)).toEqual({
+      reverses_trans_no: spendTransNo,
+      reverses_trans_type: CreditsTransType.TaskTextToVideo,
+    });
+    expect(refund!.actor).toBe("system:credit_refund");
+  });
+
+  it("leaves the audit columns null on a row written outside the model layer", async () => {
+    // Stands in for pre-0018 history. A null means "written before this
+    // existed", which a reconciliation script must treat as out of scope rather
+    // than as drift — and the balance arithmetic must not care either way.
+    await db()
+      .insert(creditsTable)
+      .values({
+        trans_no: "legacy-row",
+        created_at: new Date(),
+        org_uuid: ORG,
+        user_uuid: USER,
+        trans_type: CreditsTransType.SystemAdd,
+        credits: 15,
+        order_no: "",
+      });
+
+    const [legacy] = await ledgerRows();
+
+    expect(legacy!.balance_after).toBeNull();
+    expect(legacy!.actor).toBeNull();
+    expect(legacy!.metadata_json).toBeNull();
+    expect((await getOrgCreditSummary(ORG)).balance).toBe(15);
+
+    // And the next real write counts it, rather than restarting from zero.
+    await increaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.SystemAdd,
+      credits: 5,
+      actor: "system:test",
+    });
+
+    const rows = await ledgerRows();
+    expect(rows[1]!.balance_after).toBe(20);
   });
 });

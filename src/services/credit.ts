@@ -1,4 +1,5 @@
 import {
+  type CreditActor,
   type CreditRow,
   findCreditByTransNo,
   getOrgValidCredits,
@@ -38,7 +39,24 @@ interface CreditSummaryOptions {
   includeExpiring?: boolean;
 }
 
-interface DecreaseCreditsParams {
+/**
+ * Context every write carries, so a row can answer "who did this, and why".
+ *
+ * `actor` is required, never defaulted. A default would be applied by the one
+ * call site that forgot to think about it, which is exactly the site whose
+ * provenance later turns out to matter.
+ */
+interface CreditAuditParams {
+  actor: CreditActor;
+  /**
+   * JSON-serializable context stored on the row: the task a spend paid for, the
+   * transaction a refund reverses. Serialized here so callers pass objects and
+   * the column stays the only place that knows it is text.
+   */
+  metadata?: Record<string, unknown> | null;
+}
+
+interface DecreaseCreditsParams extends CreditAuditParams {
   /** Whose balance moves. */
   org_uuid: string;
   /** Which member spent it. Recorded for attribution, never summed. */
@@ -47,7 +65,7 @@ interface DecreaseCreditsParams {
   credits: number;
 }
 
-interface IncreaseCreditsParams {
+interface IncreaseCreditsParams extends CreditAuditParams {
   org_uuid: string;
   user_uuid: string;
   trans_type: CreditsTransType | string;
@@ -66,6 +84,15 @@ interface RefundCreditsParams {
   org_uuid: string;
   user_uuid: string;
   original_trans_no: string;
+  /** Defaults to `system:credit_refund` — a refund is us, acting on our own. */
+  actor?: CreditActor;
+}
+
+function serializeMetadata(
+  metadata?: Record<string, unknown> | null
+): string | null {
+  if (!metadata) return null;
+  return JSON.stringify(metadata);
 }
 
 function toIsoString(value?: Date | null): string | null {
@@ -192,6 +219,8 @@ export async function decreaseCredits({
   user_uuid,
   trans_type,
   credits,
+  actor,
+  metadata,
 }: DecreaseCreditsParams): Promise<string> {
   if (credits <= 0) {
     throw new AppError("CREDITS_INVALID_AMOUNT", {
@@ -207,6 +236,8 @@ export async function decreaseCredits({
       user_uuid,
       trans_type,
       credits,
+      actor,
+      metadata_json: serializeMetadata(metadata),
     });
 
     if (!created) {
@@ -234,6 +265,8 @@ export async function increaseCredits({
   expired_at,
   order_no,
   trans_no,
+  actor,
+  metadata,
 }: IncreaseCreditsParams): Promise<void> {
   if (credits <= 0) {
     throw new AppError("CREDITS_INVALID_AMOUNT", {
@@ -258,6 +291,8 @@ export async function increaseCredits({
       credits,
       order_no: order_no ?? "",
       expired_at: expiryDate,
+      actor,
+      metadata_json: serializeMetadata(metadata),
     };
 
     await insertCredit(newCredit);
@@ -274,6 +309,7 @@ export async function refundCreditsForTransaction({
   org_uuid,
   user_uuid,
   original_trans_no,
+  actor = "system:credit_refund",
 }: RefundCreditsParams): Promise<string> {
   const original = await findCreditByTransNo(original_trans_no);
   if (!original) {
@@ -315,6 +351,13 @@ export async function refundCreditsForTransaction({
       credits: Math.abs(original.credits),
       order_no: original.order_no,
       expired_at: original.expired_at,
+      actor,
+      // The reversed transaction. Also encoded in `trans_no` for idempotency,
+      // recorded here so reading the row does not require parsing its key.
+      metadata_json: serializeMetadata({
+        reverses_trans_no: original_trans_no,
+        reverses_trans_type: original.trans_type,
+      }),
     });
 
     if (!created) {

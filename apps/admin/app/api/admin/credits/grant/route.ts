@@ -138,6 +138,12 @@ export async function POST(req: Request) {
           // behind it, and accepting one lets the ledger be forged.
           order_no: "",
           trans_no: transNo,
+          // The admin who issued it, NOT the recipient — `user_uuid` above
+          // already holds the recipient. Separating the two is the entire point
+          // of this column: "who was credited" and "who decided to" are
+          // different questions, and only the second one is accountability.
+          actor: `admin:${admin.userUuid}`,
+          metadata: { idempotency_key: idempotencyKey },
         });
       } catch (e) {
         // Lost the race against a concurrent identical request; that request

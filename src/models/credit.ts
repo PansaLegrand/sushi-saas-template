@@ -22,8 +22,70 @@ export type CreditRow = typeof credits.$inferSelect;
  * backfill later.
  */
 
-/** `org_uuid` is required: a ledger row outside a balance is money nobody owns. */
-export type CreditInsert = typeof credits.$inferInsert & { org_uuid: string };
+/**
+ * Who caused a movement. Namespaced so the prefix alone answers "was this us or
+ * a customer paying", and typed as a template union so a bare string like
+ * `"admin"` will not compile — an unnamespaced actor is the one value that would
+ * make the column useless.
+ */
+export type CreditActor =
+  /** A Stripe webhook, i.e. money the customer actually handed over. */
+  | `stripe:${string}`
+  /** An admin acting on someone else's balance. The uuid is the admin's. */
+  | `admin:${string}`
+  /** A member acting on their own org — a spend, or a self-serve grant. */
+  | `user:${string}`
+  /** Us: a signup bonus, a task refund, a migration. */
+  | `system:${string}`;
+
+/**
+ * `org_uuid` is required: a ledger row outside a balance is money nobody owns.
+ * `actor` is required for the same reason — a movement nobody caused cannot be
+ * audited, and it is not backfillable once written.
+ *
+ * `balance_after` is *omitted* rather than optional. It is derived, and only
+ * correct when computed under the org lock below, so a caller must not be able
+ * to supply one. Every write in this file computes it.
+ */
+export type CreditInsert = Omit<typeof credits.$inferInsert, "balance_after"> & {
+  org_uuid: string;
+  actor: CreditActor;
+};
+
+/** An open transaction, as handed to the callback of `db().transaction()`. */
+type Tx = Parameters<Parameters<ReturnType<typeof db>["transaction"]>[0]>[0];
+
+/**
+ * Take the per-organization lock and return the ledger total under it.
+ *
+ * Must be called inside a transaction — `pg_advisory_xact_lock` releases on
+ * commit, and a lock that has already been released does not serialize the
+ * insert it was taken for.
+ *
+ * The lock keys on the organization because that is what the balance covers.
+ * Two members of one org writing at once would otherwise both read the same
+ * total and write the same `balance_after`, which is the exact inconsistency the
+ * column exists to expose.
+ *
+ * The sum is over *every* row, including expired grants. See the note on
+ * `balance_after` in the schema: a spend-aware total would drift from the ledger
+ * by design and make real drift undetectable.
+ */
+export async function lockOrgAndSumLedger(
+  tx: Tx,
+  org_uuid: string
+): Promise<number> {
+  await tx.execute(sql`
+    select pg_advisory_xact_lock(hashtextextended(${org_uuid}, 0::bigint))
+  `);
+
+  const [row] = await tx
+    .select({ total: sql<number>`coalesce(sum(${credits.credits}), 0)::int` })
+    .from(credits)
+    .where(scopedToOrg(credits.org_uuid, org_uuid));
+
+  return row?.total ?? 0;
+}
 
 export async function insertCredit(
   data: CreditInsert
@@ -35,9 +97,19 @@ export async function insertCredit(
     data.expired_at = new Date(data.expired_at);
   }
 
-  const [credit] = await db().insert(credits).values(data).returning();
+  // A transaction for a single insert, because `balance_after` makes it a
+  // read-then-write: the total has to be read under a lock that is still held
+  // when the row lands, or two concurrent grants stamp the same balance.
+  return db().transaction(async (tx) => {
+    const balanceBefore = await lockOrgAndSumLedger(tx, data.org_uuid);
 
-  return credit;
+    const [credit] = await tx
+      .insert(credits)
+      .values({ ...data, balance_after: balanceBefore + data.credits })
+      .returning();
+
+    return credit;
+  });
 }
 
 export async function insertSpendCreditIfSufficient({
@@ -47,6 +119,8 @@ export async function insertSpendCreditIfSufficient({
   credits: amount,
   trans_no,
   created_at,
+  actor,
+  metadata_json,
 }: {
   org_uuid: string;
   user_uuid: string;
@@ -54,6 +128,8 @@ export async function insertSpendCreditIfSufficient({
   credits: number;
   trans_no: string;
   created_at: Date;
+  actor: CreditActor;
+  metadata_json?: string | null;
 }): Promise<CreditRow | undefined> {
   return db().transaction(async (tx) => {
     // Serialize spends per ORGANIZATION, not per user.
@@ -64,9 +140,13 @@ export async function insertSpendCreditIfSufficient({
     // different locks, both read the same balance, and both succeed — spending
     // the same credits twice and driving the org negative. The lock must cover
     // exactly what the balance covers.
-    await tx.execute(sql`
-      select pg_advisory_xact_lock(hashtextextended(${org_uuid}, 0::bigint))
-    `);
+    //
+    // The same lock now also serializes `balance_after`. The ledger total it
+    // returns is *not* the spendable balance computed below — expired grants
+    // count toward the audit trail and not toward what can be spent — so both
+    // are needed, and conflating them would either strand expired credits in
+    // the balance or make the audit column drift.
+    const ledgerTotal = await lockOrgAndSumLedger(tx, org_uuid);
 
     const now = new Date();
     const ledger = await tx
@@ -115,6 +195,8 @@ export async function insertSpendCreditIfSufficient({
       }
     }
 
+    const spent = -Math.abs(amount);
+
     const [credit] = await tx
       .insert(credits)
       .values({
@@ -122,11 +204,14 @@ export async function insertSpendCreditIfSufficient({
         created_at,
         expired_at: sourceExpiry,
         org_uuid,
-        // The actor. Recorded, never summed.
+        // Which member this is attributed to. Recorded, never summed.
         user_uuid,
         trans_type,
-        credits: -Math.abs(amount),
+        credits: spent,
         order_no: sourceOrderNo,
+        actor,
+        metadata_json: metadata_json ?? null,
+        balance_after: ledgerTotal + spent,
       })
       .returning();
 

@@ -287,9 +287,12 @@ export const credits = pgTable("credits", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   trans_no: varchar({ length: 255 }).notNull().unique(),
   created_at: timestamp({ withTimezone: true }),
-  // The actor: which member spent or earned this. Kept deliberately alongside
-  // `org_uuid`, because the balance is pooled at the org but per-member quotas
-  // and usage reporting are impossible to build later if nobody recorded who.
+  // Which member spent or earned this. Kept deliberately alongside `org_uuid`,
+  // because the balance is pooled at the org but per-member quotas and usage
+  // reporting are impossible to build later if nobody recorded who.
+  //
+  // Not the same thing as `actor` below: this is the member the movement is
+  // attributed *to*, which on an admin grant is the recipient, not the admin.
   user_uuid: varchar({ length: 255 }).notNull(),
   trans_type: varchar({ length: 50 }).notNull(),
   credits: integer().notNull(),
@@ -297,6 +300,34 @@ export const credits = pgTable("credits", {
   expired_at: timestamp({ withTimezone: true }),
   // The balance keys on this, not on user_uuid.
   org_uuid: varchar({ length: 255 }).notNull(),
+
+  // ------------------------------------------------------------------ audit
+  // The three columns below make a ledger row answer "why does this org have
+  // this balance" without a join and a guess. All three are nullable because
+  // rows written before they existed have no honest value — see migration 0018,
+  // which backfills nothing rather than inventing history.
+
+  // The running total of every row for this org, this row included.
+  //
+  // Deliberately the total, NOT the spendable balance: credits expire without
+  // writing a ledger row, so a spend-aware figure would drift from the sum by
+  // design and a reconciliation script could not tell that apart from a real
+  // inconsistency. The invariant a script checks is that consecutive rows
+  // satisfy `prev.balance_after + row.credits = row.balance_after`.
+  //
+  // Only correct if computed under the same per-org lock that guards a spend,
+  // which is why `src/models/credit.ts` owns every write and the insert type
+  // refuses a caller-supplied value.
+  balance_after: integer(),
+  // Who caused this movement, namespaced: `stripe:webhook`, `admin:<uuid>`,
+  // `user:<uuid>`, `system:<reason>`. Distinguishes a grant an admin issued
+  // from one Stripe paid for — indistinguishable today, because `trans_type`
+  // records what happened and nothing recorded who.
+  actor: varchar({ length: 255 }),
+  // Free-form JSON context: the task a spend paid for, the transaction a refund
+  // reverses. Named `metadata_json` to match `files` and `tasks`; the roadmap
+  // calls it `metadata`, and matching the two neighbouring tables won.
+  metadata_json: text(),
 }, (table) => [index("credits_org_idx").on(table.org_uuid)]);
 
 // Posts table

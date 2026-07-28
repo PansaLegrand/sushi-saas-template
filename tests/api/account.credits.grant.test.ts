@@ -119,6 +119,10 @@ describe("POST /api/account/credits/grant", () => {
       credits: 5,
       expired_at: undefined,
       order_no: undefined,
+      // A demo self-grant, marked as such: a row written while this endpoint was
+      // briefly enabled must stay distinguishable from one Stripe paid for.
+      actor: "user:u-test",
+      metadata: { source: "demo_grant_endpoint" },
     });
     expect(credit.getOrgCreditSummary).toHaveBeenCalledWith(
       "org-test",

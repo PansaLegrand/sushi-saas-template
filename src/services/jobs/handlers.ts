@@ -53,6 +53,8 @@ export const jobHandlers: JobHandlerMap = {
         credits,
         trans_no: transNo,
         order_no: "",
+        // Us, not the new user: nobody paid and nobody asked.
+        actor: "system:new_user",
       });
     } catch (e) {
       const code = (e as { code?: string } | null)?.code;

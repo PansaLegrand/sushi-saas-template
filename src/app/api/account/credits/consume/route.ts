@@ -49,6 +49,7 @@ export async function POST(req: Request) {
       user_uuid: ctx.userUuid,
       trans_type: CreditsTransType.MockUsage,
       credits,
+      actor: `user:${ctx.userUuid}`,
     });
 
     const summary = await getOrgCreditSummary(ctx.orgUuid, {

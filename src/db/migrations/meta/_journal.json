@@ -125,6 +125,13 @@
       "when": 1785048502438,
       "tag": "0017_unknown_blob",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1785204548956,
+      "tag": "0018_stale_ultragirl",
+      "breakpoints": true
     }
   ]
 }

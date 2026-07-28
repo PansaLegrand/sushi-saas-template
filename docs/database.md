@@ -117,13 +117,37 @@ roles strictly from the session uuid/id for exactly this reason.
 
 ### 3. The credit ledger is append-only
 
-`credits` rows are immutable facts. Balance is `SUM(credits)` over the user's
-rows — grants positive, spends negative. There is no balance column, and
-**nothing may `UPDATE` or `DELETE` a credits row.** A correction is a new
-compensating row (see `refundCreditsForTransaction`).
+`credits` rows are immutable facts. Balance is `SUM(credits)` over the
+organization's rows — grants positive, spends negative. There is no balance
+column, and **nothing may `UPDATE` or `DELETE` a credits row.** A correction is a
+new compensating row (see `refundCreditsForTransaction`).
 
 `auth_events` and `admin_audit_logs` follow the same rule: append-only, never
 edited.
+
+**Three audit columns, added in `0018`, and two traps in them:**
+
+| Column | Holds |
+| --- | --- |
+| `balance_after` | The running total of every row for the org, this one included |
+| `actor` | Who caused it: `stripe:webhook`, `admin:<uuid>`, `user:<uuid>`, `system:<reason>` |
+| `metadata_json` | Free-form JSON — the task a spend paid for, the transaction a refund reverses |
+
+The first trap: **`balance_after` is not the spendable balance.** Credits expire
+without writing a ledger row, so a spend-aware figure would drift from the sum by
+design and a reconciliation script could not tell that apart from real
+corruption. `balance_after` tracks the ledger total; `getOrgCredits` computes
+what can actually be spent. They are allowed to disagree, and usually do.
+
+The second: **`actor` is not `user_uuid`.** `user_uuid` is who the movement is
+credited *to*; `actor` is who caused it. On an admin grant they are two different
+people, which is the entire reason the column exists.
+
+Both are only correct when written under the per-organization advisory lock, so
+`src/models/credit.ts` owns every write and its insert type refuses a
+caller-supplied `balance_after`. Do not insert into `credits` from anywhere else.
+A null in any of the three means "written before `0018`", which a script must
+treat as out of scope rather than as drift.
 
 ### 4. Idempotency lives in unique indexes, not in code
 

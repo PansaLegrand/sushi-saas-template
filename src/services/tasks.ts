@@ -117,6 +117,10 @@ export async function createTextToVideoTask(params: {
       user_uuid: userUuid,
       trans_type: CreditsTransType.TaskTextToVideo,
       credits: creditsUsed,
+      actor: `user:${userUuid}`,
+      // What the spend bought. The task also records `credits_trans_no`, but
+      // only this direction survives the task row being pruned.
+      metadata: { task_uuid: insertedTask.uuid },
     });
 
     await updateTaskStatus(insertedTask.uuid, orgUuid, "running", {

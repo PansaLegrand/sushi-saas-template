@@ -378,6 +378,12 @@ export async function POST(req: Request) {
                     trans_type: CreditsTransType.OrderPay,
                     credits,
                     expired_at: expiredAt,
+                    actor: "stripe:webhook",
+                    metadata_json: JSON.stringify({
+                      stripe_event_id: event.id,
+                      stripe_invoice_id: invoice.id,
+                      stripe_subscription_id: subId,
+                    }),
                   }
                 : null,
           });

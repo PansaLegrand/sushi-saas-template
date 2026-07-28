@@ -51,6 +51,11 @@ export async function POST(req: Request) {
       credits,
       expired_at: payload.expiredAt,
       order_no: payload.orderNo,
+      // The member granted to themselves. This endpoint is disabled outside
+      // non-production demos, and the actor is what makes a row written while it
+      // was briefly enabled distinguishable from one Stripe paid for.
+      actor: `user:${ctx.userUuid}`,
+      metadata: { source: "demo_grant_endpoint" },
     });
 
     const summary = await getOrgCreditSummary(ctx.orgUuid, {
