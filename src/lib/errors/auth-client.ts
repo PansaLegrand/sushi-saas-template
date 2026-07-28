@@ -13,7 +13,7 @@
  * server side.
  */
 
-import { normalizeErrorCode } from "./catalog";
+import { normalizeErrorCode, type ErrorCode } from "./catalog";
 import { translateErrorCode } from "./i18n";
 
 export interface AuthClientError {
@@ -26,10 +26,13 @@ export function resolveAuthError(
   error: AuthClientError | null | undefined,
   locale?: string | null
 ): string {
-  const code =
-    normalizeErrorCode(error?.code) ??
-    normalizeErrorCode(error?.message) ??
-    "SERVER_ERROR";
+  const code = resolveAuthErrorCode(error) ?? "SERVER_ERROR";
 
   return translateErrorCode(code, locale);
+}
+
+export function resolveAuthErrorCode(
+  error: AuthClientError | null | undefined
+): ErrorCode | undefined {
+  return normalizeErrorCode(error?.code) ?? normalizeErrorCode(error?.message);
 }

@@ -3,16 +3,19 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { ArrowLeft, MailCheck, RefreshCw } from "lucide-react";
 
-import { signIn, signUp, useSession } from "@/lib/auth-client";
+import { authClient, signIn, signUp, useSession } from "@/lib/auth-client";
 import { AUTH_ROUTES, withLocale } from "@/config/auth";
 import { captchaHeaders } from "@/lib/captcha";
-import { resolveAuthError } from "@/lib/errors/auth-client";
+import { resolveAuthError, resolveAuthErrorCode } from "@/lib/errors/auth-client";
 import {
   Turnstile,
   canSubmitWithCaptcha,
   type TurnstileHandle,
 } from "@/components/auth/turnstile";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 
 type AuthMode = "signIn" | "signUp";
 
@@ -45,11 +48,13 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
   const [isSubmitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [verificationEmail, setVerificationEmail] = useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileHandle>(null);
 
   useEffect(() => {
     setMode(initialMode);
+    setVerificationEmail(null);
   }, [initialMode]);
 
   const buildPath = useCallback(
@@ -86,7 +91,13 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
         });
 
         if (error) {
-          setErrorMessage(resolveAuthError(error, locale));
+          if (resolveAuthErrorCode(error) === "AUTH_EMAIL_NOT_VERIFIED") {
+            setSuccessMessage(t("msgVerifyEmailPending"));
+            setVerificationEmail(form.email);
+            setForm((state) => ({ email: state.email, password: "", name: "" }));
+          } else {
+            setErrorMessage(resolveAuthError(error, locale));
+          }
         } else if ((data as any)?.twoFactorRedirect) {
           router.replace(buildPath("/two-factor"));
         } else {
@@ -105,9 +116,8 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
           setErrorMessage(resolveAuthError(error, locale));
         } else {
           setSuccessMessage(t("msgVerifyEmailSent"));
-          setMode("signIn");
+          setVerificationEmail(form.email);
           setForm((state) => ({ email: state.email, password: "", name: "" }));
-          router.replace(buildPath(AUTH_ROUTES.login));
         }
       }
     } catch {
@@ -120,8 +130,53 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
     }
   };
 
+  const handleResendVerification = async () => {
+    if (!verificationEmail) return;
+
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    if (!canSubmitWithCaptcha(captchaToken)) {
+      setErrorMessage(t("captchaRequired"));
+      return;
+    }
+
+    setSubmitting(true);
+    const fetchOptions = { headers: captchaHeaders(captchaToken) };
+
+    try {
+      const { error } = await authClient.sendVerificationEmail({
+        email: verificationEmail,
+        callbackURL: buildPath(),
+        fetchOptions,
+      });
+
+      if (error) {
+        setErrorMessage(resolveAuthError(error, locale));
+      } else {
+        setSuccessMessage(t("msgVerifyEmailResent"));
+      }
+    } catch {
+      setErrorMessage(resolveAuthError(null, locale));
+    } finally {
+      turnstileRef.current?.reset();
+      setSubmitting(false);
+    }
+  };
+
+  const resetSignup = () => {
+    setMode("signUp");
+    setVerificationEmail(null);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setForm(INITIAL_STATE);
+    setCaptchaToken(null);
+    router.replace(buildPath(AUTH_ROUTES.signup));
+  };
+
   const toggleMode = (nextMode: AuthMode) => {
     setMode(nextMode);
+    setVerificationEmail(null);
     setErrorMessage(null);
     setSuccessMessage(null);
     setForm(INITIAL_STATE);
@@ -131,6 +186,68 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
   };
 
   const submitLabel = mode === "signIn" ? t("submitSignIn") : t("submitSignUp");
+
+  if (verificationEmail) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4 py-16">
+        <div className="w-full max-w-md space-y-6 rounded-lg border border-border bg-card p-8 shadow-sm">
+          <header className="space-y-2 text-center">
+            <h1 className="text-2xl font-semibold">{t("verifyEmailTitle")}</h1>
+            <p className="text-sm text-muted-foreground">
+              {t("verifyEmailSubtitle")}
+            </p>
+          </header>
+
+          <Alert role="status" variant="success">
+            <MailCheck aria-hidden className="text-emerald-600" />
+            <AlertTitle>{t("verifyEmailStatusTitle")}</AlertTitle>
+            <AlertDescription className="space-y-3">
+              <p>{successMessage ?? t("msgVerifyEmailSent")}</p>
+              <p className="break-all font-medium text-foreground">
+                {verificationEmail}
+              </p>
+              <p>{t("verifyEmailInstructions")}</p>
+            </AlertDescription>
+          </Alert>
+
+          {errorMessage && (
+            <Alert variant="destructive">
+              <AlertDescription>{errorMessage}</AlertDescription>
+            </Alert>
+          )}
+
+          <Turnstile
+            ref={turnstileRef}
+            onToken={setCaptchaToken}
+            onError={() => setErrorMessage(t("captchaFailed"))}
+            className="flex justify-center"
+          />
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button
+              type="button"
+              onClick={handleResendVerification}
+              disabled={isSubmitting}
+              className="w-full gap-2"
+            >
+              <RefreshCw aria-hidden className="h-4 w-4" />
+              {isSubmitting ? t("sending") : t("resendVerificationEmail")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={resetSignup}
+              disabled={isSubmitting}
+              className="w-full gap-2"
+            >
+              <ArrowLeft aria-hidden className="h-4 w-4" />
+              {t("useDifferentEmail")}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-16">
