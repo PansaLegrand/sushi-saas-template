@@ -77,16 +77,22 @@ export const describeDb = describe.skipIf(!hasTestDatabase);
 /** Tables the database tier writes to. Truncated between tests. */
 const MANAGED_TABLES = [
   "credits",
+  "email_blocklist",
   "files",
   "jobs",
   "orders",
   "org_invitations",
   "org_members",
   "organizations",
+  "sessions",
   "stripe_webhook_events",
   "subscriptions",
   "tasks",
   "users",
+  // Password-reset and email-verification tokens. Left out, they accumulate
+  // across every file in the tier, and a test that looks up "the reset token"
+  // finds one issued to a different user in an earlier test.
+  "verifications",
 ] as const;
 
 /**
