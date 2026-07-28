@@ -3,7 +3,7 @@
 import { Check, Loader } from "lucide-react";
 import { PricingItem, Pricing as PricingType } from "@/types/blocks/pricing";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,24 +28,62 @@ export default function Pricing({ pricing }: { pricing: PricingType }) {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [productId, setProductId] = useState<string | null>(null);
+  const checkoutAttemptRef = useRef<{
+    fingerprint: string;
+    intentId: string;
+    inFlight: boolean;
+  } | null>(null);
 
   const handleCheckout = async (item: PricingItem, cn_pay: boolean = false) => {
+    const currency = cn_pay ? "cny" : item.currency;
+    const fingerprint = `${item.product_id}:${currency}`;
+    const currentAttempt = checkoutAttemptRef.current;
+
+    // React state updates on the next render. This ref changes synchronously,
+    // closing the small window where two click events can both observe
+    // `isLoading === false` and send two requests.
+    if (currentAttempt?.inFlight) return;
+
+    const intentId =
+      currentAttempt?.fingerprint === fingerprint
+        ? currentAttempt.intentId
+        : globalThis.crypto.randomUUID();
+    checkoutAttemptRef.current = {
+      fingerprint,
+      intentId,
+      inFlight: true,
+    };
+
     try {
       const params = {
         product_id: item.product_id,
-        currency: cn_pay ? "cny" : item.currency,
+        currency,
         locale: locale || "en",
       };
 
       setIsLoading(true);
       setProductId(item.product_id);
 
-      const data = await createCheckout(params);
+      const data = await createCheckout(params, intentId);
 
       if (!data?.checkout_url) throw new Error("PAYMENT_SESSION_FAILED");
 
+      // Keep the synchronous lock set after success. Navigation happens only
+      // after the network response, and releasing here would reopen a second
+      // click window while the browser is leaving this page.
       window.location.href = data.checkout_url;
     } catch (error) {
+      const needsNewIntent =
+        isClientApiError(error) &&
+        (error.code === "CHECKOUT_INTENT_CONFLICT" ||
+          error.code === "PAYMENT_SESSION_EXPIRED");
+
+      checkoutAttemptRef.current = needsNewIntent
+        ? null
+        : { fingerprint, intentId, inFlight: false };
+      setIsLoading(false);
+      setProductId(null);
+
       // Branching on the code, not on message text: an unauthenticated user
       // gets the sign-in modal rather than a toast they cannot act on.
       if (isClientApiError(error) && error.code === "AUTH_REQUIRED") {
@@ -55,9 +93,6 @@ export default function Pricing({ pricing }: { pricing: PricingType }) {
 
       console.error("checkout failed: ", error);
       toast.error(resolveErrorMessage(error, locale, "PAYMENT_SESSION_FAILED"));
-    } finally {
-      setIsLoading(false);
-      setProductId(null);
     }
   };
 

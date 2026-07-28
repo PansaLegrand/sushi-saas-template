@@ -153,6 +153,13 @@
       "when": 1785221279861,
       "tag": "0021_flawless_toad",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1785254988716,
+      "tag": "0022_many_husk",
+      "breakpoints": true
     }
   ]
 }

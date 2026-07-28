@@ -68,7 +68,7 @@ canonical: "https://www.sushi-templates.com/zh/blogs/stripe-setup"
 
 ## 接口说明
 
-- `/api/checkout` (POST)：从 `src/config/billing.ts` 解析商品，使用已配置的 Price ID 创建 Checkout 会话，并保存订单 `created`。
+- `/api/checkout` (POST)：从 `src/config/billing.ts` 解析商品，使用已配置的 Price ID 创建 Checkout 会话，并保存订单 `created`。必须提供 `Idempotency-Key`：同一组织重复提交同一 key 会返回已有订单/会话；使用新 key 则会发起另一笔购买，并可创建额外订阅。
 - `/api/pay/callback/stripe` (GET)：Stripe 成功页的跳转目标；不再做入账逻辑。
 - `/api/pay/webhook/stripe` (POST)：校验签名，处理 `checkout.session.completed`，完成入账与积分增加。
 

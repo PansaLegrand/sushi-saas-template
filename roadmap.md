@@ -39,6 +39,8 @@ Legend:
 - [x] Organizations & tenancy: personal workspace per user, org-scoped data, pooled credits — see [docs/organizations.md](docs/organizations.md)
 - [x] Teams: invitations with email, member management, roles, last-owner protection
 - [x] Billing belongs to the organization: org-scoped Stripe customer, owner-only checkout and portal
+- [x] Checkout intent idempotency: double-clicks and retries reuse one order and
+  Stripe session, while a new intent can deliberately buy another subscription
 - [x] Site/app split: `NEXT_PUBLIC_SITE_MODE=site` serves landing, docs, blog,
   and health only, while SaaS routes are blocked at middleware
 

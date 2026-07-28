@@ -80,6 +80,7 @@ While specifics vary by provider and platform, the general flow is:
   - Resolves the selected product against `src/config/billing.ts`.
   - Creates a Stripe Checkout session with its configured Stripe Price ID.
   - Inserts an `orders` row with status `created` and returns `checkout_url`.
+  - Requires an `Idempotency-Key`. Replaying the same key for the same organization returns the existing order/session; a new key deliberately starts another purchase and may create another subscription.
 
 - `/api/pay/callback/stripe` (GET):
   - Used by Stripe Checkout success redirect. Fetches the session for logging, then redirects the user to your success or failure page.

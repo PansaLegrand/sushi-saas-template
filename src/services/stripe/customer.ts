@@ -53,13 +53,21 @@ export async function getOrCreateCustomerIdForOrg(
   // address — a consultant with several clients, or one person's personal and
   // team workspaces — and adopting on email alone would put both tenants'
   // subscriptions behind a single payment method.
-  const created = await stripe.customers.create({
-    email: org.email,
-    name: org.orgName,
-    metadata: {
-      org_uuid: org.orgUuid,
+  const created = await stripe.customers.create(
+    {
+      email: org.email,
+      name: org.orgName,
+      metadata: {
+        org_uuid: org.orgUuid,
+      },
     },
-  });
+    {
+      // The list/adopt check protects a later retry. This key protects two
+      // checkouts that reach customer creation concurrently, before either one
+      // has saved the new customer id on the organization.
+      idempotencyKey: `org-customer:${org.orgUuid}`,
+    }
+  );
 
   await setOrganizationStripeCustomerId(org.orgUuid, created.id).catch(() => void 0);
   return created.id;

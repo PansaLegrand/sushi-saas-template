@@ -117,6 +117,22 @@ Two properties make that safe:
 time they land back from Checkout rather than whenever
 `customer.subscription.created` happens to arrive.
 
+### Checkout retries and multiple subscriptions
+
+Checkout is idempotent per **purchase intent**, not per organization or plan.
+The browser sends one `Idempotency-Key` for a click and reuses it for an
+uncertain network retry. The database maps `(org_uuid, checkout_intent_id)` to
+one order; that stable order number is also Stripe's idempotency key. Reusing
+the key with a different canonical product, Price ID, currency, or locale is a
+`409` conflict.
+
+A deliberate second purchase generates a new intent key, so the same
+organization may hold several independent subscriptions. Their credit grants
+remain additive in the ledger, while `resolvePlan` selects the highest-ranked
+active subscription for capabilities. Do not replace the intent index with a
+unique constraint on organization, Stripe Customer, product, or active
+subscription—that would turn retry protection into a product limitation.
+
 If a subscription cannot be attributed to a user, or carries a price that is
 not in the catalog, the sync **refuses to guess** — it logs an error and raises
 a Slack alert. Both mean a paying customer without access, and neither fixes

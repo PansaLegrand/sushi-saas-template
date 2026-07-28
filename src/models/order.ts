@@ -11,6 +11,8 @@ export enum OrderStatus {
   Deleted = "deleted",
 }
 
+export type OrderRow = typeof orders.$inferSelect;
+
 /** `org_uuid` is required: an order that belongs to no tenant can never be read back. */
 export type OrderInsert = typeof orders.$inferInsert & { org_uuid: string };
 
@@ -26,6 +28,46 @@ export async function insertOrder(data: OrderInsert) {
   }
 
   const [order] = await db().insert(orders).values(data).returning();
+
+  return order;
+}
+
+/**
+ * Claim one order for one organization-scoped browser purchase intent.
+ *
+ * `onConflictDoNothing` is the concurrency guarantee. Two server instances can
+ * both receive the same double-click before either has created a Stripe
+ * session; only one receives a row here, and the other resolves that row with
+ * `findOrderByCheckoutIntent`.
+ */
+export async function insertOrderForCheckoutIntent(
+  data: OrderInsert & { checkout_intent_id: string }
+): Promise<OrderRow | undefined> {
+  const [order] = await db()
+    .insert(orders)
+    .values(data)
+    .onConflictDoNothing({
+      target: [orders.org_uuid, orders.checkout_intent_id],
+    })
+    .returning();
+
+  return order;
+}
+
+export async function findOrderByCheckoutIntent(
+  orgUuid: string,
+  checkoutIntentId: string
+): Promise<OrderRow | undefined> {
+  const [order] = await db()
+    .select()
+    .from(orders)
+    .where(
+      and(
+        scopedToOrg(orders.org_uuid, orgUuid),
+        eq(orders.checkout_intent_id, checkoutIntentId)
+      )
+    )
+    .limit(1);
 
   return order;
 }

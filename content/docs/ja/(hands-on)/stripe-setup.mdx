@@ -68,7 +68,7 @@ canonical: "https://www.sushi-templates.com/ja/blogs/stripe-setup"
 
 ## エンドポイント
 
-- `/api/checkout` (POST): `src/config/billing.ts` から商品を解決し、設定済み Price ID で Checkout セッションを作成、注文を `created` で保存。
+- `/api/checkout` (POST): `src/config/billing.ts` から商品を解決し、設定済み Price ID で Checkout セッションを作成、注文を `created` で保存。`Idempotency-Key` は必須です。同じ組織で同じキーを再送すると既存の注文/セッションを返し、新しいキーなら別の購入として追加のサブスクリプションを作成できます。
 - `/api/pay/callback/stripe` (GET): Stripe からのリダイレクト用。最終処理は行いません。
 - `/api/pay/webhook/stripe` (POST): 署名検証後、`checkout.session.completed` を処理して付与。
 

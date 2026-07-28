@@ -4,6 +4,14 @@ export function createCheckout(input: {
   product_id: string;
   currency: string;
   locale: string;
-}) {
-  return api.post<{ checkout_url?: string }>("/api/checkout", { body: input });
+}, checkoutIntentId: string) {
+  return api.post<{
+    order_no: string;
+    session_id: string | null;
+    checkout_url: string;
+    reused: boolean;
+  }>("/api/checkout", {
+    headers: { "Idempotency-Key": checkoutIntentId },
+    body: input,
+  });
 }

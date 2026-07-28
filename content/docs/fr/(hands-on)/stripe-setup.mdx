@@ -68,7 +68,7 @@ Malgré ces étapes, le processus est automatisé et ne prend que quelques secon
 
 ## Endpoints
 
-- `/api/checkout` (POST) : résout le produit dans `src/config/billing.ts`, crée la session avec son Price ID, puis enregistre une `order` `created`.
+- `/api/checkout` (POST) : résout le produit dans `src/config/billing.ts`, crée la session avec son Price ID, puis enregistre une `order` `created`. Requiert `Idempotency-Key` : rejouer la même clé pour la même organisation renvoie la commande/session existante ; une nouvelle clé démarre un autre achat et peut créer un autre abonnement.
 - `/api/pay/callback/stripe` (GET) : redirection post‑Stripe ; ne finalise plus la commande.
 - `/api/pay/webhook/stripe` (POST) : vérifie la signature et traite `checkout.session.completed` pour marquer `paid` et créditer.
 

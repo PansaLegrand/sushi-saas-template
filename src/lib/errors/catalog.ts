@@ -232,10 +232,20 @@ export const ERROR_CATALOG = {
     statusCode: 500,
     defaultMessage: "We could not start your order. Please try again.",
   },
+  CHECKOUT_INTENT_CONFLICT: {
+    statusCode: 409,
+    defaultMessage:
+      "This checkout was already started with different options. Start a new checkout and try again.",
+  },
   PAYMENT_SESSION_FAILED: {
     statusCode: 502,
     defaultMessage: "The payment provider is unavailable. Please try again shortly.",
     legacyCodes: ["checkout failed"],
+  },
+  PAYMENT_SESSION_EXPIRED: {
+    statusCode: 409,
+    defaultMessage:
+      "This checkout session has expired. Start a new checkout to continue.",
   },
   PAYMENT_WEBHOOK_INVALID_SIGNATURE: {
     statusCode: 400,

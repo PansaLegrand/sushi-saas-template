@@ -161,7 +161,8 @@ catches the resulting `23505` and treats it as success. Full map:
 | `tasks (user_uuid, type, idempotency_key)` unique | Double-charging for a double-clicked task |
 | `stripe_webhook_events.event_id` unique | Reprocessing a Stripe retry |
 | `subscriptions.stripe_subscription_id` unique | Two rows for one Stripe subscription. Nullable, so comps (many NULLs) do not collide |
-| `orders.order_no` unique | Duplicate orders |
+| `orders.order_no` unique | Reusing one order identifier |
+| `orders (org_uuid, checkout_intent_id)` unique | Two orders from one checkout double-click or retry. A new intent id still creates another subscription |
 | `reservations.reservation_no` unique | Duplicate bookings |
 | `files (bucket, key)` unique | Two rows for one object |
 | `users (email, signin_provider)` unique | One address claimed twice per provider |
@@ -238,7 +239,7 @@ graph LR
 
 | Table | Purpose | Notes |
 | --- | --- | --- |
-| `orders` | Purchases — the immutable financial log | `status` is `created` / paid states. Subscription period columns are epoch seconds. Never rewritten after the fact; do not answer "what is this user entitled to" from it. |
+| `orders` | Purchases — the immutable financial log | `status` is `created` / paid states. Browser checkouts are idempotent on `(org_uuid, checkout_intent_id)`; `checkout_fingerprint` refuses the same key with different terms, while `stripe_price_id` and `checkout_locale` preserve the exact Stripe request across a crash. Subscription period columns are epoch seconds. Never rewritten after the fact; do not answer "what is this user entitled to" from it. |
 | `subscriptions` | Current billing state, one row per subscription | What `orders` is not: rewritten in place on every Stripe event. `status` uses Stripe's own vocabulary. `source` is `stripe` or `manual` (a comp). `stripe_event_at` orders concurrent webhook deliveries (ground rule 7). Read through `src/services/entitlements.ts`, never directly. |
 | `credits` | Append-only ledger | Positive = grant, negative = spend. `expired_at` null means never expires. `trans_type` values are the `CreditsTransType` enum in `src/services/credit.ts`. `balance_after` / `actor` / `metadata_json` are the audit columns — see ground rule 3, including the two traps in them. |
 | `stripe_webhook_events` | Webhook idempotency + retry state, and the receipt | `status` is `processing` / `completed` / `failed` / `action_required`; `attempts` counts retries. **`action_required` is not a failure** — it is a permanent condition needing a human (an unmapped price), answered with a 200 so Stripe stops retrying, with the reason in `last_error`. `failed` retries automatically; `action_required` is reclaimable only by a deliberate replay. `payload` is the record of truth; the `stripe_*` id columns, `livemode`, `api_version`, and `request_id` are denormalized out of it at write time by `src/services/stripe/receipt.ts`, because a `text` column cannot answer "every event for this subscription" without a full scan. Indexed by customer, invoice, and subscription. Nulls are normal: no single event carries every id. |

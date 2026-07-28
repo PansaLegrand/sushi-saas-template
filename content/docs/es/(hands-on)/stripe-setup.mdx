@@ -68,7 +68,7 @@ Aun con varios pasos, todo ocurre de forma automática en segundos.
 
 ## Endpoints
 
-- `/api/checkout` (POST): resuelve el producto en `src/config/billing.ts`, crea la sesión con su Price ID y guarda un `order` con estado `created`.
+- `/api/checkout` (POST): resuelve el producto en `src/config/billing.ts`, crea la sesión con su Price ID y guarda un `order` con estado `created`. Requiere `Idempotency-Key`: repetir la misma clave en la misma organización devuelve el pedido/sesión existente; una clave nueva inicia otra compra y puede crear otra suscripción.
 - `/api/pay/callback/stripe` (GET): usado por la redirección de Stripe; ahora solo redirige a éxito/fracaso.
 - `/api/pay/webhook/stripe` (POST): verifica la firma y maneja `checkout.session.completed` para marcar pagado y otorgar créditos.
 

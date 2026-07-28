@@ -237,37 +237,62 @@ export const orgInvitations = pgTable(
 );
 
 // Orders table
-export const orders = pgTable("orders", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  order_no: varchar({ length: 255 }).notNull().unique(),
-  created_at: timestamp({ withTimezone: true }),
-  user_uuid: varchar({ length: 255 }).notNull().default(""),
-  user_email: varchar({ length: 255 }).notNull().default(""),
-  amount: integer().notNull(),
-  interval: varchar({ length: 50 }),
-  expired_at: timestamp({ withTimezone: true }),
-  status: varchar({ length: 50 }).notNull(),
-  stripe_session_id: varchar({ length: 255 }),
-  credits: integer().notNull(),
-  currency: varchar({ length: 50 }),
-  sub_id: varchar({ length: 255 }),
-  sub_interval_count: integer(),
-  sub_cycle_anchor: integer(),
-  sub_period_end: integer(),
-  sub_period_start: integer(),
-  sub_times: integer(),
-  product_id: varchar({ length: 255 }),
-  product_name: varchar({ length: 255 }),
-  valid_months: integer(),
-  order_detail: text(),
-  paid_at: timestamp({ withTimezone: true }),
-  paid_email: varchar({ length: 255 }),
-  paid_detail: text(),
-  // Tenant scope, mandatory since migration 0015: a row with no organization is
-  // unreachable by every scoped read. `user_uuid` stays as the actor — who
-  // clicked checkout — which is a different question from who it belongs to.
-  org_uuid: varchar({ length: 255 }).notNull(),
-}, (table) => [index("orders_org_idx").on(table.org_uuid)]);
+export const orders = pgTable(
+  "orders",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    order_no: varchar({ length: 255 }).notNull().unique(),
+    created_at: timestamp({ withTimezone: true }),
+    user_uuid: varchar({ length: 255 }).notNull().default(""),
+    user_email: varchar({ length: 255 }).notNull().default(""),
+    amount: integer().notNull(),
+    interval: varchar({ length: 50 }),
+    expired_at: timestamp({ withTimezone: true }),
+    status: varchar({ length: 50 }).notNull(),
+    stripe_session_id: varchar({ length: 255 }),
+    credits: integer().notNull(),
+    currency: varchar({ length: 50 }),
+    sub_id: varchar({ length: 255 }),
+    sub_interval_count: integer(),
+    sub_cycle_anchor: integer(),
+    sub_period_end: integer(),
+    sub_period_start: integer(),
+    sub_times: integer(),
+    product_id: varchar({ length: 255 }),
+    product_name: varchar({ length: 255 }),
+    valid_months: integer(),
+    order_detail: text(),
+    paid_at: timestamp({ withTimezone: true }),
+    paid_email: varchar({ length: 255 }),
+    paid_detail: text(),
+    // One browser purchase intent maps to one order. Nullable so code deployed
+    // before this column exists can continue inserting orders during an
+    // expand/contract rollout.
+    checkout_intent_id: varchar({ length: 255 }),
+    // Hash of the canonical offer, Stripe Price, currency, and locale. Reusing
+    // a key with different terms is a conflict, never a request to mutate the
+    // original financial record.
+    checkout_fingerprint: varchar({ length: 64 }),
+    // Snapshots needed to recreate the exact Stripe request if the process dies
+    // after inserting the order but before saving the Checkout Session.
+    stripe_price_id: varchar({ length: 255 }),
+    checkout_locale: varchar({ length: 50 }),
+    // Tenant scope, mandatory since migration 0015: a row with no organization is
+    // unreachable by every scoped read. `user_uuid` stays as the actor — who
+    // clicked checkout — which is a different question from who it belongs to.
+    org_uuid: varchar({ length: 255 }).notNull(),
+  },
+  (table) => [
+    index("orders_org_idx").on(table.org_uuid),
+    // NULL intent ids remain distinct for legacy and renewal orders. New
+    // checkout orders always carry a key, and this index is the concurrency
+    // boundary that turns two requests into one order.
+    uniqueIndex("orders_org_checkout_intent_unique_idx").on(
+      table.org_uuid,
+      table.checkout_intent_id
+    ),
+  ]
+);
 
 // Stripe webhook event idempotency
 export const stripeWebhookEvents = pgTable(
