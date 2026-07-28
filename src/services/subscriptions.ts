@@ -1,6 +1,6 @@
 import type Stripe from "stripe";
 
-import { getSnowId } from "@/lib/hash";
+import { newId } from "@/lib/ids";
 import { logger } from "@/lib/logger/server";
 import { notifySlackError } from "@/integrations/slack";
 import {
@@ -94,7 +94,7 @@ export async function syncStripeSubscription(
   const period = periodOf(subscription);
 
   const { applied, row } = await upsertStripeSubscription({
-    uuid: getSnowId(),
+    uuid: newId(),
     org_uuid: orgUuid,
     user_uuid: userUuid,
     stripe_subscription_id: subscription.id,
@@ -261,7 +261,7 @@ export async function grantManualSubscription(input: {
   if (!isTier(input.tier)) return { status: "invalid-tier" };
 
   const row = await insertManualSubscription({
-    uuid: getSnowId(),
+    uuid: newId(),
     org_uuid: input.orgUuid,
     user_uuid: input.userUuid,
     tier: input.tier,

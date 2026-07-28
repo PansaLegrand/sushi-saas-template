@@ -519,6 +519,23 @@ describe("conventions", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("generates record ids without a coordinated worker id", () => {
+    // `simple-flakeid` produced `timestamp | workerId | sequence`, which is
+    // collision-free only if every process holds a distinct worker id. Nothing on
+    // Vercel assigns one, `SNOWFLAKE_WORKER_ID` defaulted to `1`, and so two
+    // concurrent lambdas in the same millisecond minted the same id — surfacing as
+    // a failed insert on `orders.order_no` or `credits.trans_no`.
+    //
+    // The rule bans the library rather than the pattern, because the pattern is
+    // fine anywhere a worker id is actually assigned, and this deployment target
+    // does not assign one. Use `newId()` from `src/lib/ids.ts`.
+    const offenders = FILES.filter(({ body }) =>
+      /from\s+["']simple-flakeid["']|@\/lib\/hash/.test(stripComments(body))
+    ).map(({ path }) => path);
+
+    expect(offenders).toEqual([]);
+  });
+
   it("uses kebab-case filenames", () => {
     // Matches the rule in AGENTS.md. Route groups and dynamic segments in
     // app/ are Next.js syntax, so only the filename itself is checked.

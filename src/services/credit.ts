@@ -9,7 +9,7 @@ import {
 } from "@/models/credit";
 import { getFirstPaidOrderByOrg } from "@/models/order";
 import { AppError } from "@/lib/errors/app-error";
-import { getSnowId } from "@/lib/hash";
+import { newId } from "@/lib/ids";
 import { logger } from "@/lib/logger/server";
 import { getIsoTimestr } from "@/lib/time";
 import type { CreditLedgerEntry, CreditSummary } from "@/types/credit";
@@ -230,7 +230,7 @@ export async function decreaseCredits({
 
   try {
     const created = await insertSpendCreditIfSufficient({
-      trans_no: getSnowId(),
+      trans_no: newId(),
       created_at: new Date(getIsoTimestr()),
       org_uuid,
       user_uuid,
@@ -283,7 +283,7 @@ export async function increaseCredits({
         : null;
 
     const newCredit: Parameters<typeof insertCredit>[0] = {
-      trans_no: trans_no ?? getSnowId(),
+      trans_no: trans_no ?? newId(),
       created_at: new Date(getIsoTimestr()),
       org_uuid,
       user_uuid,

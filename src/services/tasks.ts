@@ -1,4 +1,4 @@
-import { getSnowId } from "@/lib/hash";
+import { newId } from "@/lib/ids";
 import { isTextToVideoMockEnabled } from "@/lib/demo-flags";
 import { logger } from "@/lib/logger/server";
 import {
@@ -71,7 +71,7 @@ export async function createTextToVideoTask(params: {
   }
 
   const now = new Date();
-  const uuid = getSnowId();
+  const uuid = newId();
 
   const insertedTask = await insertTaskForIdempotencyKey({
     uuid,

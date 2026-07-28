@@ -7,7 +7,7 @@ import {
   updateUserInviteCode,
 } from "@/models/user";
 import { AffiliateConfig } from "@/config/affiliate";
-import { getSnowId } from "@/lib/hash";
+import { newId, newShortCode } from "@/lib/ids";
 import { getAppEnv } from "@/lib/env";
 
 function toShareUrl(code: string): string {
@@ -17,14 +17,15 @@ function toShareUrl(code: string): string {
 
 async function generateUniqueCode(): Promise<string> {
   for (let i = 0; i < 5; i++) {
-    // short base36 from snowflake id
-    const code = Number.parseInt(getSnowId(), 10).toString(36).slice(-8);
+    const code = newShortCode(8);
     const exists = await findUserByInviteCode(code);
     if (!exists) return code;
   }
 
-  // Fallback to a longer code
-  return `ref-${getSnowId()}`;
+  // Five random 8-character codes all colliding means something is wrong with
+  // the generator, not that the space is full. A longer code is the safe way to
+  // end the loop rather than returning a duplicate.
+  return `ref-${newId()}`;
 }
 
 export async function GET(req: Request) {

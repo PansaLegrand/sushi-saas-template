@@ -10,7 +10,7 @@ import {
   type ReservationService,
 } from "@/models/reservation";
 import { newStripeClient } from "@/integrations/stripe";
-import { getSnowId } from "@/lib/hash";
+import { newId } from "@/lib/ids";
 import { getAppEnv } from "@/lib/env";
 import { AppError } from "@/lib/errors/app-error";
 import { insertOrder, OrderStatus, updateOrderSession } from "@/models/order";
@@ -161,7 +161,7 @@ export async function createReservationAndCheckout(params: {
     });
   }
 
-  const order_no = String(getSnowId());
+  const order_no = newId();
   await insertOrder({
     order_no,
     created_at: new Date(),

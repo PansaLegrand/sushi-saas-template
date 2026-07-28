@@ -5,7 +5,7 @@ import { respCode, respError } from "@/lib/errors/response";
 import { toAppError } from "@/lib/errors/app-error";
 import { parseJsonBody } from "@/lib/http/request";
 import { getOrgContext } from "@/services/authz";
-import { getSnowId } from "@/lib/hash";
+import { newId } from "@/lib/ids";
 import { insertFile, sumFileBytesByOrg } from "@/models/file";
 import { enforceLimit, limitOf, requireEntitlement } from "@/services/entitlements";
 import { getStorageAdapter } from "@/services/storage";
@@ -213,7 +213,7 @@ export async function POST(req: Request) {
     const key = storage.buildObjectKey({ userUuid, filename });
 
     // Reserve a record in DB with status 'uploading'
-    const fileUuid = getSnowId();
+    const fileUuid = newId();
     await insertFile({
       org_uuid: ctx.orgUuid,
       uuid: fileUuid,

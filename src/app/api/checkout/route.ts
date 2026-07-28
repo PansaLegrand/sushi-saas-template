@@ -9,7 +9,7 @@ import { parseJsonBody } from "@/lib/http/request";
 import Stripe from "stripe";
 import { findOrganizationByUuid } from "@/models/organization";
 import { findUserByUuid } from "@/models/user";
-import { getSnowId } from "@/lib/hash";
+import { newId } from "@/lib/ids";
 import { getPricingPage } from "@/services/page";
 import { PricingItem } from "@/types/blocks/pricing";
 import { newStripeClient } from "@/integrations/stripe";
@@ -124,7 +124,7 @@ export async function POST(req: Request) {
     }
 
     // generate order_no
-    const order_no = getSnowId();
+    const order_no = newId();
 
     const currentDate = new Date();
     const created_at = currentDate.toISOString();

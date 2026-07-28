@@ -370,11 +370,19 @@ Ordered by how much they will hurt.
    (`pruneFinishedJobs`, 14 days). Decide retention for the other two before
    they are large enough that adding an index requires a maintenance window.
 
-7. **`getSnowId()` collides across instances.** It seeds `credits.trans_no` and
-   `orders.order_no` from `SNOWFLAKE_WORKER_ID`, which defaults to `1` on every
-   serverless instance. The unique index turns a collision into a failed insert
-   rather than a corrupted ledger, but it is still a user-visible 500. UUIDv7
-   would remove the problem.
+7. ~~**`getSnowId()` collides across instances.**~~ **Fixed.** It seeded
+   `credits.trans_no` and `orders.order_no` from `SNOWFLAKE_WORKER_ID`, which
+   defaulted to `1` on every serverless instance, so two concurrent lambdas in one
+   millisecond minted the same id. The unique index made that a failed insert
+   rather than a corrupted ledger — but a user-visible one, mid-checkout, at
+   exactly the traffic levels that produce concurrency.
+
+   Record ids now come from `newId()` in `src/lib/ids.ts` (UUIDv7: a millisecond
+   timestamp plus 74 random bits, no worker id to forget to set). **Existing rows
+   keep their numeric ids** and nothing was backfilled — these columns are opaque
+   `varchar` keys and nothing parses or sorts them numerically, which was checked
+   before the change. Expect both shapes side by side, plus the
+   `renewal:<sub>:<period>` form that migration-era Stripe renewals write.
 
 8. **Status columns have no CHECK constraints.** Allowed values live in comments
    and TypeScript. A bad direct `UPDATE` in psql will happily write nonsense.

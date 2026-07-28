@@ -76,7 +76,8 @@ take a customer's money and grant them nothing, and it does so silently.
 References between items are by name rather than by number from here on,
 because positional references in this file have already gone stale twice.
 
-Items 4 and 5 both shipped. **Item 6 is the top of the queue.**
+Items 4, 5, and 6 all shipped. **Item 7 is the top of the queue** — rate limiting
+failing loudly instead of degrading quietly.
 
 Item 5 was finished on 2026-07-28, all five steps plus its open refund decision.
 It went out of order on purpose: step 5 first because it touches no schema, then
@@ -91,6 +92,12 @@ buried in the step notes:
 - **`pnpm reconcile:stripe` now exists to answer the question directly** rather
   than by reading code. It is in the release checklist, and its `--local-only`
   mode needs no Stripe key.
+
+Item 6 then made it three: reading it turned up a *guessable* affiliate invite
+code, not just a collision-prone one. **Three of the last three items found a
+second defect adjacent to the one they were scoped to fix.** That is now the
+expectation rather than a surprise — budget for it, and read the neighbours of
+whatever the item names.
 
 1. [x] [P0] Route every production failure through the logger
    - Swept all 20 stray `console.*` calls in server code onto `src/lib/logger`,
@@ -535,9 +542,9 @@ buried in the step notes:
    - This is why **step 3 gates step 4**: without `action_required` there is no
      row for any of the above to be written to.
 
-6. [ ] [P1] Remove serverless collision risk from generated ids
+6. [x] [P1] Remove serverless collision risk from generated ids
    - Promoted out of technical debt: it is a deployment-shape bug, not
-     housekeeping. `getSnowId()` in `src/lib/hash.ts` defaults to one worker id,
+     housekeeping. `getSnowId()` in `src/lib/hash.ts` defaulted to one worker id,
      and serverless runs many instances of it at once.
    - Unique indexes protect data integrity, but a collision still becomes a
      user-visible failed insert on a financial record. Prefer UUIDv7 or another
@@ -545,6 +552,37 @@ buried in the step notes:
    - Interaction with item 4: the deterministic `trans_no` and `order_no` values
      added there are derived from Stripe ids, not from `getSnowId()`, so that
      work neither depends on this nor is undone by it.
+   - **Done 2026-07-28**, no migration. 9 new tests; 491 green.
+     - `newId()` in `src/lib/ids.ts` returns UUIDv7, and **`src/lib/hash.ts` and
+       the `simple-flakeid` dependency are deleted** rather than deprecated. The
+       roadmap said "prefer UUIDv7 for *new* records"; a preference erodes, and
+       leaving a function named `getSnowId` in place is leaving the footgun. All
+       ten call sites moved.
+     - v7 over v4 to keep the leading timestamp: B-tree inserts stay local, and
+       adjacent ids were still made at about the same time, which is a debugging
+       habit the snowflake ids supported.
+     - `uuid@11` was **already a dependency** and exports `v7`, so this removed a
+       dependency rather than adding one. No hand-rolled generator.
+     - **Second bug found in the same read.** The affiliate invite code was
+       `parseInt(snowflakeId).toString(36).slice(-8)`, which inherited the
+       collision problem *and* made codes guessable: consecutive ids differ only
+       in their low bits, so one real code told you roughly what the next ones
+       would be — for a link that pays an attribution reward. Now `newShortCode()`,
+       `randomInt` over a 32-character alphabet with `I`/`L`/`O`/`U` removed
+       because these get read off a screen and retyped. A test asserts the *first*
+       character varies across a sample, which is what catches a shared-prefix
+       regression; a format check would not.
+     - **No backfill, and none needed.** Existing rows keep numeric ids. These are
+       opaque `varchar(255)` keys — checked that nothing parses or sorts them
+       numerically before changing anything, and item 4 had already established
+       non-numeric `order_no` values. Expect all three shapes side by side.
+     - `tests/unit/architecture.test.ts` fails the build on a `simple-flakeid` or
+       `@/lib/hash` import. The rule bans the *library*, not the pattern — a
+       snowflake is fine where a worker id is actually assigned, and this
+       deployment target does not assign one.
+     - The uniqueness tests draw 10k–20k ids and assert no duplicate. That does not
+       prove "never collides"; it catches a generator that is not drawing
+       uniformly, which is the failure a format assertion misses.
 
 7. [ ] [P1] Make rate limiting fail loudly instead of degrading quietly
    - `src/lib/rate-limit.ts` already supports a Redis REST store, but falls

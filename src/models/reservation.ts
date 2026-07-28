@@ -5,7 +5,7 @@ import {
   reservations,
   orders,
 } from "@/db/schema";
-import { getSnowId } from "@/lib/hash";
+import { newId } from "@/lib/ids";
 import { ReservationsConfig } from "@/config/reservations";
 
 import { scopedToOrg } from "./organization";
@@ -74,7 +74,7 @@ export async function createReservation(params: {
   const [row] = await db()
     .insert(reservations)
     .values({
-      reservation_no: String(getSnowId()),
+      reservation_no: newId(),
       org_uuid: params.org_uuid,
       user_uuid: params.user_uuid,
       service_id: params.service_id,
