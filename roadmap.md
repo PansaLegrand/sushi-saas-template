@@ -76,7 +76,10 @@ take a customer's money and grant them nothing, and it does so silently.
 References between items are by name rather than by number from here on,
 because positional references in this file have already gone stale twice.
 
-Item 4 shipped on 2026-07-26. **Item 5 is the top of the queue.**
+Item 4 shipped on 2026-07-26. **Item 5 is the top of the queue**, and is now
+partly done: its step 5 shipped on 2026-07-28, taken out of order because it
+touches no schema, and its open refund decision was settled the same day. Both
+are recorded under the item. Its remaining steps 1–4 are the queue.
 
 1. [x] [P0] Route every production failure through the logger
    - Swept all 20 stray `console.*` calls in server code onto `src/lib/logger`,
@@ -263,18 +266,38 @@ Item 4 shipped on 2026-07-26. **Item 5 is the top of the queue.**
    - Reconciliation script: walk recent paid Stripe invoices, assert a local
      order, credit row, and webhook receipt for each, and exit nonzero on
      drift. Model: `dojo-video-web`'s `scripts/reconcile-stripe-billing.js`.
-   - Stripe client polish: one cached client with `appInfo` and
-     `maxNetworkRetries`, replacing the per-request `new Stripe(...)` in several
-     handlers. Reject test-mode events in production on `livemode` — neither
-     this template nor `dojo-video-web` does today.
-   - **Open decision, make it before building:** whether a full refund,
-     `invoice.voided`, or `credit_note.created` should reverse credits
-     automatically. `dojo-video-web` does, keyed off the original grant's
-     idempotency key and refusing when the balance no longer covers it. This
-     template only posts to Slack, which is a defensible product call — a
-     clawback mid-dispute has real judgement in it — but it needs the
-     `action_required` record above to be auditable rather than a message
-     someone scrolls past.
+   - [x] Stripe client polish — **step 5 below, shipped 2026-07-28 ahead of the
+     rest of this item** because it is independent of the migrations and removes
+     a production footgun on its own.
+     - `src/integrations/stripe.ts` is now the only place that constructs a
+       client, and it sets `appInfo` and `maxNetworkRetries`. The four
+       per-request `new Stripe(...)` calls in the webhook and billing portal
+       handlers are gone. `maxNetworkRetries: 2` is *pinned, not raised* — it
+       matches the SDK's current default, and is stated so an upgrade cannot
+       quietly lower it.
+     - `tests/unit/architecture.test.ts` now fails the build on `new Stripe(`
+       outside that file. Four handlers had already drifted into their own
+       client, so the rule is what stops a fifth.
+     - Test-mode events are rejected in production on `livemode`, before the
+       event is claimed, so the delivery stays replayable once the secret is
+       fixed. The test is `livemode !== true` rather than `=== false`: fail
+       closed, since Stripe always sets the field.
+     - **400, not 500.** Stripe stops retrying a 4xx and shows the failure on
+       the endpoint in the dashboard — where the operator has to go anyway. A
+       500 would retry for three days and bury the cause. The signature has
+       already verified at that point, so what is being caught is a production
+       deployment holding a test-mode webhook secret, not a forgery.
+     - Deliberately not a catalog error code: Stripe is the only reader of that
+       body, and the catalog would demand five locale translations for a string
+       no person sees. Added as a launch gate in
+       [docs/release-checklist.md](docs/release-checklist.md) instead.
+     - Left alone: the client caches `STRIPE_PRIVATE_KEY` at first construction,
+       so rotating the key needs a redeploy rather than taking effect on the
+       next request. Correct for serverless, where instances are short-lived.
+   - ~~Open decision: whether a refund should reverse credits automatically.~~
+     **Closed 2026-07-28 — see *Refund handling* below.** `dojo-video-web`
+     reverses automatically, keyed off the original grant's idempotency key and
+     refusing when the balance no longer covers it; this template will not.
    - Explicitly **not** borrowed: `dojo-video-web`'s webhook answers 200
      unconditionally, so a failed event is never redelivered and recovery rests
      entirely on its cron and scripts. Keep this template's 500.
@@ -290,10 +313,56 @@ Item 4 shipped on 2026-07-26. **Item 5 is the top of the queue.**
         the motivating case.
      4. Reconciliation script + a cron sweep over `failed` and
         `action_required`.
-     5. Cached Stripe client, `livemode` rejection. Independent of the rest;
-        pick it up any time.
-   - The refund decision gates only step 4's reversal behaviour. Steps 1–3 are
-     worth doing either way, so it does not block starting.
+     5. [x] Cached Stripe client, `livemode` rejection. Independent of the rest;
+        pick it up any time. **Done 2026-07-28** — taken first for exactly that
+        reason. Details under *Stripe client polish* above. **Step 1 is now the
+        top of the queue.**
+   - **Refund handling: decided 2026-07-28 and approved by the repo owner —
+     record the reversal, never apply it automatically.** This is the spec step 4
+     builds against, written out rather than left as "we decided not to", which
+     would not survive contact with the code.
+   - The reasoning corrects a premise worth naming. The comment above the refund
+     handler used to justify not reversing on the grounds that it is a judgement
+     call. It is — but *not because consent is missing*. **Stripe has no
+     customer-initiated refund**, so by the time `charge.refunded` arrives
+     someone with dashboard access has already approved it, and auto-reversal
+     would be executing a decision already made rather than making one. That
+     argument does not hold. These are the ones that do:
+     - A **chargeback bypasses the operator entirely.** `charge.dispute.created`
+       is the customer going to their bank. The funds are debited immediately and
+       contested afterward, and the dispute may be won — so reversing can be
+       wrong in both directions.
+     - "Operator approval" is really **anyone with dashboard access**; a teammate
+       or a support contractor produces an identical event.
+     - A **partial refund is not a full revocation.** $10 back on a $50 order
+       does not map onto revoking the grant.
+     - The credits **may already be spent**, making the reversal arithmetically
+       impossible rather than merely unwise. This is the one that rules out
+       auto-apply outright: there is no correct silent answer, and both available
+       ones — leave a negative balance, or revoke less than was refunded — are
+       decisions someone has to own.
+   - Behaviour to build in step 4. No event touches credits automatically; each
+     writes an `action_required` row:
+     - `charge.refunded` — carrying the refunded amount, the original grant's
+       `trans_no`, the current balance, and the shortfall when the balance no
+       longer covers the grant.
+     - `charge.dispute.created` — flagged as a dispute, because the outcome is
+       not yet known.
+     - `invoice.voided` and `credit_note.created` — same as a refund.
+   - Three constraints on that row, each of which is the point of the decision:
+     - **It is a queue, not a log.** The row stays `action_required` until a
+       human resolves it, which is what lets step 4's script find it. A Slack
+       message — what ships today — is something someone scrolls past.
+     - **Compute the arithmetic at write time** rather than linking out to
+       Stripe. The shortfall *is* the decision the operator is being asked to
+       make, and recomputing it later gives a different answer once the balance
+       has moved.
+     - **A human-chosen reversal goes through the ordinary credit path**, as a
+       negative grant with a deterministic `trans_no` keyed `refund:<charge_id>`,
+       so a double click collides on the unique index instead of double-revoking.
+       Same mechanism item 4 established; no new machinery.
+   - This is why **step 3 gates step 4**: without `action_required` there is no
+     row for any of the above to be written to.
 
 6. [ ] [P1] Remove serverless collision risk from generated ids
    - Promoted out of technical debt: it is a deployment-shape bug, not

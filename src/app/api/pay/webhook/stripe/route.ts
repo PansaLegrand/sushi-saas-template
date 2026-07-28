@@ -473,11 +473,27 @@ export async function POST(req: Request) {
         break;
       }
 
-      // Money coming back out. Neither is auto-reversed: refunding credits a
-      // user has already spent, or clawing back a tier mid-dispute, are
-      // decisions with enough product judgement in them that this kit raises
-      // the alert and leaves the call to a human. What it must not do is stay
-      // silent, which is what happens when the event is not handled at all.
+      // Money coming back out. Neither is auto-reversed, but not for the reason
+      // it looks like: Stripe has no customer-initiated refund, so a
+      // `charge.refunded` means someone with dashboard access already approved
+      // it. Consent is not what is missing.
+      //
+      // What is missing is a defensible amount. A partial refund is not a full
+      // revocation, the credits may already be spent — making the reversal
+      // arithmetically impossible rather than merely unwise — and a dispute is
+      // the one case with no approval at all: the customer went to their bank,
+      // the funds are already debited, and the dispute may still be won, so
+      // clawing back a tier mid-dispute can be wrong in both directions.
+      //
+      // So this raises the alert and leaves the call to a human. What it must
+      // not do is stay silent, which is what happens when the event is not
+      // handled at all.
+      //
+      // Planned successor, decided rather than pending: an `action_required` row
+      // carrying the computed shortfall, which a reconciliation script can find
+      // — a Slack message is something someone scrolls past. Credits are still
+      // never reversed automatically. See "Refund handling" under item 5 in
+      // roadmap.md for the full spec.
       case "charge.refunded":
       case "charge.dispute.created": {
         const charge = event.data.object as Stripe.Charge | Stripe.Dispute;
