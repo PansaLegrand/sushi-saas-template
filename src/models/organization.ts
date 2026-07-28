@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gt, ilike, or, sql, type SQL } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
@@ -190,6 +190,96 @@ export async function listMembersWithUsers(
       sql`case ${orgMembers.role} when 'owner' then 0 when 'admin' then 1 else 2 end`,
       asc(orgMembers.created_at)
     );
+}
+
+/** An organization with its member count, for the admin list. */
+export type AdminOrganizationRow = OrganizationRow & { member_count: number };
+
+/**
+ * Search organizations for the admin console.
+ *
+ * Unscoped by design — this is the one place that is supposed to see across
+ * tenants, which is exactly why it lives here rather than growing inside
+ * `apps/admin/lib/data.ts` where no layering rule reaches it.
+ *
+ * `stripe_customer_id` is searchable, and that is the point: an operator
+ * starts from a Stripe dashboard tab holding `cus_...` and needs to know whose
+ * it is. Going the other way — org to Stripe — is the same lookup reversed.
+ */
+export async function listOrganizationsForAdmin({
+  query,
+  page = 1,
+  limit = 50,
+}: {
+  query?: string;
+  page?: number;
+  limit?: number;
+}): Promise<AdminOrganizationRow[]> {
+  const offset = (Math.max(page, 1) - 1) * limit;
+  const where = adminOrganizationFilter(query);
+
+  const rows = await db()
+    .select({
+      id: organizations.id,
+      uuid: organizations.uuid,
+      name: organizations.name,
+      slug: organizations.slug,
+      logo: organizations.logo,
+      metadata: organizations.metadata,
+      stripe_customer_id: organizations.stripe_customer_id,
+      is_personal: organizations.is_personal,
+      created_at: organizations.created_at,
+      updated_at: organizations.updated_at,
+      // A join and GROUP BY rather than a correlated subquery, and not for
+      // taste. Drizzle renders interpolated columns *unqualified* inside a `sql`
+      // template, so the obvious subquery becomes:
+      //
+      //   select count(*) from "org_members" where "organization_id" = "id"
+      //
+      // where `"id"` binds to `org_members.id` — the inner scope shadows the
+      // outer one. Both columns exist, so nothing errors: every count comes back
+      // 0. `count(org_members.id)` over a LEFT JOIN has no such ambiguity, and
+      // GROUP BY runs before LIMIT so a page still holds `limit` organizations.
+      member_count: sql<number>`count(${orgMembers.id})::int`,
+    })
+    .from(organizations)
+    .leftJoin(orgMembers, eq(orgMembers.organization_id, organizations.id))
+    .where(where ?? sql`true`)
+    .groupBy(organizations.id)
+    .orderBy(desc(organizations.created_at))
+    .limit(limit)
+    .offset(offset);
+
+  return rows;
+}
+
+export async function countOrganizationsForAdmin(
+  query?: string
+): Promise<number> {
+  const where = adminOrganizationFilter(query);
+  const [row] = await db()
+    .select({ count: sql<number>`count(*)::int` })
+    .from(organizations)
+    .where(where ?? sql`true`);
+
+  return row?.count ?? 0;
+}
+
+/**
+ * Shared so the list and its count cannot drift — a paginator whose total is
+ * computed from a different filter than its rows is worse than no total.
+ */
+function adminOrganizationFilter(query?: string): SQL | undefined {
+  const term = query?.trim();
+  if (!term) return undefined;
+
+  const like = `%${term}%`;
+  return or(
+    ilike(organizations.name, like),
+    ilike(organizations.slug, like),
+    ilike(organizations.uuid, like),
+    ilike(organizations.stripe_customer_id, like)
+  );
 }
 
 /** Invitations still awaiting a decision. Expired ones are not actionable. */

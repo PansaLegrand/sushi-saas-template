@@ -718,7 +718,8 @@ is sound — MFA gate, `admin_ro`/`admin_rw`, enforced CSP, an explicit column
 allowlist so `signin_ip` and `stripe_customer_id` never reach a browser, audit
 logging, real test coverage. What lagged is **scope**, not quality.
 
-Two shipped on 2026-07-28:
+Four shipped on 2026-07-28 — the two that made recent billing work visible, then
+the two that made it reachable for a team:
 
 - [x] **Ledger audit columns reach the UI.** `balance_after`, `actor`, and
   `metadata` now render in the admin credits panel. They are **opt-in** via
@@ -735,21 +736,49 @@ Two shipped on 2026-07-28:
   selected: it holds the whole Stripe object, including a customer's email and
   address, and a payload nobody fetches cannot leak.
 
-Still open, in the order I would take them:
+Still open, in the order I would take them. All P2: the console can now answer
+the questions an operator actually arrives with.
 
-14. [ ] [P1] Make admin org-aware, not personal-workspace-only
-    - Every admin billing path resolves `findPersonalOrganizationByUserUuid`:
+14. [x] [P1] Make admin org-aware, not personal-workspace-only
+    - Every admin billing path resolved `findPersonalOrganizationByUserUuid`:
       credits, plan snapshot, comps. Since tenancy shipped, users belong to team
-      orgs with pooled credits and org-scoped Stripe customers, and **admin cannot
-      see or act on any of them.** There is no org list or search anywhere.
-    - This is the one that decides whether admin works for a B2B product at all,
-      and it is the largest of the group. Worth settling the B2B-or-not question
-      before spending the effort — the same question gates item 10.
-15. [ ] [P1] Show Stripe subscription state
-    - Admin can comp a tier and read a plan snapshot, but nothing shows Stripe
+      orgs with pooled credits and org-scoped Stripe customers, and **admin could
+      not see or act on any of them.** There was no org list or search anywhere.
+    - **Done 2026-07-28.** `/organizations` lists and searches every tenant;
+      `/organizations/[uuid]` shows members, pooled credits with the full audit
+      trail, plan, subscriptions, and paid orders — all keyed on the org uuid,
+      with no personal-org resolution anywhere in the path.
+    - Search covers name, slug, uuid, **and `stripe_customer_id`**. That last one
+      is the lookup that motivated the box: an operator has a Stripe tab open
+      showing `cus_…` and needs to know whose it is.
+    - The user-centric panels on the overview still act on the personal workspace
+      and now **say so**, with a link to Organizations. Previously they implied
+      they covered everything.
+    - Read-only. Granting credits and comping a tier remain user-and-personal-org
+      scoped; making those org-targeted is its own change, because a write path
+      that can suddenly reach any tenant deserves more than a new argument.
+    - Turned up a live bug in the first version of the member count, worth
+      recording because it is a Drizzle trap rather than a typo: **interpolated
+      columns render unqualified inside a `sql` template.** A correlated subquery
+      became `where "organization_id" = "id"`, where `"id"` bound to the *inner*
+      table. Both columns exist, nothing errored, and every count came back 0.
+      Now an aggregate over a LEFT JOIN, with the counts asserted.
+15. [x] [P1] Show Stripe subscription state
+    - Admin could comp a tier and read a plan snapshot, but nothing showed Stripe
       status, current period, or `cancel_at_period_end`. "I cancelled and I am
-      still being charged" is unanswerable from the console today, which is the
-      exact question the `subscriptions` table was added to answer.
+      still being charged" was unanswerable from the console, which is the exact
+      question the `subscriptions` table was added to answer.
+    - **Done 2026-07-28** as part of the org detail page. Shows tier, status,
+      source, period end, whether it cancels, when it ended, and the Stripe
+      subscription id — Stripe's vocabulary stored verbatim, so the table can be
+      compared against the dashboard without a mapping.
+    - Lists **every** subscription row, not just the active one: a canceled row
+      beside a new one is the shape of an upgrade, and hiding it makes a support
+      question unanswerable. A comp shows as `manual` with no Stripe id, so an
+      operator can tell who is actually paying.
+    - The plan panel calls out `cancelAtPeriodEnd` explicitly, since that is the
+      case a customer complains about and the answer is "still on the tier you
+      paid for, until the period ends".
 16. [ ] [P2] Resolve and replay parked events from the console
     - The write half of the events page. Needs `admin_rw`, an audit log entry, and
       idempotency thinking: replaying a partially-applied event is not obviously

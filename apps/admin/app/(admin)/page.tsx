@@ -51,6 +51,17 @@ export default async function AdminHomePage() {
         <p className="mt-1 text-sm text-muted-foreground">Review attribution, paid referrals, and rewards.</p>
       </section>
 
+      <section className="rounded-lg border p-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-medium">Organizations</h2>
+          <Link href="/organizations" className="text-sm underline">View all</Link>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          The tenant billing attaches to: pooled credits, the plan, and the
+          Stripe customer. Search by name, slug, or <code>cus_…</code>.
+        </p>
+      </section>
+
       <section
         className={`rounded-lg border p-4 ${
           needsAction > 0 ? "border-destructive/40 bg-destructive/5" : ""
@@ -130,7 +141,15 @@ export default async function AdminHomePage() {
       </section>
 
       <section className="rounded-lg border p-4">
-        <h2 className="mb-3 text-lg font-medium">User Credits</h2>
+        <h2 className="mb-1 text-lg font-medium">User Credits</h2>
+        <p className="mb-3 text-sm text-muted-foreground">
+          Acts on the user&apos;s <strong>personal workspace</strong>. Credits
+          pool at the organization, so for a team use{" "}
+          <Link href="/organizations" className="underline">
+            Organizations
+          </Link>
+          .
+        </p>
         <GrantCreditsPanel canWrite={!!canWrite} />
       </section>
 
@@ -138,7 +157,13 @@ export default async function AdminHomePage() {
         <h2 className="mb-1 text-lg font-medium">User Plan</h2>
         <p className="mb-3 text-sm text-muted-foreground">
           Look up what a user is entitled to, and comp them onto a tier. Paid
-          subscriptions are managed in Stripe.
+          subscriptions are managed in Stripe. Like the panel above, this reads
+          and writes the user&apos;s <strong>personal workspace</strong> — a
+          team&apos;s plan lives on{" "}
+          <Link href="/organizations" className="underline">
+            its organization
+          </Link>
+          .
         </p>
         <ManagePlanPanel canWrite={!!canWrite} tiers={tiers} />
       </section>

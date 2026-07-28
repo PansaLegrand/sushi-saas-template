@@ -40,6 +40,9 @@ export default async function AdminLayout({
           <Link href="/affiliates" className="text-muted-foreground hover:text-foreground">
             Affiliates
           </Link>
+          <Link href="/organizations" className="text-muted-foreground hover:text-foreground">
+            Organizations
+          </Link>
           <Link href="/stripe-events" className="text-muted-foreground hover:text-foreground">
             Stripe Events
           </Link>
