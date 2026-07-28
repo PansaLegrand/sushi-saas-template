@@ -3,7 +3,6 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { captcha, organization, twoFactor } from "better-auth/plugins";
-import { createFieldAttribute } from "better-auth/db";
 
 import { randomUUID } from "node:crypto";
 
@@ -166,21 +165,24 @@ const organizationPlugin = organization({
         createdAt: "created_at",
       },
       additionalFields: {
-        uuid: createFieldAttribute("string", {
+        uuid: {
+          type: "string",
           unique: true,
           input: false,
           fieldName: "uuid",
-        }),
-        stripe_customer_id: createFieldAttribute("string", {
+        },
+        stripe_customer_id: {
+          type: "string",
           required: false,
           input: false,
           fieldName: "stripe_customer_id",
-        }),
-        is_personal: createFieldAttribute("boolean", {
+        },
+        is_personal: {
+          type: "boolean",
           required: false,
           input: false,
           fieldName: "is_personal",
-        }),
+        },
       },
     },
     member: {
@@ -235,8 +237,8 @@ const organizationPlugin = organization({
     );
   },
 
-  organizationCreation: {
-    beforeCreate: async ({ organization: org }) => {
+  organizationHooks: {
+    beforeCreateOrganization: async ({ organization: org }) => {
       // `organizations.uuid` is NOT NULL and is what every application table
       // references. Generating it here rather than in a database default keeps
       // one rule: Better Auth owns `id`, the app owns `uuid`.
@@ -282,15 +284,17 @@ export const auth = betterAuth({
       emailVerified: "email_verified",
     },
     additionalFields: {
-      uuid: createFieldAttribute("string", {
+      uuid: {
+        type: "string",
         unique: true,
         input: false,
         fieldName: "uuid",
-      }),
-      role: createFieldAttribute("string", {
+      },
+      role: {
+        type: "string",
         input: false,
         fieldName: "role",
-      }),
+      },
     },
   },
   session: {
@@ -354,7 +358,10 @@ export const auth = betterAuth({
   },
   emailVerification: {
     sendOnSignUp: true,
-    sendOnSignIn: true,
+    // Failed sign-in is not a resend action. The signup UI offers an explicit
+    // resend button, so a mistyped or premature login should not rotate the
+    // verification link behind the user's back.
+    sendOnSignIn: false,
     autoSignInAfterVerification: true,
     expiresIn: 60 * 60,
     sendVerificationEmail: async ({ user, url }, _request) => {

@@ -20,7 +20,7 @@ export interface AuthRequestInfo {
   path: string;
 }
 
-function getHeaders(ctx?: AuthHookContext): Headers | undefined {
+function getHeaders(ctx?: AuthHookContext | null): Headers | undefined {
   return ctx?.headers ?? ctx?.request?.headers;
 }
 
@@ -57,7 +57,9 @@ export function getProviderFromPath(path: string | undefined): string {
   return "";
 }
 
-export function describeAuthRequest(ctx?: AuthHookContext): AuthRequestInfo {
+export function describeAuthRequest(
+  ctx?: AuthHookContext | null
+): AuthRequestInfo {
   const headers = getHeaders(ctx);
   const path = ctx?.path ?? "";
 
