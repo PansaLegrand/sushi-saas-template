@@ -1,12 +1,12 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 
-import Stripe from "stripe";
 import { can, getOrgContext } from "@/services/authz";
 import { findOrganizationByUuid } from "@/models/organization";
 import { findUserByUuid } from "@/models/user";
 import { getOrCreateCustomerIdForOrg } from "@/services/stripe";
-import { getAppEnv, getRequiredEnv } from "@/lib/env";
+import { newStripeClient } from "@/integrations/stripe";
+import { getAppEnv } from "@/lib/env";
 import { absoluteLocaleUrl } from "@/i18n/locale";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
       stripe_customer_id: org.stripe_customer_id,
     });
 
-    const stripe = new Stripe(getRequiredEnv("STRIPE_PRIVATE_KEY"));
+    const stripe = newStripeClient().stripe();
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
       return_url,
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
       email: user.email,
       stripe_customer_id: org.stripe_customer_id,
     });
-    const stripe = new Stripe(getRequiredEnv("STRIPE_PRIVATE_KEY"));
+    const stripe = newStripeClient().stripe();
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
       return_url,

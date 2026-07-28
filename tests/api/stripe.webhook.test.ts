@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   claimStripeWebhookEvent: vi.fn(),
   markStripeWebhookEventCompleted: vi.fn(),
   markStripeWebhookEventFailed: vi.fn(),
+  isProductionRuntime: vi.fn(() => false),
 }));
 
 vi.mock("stripe", () => {
@@ -70,6 +71,7 @@ vi.mock("@/lib/env", () => ({
   getAppEnv: vi.fn(() => ({
     NEXT_PUBLIC_WEB_URL: "http://localhost:3000",
   })),
+  isProductionRuntime: mocks.isProductionRuntime,
 }));
 
 import { POST as stripeWebhook } from "@/app/api/pay/webhook/stripe/route";
@@ -109,6 +111,7 @@ describe("POST /api/pay/webhook/stripe", () => {
     mocks.markStripeWebhookEventFailed.mockResolvedValue(undefined);
     mocks.handleCheckoutSession.mockResolvedValue(undefined);
     mocks.enqueueJob.mockResolvedValue(undefined);
+    mocks.isProductionRuntime.mockReturnValue(false);
   });
 
   it("claims and completes a new Stripe event", async () => {
@@ -179,6 +182,67 @@ describe("POST /api/pay/webhook/stripe", () => {
     expect(res.status).toBe(409);
     expect(mocks.handleCheckoutSession).not.toHaveBeenCalled();
     expect(mocks.markStripeWebhookEventCompleted).not.toHaveBeenCalled();
+  });
+
+  it("rejects a test-mode event in production without claiming it", async () => {
+    // The signature has already verified at this point, so the failure being
+    // guarded is a production deployment holding a test-mode webhook secret —
+    // whose events would otherwise grant real credits from fixture amounts.
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.isProductionRuntime.mockReturnValue(true);
+    mocks.constructEvent.mockReturnValue({
+      ...checkoutEvent("evt_test_mode"),
+      livemode: false,
+    });
+
+    const res = await stripeWebhook(request());
+
+    expect(res.status).toBe(400);
+    // Not claimed: the event never happened as far as this deployment goes, so
+    // it must stay replayable after the secret is fixed.
+    expect(mocks.claimStripeWebhookEvent).not.toHaveBeenCalled();
+    expect(mocks.handleCheckoutSession).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  it("rejects an event in production when livemode is absent", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.isProductionRuntime.mockReturnValue(true);
+    mocks.constructEvent.mockReturnValue(checkoutEvent("evt_no_livemode"));
+
+    const res = await stripeWebhook(request());
+
+    expect(res.status).toBe(400);
+    expect(mocks.handleCheckoutSession).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  it("processes a live-mode event in production", async () => {
+    mocks.isProductionRuntime.mockReturnValue(true);
+    mocks.constructEvent.mockReturnValue({
+      ...checkoutEvent("evt_live_mode"),
+      livemode: true,
+    });
+
+    const res = await stripeWebhook(request());
+
+    expect(res.status).toBe(200);
+    expect(mocks.handleCheckoutSession).toHaveBeenCalledTimes(1);
+    expect(mocks.markStripeWebhookEventCompleted).toHaveBeenCalledWith("evt_live_mode");
+  });
+
+  it("accepts test-mode events outside production", async () => {
+    // `stripe listen` forwards test-mode events to a developer's machine; the
+    // guard must not make local development impossible.
+    mocks.constructEvent.mockReturnValue({
+      ...checkoutEvent("evt_local_test"),
+      livemode: false,
+    });
+
+    const res = await stripeWebhook(request());
+
+    expect(res.status).toBe(200);
+    expect(mocks.handleCheckoutSession).toHaveBeenCalledTimes(1);
   });
 
   it("marks claimed events failed when handling throws", async () => {

@@ -49,6 +49,11 @@ pnpm db:check:prod
   read/write guards on the affected admin surface.
 - Billing changes: open the billing portal, cancel or update a subscription in
   Stripe test mode, and verify the webhook result.
+- Confirm `STRIPE_WEBHOOK_SECRET` in production is the **live-mode** endpoint's
+  signing secret, not the test-mode one. The webhook rejects any non-live event
+  with a 400 in production, so a test-mode secret makes every delivery fail
+  visibly on the endpoint in the Stripe dashboard rather than crediting accounts
+  from fixture amounts.
 - Email changes: confirm the email in the provider dashboard or development
   auth-link logs, and verify no raw provider error reaches the UI.
 - Storage changes: run the provider smoke test in

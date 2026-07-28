@@ -500,6 +500,25 @@ describe("conventions", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("constructs the Stripe client in exactly one place", () => {
+    // A per-request `new Stripe(...)` builds its own HTTP agent, so it pays a
+    // TLS handshake the SDK's keep-alive would have reused — and, the reason
+    // this is a rule, it silently opts out of the `appInfo` and
+    // `maxNetworkRetries` set on the shared client. Four handlers had drifted
+    // into their own client before this existed.
+    //
+    // Only construction is banned. `Stripe.webhooks.constructEvent` is static
+    // and needs no key, and importing the package for its types is fine.
+    const ALLOWED = new Set(["src/integrations/stripe.ts"]);
+
+    const offenders = FILES.filter(
+      ({ path, body }) =>
+        !ALLOWED.has(path) && /\bnew\s+Stripe\s*\(/.test(stripComments(body))
+    ).map(({ path }) => path);
+
+    expect(offenders).toEqual([]);
+  });
+
   it("uses kebab-case filenames", () => {
     // Matches the rule in AGENTS.md. Route groups and dynamic segments in
     // app/ are Next.js syntax, so only the filename itself is checked.

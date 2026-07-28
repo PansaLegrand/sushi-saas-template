@@ -18,7 +18,8 @@ import { syncStripeSubscription } from "@/services/subscriptions";
 import { findPersonalOrganizationByUserUuid } from "@/models/organization";
 import { getUserUuidsByEmail } from "@/models/user";
 import { enqueueJob } from "@/services/jobs";
-import { getAppEnv, getRequiredEnv } from "@/lib/env";
+import { getAppEnv, getRequiredEnv, isProductionRuntime } from "@/lib/env";
+import { newStripeClient } from "@/integrations/stripe";
 import {
   claimStripeWebhookEvent,
   markStripeWebhookEventCompleted,
@@ -79,6 +80,34 @@ export async function POST(req: Request) {
     stripeEventId = event.id;
     stripeEventType = event.type;
 
+    // A test-mode event reaching production means the deployment is holding a
+    // test-mode webhook secret — the signature above verified, so this is a
+    // misconfiguration rather than a forgery. Reject before claiming the event
+    // or granting anything: test-mode ids resolve against no real customer, and
+    // `stripe trigger` sends whatever amounts the fixture happens to carry.
+    //
+    // 400, not 500: Stripe stops retrying a 4xx and surfaces the failure on the
+    // endpoint in the dashboard, which is where the operator has to go to fix
+    // it anyway. A 500 would retry for three days and hide the cause.
+    //
+    // Deliberately not a catalog code — Stripe is the only reader of this body,
+    // and the catalog demands five locale translations for a string no person
+    // will see. Matches the plain 500 the catch-all below returns.
+    // `!== true` rather than `=== false`: fail closed. Stripe always sets the
+    // field, so nothing legitimate is rejected, and a hand-rolled payload
+    // missing it should not be the one shape that slips past.
+    if (isProductionRuntime() && event.livemode !== true) {
+      logger.error(
+        {
+          event: "pay.webhook_test_mode_rejected",
+          stripe_event_id: event.id,
+          stripe_event_type: event.type,
+        },
+        "rejected a test-mode stripe event in production"
+      );
+      return new Response("test-mode event rejected", { status: 400 });
+    }
+
     let claimedEvent = false;
     if (IDEMPOTENT_STRIPE_EVENTS.has(event.type)) {
       const claimStatus = await claimStripeWebhookEvent({
@@ -102,7 +131,7 @@ export async function POST(req: Request) {
       switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        const stripe = new Stripe(getRequiredEnv("STRIPE_PRIVATE_KEY"));
+        const stripe = newStripeClient().stripe();
         await handleCheckoutSession(stripe, session);
 
         // Entitle the user now rather than when `customer.subscription.created`
@@ -229,7 +258,7 @@ export async function POST(req: Request) {
           break;
         }
 
-        const stripe = new Stripe(getRequiredEnv("STRIPE_PRIVATE_KEY"));
+        const stripe = newStripeClient().stripe();
 
         const subId = (invoice.subscription as string) || "";
         if (!subId) break;
