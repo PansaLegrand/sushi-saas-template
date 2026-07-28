@@ -13,6 +13,7 @@ import {
   renewalOrderNo,
   subscriptionPeriodTransNo,
 } from "@/services/stripe/idempotency";
+import { extractWebhookReceipt } from "@/services/stripe/receipt";
 import { updateAffiliateForOrder } from "@/services/affiliate";
 import { syncStripeSubscription } from "@/services/subscriptions";
 import { findPersonalOrganizationByUserUuid } from "@/models/organization";
@@ -114,6 +115,9 @@ export async function POST(req: Request) {
         eventId: event.id,
         eventType: event.type,
         payload: rawBody,
+        // Flattened here rather than inside the model, so the ids are queryable
+        // without parsing the payload back out of a `text` column.
+        receipt: extractWebhookReceipt(event),
       });
 
       if (claimStatus === "completed") {

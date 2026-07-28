@@ -132,6 +132,13 @@
       "when": 1785204548956,
       "tag": "0018_stale_ultragirl",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1785205484433,
+      "tag": "0019_unique_purple_man",
+      "breakpoints": true
     }
   ]
 }

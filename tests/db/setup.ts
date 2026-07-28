@@ -82,6 +82,7 @@ const MANAGED_TABLES = [
   "org_invitations",
   "org_members",
   "organizations",
+  "stripe_webhook_events",
   "subscriptions",
   "tasks",
   "users",

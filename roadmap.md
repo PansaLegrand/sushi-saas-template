@@ -77,11 +77,11 @@ References between items are by name rather than by number from here on,
 because positional references in this file have already gone stale twice.
 
 Item 4 shipped on 2026-07-26. **Item 5 is the top of the queue**, and is now
-half done. On 2026-07-28: its step 5 shipped first because it touches no schema,
-its open refund decision was settled, and step 1 shipped as migration `0018`.
-All three are recorded under the item. **Its step 2 is the top of the queue**,
-followed by 3 and 4 — and step 4 is now fully specified, so only 2 and 3 involve
-open design.
+mostly done. On 2026-07-28: its step 5 shipped first because it touches no
+schema, its open refund decision was settled, and steps 1 and 2 shipped as
+migrations `0018` and `0019`. All are recorded under the item. **Its step 3 is
+the top of the queue** — `action_required` — and step 4 follows it, already fully
+specified by the refund decision. Step 3 is the last one with open design in it.
 
 1. [x] [P0] Route every production failure through the logger
    - Swept all 20 stray `console.*` calls in server code onto `src/lib/logger`,
@@ -338,8 +338,45 @@ open design.
         - Named `metadata_json`, not `metadata`, matching `files` and `tasks`.
           Two real writers rather than a stub column: a task spend records
           `task_uuid`, a refund records what it reverses.
-     2. Receipt fields on `stripe_webhook_events`, denormalized at write time
-        from the payload already being stored.
+     2. [x] Receipt fields on `stripe_webhook_events`, denormalized at write time
+        from the payload already being stored. **Done 2026-07-28**, migration
+        `0019`: `stripe_object_id`, `stripe_customer_id`, `stripe_invoice_id`,
+        `stripe_subscription_id`, `livemode`, `api_version`, `request_id`.
+        18 new tests (10 unit over the extractor, 8 database-tier); 440 green.
+        - Extraction lives in `src/services/stripe/receipt.ts`, not the model.
+          The model takes values and puts them in columns; every assumption about
+          Stripe's object shapes is in one file with tests over it.
+        - **Reads the object's own `object` discriminator, not `event.type`.**
+          There are ~250 event types and a handful of shapes, so a type switch
+          would be long and — the real objection — *silently* incomplete: a newly
+          handled event type would extract nothing and log no complaint.
+        - The trap worth naming: **an invoice carries no `invoice` field.** For
+          `kind === "invoice"` the id is the object's own, and reading only the
+          reference would leave `stripe_invoice_id` null on exactly the events
+          reconciliation walks. Same for subscriptions. Both are pinned by tests.
+        - Expandable fields are `string | Object`, so both resolve to the id — a
+          handler that expands `customer` would otherwise write a null.
+        - Every failure here is silent: a wrong read writes a null, the webhook
+          still succeeds, and the gap only surfaces when the reconciliation query
+          comes back empty during an incident. Hence the unit tier, and hence the
+          database tests **query by** the columns rather than only asserting they
+          were written.
+        - Nulls are load-bearing and distinguished from empty strings, because
+          `where stripe_invoice_id is null` silently misses `''`. `livemode`
+          keeps `false` (test mode) apart from `null` (pre-0019).
+        - The retry path refreshes the receipt alongside the payload rather than
+          leaving whatever the first attempt wrote — a receipt disagreeing with
+          the payload it came from is worse than a null, which is visibly absent.
+        - Three indexes, one per question actually asked: customer, invoice,
+          subscription. `stripe_object_id` is unindexed on purpose — nothing
+          queries by it, and an unread index is write cost on every delivery.
+        - Fell out of the work: `stripe_webhook_events` was **not** in the db
+          tier's `MANAGED_TABLES`, so its rows leaked across tests. No test wrote
+          them before, so nothing was broken yet. Added.
+        - Deployment note in the migration: the three `CREATE INDEX` statements
+          block writes while they build, which means webhook deliveries 500 and
+          Stripe retries. Milliseconds on a small table; on a large one, create
+          them by hand with `CONCURRENTLY` first.
      3. `action_required` status, and the handful of `return` sites in the
         webhook that should use it instead of throwing — an unmapped price is
         the motivating case.
@@ -612,13 +649,30 @@ database that already holds real rows:
   mints a *second* Stripe customer and strands the first one's card, invoices,
   and subscription.
 
-Migration `0018` adds the credit ledger's audit columns:
+Migrations `0018`–`0019` add the audit trail for money movement:
 
 - **`0018` is safe to run any time, on any database.** Three `ADD COLUMN`s with
   no default and no `NOT NULL`: a brief lock, no table rewrite, no backfill.
   Existing rows keep nulls in all three, which reads as "written before this
   migration" — see the comment in the migration for why guessing history would
   be worse than leaving it null.
+- **`0019` adds columns instantly but builds three indexes.** The `ADD COLUMN`s
+  rewrite nothing. The `CREATE INDEX` statements each take a lock that blocks
+  writes on `stripe_webhook_events` while they build, so webhook deliveries 500
+  and Stripe retries them. On a small table that is milliseconds. If yours holds
+  millions of events, create the three indexes by hand with `CONCURRENTLY` first
+  and the migration skips them — drizzle wraps migrations in a transaction, and
+  `CONCURRENTLY` cannot run inside one.
+
+**Two things that cost time and are not obvious:**
+
+- **`pnpm db:migrate` and `pnpm test:db:setup` are separate databases.** After
+  any migration, run both, or `pnpm test:db` fails with a column that does not
+  exist rather than a clear "you forgot to migrate".
+- **A generated migration is content-hashed once applied.** Drizzle records the
+  hash, so editing an already-applied file makes it look like a new, unapplied
+  migration. Add the explanatory header before the first `db:migrate`, not after,
+  and treat an applied migration as immutable.
 
 Migration `0017` adds admin MFA support:
 

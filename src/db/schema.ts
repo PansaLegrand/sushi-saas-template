@@ -264,10 +264,45 @@ export const stripeWebhookEvents = pgTable(
     received_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
     processed_at: timestamp({ withTimezone: true }),
     updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+
+    // ---------------------------------------------------------- the receipt
+    // Denormalized out of `payload` at write time by
+    // `src/services/stripe/receipt.ts`. The payload above is still the record of
+    // truth; these exist because `text` cannot answer "every event for this
+    // subscription" without a full scan and a JSON parse per row — the question
+    // you have during an incident, when this table is at its largest.
+    //
+    // All nullable: rows written before migration 0019 have none, and no single
+    // event carries all of them (a dispute has no invoice, a renewal has no
+    // request id).
+    stripe_object_id: varchar({ length: 255 }),
+    stripe_customer_id: varchar({ length: 255 }),
+    stripe_invoice_id: varchar({ length: 255 }),
+    stripe_subscription_id: varchar({ length: 255 }),
+    // Whether Stripe considers this live money. The webhook already refuses a
+    // non-live event in production; this is the record for the ones that
+    // legitimately are test-mode.
+    livemode: boolean(),
+    // The stored payload is only interpretable against the version that rendered
+    // it, so a payload without one is a payload you have to guess at.
+    api_version: varchar({ length: 64 }),
+    // The API call or dashboard action that caused the event. Null for events
+    // Stripe raised on its own, which is most of them.
+    request_id: varchar({ length: 255 }),
   },
   (table) => [
     index("stripe_webhook_events_status_idx").on(table.status),
     index("stripe_webhook_events_type_idx").on(table.event_type),
+    // Three indexes, one per "show me this entity's history" question that is
+    // actually asked: a customer's events, an invoice's events (which is what
+    // reconciliation walks), and a subscription's. `stripe_object_id` is
+    // deliberately unindexed — nothing queries by it yet, and an index nothing
+    // reads is write cost on every event Stripe delivers.
+    index("stripe_webhook_events_customer_idx").on(table.stripe_customer_id),
+    index("stripe_webhook_events_invoice_idx").on(table.stripe_invoice_id),
+    index("stripe_webhook_events_subscription_idx").on(
+      table.stripe_subscription_id
+    ),
   ]
 );
 

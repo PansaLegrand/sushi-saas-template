@@ -6,10 +6,27 @@ const PROCESSING_STALE_MS = 15 * 60 * 1000;
 
 export type StripeWebhookClaimStatus = "claimed" | "completed" | "processing";
 
+/**
+ * The denormalized columns, as extracted by
+ * `src/services/stripe/receipt.ts`. Typed structurally rather than imported so
+ * this model keeps no dependency on the Stripe SDK — it takes values and puts
+ * them in columns.
+ */
+export interface StripeWebhookEventReceipt {
+  stripe_object_id?: string | null;
+  stripe_customer_id?: string | null;
+  stripe_invoice_id?: string | null;
+  stripe_subscription_id?: string | null;
+  livemode?: boolean | null;
+  api_version?: string | null;
+  request_id?: string | null;
+}
+
 interface ClaimStripeWebhookEventParams {
   eventId: string;
   eventType: string;
   payload?: string;
+  receipt?: StripeWebhookEventReceipt;
 }
 
 function serializeError(error: unknown) {
@@ -27,6 +44,7 @@ export async function claimStripeWebhookEvent({
   eventId,
   eventType,
   payload,
+  receipt,
 }: ClaimStripeWebhookEventParams): Promise<StripeWebhookClaimStatus> {
   const now = new Date();
 
@@ -40,6 +58,7 @@ export async function claimStripeWebhookEvent({
       payload,
       received_at: now,
       updated_at: now,
+      ...receipt,
     })
     .onConflictDoNothing({ target: stripeWebhookEvents.event_id })
     .returning({ id: stripeWebhookEvents.id });
@@ -82,6 +101,11 @@ export async function claimStripeWebhookEvent({
       payload,
       last_error: null,
       updated_at: now,
+      // Refreshed alongside the payload, not left at whatever the first attempt
+      // wrote. A row claimed before 0019 has nulls here, and a retry is the only
+      // chance it gets to fill them — leaving them stale would mean the receipt
+      // and the payload it was derived from disagreed.
+      ...receipt,
     })
     .where(
       and(
