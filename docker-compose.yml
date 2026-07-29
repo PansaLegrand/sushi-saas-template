@@ -1,4 +1,4 @@
-# Local Postgres for development and the tests/db tier.
+# Local Postgres and Redis for development and the real-infrastructure tests.
 #
 # Two databases on one server: sushi_dev for the app, sushi_test for the
 # database tests. They are separate because the test tier truncates tables on
@@ -29,5 +29,21 @@ services:
       timeout: 3s
       retries: 12
 
+  redis:
+    image: redis:7-alpine
+    container_name: sushi-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - sushi-redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
 volumes:
   sushi-pgdata:
+  sushi-redisdata:

@@ -107,6 +107,33 @@ describe("AuthScreen signup verification", () => {
     expect(mocks.replace).not.toHaveBeenCalled();
   });
 
+  it("renders a catalogued rate-limit error returned by the auth endpoint", async () => {
+    const user = userEvent.setup();
+    mocks.signUpEmail.mockResolvedValue({
+      data: null,
+      error: {
+        code: -1,
+        error_code: "REQUEST_RATE_LIMITED",
+        message: "Server-owned English fallback",
+        status: 429,
+      },
+    });
+
+    render(<AuthScreen initialMode="signUp" />);
+
+    await user.type(screen.getByLabelText("Email"), "jane@example.com");
+    await user.type(screen.getByLabelText("Password"), "correct-horse");
+    await user.click(screen.getByRole("button", { name: "Create Account" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Too many requests. Please wait a moment and try again."
+    );
+    expect(screen.queryByText("Server-owned English fallback")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Check your email" })
+    ).not.toBeInTheDocument();
+  });
+
   it("resends verification email only from the explicit pending action", async () => {
     const user = userEvent.setup();
 

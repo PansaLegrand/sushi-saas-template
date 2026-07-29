@@ -90,9 +90,9 @@ a deploy.
       [docs/legal.md](legal.md).
 - [ ] Privacy policy retention section reconciled with what deletion actually
       does.
-- [ ] `RATE_LIMIT_REDIS_REST_URL` and `RATE_LIMIT_REDIS_REST_TOKEN` set. Without
-      them each serverless instance keeps a private counter and the published
-      limits are advisory — including on the auth endpoint.
+- [ ] `RATE_LIMIT_REDIS_URL` set to the managed service's `rediss://` URL. The
+      production app refuses to boot without it because each serverless
+      instance would otherwise keep a private, advisory-only counter.
 - [ ] Production log destination decided: a drain, an error tracker, or a
       deliberate "stdout is enough for now".
 - [ ] Point-in-time restore confirmed available, and the restore procedure run

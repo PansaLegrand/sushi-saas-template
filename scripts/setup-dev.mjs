@@ -3,7 +3,7 @@
  * One-command local bootstrap: `pnpm setup`
  *
  *   1. writes .env from .env.example, with real secrets generated
- *   2. starts the Postgres container
+ *   2. starts the Postgres and Redis containers
  *   3. applies migrations to the dev and test databases
  *
  * Safe to re-run. An existing .env is never overwritten — the whole point of
@@ -21,6 +21,7 @@ const examplePath = resolve(root, ".env.example");
 
 const DEV_DATABASE_URL = "postgresql://sushi:sushi@localhost:5432/sushi_dev";
 const TEST_DATABASE_URL = "postgresql://sushi:sushi@localhost:5432/sushi_test";
+const DEV_REDIS_URL = "redis://localhost:6379";
 
 // Cloudflare's documented always-passes Turnstile keys. Local only — the app
 // refuses to start in production unless real keys are set or captcha is
@@ -67,6 +68,8 @@ if (existsSync(envPath)) {
   let contents = readFileSync(examplePath, "utf8");
   contents = fill(contents, "DATABASE_URL", DEV_DATABASE_URL);
   contents = fill(contents, "TEST_DATABASE_URL", TEST_DATABASE_URL);
+  contents = fill(contents, "RATE_LIMIT_REDIS_URL", DEV_REDIS_URL);
+  contents = fill(contents, "TEST_REDIS_URL", DEV_REDIS_URL);
   contents = fill(contents, "BETTER_AUTH_SECRET", randomBytes(32).toString("base64"));
   contents = fill(contents, "CRON_SECRET", randomBytes(32).toString("hex"));
   contents = fill(contents, "NEXT_PUBLIC_TURNSTILE_SITE_KEY", TURNSTILE_TEST_SITE_KEY);
@@ -77,15 +80,16 @@ if (existsSync(envPath)) {
   warn("Stripe, Resend, and storage keys are still blank — fill them when you need those features");
 }
 
-// ---------------------------------------------------------------- 2. database
+// ------------------------------------------------------ 2. local infrastructure
 
-step("Database");
+step("Local infrastructure");
 
 const dockerAvailable = has("docker");
 
 if (!dockerAvailable) {
-  warn("docker not found — start Postgres yourself, then re-run this script");
+  warn("docker not found — start Postgres and Redis yourself, then re-run this script");
   warn(`expected: ${DEV_DATABASE_URL}`);
+  warn(`expected: ${DEV_REDIS_URL}`);
   process.exit(0);
 }
 
@@ -99,13 +103,13 @@ function portInUse(port) {
   return probe.status === 0;
 }
 
-const composeRunning =
+const postgresComposeRunning =
   spawnSync("docker", ["compose", "ps", "-q", "postgres"], {
     cwd: root,
     encoding: "utf8",
   }).stdout?.trim().length > 0;
 
-if (portInUse(5432) && !composeRunning) {
+if (portInUse(5432) && !postgresComposeRunning) {
   console.log(`
   \x1b[33mPort 5432 is already in use\x1b[0m — you appear to have Postgres running already.
 
@@ -131,7 +135,21 @@ if (portInUse(5432) && !composeRunning) {
   process.exit(0);
 }
 
-if (run("docker", ["compose", "up", "-d"]).status !== 0) {
+const redisComposeRunning =
+  spawnSync("docker", ["compose", "ps", "-q", "redis"], {
+    cwd: root,
+    encoding: "utf8",
+  }).stdout?.trim().length > 0;
+const externalRedisRunning = portInUse(6379) && !redisComposeRunning;
+const composeServices = externalRedisRunning
+  ? ["postgres"]
+  : ["postgres", "redis"];
+
+if (externalRedisRunning) {
+  warn("port 6379 is already in use — using the existing local Redis service");
+}
+
+if (run("docker", ["compose", "up", "-d", ...composeServices]).status !== 0) {
   console.error("  docker compose failed; is Docker running?");
   process.exit(1);
 }
@@ -159,6 +177,31 @@ if (!ready) {
   process.exit(1);
 }
 ok("Postgres is up on localhost:5432 (sushi_dev, sushi_test)");
+
+if (!externalRedisRunning) {
+  process.stdout.write("  waiting for Redis");
+  let redisReady = false;
+  for (let i = 0; i < 30; i += 1) {
+    const probe = spawnSync(
+      "docker",
+      ["compose", "exec", "-T", "redis", "redis-cli", "ping"],
+      { cwd: root, stdio: "ignore" }
+    );
+    if (probe.status === 0) {
+      redisReady = true;
+      break;
+    }
+    process.stdout.write(".");
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1000);
+  }
+  console.log("");
+
+  if (!redisReady) {
+    console.error("  Redis did not become ready. Check `docker compose logs redis`.");
+    process.exit(1);
+  }
+}
+ok("Redis is available on localhost:6379");
 
 // -------------------------------------------------------------- 3. migrations
 

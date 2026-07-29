@@ -1,9 +1,15 @@
+import { createClient } from "redis";
+
 import { getAppEnv } from "@/lib/env";
 import { respCode } from "@/lib/errors/response";
 import { logger } from "@/lib/logger/server";
 
 type RateLimitBucket =
   | "auth"
+  | "auth-signup"
+  | "auth-signin"
+  | "auth-recovery"
+  | "auth-sensitive"
   | "checkout"
   | "feedback"
   | "credits"
@@ -28,11 +34,23 @@ type RateLimitStoreResult = {
 
 type RateLimitStore = {
   increment(key: string, windowMs: number): Promise<RateLimitStoreResult>;
+  close?(): Promise<void>;
   reset?(): void;
 };
 
 const RATE_LIMIT_RULES: Record<RateLimitBucket, RateLimitRule> = {
   auth: { limit: 20, windowMs: 60 * 1000 },
+  // Creating identities is both expensive and a common abuse target. Turnstile
+  // remains the bot challenge; this bounds successful challenge reuse and
+  // scripted traffic that reaches the application.
+  "auth-signup": { limit: 5, windowMs: 15 * 60 * 1000 },
+  "auth-signin": { limit: 10, windowMs: 60 * 1000 },
+  // These endpoints send email. Share one deliberately small bucket so an
+  // attacker cannot multiply the allowance by alternating reset and verify.
+  "auth-recovery": { limit: 5, windowMs: 15 * 60 * 1000 },
+  // Password changes, email changes, session revocation, and 2FA changes are
+  // authenticated but security-sensitive.
+  "auth-sensitive": { limit: 10, windowMs: 5 * 60 * 1000 },
   checkout: { limit: 10, windowMs: 60 * 1000 },
   feedback: { limit: 5, windowMs: 60 * 1000 },
   credits: { limit: 30, windowMs: 60 * 1000 },
@@ -44,6 +62,69 @@ const RATE_LIMIT_RULES: Record<RateLimitBucket, RateLimitRule> = {
   // runaway script, not to pace a human.
   moderation: { limit: 60, windowMs: 60 * 1000 },
 };
+
+const AUTH_SIGNIN_ENDPOINTS = new Set([
+  "/sign-in/email",
+  "/sign-in/social",
+]);
+
+const AUTH_RECOVERY_ENDPOINTS = new Set([
+  "/request-password-reset",
+  "/forget-password",
+  "/send-verification-email",
+]);
+
+const AUTH_SENSITIVE_ENDPOINTS = new Set([
+  "/reset-password",
+  "/change-password",
+  "/change-email",
+  "/delete-user",
+  "/revoke-session",
+  "/revoke-sessions",
+  "/revoke-other-sessions",
+]);
+
+function getAuthEndpoint(req: Request): string {
+  const pathname = new URL(req.url).pathname;
+  const authPrefix = "/api/auth";
+  const prefixIndex = pathname.indexOf(authPrefix);
+
+  if (prefixIndex === -1) {
+    return pathname;
+  }
+
+  return pathname.slice(prefixIndex + authPrefix.length) || "/";
+}
+
+/**
+ * Better Auth exposes every action through one catch-all route, but those
+ * actions do not have the same abuse cost. Keep the routing decision here so a
+ * new auth endpoint cannot accidentally invent a second limiter convention.
+ */
+export function getAuthRateLimitBucket(req: Request): RateLimitBucket {
+  const endpoint = getAuthEndpoint(req);
+
+  if (endpoint === "/sign-up/email") {
+    return "auth-signup";
+  }
+
+  if (AUTH_SIGNIN_ENDPOINTS.has(endpoint)) {
+    return "auth-signin";
+  }
+
+  if (AUTH_RECOVERY_ENDPOINTS.has(endpoint)) {
+    return "auth-recovery";
+  }
+
+  if (
+    AUTH_SENSITIVE_ENDPOINTS.has(endpoint) ||
+    endpoint.startsWith("/two-factor/")
+  ) {
+    return "auth-sensitive";
+  }
+
+  return "auth";
+}
 
 class MemoryRateLimitStore implements RateLimitStore {
   private buckets = new Map<string, RateLimitState>();
@@ -81,35 +162,50 @@ class MemoryRateLimitStore implements RateLimitStore {
   }
 }
 
-class RedisRestRateLimitStore implements RateLimitStore {
-  constructor(
-    private readonly url: string,
-    private readonly token: string
-  ) {}
+const INCREMENT_WITH_EXPIRY_SCRIPT = `
+local count = redis.call("INCR", KEYS[1])
+local ttl = redis.call("PTTL", KEYS[1])
+if count == 1 or ttl < 0 then
+  redis.call("PEXPIRE", KEYS[1], ARGV[1])
+  ttl = tonumber(ARGV[1])
+end
+return {count, ttl}
+`;
 
-  async increment(key: string, windowMs: number): Promise<RateLimitStoreResult> {
-    const startedAt = Date.now();
-    const endpoint = `${this.url.replace(/\/$/, "")}/pipeline`;
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${this.token}`,
-        "content-type": "application/json",
+class RedisRateLimitStore implements RateLimitStore {
+  private readonly client;
+  private connectPromise: Promise<void> | undefined;
+
+  constructor(url: string) {
+    this.client = createClient({
+      url,
+      disableOfflineQueue: true,
+      socket: {
+        connectTimeout: 1_500,
+        reconnectStrategy: (retries) =>
+          retries >= 2 ? false : Math.min(100 * 2 ** retries, 500),
       },
-      body: JSON.stringify([
-        ["INCR", key],
-        ["PEXPIRE", key, String(windowMs), "NX"],
-        ["PTTL", key],
-      ]),
     });
 
-    if (!response.ok) {
-      throw new Error(`rate limit redis request failed: ${response.status}`);
+    // Node Redis requires an error listener. Request-level failures are logged
+    // once by checkRateLimit(), where the bucket and fallback decision are
+    // available; logging here would duplicate every reconnect error.
+    this.client.on("error", () => undefined);
+  }
+
+  async increment(key: string, windowMs: number): Promise<RateLimitStoreResult> {
+    const client = await this.getConnectedClient();
+    const result = await client.eval(INCREMENT_WITH_EXPIRY_SCRIPT, {
+      keys: [key],
+      arguments: [String(windowMs)],
+    });
+
+    if (!Array.isArray(result)) {
+      throw new Error("rate limit redis returned an invalid result");
     }
 
-    const payload = (await response.json()) as { result?: unknown }[];
-    const count = Number(payload[0]?.result);
-    const ttlMs = Number(payload[2]?.result);
+    const count = Number(result[0]);
+    const ttlMs = Number(result[1]);
 
     if (!Number.isFinite(count) || count < 1) {
       throw new Error("rate limit redis returned an invalid count");
@@ -119,9 +215,31 @@ class RedisRestRateLimitStore implements RateLimitStore {
       count,
       resetAt:
         Number.isFinite(ttlMs) && ttlMs > 0
-          ? startedAt + ttlMs
-          : startedAt + windowMs,
+          ? Date.now() + ttlMs
+          : Date.now() + windowMs,
     };
+  }
+
+  async close(): Promise<void> {
+    this.connectPromise = undefined;
+    if (this.client.isOpen) {
+      await this.client.close();
+    }
+  }
+
+  private async getConnectedClient() {
+    if (!this.client.isOpen) {
+      this.connectPromise ??= this.client.connect().then(
+        () => undefined,
+        (error: unknown) => {
+          this.connectPromise = undefined;
+          throw error;
+        }
+      );
+      await this.connectPromise;
+    }
+
+    return this.client;
   }
 }
 
@@ -133,11 +251,8 @@ function getConfiguredStore(): RateLimitStore {
   if (configuredStore) return configuredStore;
 
   const env = getAppEnv();
-  if (env.RATE_LIMIT_REDIS_REST_URL && env.RATE_LIMIT_REDIS_REST_TOKEN) {
-    configuredStore = new RedisRestRateLimitStore(
-      env.RATE_LIMIT_REDIS_REST_URL,
-      env.RATE_LIMIT_REDIS_REST_TOKEN
-    );
+  if (env.RATE_LIMIT_REDIS_URL) {
+    configuredStore = new RedisRateLimitStore(env.RATE_LIMIT_REDIS_URL);
   } else {
     configuredStore = memoryStore;
   }
@@ -159,9 +274,7 @@ function getRequestIp(req: Request): string {
 }
 
 function getBucketKey(req: Request, bucket: RateLimitBucket, key?: string): string {
-  const env = getAppEnv();
-  const prefix = env.RATE_LIMIT_KEY_PREFIX || "sushi";
-  return `${prefix}:rate_limit:${bucket}:${key ?? getRequestIp(req)}`;
+  return `sushi:rate_limit:${bucket}:${key ?? getRequestIp(req)}`;
 }
 
 export async function checkRateLimit(
@@ -234,6 +347,14 @@ export function resetRateLimitForTests() {
   memoryStore.reset();
   configuredStore = undefined;
   warnedStoreFailure = false;
+}
+
+export async function closeRateLimitStoreForTests() {
+  const store = configuredStore;
+  configuredStore = undefined;
+  warnedStoreFailure = false;
+  memoryStore.reset();
+  await store?.close?.();
 }
 
 export type { RateLimitBucket };

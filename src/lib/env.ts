@@ -23,6 +23,18 @@ const envUrl = z.preprocess(
   z.string().trim().url().optional()
 );
 
+const envRedisUrl = z.preprocess(
+  emptyToUndefined,
+  z
+    .string()
+    .trim()
+    .url()
+    .refine((value) => ["redis:", "rediss:"].includes(new URL(value).protocol), {
+      message: "Expected a redis:// or rediss:// URL",
+    })
+    .optional()
+);
+
 function envBoolean(defaultValue: boolean) {
   return z
     .preprocess(emptyToUndefined, z.union([z.boolean(), z.string()]).optional())
@@ -200,9 +212,7 @@ const RawEnvSchema = z.object({
   // amount in the admin console.
   ADMIN_MAX_CREDIT_GRANT: envPositiveInt(100000),
 
-  RATE_LIMIT_REDIS_REST_URL: envUrl,
-  RATE_LIMIT_REDIS_REST_TOKEN: envString,
-  RATE_LIMIT_KEY_PREFIX: envString,
+  RATE_LIMIT_REDIS_URL: envRedisUrl,
 
   ENABLE_DEMO_FEATURES: envBoolean(false),
   ENABLE_CREDITS_PLAYGROUND: envBoolean(false),
@@ -404,6 +414,10 @@ function getMissingProductionEnv(raw: RawEnv, env: AppEnv): string[] {
   );
   requireRaw(raw.RESEND_API_KEY, "RESEND_API_KEY");
   requireRaw(raw.EMAIL_FROM, "EMAIL_FROM");
+  // The in-memory fallback is correct for one local process but is not a
+  // production rate limiter: every serverless instance would keep a different
+  // counter. A production app must therefore have one shared Redis store.
+  requireRaw(raw.RATE_LIMIT_REDIS_URL, "RATE_LIMIT_REDIS_URL");
   // Fail closed: a captcha that silently is not running is the exact failure
   // mode that gets an auth system botted. Set NEXT_PUBLIC_CAPTCHA_ENABLED=false
   // to opt out deliberately.

@@ -14,7 +14,7 @@ keywords:
 tags: [auth, admin, oauth, sessions]
 author: "Pansa Legrand"
 publishedAt: "2025-09-29T00:00:00.000Z"
-updatedAt: "2026-02-02T00:00:00.000Z"
+updatedAt: "2026-07-29T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/docs/authentication-and-admin"
 ---
 
@@ -368,6 +368,15 @@ Minimum auth-related env:
 - `NEXT_PUBLIC_AUTH_BASE_URL`
 - `BETTER_AUTH_SECRET` (strong random)
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (if Google enabled)
+- `RATE_LIMIT_REDIS_URL`
+
+The Redis URL is mandatory in production app mode. Use `redis://` locally and
+the `rediss://` URL supplied by your managed Redis provider in production.
+Local development may omit it and use the single-process memory limiter. Auth limits are separated
+by risk: signup is 5 per 15 minutes, sign-in is 10 per minute,
+recovery/verification email is 5 per 15 minutes, and sensitive password,
+email, session, and 2FA changes are 10 per 5 minutes. These limits complement
+Turnstile; they do not replace it.
 
 If schema changed, run migrations:
 

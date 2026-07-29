@@ -25,7 +25,7 @@ collapsing into each other.
 | **Route** | `tests/api/` | `@/services/*`, `@/models/*`, external SDKs | mock `@/lib/*` guards | < 50 ms |
 | **Service** | `tests/services/` | `@/models/*`, external SDKs | mock the module under test | < 50 ms |
 | **Component** | `tests/components/` | `fetch` | mock the component under test | < 100 ms |
-| **Database** | `tests/db/` | nothing | run without a real Postgres | opt-in |
+| **Infrastructure** | `tests/db/` | nothing | fake an external service | opt-in |
 
 ### Unit — `tests/unit/`
 
@@ -74,14 +74,15 @@ What does not belong here: snapshot tests of markup, assertions that a prop was
 passed through, or anything that would fail on a purely visual change. Those
 break on every refactor and prove nothing.
 
-### Database — `tests/db/`
+### Infrastructure — `tests/db/`
 
-Real SQL against real Postgres. This tier exists for invariants **enforced by
-the database, not by TypeScript**:
+Real calls against Postgres and Redis. This tier exists for invariants
+**enforced by infrastructure, not by TypeScript**:
 
 - `UNIQUE` indexes (`credits.trans_no`, `jobs.dedupe_key`, `users(email, signin_provider)`)
 - `FOR UPDATE SKIP LOCKED` in `claimDueJobs` — concurrency has no meaning with one mocked connection
 - Timestamp and expiry arithmetic on values that made a round trip through `timestamptz`
+- Atomic Redis counters and TTLs that survive a new application client instance
 
 Everywhere else in the suite, `@/models/*` is mocked. That means the entire SQL
 layer is asserted only as a belief about what the schema does. This tier is
@@ -90,8 +91,10 @@ catching a `claimDueJobs` crash that made the job queue unable to claim any work
 at all. Every mocked test passed throughout, because they mock the function that
 was broken.
 
-It is **opt-in**: without `TEST_DATABASE_URL` the whole tier skips, so the
-default test command stays a one-second, zero-dependency run. CI always sets it.
+It is **opt-in per service**: Postgres tests need `TEST_DATABASE_URL`; the Redis
+test needs `TEST_REDIS_URL`. Without either, the default test command remains a
+zero-dependency run. CI always sets both, and fails rather than silently
+skipping either service.
 
 ---
 
@@ -187,12 +190,15 @@ were deleted. If you cannot write that sentence, you may not need the test.
 
 ```bash
 pnpm test          # watch mode
-pnpm test:run      # single pass, mocked tiers only (~1s)
+pnpm test:run      # single pass; real-service tests skip when URLs are absent
 pnpm test:cov      # with coverage; fails below the thresholds
-pnpm test:db       # database tier only (needs TEST_DATABASE_URL)
+pnpm test:db       # infrastructure tier (TEST_DATABASE_URL / TEST_REDIS_URL)
 ```
 
-### Running the database tier locally
+### Running the infrastructure tier locally
+
+The simplest path is `pnpm setup`, which starts both services and writes both
+test URLs. For a manual setup:
 
 ```bash
 createdb sushi_test
@@ -200,6 +206,7 @@ createdb sushi_test
 
 ```bash
 export TEST_DATABASE_URL=postgresql://localhost:5432/sushi_test
+export TEST_REDIS_URL=redis://localhost:6379
 ```
 
 ```bash
@@ -219,6 +226,8 @@ docker run --rm -d -p 5433:5432 -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=sus
 This is what stops a connection string pasted from a hosting dashboard from
 wiping something real. `TEST_DATABASE_URL` is deliberately separate from
 `DATABASE_URL` — the tier never inherits whatever the app is pointed at.
+The Redis test uses a UUID-prefixed key and deletes that exact key only; it
+never calls `FLUSHDB`.
 
 ---
 
@@ -228,8 +237,8 @@ wiping something real. `TEST_DATABASE_URL` is deliberately separate from
   Fast enough that nobody reaches for `--no-verify`.
 - **prebuild**: `pnpm test:run` runs before every build, local or otherwise.
 - **CI** (`.github/workflows/ci.yml`): lint → migrate test DB → `pnpm test:cov`
-  (all four tiers, thresholds enforced) → build both apps. A Postgres 16 service
-  container backs the database tier.
+  (all five tiers, thresholds enforced) → build both apps. Postgres 16 and
+  Redis 7 service containers back the infrastructure tier.
 
 ---
 

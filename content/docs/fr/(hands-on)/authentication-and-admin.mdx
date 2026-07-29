@@ -14,7 +14,7 @@ keywords:
 tags: [auth, admin, oauth, sessions]
 author: "Pansa Legrand"
 publishedAt: "2025-09-29T00:00:00.000Z"
-updatedAt: "2026-02-02T00:00:00.000Z"
+updatedAt: "2026-07-29T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/fr/blogs/authentication-and-admin"
 ---
 
@@ -368,6 +368,16 @@ Variables auth minimales :
 - `NEXT_PUBLIC_AUTH_BASE_URL`
 - `BETTER_AUTH_SECRET` (aléatoire et fort)
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (si Google activé)
+- `RATE_LIMIT_REDIS_URL`
+
+L'URL Redis est obligatoire en production en mode app. Utilisez `redis://` en
+local et l'URL `rediss://` fournie par votre service Redis managé en production.
+Le développement local peut l'omettre et utiliser le limiteur en mémoire
+mono-processus. Les limites d'authentification sont séparées selon le risque :
+inscription, 5 toutes les 15 minutes ; connexion, 10 par minute ; e-mails de
+récupération/vérification, 5 toutes les 15 minutes ; changements sensibles de
+mot de passe, d'e-mail, de session et de 2FA, 10 toutes les 5 minutes. Ces
+limites complètent Turnstile ; elles ne le remplacent pas.
 
 Si le schéma a changé, lancez les migrations :
 

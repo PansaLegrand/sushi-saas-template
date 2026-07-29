@@ -58,6 +58,7 @@ const ENV_KEYS = [
   "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
   "TURNSTILE_SECRET_KEY",
   "NEXT_PUBLIC_SITE_MODE",
+  "RATE_LIMIT_REDIS_URL",
 ];
 
 async function loadEnvModule() {
@@ -87,6 +88,7 @@ function setProductionEnv() {
   vi.stubEnv("STORAGE_SECRET_KEY", "secret");
   vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "site-key");
   vi.stubEnv("TURNSTILE_SECRET_KEY", "secret-key");
+  vi.stubEnv("RATE_LIMIT_REDIS_URL", "rediss://production-rate-limit.example.com");
 }
 
 describe("typed environment validation", () => {
@@ -193,6 +195,55 @@ describe("typed environment validation", () => {
     expect(env.STORAGE_MAX_UPLOAD_MB).toBe(50);
     expect(env.ENABLE_DEMO_FEATURES).toBe(true);
     expect(env.ENABLE_TEXT2VIDEO_MOCK).toBe(true);
+  });
+
+  it("requires a shared Redis rate-limit store in production app mode", async () => {
+    setProductionEnv();
+    delete process.env.RATE_LIMIT_REDIS_URL;
+
+    const { EnvValidationError, validateAppEnv } = await loadEnvModule();
+
+    expect(() => validateAppEnv()).toThrow(EnvValidationError);
+    try {
+      validateAppEnv();
+    } catch (error) {
+      expect((error as any).issues).toEqual(
+        expect.arrayContaining(["RATE_LIMIT_REDIS_URL"])
+      );
+    }
+  });
+
+  it("rejects a non-Redis rate-limit URL", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("RATE_LIMIT_REDIS_URL", "https://local-rate-limit.example.com");
+
+    const { EnvValidationError, validateAppEnv } = await loadEnvModule();
+
+    expect(() => validateAppEnv()).toThrow(EnvValidationError);
+    try {
+      validateAppEnv();
+    } catch (error) {
+      expect((error as any).issues).toEqual([
+        expect.stringContaining("RATE_LIMIT_REDIS_URL"),
+      ]);
+    }
+  });
+
+  it("accepts redis and TLS-protected rediss URLs", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("RATE_LIMIT_REDIS_URL", "redis://localhost:6379");
+
+    const { validateAppEnv } = await loadEnvModule();
+
+    expect(validateAppEnv().RATE_LIMIT_REDIS_URL).toBe(
+      "redis://localhost:6379"
+    );
+
+    vi.stubEnv("RATE_LIMIT_REDIS_URL", "rediss://redis.example.com:6380");
+    const { validateAppEnv: validateTlsEnv } = await loadEnvModule();
+    expect(validateTlsEnv().RATE_LIMIT_REDIS_URL).toBe(
+      "rediss://redis.example.com:6380"
+    );
   });
 
   it("requires a stable Stripe Price for every purchasable plan", async () => {

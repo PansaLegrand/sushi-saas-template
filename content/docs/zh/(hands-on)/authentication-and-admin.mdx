@@ -14,7 +14,7 @@ keywords:
 tags: [auth, admin, oauth, sessions]
 author: "Pansa Legrand"
 publishedAt: "2025-09-29T00:00:00.000Z"
-updatedAt: "2026-02-02T00:00:00.000Z"
+updatedAt: "2026-07-29T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/zh/blogs/authentication-and-admin"
 ---
 
@@ -366,6 +366,14 @@ Better Auth 的 secret 解析顺序：
 - `NEXT_PUBLIC_AUTH_BASE_URL`
 - `BETTER_AUTH_SECRET`（强随机）
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`（启用 Google 时）
+- `RATE_LIMIT_REDIS_URL`
+
+生产 app 模式必须配置 Redis URL。本地使用 `redis://`，生产环境使用
+托管 Redis 服务提供的 `rediss://` URL。本地开发可以省略，并使用单进程
+内存限流器。认证限流按风险拆分：注册为每15分钟5次，
+登录为每分钟10次，找回/验证邮件为每15分钟5次，密码、邮箱、会话及
+2FA 等敏感变更为每5分钟10次。这些限制用于补充 Turnstile，而不是
+替代它。
 
 如果 schema 变更，执行迁移：
 

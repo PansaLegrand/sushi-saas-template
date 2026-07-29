@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { resetEnvCacheForTests } from "@/lib/env";
-import { checkRateLimit, resetRateLimitForTests } from "@/lib/rate-limit";
+import {
+  checkRateLimit,
+  getAuthRateLimitBucket,
+  resetRateLimitForTests,
+} from "@/lib/rate-limit";
 
 function requestForIp(ip: string) {
   return new Request("http://test/api/demo", {
@@ -12,9 +16,7 @@ function requestForIp(ip: string) {
 
 describe("rate limiter", () => {
   beforeEach(() => {
-    delete process.env.RATE_LIMIT_REDIS_REST_URL;
-    delete process.env.RATE_LIMIT_REDIS_REST_TOKEN;
-    delete process.env.RATE_LIMIT_KEY_PREFIX;
+    delete process.env.RATE_LIMIT_REDIS_URL;
     resetEnvCacheForTests();
     resetRateLimitForTests();
   });
@@ -59,4 +61,42 @@ describe("rate limiter", () => {
     expect(sameIpOtherBucket.allowed).toBe(true);
     expect(otherIpSameBucket.allowed).toBe(true);
   });
+
+  it.each([
+    ["/api/auth/sign-up/email", "auth-signup"],
+    ["/api/auth/sign-in/email", "auth-signin"],
+    ["/api/auth/sign-in/social", "auth-signin"],
+    ["/api/auth/request-password-reset", "auth-recovery"],
+    ["/api/auth/send-verification-email", "auth-recovery"],
+    ["/api/auth/reset-password", "auth-sensitive"],
+    ["/api/auth/change-password", "auth-sensitive"],
+    ["/api/auth/two-factor/verify-totp", "auth-sensitive"],
+    ["/api/auth/organization/create", "auth"],
+  ])("maps %s to the %s bucket", (pathname, expected) => {
+    const request = new Request(`http://test${pathname}`);
+    expect(getAuthRateLimitBucket(request)).toBe(expected);
+  });
+
+  it("gives signup a dedicated five-per-fifteen-minute window", async () => {
+    const req = new Request("http://test/api/auth/sign-up/email", {
+      headers: { "x-forwarded-for": "203.0.113.5" },
+    });
+    const bucket = getAuthRateLimitBucket(req);
+
+    for (let i = 0; i < 5; i++) {
+      const result = await checkRateLimit(req, bucket);
+      expect(result.allowed).toBe(true);
+      if (result.allowed) {
+        expect(result.headers.get("RateLimit-Limit")).toBe("5");
+      }
+    }
+
+    const blocked = await checkRateLimit(req, bucket);
+    expect(blocked.allowed).toBe(false);
+    if (!blocked.allowed) {
+      expect(blocked.response.status).toBe(429);
+      expect(blocked.response.headers.get("Retry-After")).toBeTruthy();
+    }
+  });
+
 });

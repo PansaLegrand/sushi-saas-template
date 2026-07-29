@@ -78,8 +78,9 @@ take a customer's money and grant them nothing, and it does so silently.
 References between items are by name rather than by number from here on,
 because positional references in this file have already gone stale twice.
 
-Items 4, 5, and 6 all shipped. **Item 7 is the top of the queue** — rate limiting
-failing loudly instead of degrading quietly.
+Items 4 through 7 all shipped. **Item 8 is now the next launch gate**: define
+and implement account erasure before the first real user, with an explicit
+policy for sole owners of shared organizations.
 
 Item 5 was finished on 2026-07-28, all five steps plus its open refund decision.
 It went out of order on purpose: step 5 first because it touches no schema, then
@@ -586,10 +587,10 @@ whatever the item names.
        prove "never collides"; it catches a generator that is not drawing
        uniformly, which is the failure a format assertion misses.
 
-7. [ ] [P1] Make rate limiting fail loudly instead of degrading quietly
-   - `src/lib/rate-limit.ts` already supports a Redis REST store, but falls
-     back to an in-process `Map` unless `RATE_LIMIT_REDIS_REST_URL` and
-     `RATE_LIMIT_REDIS_REST_TOKEN` are set. On serverless each instance keeps
+7. [x] [P1] Make rate limiting fail loudly instead of degrading quietly
+   - `src/lib/rate-limit.ts` supports a shared Redis store, but falls back to an
+     in-process `Map` unless `RATE_LIMIT_REDIS_URL` is set. On serverless, each
+     instance otherwise keeps
      its own counter, so a published limit of 20/min is really 20 × warm
      instances.
    - Demoted from P0 on 2026-07-26. The original argument was that this leaves
@@ -599,11 +600,17 @@ whatever the item names.
      actually left soft is the *authenticated* endpoints — checkout, uploads,
      tasks — where an attacker needs an account first. That is abuse-cost
      control, not account takeover.
-   - The operational half is already handled: setting the Redis pair is a gate
-     in [docs/release-checklist.md](docs/release-checklist.md). What remains is
-     the code half — require the pair in production env validation so a
-     misconfigured deployment fails at boot rather than silently serving
-     advisory limits.
+   - Production app-mode env validation now requires a `redis://` or
+     `rediss://` URL, while site mode and local development remain independent.
+     The same protocol is used locally, in CI, and in production.
+   - Auth no longer shares one coarse allowance: signup is 5 per 15 minutes,
+     sign-in is 10 per minute, recovery/verification email is 5 per 15 minutes,
+     and sensitive password/email/session/2FA mutations are 10 per 5 minutes.
+     Turnstile remains enabled on the bot-facing credential and mail endpoints.
+   - A configured Redis outage still falls back to the local limiter and emits
+     one process-level error. Missing configuration and runtime outage are
+     different failures: the former blocks deployment, while the latter should
+     not take the entire authenticated app offline.
 
 8. [ ] [P1] Write the account-deletion policy, then build it
    - **Trigger, not a date: do this before your first real user.** Deletion and

@@ -88,6 +88,7 @@
     "qrcode-generator": "^2.0.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "redis": "6.1.0",
     "resend": "^4.8.0",
     "server-only": "0.0.1",
     "sonner": "^1.7.1",

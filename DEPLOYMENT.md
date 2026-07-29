@@ -82,22 +82,25 @@ choice, so a deploy cannot silently end up unprotected:
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` | Bot protection on auth endpoints. Opt out only with `NEXT_PUBLIC_CAPTCHA_ENABLED=false` |
 | `CRON_SECRET` | Guards `/api/cron/jobs`. `openssl rand -hex 32` |
 | `STRIPE_PRICE_{PLUS,MAX}_{MONTHLY,YEARLY}` | Stable recurring Prices used by checkout, entitlement sync, and renewal grants |
+| `RATE_LIMIT_REDIS_URL` | Shared rate-limit counters. Use the managed service's TLS `rediss://` URL |
 
 **Required for the features that use them**: `RESEND_API_KEY` + `EMAIL_FROM`
 (password reset, welcome, payment, reservation mail), `STRIPE_PRIVATE_KEY` +
 `STRIPE_WEBHOOK_SECRET`, and the `STORAGE_*` block.
 
-**Recommended for production scale**: `RATE_LIMIT_REDIS_REST_URL` +
-`RATE_LIMIT_REDIS_REST_TOKEN`. Without them, rate limiting falls back to an
-in-memory store, which is fine locally but is per-instance on serverless.
+Local development may omit `RATE_LIMIT_REDIS_URL` and use the in-memory
+fallback, but production app mode rejects that configuration because an
+in-memory counter is private to each serverless instance.
 
 **Must not be set in production**: the `ENABLE_DEMO_FEATURES`,
 `ENABLE_CREDITS_PLAYGROUND`, `ENABLE_TEXT2VIDEO_MOCK`, and
 `ENABLE_ACCOUNT_CREDIT_GRANT` flags. They default off and are ignored in
 production, but leaving them set is a confusing signal to the next person.
 
-**Never set `TEST_DATABASE_URL` in a production environment.** It exists only so
-the test tier can find a throwaway database, and that tier truncates tables.
+**Never set `TEST_DATABASE_URL` or `TEST_REDIS_URL` in a production
+environment.** They exist only for the real-infrastructure test tier.
+The Postgres tier truncates tables; the Redis test uses a unique key prefix and
+deletes only its own key.
 
 ---
 

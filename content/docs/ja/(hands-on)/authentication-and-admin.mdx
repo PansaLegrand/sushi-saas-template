@@ -14,7 +14,7 @@ keywords:
 tags: [auth, admin, oauth, sessions]
 author: "Pansa Legrand"
 publishedAt: "2025-09-29T00:00:00.000Z"
-updatedAt: "2026-02-02T00:00:00.000Z"
+updatedAt: "2026-07-29T00:00:00.000Z"
 canonical: "https://www.sushi-templates.com/ja/blogs/authentication-and-admin"
 ---
 
@@ -366,6 +366,15 @@ secret を変更すると、署名済み認証情報が無効化されログア�
 - `NEXT_PUBLIC_AUTH_BASE_URL`
 - `BETTER_AUTH_SECRET`（強いランダム値）
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`（Google 有効時）
+- `RATE_LIMIT_REDIS_URL`
+
+本番の app モードでは Redis URL が必須です。ローカルでは `redis://`、
+本番ではマネージド Redis が提供する `rediss://` URL を使います。
+ローカル開発では省略し、単一プロセスのメモリ内リミッターを利用できます。
+認証の制限はリスク別です。サインアップは15分に5回、サインインは
+1分に10回、復旧/確認メールは15分に5回、パスワード・メール・
+セッション・2FA の重要な変更は5分に10回です。これらは Turnstile を
+補完するもので、置き換えるものではありません。
 
 スキーマ変更時はマイグレーション実行:
 

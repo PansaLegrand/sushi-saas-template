@@ -69,8 +69,7 @@ function request(body: unknown) {
 describe("POST /api/reservations", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    delete process.env.RATE_LIMIT_REDIS_REST_URL;
-    delete process.env.RATE_LIMIT_REDIS_REST_TOKEN;
+    delete process.env.RATE_LIMIT_REDIS_URL;
     resetEnvCacheForTests();
     resetRateLimitForTests();
     mocks.getUserUuid.mockResolvedValue("u-test");

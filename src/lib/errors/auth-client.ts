@@ -7,17 +7,23 @@
  * strings on screen, untranslated, and changes wording whenever the dependency
  * is upgraded.
  *
- * `code` is preferred because it is stable; `message` is tried next for the
- * plugin errors that ship without one (the captcha plugin is the reason). An
- * unrecognized failure resolves to SERVER_ERROR, same no-leak rule as the
- * server side.
+ * The app's `error_code` is preferred because it is the stable global catalog
+ * code. Better Auth's string `code` and `message` are compatibility fallbacks,
+ * followed by the HTTP status. An unrecognized failure resolves to
+ * SERVER_ERROR, same no-leak rule as the server side.
  */
 
-import { normalizeErrorCode, type ErrorCode } from "./catalog";
+import {
+  inferErrorCodeFromStatus,
+  normalizeErrorCode,
+  type ErrorCode,
+} from "./catalog";
 import { translateErrorCode } from "./i18n";
 
 export interface AuthClientError {
-  code?: string;
+  error_code?: string;
+  // Global API envelopes use numeric `code: -1`; Better Auth uses a string.
+  code?: string | number;
   message?: string;
   status?: number;
 }
@@ -34,5 +40,14 @@ export function resolveAuthError(
 export function resolveAuthErrorCode(
   error: AuthClientError | null | undefined
 ): ErrorCode | undefined {
-  return normalizeErrorCode(error?.code) ?? normalizeErrorCode(error?.message);
+  return (
+    normalizeErrorCode(error?.error_code) ??
+    normalizeErrorCode(
+      typeof error?.code === "string" ? error.code : undefined
+    ) ??
+    normalizeErrorCode(error?.message) ??
+    (typeof error?.status === "number" && Number.isFinite(error.status)
+      ? inferErrorCodeFromStatus(error.status)
+      : undefined)
+  );
 }

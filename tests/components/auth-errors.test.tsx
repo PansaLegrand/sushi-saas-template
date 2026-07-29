@@ -29,6 +29,25 @@ describe("resolveAuthError", () => {
     expect(fr).toMatch(/existe déjà/i);
   });
 
+  it("reads the global API envelope returned through Better Fetch", () => {
+    const shown = resolveAuthError(
+      {
+        code: -1,
+        error_code: "REQUEST_RATE_LIMITED",
+        message: "Server-owned English fallback",
+        status: 429,
+      },
+      "fr"
+    );
+
+    expect(shown).toMatch(/trop de requêtes/i);
+    expect(shown).not.toContain("Server-owned");
+  });
+
+  it("uses the HTTP status when an intermediary strips the envelope", () => {
+    expect(resolveAuthError({ status: 429 })).toMatch(/too many requests/i);
+  });
+
   it("maps two-factor plugin failures to catalogued copy", () => {
     expect(resolveAuthError({ code: "INVALID_CODE" })).toMatch(/two-factor code/i);
     expect(resolveAuthError({ message: "Invalid backup code" })).toMatch(/two-factor code/i);

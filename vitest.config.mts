@@ -7,27 +7,33 @@ import { parse } from "dotenv";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
- * Pull exactly one variable out of the local env files.
+ * Pull exactly the opt-in integration URLs out of the local env files.
  *
  * Deliberately not `dotenv.config()`. Loading the whole file would let every
  * test see the developer's personal environment, and a test that happens to
  * read an env var it did not stub would then pass on one machine and fail on
- * another. The mocked tiers must stay hermetic — TEST_DATABASE_URL is the only
- * value a test file is allowed to learn from `.env`, and only the database tier
- * reads it. An explicit shell/CI value always wins.
+ * another. The mocked tiers must stay hermetic — TEST_DATABASE_URL and
+ * TEST_REDIS_URL are the only values a test file may learn from `.env`, and
+ * only the real-infrastructure tier reads them. Explicit shell/CI values
+ * always win.
  */
-function loadTestDatabaseUrl(): void {
-  if (process.env.TEST_DATABASE_URL?.trim()) return;
+function loadTestInfrastructureUrls(): void {
+  const keys = ["TEST_DATABASE_URL", "TEST_REDIS_URL"] as const;
 
   for (const file of [".env", ".env.local"]) {
     const filePath = path.resolve(__dirname, file);
     if (!fs.existsSync(filePath)) continue;
-    const value = parse(fs.readFileSync(filePath)).TEST_DATABASE_URL?.trim();
-    if (value) process.env.TEST_DATABASE_URL = value;
+    const values = parse(fs.readFileSync(filePath));
+
+    for (const key of keys) {
+      if (process.env[key]?.trim()) continue;
+      const value = values[key]?.trim();
+      if (value) process.env[key] = value;
+    }
   }
 }
 
-loadTestDatabaseUrl();
+loadTestInfrastructureUrls();
 
 export default defineConfig({
   test: {
