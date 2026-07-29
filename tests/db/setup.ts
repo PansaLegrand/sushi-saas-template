@@ -76,6 +76,7 @@ export const describeDb = describe.skipIf(!hasTestDatabase);
 
 /** Tables the database tier writes to. Truncated between tests. */
 const MANAGED_TABLES = [
+  "accounts",
   "credits",
   "email_blocklist",
   "files",

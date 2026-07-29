@@ -92,6 +92,21 @@ describe("normalizeErrorCode", () => {
     ).toBe("That password is incorrect.");
   });
 
+  it("maps Better Auth's duplicate signup response", () => {
+    expect(normalizeErrorCode("USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL")).toBe(
+      "AUTH_USER_ALREADY_EXISTS"
+    );
+    expect(
+      resolveAuthError(
+        {
+          code: "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL",
+          message: "User already exists. Use another email.",
+        },
+        "en"
+      )
+    ).toBe("An account with that email already exists.");
+  });
+
   it("is case- and separator-insensitive", () => {
     expect(normalizeErrorCode("credits_insufficient")).toBe("CREDITS_INSUFFICIENT");
     expect(normalizeErrorCode("  INSUFFICIENT CREDITS  ")).toBe("CREDITS_INSUFFICIENT");

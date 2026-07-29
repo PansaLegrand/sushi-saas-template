@@ -110,7 +110,12 @@ export const ERROR_CATALOG = {
   AUTH_USER_ALREADY_EXISTS: {
     statusCode: 409,
     defaultMessage: "An account with that email already exists.",
-    legacyCodes: ["USER_ALREADY_EXISTS", "User already exists"],
+    legacyCodes: [
+      "USER_ALREADY_EXISTS",
+      "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL",
+      "User already exists",
+      "User already exists. Use another email.",
+    ],
   },
   AUTH_INVALID_TOKEN: {
     statusCode: 400,

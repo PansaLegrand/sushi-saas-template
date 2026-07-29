@@ -1,6 +1,6 @@
-import { betterAuth } from "better-auth";
+import { betterAuth, type BetterAuthPlugin } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { APIError } from "better-auth/api";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { captcha, organization, twoFactor } from "better-auth/plugins";
 
@@ -10,7 +10,7 @@ import { db } from "@/db";
 import { CAPTCHA_PROTECTED_ENDPOINTS } from "@/lib/captcha";
 import { absoluteWithLocale } from "@/config/auth";
 import { getAppEnv, isProductionRuntime } from "@/lib/env";
-import { findUserById } from "@/models/user";
+import { findUserByEmail, findUserById } from "@/models/user";
 import {
   describeAuthRequest,
   recordAuthEvent,
@@ -265,6 +265,29 @@ const twoFactorPlugin = twoFactor({
   },
 });
 
+const duplicateEmailSignupGuard = {
+  id: "duplicate-email-signup-guard",
+  hooks: {
+    before: [
+      {
+        matcher: (context) => context.path === "/sign-up/email",
+        handler: createAuthMiddleware(async (ctx) => {
+          const email = (ctx.body as { email?: string } | undefined)?.email;
+          if (!email) return;
+
+          const existingUser = await findUserByEmail(email.toLowerCase());
+          if (!existingUser) return;
+
+          throw new APIError("UNPROCESSABLE_ENTITY", {
+            code: "AUTH_USER_ALREADY_EXISTS",
+            message: "AUTH_USER_ALREADY_EXISTS",
+          });
+        }),
+      },
+    ],
+  },
+} satisfies BetterAuthPlugin;
+
 export const auth = betterAuth({
   appName: getAppEnv().NEXT_PUBLIC_APP_NAME,
   baseURL: getAppEnv().BETTER_AUTH_URL,
@@ -397,9 +420,17 @@ export const auth = betterAuth({
     },
   },
   // Captcha first: its onRequest hook must reject before any handler runs.
+  // The duplicate-email guard comes after it so signup cannot become a captcha-
+  // free account-existence probe.
   // `nextCookies` stays last — it wraps responses, so anything registered after
   // it would not get its cookies written.
-  plugins: [...captchaPlugins, organizationPlugin, twoFactorPlugin, nextCookies()],
+  plugins: [
+    ...captchaPlugins,
+    duplicateEmailSignupGuard,
+    organizationPlugin,
+    twoFactorPlugin,
+    nextCookies(),
+  ],
   telemetry: {
     enabled: false,
   },
