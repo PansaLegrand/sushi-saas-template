@@ -19,13 +19,13 @@ Each tier has a fixed location, a fixed budget, and — most importantly — a r
 about what it is **allowed to mock**. Mocking discipline is what keeps tiers from
 collapsing into each other.
 
-| Tier | Location | May mock | Must not | Budget |
-| --- | --- | --- | --- | --- |
-| **Unit** | `tests/unit/` | nothing | import routes or models | < 5 ms |
-| **Route** | `tests/api/` | `@/services/*`, `@/models/*`, external SDKs | mock `@/lib/*` guards | < 50 ms |
-| **Service** | `tests/services/` | `@/models/*`, external SDKs | mock the module under test | < 50 ms |
-| **Component** | `tests/components/` | `fetch` | mock the component under test | < 100 ms |
-| **Infrastructure** | `tests/db/` | nothing | fake an external service | opt-in |
+| Tier               | Location            | May mock                                    | Must not                      | Budget   |
+| ------------------ | ------------------- | ------------------------------------------- | ----------------------------- | -------- |
+| **Unit**           | `tests/unit/`       | nothing                                     | import routes or models       | < 5 ms   |
+| **Route**          | `tests/api/`        | `@/services/*`, `@/models/*`, external SDKs | mock `@/lib/*` guards         | < 50 ms  |
+| **Service**        | `tests/services/`   | `@/models/*`, external SDKs                 | mock the module under test    | < 50 ms  |
+| **Component**      | `tests/components/` | `fetch`                                     | mock the component under test | < 100 ms |
+| **Infrastructure** | `tests/db/`         | nothing                                     | fake an external service      | opt-in   |
 
 ### Unit — `tests/unit/`
 
@@ -110,7 +110,7 @@ expect(res.status).toBe(401);
 expect(mocks.getUserProfileByUuid).not.toHaveBeenCalled();
 ```
 
-The negative assertion is the point. A 401 returned *after* loading the record
+The negative assertion is the point. A 401 returned _after_ loading the record
 is a data leak that a status-code-only test happily passes. A route with only a
 happy-path test is worse than an untested one, because it looks covered.
 
@@ -175,7 +175,7 @@ fail on alternate runs, with the failures moving around, which reads like a
 flaky database rather than a config mistake.
 
 `vitest.config.mts` puts that tier in its own project pinned to a single fork.
-Note that `fileParallelism: false` is *not* the fix — it is root-only in Vitest 3
+Note that `fileParallelism: false` is _not_ the fix — it is root-only in Vitest 3
 and is silently ignored inside a project. If you add a file to `tests/db`, it
 inherits the right behaviour automatically.
 
@@ -256,17 +256,19 @@ never calls `FLUSHDB`.
 
 ## What is not covered yet
 
-Kept honest on purpose; this is the backlog, roughly in priority order.
+Keep this list honest as coverage grows:
 
-- **Untested routes**: storage (4), reservations (4), affiliate (2),
-  `billing/portal`, `feedback`, `pay/callback`, `tasks/[uuid]`, `tasks/latest`,
-  and the admin orders/users read routes.
-- **No component tests.** No jsdom or Testing Library is installed. Worth adding
-  for the auth forms and pricing table when they stabilise.
-- **No end-to-end tests.** The one layer mocked tests cannot reach is a real
-  browser against a real server. A `scripts/smoke.ts` that signs in with
-  env-supplied credentials and walks the critical paths would be the cheapest
-  version. Credentials come from the environment, never from a file.
+- **Some route contracts remain uncovered.** Prioritize any newly added money,
+  credit, authorization, upload, or destructive-account endpoint before broad
+  read-only coverage.
+- **Component coverage is selective.** Auth, pricing/checkout, reservations,
+  uploads, and shared admin navigation have behavioral tests; visual polish and
+  every read-only table state are intentionally left to browser smoke checks.
+- **There is no committed full end-to-end suite.** The mocked tiers cannot prove
+  that a deployed browser, email provider, Stripe account, and object store agree
+  on configuration. The release checklist therefore keeps those flows as
+  explicit manual checks. A future Playwright suite must take credentials from
+  the environment, never from a tracked file.
 
 ### Manual aids
 

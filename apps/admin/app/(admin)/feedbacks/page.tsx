@@ -1,3 +1,4 @@
+import { AdminPageHeader } from "@admin/components/admin-page-header";
 import { getAdminContext } from "@admin/lib/authz";
 import { countAdminFeedbacks, listAdminFeedbacks } from "@admin/lib/data";
 import { Pager } from "@admin/components/pager";
@@ -24,10 +25,13 @@ export default async function AdminFeedbacksPage({
 
   return (
     <div className="space-y-4">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Feedbacks</h1>
-        <p className="text-sm text-muted-foreground">Total: {total ?? 0}</p>
-      </header>
+      <AdminPageHeader
+        title="Feedback"
+        description="Read customer feedback and spot themes worth acting on."
+        actions={
+          <p className="text-sm text-muted-foreground">Total: {total ?? 0}</p>
+        }
+      />
 
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-sm">
@@ -46,13 +50,24 @@ export default async function AdminFeedbacksPage({
               <tr key={f.id} className="border-t align-top">
                 <td className="py-2 pr-4 font-mono text-xs">{f.id}</td>
                 <td className="py-2 pr-4">
-                  <div className="text-xs text-muted-foreground">{(f as any).user?.email ?? ""}</div>
-                  <div className="font-mono text-xs">{f.user_uuid ?? (f as any).user?.uuid ?? "—"}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {(f as any).user?.email ?? ""}
+                  </div>
+                  <div className="font-mono text-xs">
+                    {f.user_uuid ?? (f as any).user?.uuid ?? "—"}
+                  </div>
                 </td>
                 <td className="py-2 pr-4">{f.rating ?? "—"}</td>
-                <td className="py-2 pr-4 whitespace-pre-wrap max-w-[40rem]">{f.content ?? ""}</td>
+                <td className="py-2 pr-4 whitespace-pre-wrap max-w-[40rem]">
+                  {f.content ?? ""}
+                </td>
                 <td className="py-2 pr-4 capitalize">{f.status ?? "new"}</td>
-                <td className="py-2 pr-4 font-mono text-xs">{f.created_at ? (f.created_at as any).toISOString?.() ?? String(f.created_at) : "—"}</td>
+                <td className="py-2 pr-4 font-mono text-xs">
+                  {f.created_at
+                    ? ((f.created_at as any).toISOString?.() ??
+                      String(f.created_at))
+                    : "—"}
+                </td>
               </tr>
             ))}
           </tbody>

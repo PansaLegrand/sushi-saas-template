@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-import { auth } from "@/lib/auth";
 import { parseJsonBody } from "@/lib/http/request";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
@@ -10,9 +9,9 @@ import { findMembershipById } from "@/models/organization";
 import { can, getOrgContext } from "@/services/authz";
 import {
   assertCanAssign,
-  assertNotLastOrganization,
-  assertNotLastOwner,
+  changeMemberRole,
   getTeam,
+  removeMember,
 } from "@/services/members";
 
 const RoleSchema = z.object({
@@ -43,16 +42,7 @@ export async function PATCH(
     const member = await findMembershipById(ctx.orgId, id);
     if (!member) return respCode("ORG_MEMBER_NOT_FOUND");
 
-    // Demoting the last owner leaves an organization nobody can administer,
-    // and no self-serve path recovers from it.
-    if (member.role === "owner" && payload.role !== "owner") {
-      await assertNotLastOwner(ctx.orgId, id, "demote");
-    }
-
-    await auth.api.updateMemberRole({
-      headers: req.headers,
-      body: { memberId: id, role: payload.role, organizationId: ctx.orgId },
-    });
+    await changeMemberRole(ctx.orgId, id, payload.role);
 
     return respData(await getTeam(ctx));
   } catch (error) {
@@ -96,18 +86,10 @@ export async function DELETE(
     // Anyone may leave; only a manager may remove somebody else.
     if (!isSelf && !can(ctx, "member:manage")) return respForbidden();
 
-    // Leaving your only organization would leave you with no tenant to act
-    // in. Removing *someone else* is unaffected by this — the earlier version
-    // blocked both, which meant the owner of a workspace could never remove a
-    // teammate they had invited into it.
-    if (isSelf) await assertNotLastOrganization(ctx.userId);
-
-    await assertNotLastOwner(ctx.orgId, id, "remove");
-
-    await auth.api.removeMember({
-      headers: req.headers,
-      body: { memberIdOrEmail: id, organizationId: ctx.orgId },
-    });
+    // The service performs the owner and last-organization checks in the same
+    // locked transaction as the delete. A preflight query here would reopen the
+    // race this endpoint exists to prevent.
+    await removeMember(ctx.orgId, id);
 
     // Leaving means the caller is no longer in this organization, so there is
     // no team left to return — the client redirects instead of re-rendering.

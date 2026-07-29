@@ -2,8 +2,8 @@
 // Configure an Incoming Webhook URL in Slack and set SLACK_WEBHOOK_URL in env.
 
 import { logger } from "@/lib/logger/server";
-
-const WEBHOOK = process.env.SLACK_WEBHOOK_URL;
+import { getAppEnv } from "@/lib/env";
+import { AppError } from "@/lib/errors/app-error";
 
 function serialize(obj: unknown): string {
   try {
@@ -19,32 +19,52 @@ function serialize(obj: unknown): string {
 }
 
 async function post(payload: Record<string, unknown>): Promise<void> {
-  if (!WEBHOOK) return; // disabled
+  const webhook = getAppEnv().SLACK_WEBHOOK_URL;
+  if (!webhook) return; // disabled
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 2000);
   try {
-    await fetch(WEBHOOK, {
+    const response = await fetch(webhook, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
+    if (!response.ok) {
+      throw new AppError("SERVICE_UNAVAILABLE", {
+        message: `Slack webhook returned HTTP ${response.status}`,
+        details: {
+          provider: "slack",
+          retryAfter: response.headers.get("retry-after") ?? undefined,
+        },
+      });
+    }
   } catch (e) {
-    // Avoid throwing; logging is sufficient in most environments.
-    logger.warn({ err: e, event: "slack.webhook_failed" }, "slack webhook failed");
+    logger.warn(
+      { err: e, event: "slack.webhook_failed" },
+      "slack webhook failed",
+    );
+    throw e;
   } finally {
     clearTimeout(timeout);
   }
 }
 
-export async function sendSlackMessage(text: string, context?: Record<string, unknown>): Promise<void> {
+export async function sendSlackMessage(
+  text: string,
+  context?: Record<string, unknown>,
+): Promise<void> {
   const payload = {
     text: text + (context ? `\n\n${"```"}${serialize(context)}${"```"}` : ""),
   } as const;
   await post(payload as any);
 }
 
-export function notifySlackError(title: string, error?: unknown, context?: Record<string, unknown>): void {
+export function notifySlackError(
+  title: string,
+  error?: unknown,
+  context?: Record<string, unknown>,
+): void {
   const message = `:rotating_light: ${title}`;
   const c = { ...(context || {}), error: serialize(error) };
   queueMicrotask(() => {
@@ -52,7 +72,10 @@ export function notifySlackError(title: string, error?: unknown, context?: Recor
   });
 }
 
-export function notifySlackEvent(title: string, context?: Record<string, unknown>): void {
+export function notifySlackEvent(
+  title: string,
+  context?: Record<string, unknown>,
+): void {
   const message = `:white_check_mark: ${title}`;
   queueMicrotask(() => {
     void sendSlackMessage(message, context);

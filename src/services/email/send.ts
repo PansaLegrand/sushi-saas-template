@@ -15,14 +15,34 @@ export type MailInput = {
   text?: string;
   from?: string;
   attachments?: Attachment[];
+  /**
+   * Stable across retries of one durable job. Never include an attempt number:
+   * a timeout can happen after Resend accepted the message.
+   */
+  idempotencyKey?: string;
+  signal?: AbortSignal;
 };
 
-export async function sendMail({ to, subject, html, text, from, attachments }: MailInput) {
+export type MailDeliveryOptions = Pick<
+  MailInput,
+  "idempotencyKey" | "signal"
+>;
+
+export async function sendMail({
+  to,
+  subject,
+  html,
+  text,
+  from,
+  attachments,
+  idempotencyKey,
+  signal,
+}: MailInput) {
   const resendApiKey = getRequiredEnv("RESEND_API_KEY");
   const fromEmail = from ?? getRequiredEnv("EMAIL_FROM");
 
   const client = new Resend(resendApiKey);
-  const res = await client.emails.send({
+  const message = {
     from: fromEmail,
     to: Array.isArray(to) ? to : [to],
     subject,
@@ -33,21 +53,43 @@ export async function sendMail({ to, subject, html, text, from, attachments }: M
       content: typeof a.content === "string" ? a.content : a.content.toString("base64"),
       type: a.type,
     })),
-  });
+  };
+  // Resend 4.8 types expose `idempotencyKey` but not the underlying fetch
+  // signal. Its request implementation spreads these options into RequestInit,
+  // so the signal reaches fetch while the key becomes Idempotency-Key.
+  const requestOptions = { idempotencyKey, signal };
+  const res =
+    idempotencyKey || signal
+      ? await client.emails.send(message, requestOptions)
+      : await client.emails.send(message);
 
   if ((res as any).error) throw (res as any).error;
   return res;
 }
 
-export async function sendWelcomeEmail(to: string, name?: string) {
+export async function sendWelcomeEmail(
+  to: string,
+  name?: string,
+  delivery: MailDeliveryOptions = {},
+) {
   const { default: WelcomeEmail } = await import("./templates/welcome");
   const html = await render(WelcomeEmail({ name }));
-  return sendMail({ to, subject: "Welcome to our app!", html });
+  return sendMail({
+    to,
+    subject: "Welcome to our app!",
+    html,
+    ...delivery,
+  });
 }
 
 export async function sendPaymentSuccessEmail(
   to: string,
-  opts: { orderNo?: string; amount?: number | null; currency?: string | null } = {}
+  opts: {
+    orderNo?: string;
+    amount?: number | null;
+    currency?: string | null;
+  } = {},
+  delivery: MailDeliveryOptions = {},
 ) {
   const { default: PaymentSuccess } = await import("./templates/payment-success");
   const html = await render(
@@ -57,12 +99,23 @@ export async function sendPaymentSuccessEmail(
       currency: opts.currency ?? undefined,
     })
   );
-  return sendMail({ to, subject: "Payment received", html });
+  return sendMail({
+    to,
+    subject: "Payment received",
+    html,
+    ...delivery,
+  });
 }
 
 export async function sendPaymentFailedEmail(
   to: string,
-  opts: { invoiceNumber?: string | null; amount?: number | null; currency?: string | null; manageUrl?: string }
+  opts: {
+    invoiceNumber?: string | null;
+    amount?: number | null;
+    currency?: string | null;
+    manageUrl?: string;
+  },
+  delivery: MailDeliveryOptions = {},
 ) {
   const { default: PaymentFailed } = await import("./templates/payment-failed");
   const html = await render(
@@ -73,7 +126,12 @@ export async function sendPaymentFailedEmail(
       manageUrl: opts.manageUrl,
     })
   );
-  return sendMail({ to, subject: "Payment failed — update your payment method", html });
+  return sendMail({
+    to,
+    subject: "Payment failed — update your payment method",
+    html,
+    ...delivery,
+  });
 }
 
 export async function sendResetPasswordEmail(to: string, url: string) {
@@ -95,7 +153,15 @@ export async function sendVerifyEmail(to: string, url: string) {
 
 export async function sendReservationConfirmedEmail(
   to: string,
-  opts: { reservationNo: string; serviceTitle?: string; startsAt?: string; timezone?: string; icsContent?: string; googleCalendarUrl?: string }
+  opts: {
+    reservationNo: string;
+    serviceTitle?: string;
+    startsAt?: string;
+    timezone?: string;
+    icsContent?: string;
+    googleCalendarUrl?: string;
+  },
+  delivery: MailDeliveryOptions = {},
 ) {
   const { default: ReservationConfirmed } = await import("./templates/reservation-confirmed");
   const html = await render(
@@ -120,6 +186,7 @@ export async function sendReservationConfirmedEmail(
           },
         ]
       : undefined,
+    ...delivery,
   });
 }
 
@@ -130,7 +197,8 @@ export async function sendOrgInvitationEmail(
     organizationName: string;
     inviterName?: string;
     expiresInHours?: number;
-  }
+  },
+  delivery: MailDeliveryOptions = {},
 ) {
   const { default: OrgInvitation } = await import("./templates/org-invitation");
   const html = await render(
@@ -149,5 +217,6 @@ export async function sendOrgInvitationEmail(
     subject: `You have been invited to join ${opts.organizationName}`,
     html,
     text: `Open this link to join ${opts.organizationName}: ${opts.url}`,
+    ...delivery,
   });
 }

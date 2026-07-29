@@ -1,6 +1,8 @@
 import { createClient } from "redis";
+import { createHmac } from "node:crypto";
 
-import { getAppEnv } from "@/lib/env";
+import { getAppEnv, isProductionRuntime } from "@/lib/env";
+import { normalizeEmail } from "@/lib/email-address";
 import { respCode } from "@/lib/errors/response";
 import { logger } from "@/lib/logger/server";
 
@@ -34,6 +36,7 @@ type RateLimitStoreResult = {
 
 type RateLimitStore = {
   increment(key: string, windowMs: number): Promise<RateLimitStoreResult>;
+  ping?(): Promise<void>;
   close?(): Promise<void>;
   reset?(): void;
 };
@@ -63,10 +66,7 @@ const RATE_LIMIT_RULES: Record<RateLimitBucket, RateLimitRule> = {
   moderation: { limit: 60, windowMs: 60 * 1000 },
 };
 
-const AUTH_SIGNIN_ENDPOINTS = new Set([
-  "/sign-in/email",
-  "/sign-in/social",
-]);
+const AUTH_SIGNIN_ENDPOINTS = new Set(["/sign-in/email", "/sign-in/social"]);
 
 const AUTH_RECOVERY_ENDPOINTS = new Set([
   "/request-password-reset",
@@ -82,6 +82,14 @@ const AUTH_SENSITIVE_ENDPOINTS = new Set([
   "/revoke-session",
   "/revoke-sessions",
   "/revoke-other-sessions",
+]);
+
+const FAIL_CLOSED_BUCKETS = new Set<RateLimitBucket>([
+  "auth-signup",
+  "auth-signin",
+  "auth-recovery",
+  "auth-sensitive",
+  "checkout",
 ]);
 
 function getAuthEndpoint(req: Request): string {
@@ -126,10 +134,42 @@ export function getAuthRateLimitBucket(req: Request): RateLimitBucket {
   return "auth";
 }
 
+/**
+ * A privacy-safe secondary key for account-targeted auth requests.
+ *
+ * Auth routes are always limited by IP first. This hashed account key adds the
+ * complementary control: rotating source IPs cannot give one email address an
+ * unlimited password/recovery attempt budget.
+ */
+export async function getAuthIdentityRateLimitKey(
+  req: Request,
+): Promise<string | undefined> {
+  try {
+    const body = (await req.clone().json()) as { email?: unknown };
+    if (typeof body.email !== "string") return undefined;
+
+    const email = normalizeEmail(body.email);
+    if (!email) return undefined;
+
+    const secret =
+      getAppEnv().BETTER_AUTH_SECRET || "local-only-rate-limit-identity-secret";
+    return `account:${createHmac("sha256", secret)
+      .update(email)
+      .digest("hex")}`;
+  } catch {
+    // Invalid JSON belongs to the auth handler's validation path. It still
+    // consumes the IP allowance above, but there is no safe identity to key.
+    return undefined;
+  }
+}
+
 class MemoryRateLimitStore implements RateLimitStore {
   private buckets = new Map<string, RateLimitState>();
 
-  async increment(key: string, windowMs: number): Promise<RateLimitStoreResult> {
+  async increment(
+    key: string,
+    windowMs: number,
+  ): Promise<RateLimitStoreResult> {
     const now = Date.now();
     this.cleanupExpired(now);
 
@@ -147,6 +187,10 @@ class MemoryRateLimitStore implements RateLimitStore {
 
   reset(): void {
     this.buckets.clear();
+  }
+
+  async ping(): Promise<void> {
+    // The local store has no dependency to probe.
   }
 
   private cleanupExpired(now: number) {
@@ -193,7 +237,10 @@ class RedisRateLimitStore implements RateLimitStore {
     this.client.on("error", () => undefined);
   }
 
-  async increment(key: string, windowMs: number): Promise<RateLimitStoreResult> {
+  async increment(
+    key: string,
+    windowMs: number,
+  ): Promise<RateLimitStoreResult> {
     const client = await this.getConnectedClient();
     const result = await client.eval(INCREMENT_WITH_EXPIRY_SCRIPT, {
       keys: [key],
@@ -227,6 +274,11 @@ class RedisRateLimitStore implements RateLimitStore {
     }
   }
 
+  async ping(): Promise<void> {
+    const client = await this.getConnectedClient();
+    await client.ping();
+  }
+
   private async getConnectedClient() {
     if (!this.client.isOpen) {
       this.connectPromise ??= this.client.connect().then(
@@ -234,7 +286,7 @@ class RedisRateLimitStore implements RateLimitStore {
         (error: unknown) => {
           this.connectPromise = undefined;
           throw error;
-        }
+        },
       );
       await this.connectPromise;
     }
@@ -261,26 +313,32 @@ function getConfiguredStore(): RateLimitStore {
 }
 
 function getRequestIp(req: Request): string {
-  const forwardedFor = req.headers.get("x-forwarded-for");
-  if (forwardedFor) {
-    return forwardedFor.split(",")[0]?.trim() || "unknown";
+  const source = getAppEnv().RATE_LIMIT_IP_SOURCE;
+
+  if (source === "x-forwarded-for") {
+    const forwardedFor = req.headers.get(source);
+    if (forwardedFor) {
+      return forwardedFor.split(",")[0]?.trim() || "unknown";
+    }
+
+    return "unknown";
   }
 
-  return (
-    req.headers.get("x-real-ip") ||
-    req.headers.get("cf-connecting-ip") ||
-    "unknown"
-  );
+  return req.headers.get(source)?.trim() || "unknown";
 }
 
-function getBucketKey(req: Request, bucket: RateLimitBucket, key?: string): string {
-  return `sushi:rate_limit:${bucket}:${key ?? getRequestIp(req)}`;
+function getBucketKey(
+  req: Request,
+  bucket: RateLimitBucket,
+  key?: string,
+): string {
+  return `rate_limit:${bucket}:${key ?? getRequestIp(req)}`;
 }
 
 export async function checkRateLimit(
   req: Request,
   bucket: RateLimitBucket,
-  options: { key?: string } = {}
+  options: { key?: string } = {},
 ): Promise<
   | {
       allowed: true;
@@ -298,20 +356,33 @@ export async function checkRateLimit(
   try {
     state = await getConfiguredStore().increment(key, rule.windowMs);
   } catch (error) {
-    // Do not turn a Redis outage into a full-site outage. Fall back to the
-    // local limiter and emit one loud process-level warning for operators.
+    // Authentication and checkout are the high-value abuse paths. In
+    // production, a process-local fallback would let an attacker multiply the
+    // allowance by the number of instances, so those paths fail closed while
+    // Redis is unavailable. Lower-risk product actions keep the availability-
+    // first local fallback.
     if (!warnedStoreFailure) {
       warnedStoreFailure = true;
       logger.error(
         { err: error, event: "rate_limit.store_failed", bucket },
-        "distributed rate limit store failed; using in-memory fallback"
+        "distributed rate limit store failed",
       );
     }
+
+    if (isProductionRuntime() && FAIL_CLOSED_BUCKETS.has(bucket)) {
+      const response = respCode("SERVICE_UNAVAILABLE");
+      response.headers.set("Retry-After", "5");
+      return { allowed: false, response };
+    }
+
     state = await memoryStore.increment(`fallback:${key}`, rule.windowMs);
   }
 
   const remaining = Math.max(0, rule.limit - state.count);
-  const retryAfterSeconds = Math.max(1, Math.ceil((state.resetAt - Date.now()) / 1000));
+  const retryAfterSeconds = Math.max(
+    1,
+    Math.ceil((state.resetAt - Date.now()) / 1000),
+  );
   const headers = new Headers({
     "RateLimit-Limit": String(rule.limit),
     "RateLimit-Remaining": String(remaining),
@@ -337,10 +408,26 @@ export async function checkRateLimit(
 export async function rateLimitOrThrow(
   req: Request,
   bucket: RateLimitBucket,
-  options: { key?: string } = {}
+  options: { key?: string } = {},
 ): Promise<Response | null> {
   const result = await checkRateLimit(req, bucket, options);
   return result.allowed ? null : result.response;
+}
+
+/**
+ * Readiness probe for the configured limiter dependency.
+ *
+ * Lower-risk request limiting deliberately falls back to memory during a Redis
+ * outage; authentication and checkout fail closed in production. Readiness
+ * still reports the shared store as unavailable so operators can see either
+ * degraded protection or unavailable critical mutations.
+ */
+export async function checkRateLimitStoreReady(): Promise<{
+  distributed: boolean;
+}> {
+  const store = getConfiguredStore();
+  await store.ping?.();
+  return { distributed: store !== memoryStore };
 }
 
 export function resetRateLimitForTests() {

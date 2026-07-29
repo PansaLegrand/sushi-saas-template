@@ -8,26 +8,31 @@ import type { Pricing, PricingItem } from "@/types/blocks/pricing";
 
 type ProductPresentation = Omit<
   PricingItem,
-  "interval" | "product_id" | "product_name" | "currency" | "amount" | "cn_amount"
+  | "interval"
+  | "product_id"
+  | "product_name"
+  | "currency"
+  | "amount"
+  | "cn_amount"
 >;
 
 const PRODUCT_PRESENTATION: Record<BillingProductId, ProductPresentation> = {
   "plus-monthly": {
     title: "Plus",
     description:
-      "Everything you need to validate v1 with auth, docs, and health monitoring.",
+      "Core usage and collaboration limits for launching your first paid plan.",
     label: "Popular",
     original_price: "$39",
     unit: "/month",
     features_title: "Plus includes",
     features: [
-      `${PLAN_MONTHLY_CREDITS.plus} AI credits every month`,
+      `${PLAN_MONTHLY_CREDITS.plus} pooled usage credits every month`,
       "Better Auth flows",
-      "Fumadocs blog + MDX",
+      "Private uploads and durable jobs",
       "Email onboarding templates",
     ],
     button: {
-      title: "Start building",
+      title: "Choose Plus",
       icon: "ArrowRight",
     },
     tip: "Cancel anytime. Credits reset every month.",
@@ -42,13 +47,13 @@ const PRODUCT_PRESENTATION: Record<BillingProductId, ProductPresentation> = {
     unit: "/month",
     features_title: "Max includes",
     features: [
-      `${PLAN_MONTHLY_CREDITS.max} AI credits every month`,
-      "Higher generation and storage limits",
-      "Slack + email support",
+      `${PLAN_MONTHLY_CREDITS.max} pooled usage credits every month`,
+      "Higher task and storage limits",
+      "Priority email support",
       "Role-based access control",
     ],
     button: {
-      title: "Unlock Max",
+      title: "Choose Max",
       icon: "Sparkle",
     },
     tip: "Great for teams that are onboarding paying users.",
@@ -61,7 +66,7 @@ const PRODUCT_PRESENTATION: Record<BillingProductId, ProductPresentation> = {
     unit: "/year",
     features_title: "Yearly perks",
     features: [
-      `${PLAN_MONTHLY_CREDITS.plus * 12} AI credits upfront`,
+      `${PLAN_MONTHLY_CREDITS.plus * 12} pooled usage credits upfront`,
       "Free migration review",
       "Annual roadmap session",
     ],
@@ -78,7 +83,7 @@ const PRODUCT_PRESENTATION: Record<BillingProductId, ProductPresentation> = {
     unit: "/year",
     features_title: "Max yearly includes",
     features: [
-      `${PLAN_MONTHLY_CREDITS.max * 12} AI credits upfront`,
+      `${PLAN_MONTHLY_CREDITS.max * 12} pooled usage credits upfront`,
       "Success architect onboarding",
       "Quarterly review workshops",
     ],
@@ -137,7 +142,7 @@ const BASE_PRICING: Pricing = {
   name: "plans",
   title: "Plans built for shipping",
   description:
-    "Pick a sandbox package and keep your credits topped up for production.",
+    "Choose the capacity you need now. Add another subscription later when your credit pool needs to grow.",
   groups: SHARED_GROUPS,
   items: BILLING_PRODUCTS.map(pricingItem),
 };

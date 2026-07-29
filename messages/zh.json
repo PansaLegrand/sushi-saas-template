@@ -1,85 +1,27 @@
 {
   "metadata": {
-    "title": "Sushi SaaS - Next.js Starter Kit for Real SaaS",
-    "description": "使用现代工具和简洁设计，快速搭建上线的 SaaS 模版。",
+    "title": "你的 SaaS",
+    "description": "一个安全、面向生产环境的 SaaS 应用。",
     "keywords": "saas 模版, next.js 起步, better auth"
   },
   "landing": {
     "nav": {
+      "pricing": "价格",
       "docs": "文档",
-      "blogs": "博客",
-      "github": "GitHub"
+      "signIn": "登录",
+      "openApp": "打开应用"
     },
     "hero": {
-      "title": "可直接上线的 Next.js SaaS 启动模板。",
-      "subtitle": "认证、支付、积分、存储、国际化、后台管理与文档，均已打通、分层清晰并有测试覆盖。把时间花在产品上，而不是基础设施。",
-      "ctaPrimary": "阅读文档",
-      "ctaSecondary": "在 GitHub 查看"
+      "title": "让你的产品随时迎接客户。",
+      "subtitle": "安全账户、组织级计费、共享积分、私有存储和运维基础都已就绪。接下来只需加入让你的 SaaS 与众不同的核心流程。",
+      "ctaPrimary": "创建账户",
+      "ctaSecondary": "登录",
+      "ctaOpenApp": "打开账户"
     },
-    "about": {
-      "title": "包含哪些内容",
-      "intro": "每个 SaaS 都需要、却没人愿意重复搭建的部分：带角色的认证、含积分账本的 Stripe 计费、私有文件上传、事务邮件、独立的后台控制台，以及五种语言的本地化路由。全站统一架构，有文档说明，并由测试强制保证。"
-    },
-    "features": {
-      "title": "核心能力",
-      "items": [
-        {
-          "title": "现代开源栈",
-          "description": "Next.js 15、TypeScript、Tailwind —— 生产就绪的起步模版。"
-        },
-        {
-          "title": "认证与 RBAC（Better Auth）",
-          "description": "邮箱 + Google 登录，安全会话与角色校验，基于 Drizzle。"
-        },
-        {
-          "title": "全球化 i18n",
-          "description": "本地化路由与文案，轻松支持多语言。"
-        },
-        {
-          "title": "Stripe 计费 + 积分",
-          "description": "Checkout、订阅，以及灵活的积分台账以支持按量计费。"
-        },
-        {
-          "title": "预约模块",
-          "description": "可用时段、订金/全额支付、确认邮件与日历邀请。"
-        },
-        {
-          "title": "推广与返佣",
-          "description": "邀请链接、归因注册、可配置奖励，助力增长。"
-        },
-        {
-          "title": "管理面板",
-          "description": "按角色管理用户、订单、积分、预约与推广。"
-        },
-        {
-          "title": "文档与 MDX",
-          "description": "内置 MDX + Fumadocs 文档/博客与完善的 SEO。"
-        }
-      ]
-    },
-    "stack": {
-      "title": "技术栈",
-      "items": [
-        {
-          "name": "Next.js 15",
-          "description": "App Router 与服务端组件"
-        },
-        {
-          "name": "Tailwind CSS",
-          "description": "原子化实用类样式"
-        },
-        {
-          "name": "Better Auth",
-          "description": "认证与会话"
-        },
-        {
-          "name": "Drizzle ORM",
-          "description": "类型安全的 SQL 与迁移"
-        }
-      ]
-    },
-    "showcases": {
-      "title": "谁在使用"
+    "proof": {
+      "auth": "已验证账户、安全会话、组织角色，以及支持 MFA 的管理后台访问。",
+      "billing": "Stripe 订阅、幂等结账、权益控制，以及支持到期规则的积分账本。",
+      "operations": "私有存储、持久任务、就绪探针、速率限制、审计记录和经过测试的数据库迁移。"
     },
     "footer": "基于 Next.js 15、Tailwind CSS 与 Better Auth 构建。"
   },
@@ -113,18 +55,26 @@
       "or": "或"
     }
   },
-  "docs": {
-    "title": "文档",
-    "intro": "上手指南：如何配置和扩展这个启动模板。",
-    "back": "返回首页"
-  },
-  "blogs": {
-    "title": "博客",
-    "intro": "最新指南与更新，帮助你更快上线。"
-  },
   "reservation": {
     "title": "预约服务",
-    "subtitle": "选择服务、选择时间，并支付少量订金以确认。"
+    "subtitle": "选择服务、选择时间，并支付少量订金以确认。",
+    "noServicesTitle": "暂无可预约服务",
+    "noServicesDescription": "此工作区尚未配置任何服务。",
+    "serviceLabel": "服务",
+    "depositPrice": "订金 {price}",
+    "dateLabel": "日期",
+    "timezoneLabel": "时区",
+    "timezoneDescription": "已从浏览器自动检测。",
+    "loading": "加载中…",
+    "refreshAvailability": "刷新可预约时间",
+    "availableTimes": "可预约时间",
+    "minutes": "{value} 分钟",
+    "noSlotsTitle": "暂无可预约时间",
+    "noSlotsDescription": "请选择其他日期或刷新可预约时间。",
+    "contactEmail": "联系邮箱",
+    "phone": "电话",
+    "notes": "备注",
+    "optional": "可选。"
   },
   "auth": {
     "signInTitle": "欢迎回来",
@@ -170,6 +120,15 @@
     "useDifferentEmail": "使用其他邮箱",
     "captchaRequired": "请完成人机验证。",
     "captchaFailed": "验证失败，请重试。",
+    "twoFactorTitle": "双重验证",
+    "twoFactorSubtitle": "输入身份验证器中的验证码以完成登录。",
+    "authenticatorCode": "身份验证器验证码",
+    "backupCode": "备用验证码",
+    "trustDevice": "信任此设备",
+    "verifying": "验证中…",
+    "verify": "验证",
+    "useBackupCode": "使用备用验证码",
+    "useAuthenticatorCode": "使用身份验证器验证码",
     "logout": "退出登录"
   },
   "feedback": {
@@ -189,6 +148,9 @@
   "storage": {
     "uploadLabel": "上传文件",
     "hintPrivate": "默认私有。单个文件最大 {mb} MB。",
+    "browseFiles": "选择文件",
+    "dragAndDrop": "或拖放文件",
+    "uploadProgress": "{file} 的上传进度",
     "errorCreate": "创建上传失败",
     "errorComplete": "完成上传失败",
     "errorUpload": "上传失败",
@@ -228,6 +190,143 @@
         "free": "免费版",
         "plus": "Plus",
         "max": "Max"
+      }
+    },
+    "checkout": {
+      "success": {
+        "title": "付款已确认",
+        "description": "订阅已生效，积分现已可用。"
+      },
+      "processing": {
+        "title": "已收到付款",
+        "description": "我们正在完成订阅和积分发放，请稍后刷新账单页面。"
+      },
+      "failed": {
+        "title": "付款未完成",
+        "description": "没有新增订阅。请检查付款信息后重试。"
+      }
+    }
+  },
+  "account": {
+    "accountHome": "账户",
+    "workspace": "工作区",
+    "switchWorkspace": "切换工作区",
+    "navigationLabel": "账户导航",
+    "skipToContent": "跳到账户内容",
+    "navigation": {
+      "billing": "账单",
+      "credits": "积分",
+      "files": "文件",
+      "team": "团队",
+      "reservations": "预约",
+      "profile": "个人资料与安全"
+    },
+    "roles": {
+      "owner": "所有者",
+      "admin": "管理员",
+      "member": "成员"
+    },
+    "billing": {
+      "title": "账单",
+      "subtitle": "查看每个订阅、当前生效套餐以及此工作区共享的积分。",
+      "effectivePlan": "生效套餐",
+      "effectiveDescription": "此套餐决定工作区的功能限制。",
+      "effectiveStackedDescription": "功能限制采用最高的有效套餐，所有付费订阅的积分会合并共享。",
+      "freeDescription": "此工作区正在使用免费套餐。更换套餐不会删除现有数据。",
+      "currentBalance": "可用余额",
+      "creditsPerRenewal": "每次续订积分",
+      "expiringSoon": "14 天内到期",
+      "creditsValue": "{value} 个积分",
+      "viewCreditHistory": "查看积分记录",
+      "subscriptionsTitle": "订阅",
+      "subscriptionsDescription": "每张卡片代表一个独立订阅或赠送权限，可同时拥有多个有效订阅。",
+      "noSubscriptions": "此工作区没有有效订阅。",
+      "paidSubscription": "通过 Stripe 付款",
+      "complimentarySubscription": "赠送套餐权限",
+      "effectiveBadge": "决定限制",
+      "subscriptionCredits": "每次续订 {value} 个积分",
+      "allPlans": "全部套餐",
+      "current": "生效",
+      "planCredits": "每月 {value} 个积分",
+      "dataPolicy": "更换套餐不会删除现有数据。如果工作区超出新限制，只会暂停新的上传和生成。",
+      "actions": {
+        "manage": "管理账单",
+        "addSubscription": "新增订阅",
+        "ownerOnly": "只有工作区所有者可以新增订阅或更改付款信息。"
+      },
+      "limits": {
+        "largestFile": "最大文件",
+        "totalStorage": "总存储空间",
+        "videoGenerations": "视频生成",
+        "unlimited": "无限",
+        "megabytes": "{value} MB",
+        "gigabytes": "{value} GB",
+        "perMonth": "每月 {value} 次"
+      },
+      "statuses": {
+        "complimentary": "赠送",
+        "complimentaryUntil": "权限有效至 {date}。",
+        "complimentaryForever": "权限没有结束日期。",
+        "cancels": "即将取消",
+        "endsOn": "此订阅将于 {date} 结束。",
+        "willNotRenew": "此订阅不会续订。",
+        "trial": "试用",
+        "trialConvertsOn": "试用将于 {date} 转为付费。",
+        "paymentFailed": "付款失败",
+        "paymentFailedDetail": "请更新付款方式以保持此订阅有效。",
+        "active": "有效",
+        "renewsOn": "将于 {date} 续订。"
+      }
+    },
+    "credits": {
+      "title": "积分",
+      "subtitle": "积分在 {workspace} 中共享，每次发放和使用都会记录在这里。",
+      "summary": {
+        "balance": "可用余额",
+        "granted": "有效发放",
+        "consumed": "已使用",
+        "expired": "未使用已过期"
+      },
+      "creditValue": "{value} 个积分",
+      "expiringTitle": "14 天内到期的积分",
+      "historyTitle": "积分记录",
+      "historyDescription": "最新的账本记录优先显示。",
+      "historyTableLabel": "工作区积分记录",
+      "noHistory": "尚无积分活动记录。",
+      "columns": {
+        "date": "日期",
+        "type": "活动",
+        "change": "变动",
+        "expires": "到期"
+      },
+      "types": {
+        "newUser": "欢迎积分",
+        "purchase": "订阅积分",
+        "adjustment": "手动调整",
+        "videoTask": "视频生成",
+        "refund": "退还",
+        "usage": "使用",
+        "other": "其他"
+      }
+    },
+    "files": {
+      "title": "工作区文件",
+      "description": "文件仅在 {workspace} 内部共享，其成员均可查看。"
+    },
+    "reservations": {
+      "title": "工作区预约",
+      "description": "查看 {workspace} 过去和即将到来的预约。",
+      "empty": "此工作区尚无预约。",
+      "serviceFallback": "服务 #{id}",
+      "calendarTitle": "预约：{service}",
+      "calendarDescription": "预约 #{number}",
+      "addToCalendar": "添加到 Google 日历",
+      "statuses": {
+        "pending": "待处理",
+        "confirmed": "已确认",
+        "canceled": "已取消",
+        "expired": "已过期",
+        "other": "未知"
       }
     }
   },

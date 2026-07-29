@@ -1,5 +1,10 @@
 import Link from "next/link";
 
+import { AdminPageHeader } from "@admin/components/admin-page-header";
+import {
+  AdminStatusBadge,
+  type AdminStatusTone,
+} from "@admin/components/admin-status-badge";
 import { getAdminContext } from "@admin/lib/authz";
 import { Pager } from "@admin/components/pager";
 import ResolveStripeEvent from "@admin/components/resolve-stripe-event";
@@ -41,20 +46,16 @@ const STATUS_FILTERS = [
 function StatusBadge({ status }: { status: string }) {
   // `action_required` is the one that means "you, now" — the others are either
   // fine or will retry themselves, so only it gets the loud treatment.
-  const tone =
+  const tone: AdminStatusTone =
     status === "action_required"
-      ? "bg-destructive/10 text-destructive border-destructive/30"
+      ? "danger"
       : status === "failed"
-        ? "bg-amber-500/10 text-amber-700 border-amber-500/30 dark:text-amber-400"
+        ? "warning"
         : status === "completed" || status === "resolved"
-          ? "bg-emerald-500/10 text-emerald-700 border-emerald-500/30 dark:text-emerald-400"
-          : "bg-muted text-muted-foreground border-border";
+          ? "success"
+          : "neutral";
 
-  return (
-    <span className={`inline-block rounded border px-2 py-0.5 text-xs ${tone}`}>
-      {status}
-    </span>
-  );
+  return <AdminStatusBadge tone={tone}>{status}</AdminStatusBadge>;
 }
 
 export default async function AdminStripeEventsPage({
@@ -95,22 +96,21 @@ export default async function AdminStripeEventsPage({
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Stripe Events</h1>
-          <p className="text-sm text-muted-foreground">
-            Every webhook delivery this deployment recorded. Read-only.
-          </p>
-        </div>
-        <p className="text-sm text-muted-foreground">Total: {total}</p>
-      </header>
+      <AdminPageHeader
+        title="Stripe events"
+        description="Every webhook delivery this deployment recorded."
+        actions={
+          <p className="text-sm text-muted-foreground">Total: {total}</p>
+        }
+      />
 
       {needsAction > 0 && (
         <div className="space-y-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm">
           <p>
             <strong>{needsAction}</strong> event
-            {needsAction === 1 ? "" : "s"} need a decision. These do not retry on
-            their own — Stripe was answered 200 so the automatic retries stopped.
+            {needsAction === 1 ? "" : "s"} need a decision. These do not retry
+            on their own — Stripe was answered 200 so the automatic retries
+            stopped.
           </p>
           {/* The two exits, and they are not interchangeable. Replay re-runs the
               work; Resolve records that a person did it elsewhere. Saying which
@@ -219,7 +219,7 @@ export default async function AdminStripeEventsPage({
                 </td>
                 <td className="py-2 pr-4">
                   {RESOLVABLE_STATUSES.includes(
-                    event.status as (typeof RESOLVABLE_STATUSES)[number]
+                    event.status as (typeof RESOLVABLE_STATUSES)[number],
                   ) && (
                     <ResolveStripeEvent
                       eventId={event.event_id}

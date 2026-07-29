@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { buildMetadata, defaultMetaFallbacks } from "@/lib/seo";
-import { ensureDemoService, listActiveServices, findReservationByNo, getServiceById } from "@/models/reservation";
+import { findReservationByNo, getServiceById } from "@/models/reservation";
+import { listReservationServices } from "@/services/reservations";
 import { buildGoogleCalendarUrl } from "@/services/reservations/google";
 import { ReservationsConfig } from "@/config/reservations";
 import ReservationWidget from "@/components/reservations/reservation-widget";
@@ -39,10 +40,7 @@ export default async function ReservePage({ params, searchParams }: { params: Pr
   const t = await getTranslations("reservation");
   const { locale } = await params;
 
-  if (ReservationsConfig.autoSeedDemo) {
-    try { await ensureDemoService(); } catch {}
-  }
-  const services = await listActiveServices();
+  const services = await listReservationServices();
 
   const sp = (await searchParams) ?? {};
   const success = sp?.success === "1" || sp?.success === "true";

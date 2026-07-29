@@ -42,7 +42,6 @@ async function userWithOrg(email = `scope-${randomUUID()}@test.dev`) {
  * The tables 0014 backfills, and whose `org_uuid` 0015 later makes mandatory.
  */
 const SCOPED_TABLES = [
-  "apikeys",
   "credits",
   "files",
   "orders",
@@ -91,7 +90,11 @@ async function runBackfill() {
   const body = readFileSync(file, "utf8");
 
   for (const statement of body.split("--> statement-breakpoint")) {
-    if (statement.trim()) await db().execute(sql.raw(statement));
+    // `apikeys` was retired in 0026. Its historical statement remains in the
+    // immutable migration, but there is no current table to seed or query.
+    if (statement.trim() && !/UPDATE\s+apikeys\b/i.test(statement)) {
+      await db().execute(sql.raw(statement));
+    }
   }
 }
 
@@ -222,7 +225,14 @@ describeDb("org scope backfill (real database)", () => {
 describeDb("org scope NOT NULL migration (real database)", () => {
   async function runNotNull() {
     const file = join(__dirname, "../../src/db/migrations/0015_org_scope_not_null.sql");
-    const body = readFileSync(file, "utf8");
+    // Keep executing the shipped migration verbatim for every surviving table.
+    // Remove only the retired API-key table from the loop and ALTER statement.
+    const body = readFileSync(file, "utf8")
+      .replace("'apikeys', ", "")
+      .replace(
+        /ALTER TABLE "apikeys" ALTER COLUMN "org_uuid" SET NOT NULL;--> statement-breakpoint\n/,
+        "",
+      );
 
     for (const statement of body.split("--> statement-breakpoint")) {
       if (statement.trim()) await db().execute(sql.raw(statement));

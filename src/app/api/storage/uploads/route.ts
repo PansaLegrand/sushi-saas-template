@@ -6,10 +6,9 @@ import { toAppError } from "@/lib/errors/app-error";
 import { parseJsonBody } from "@/lib/http/request";
 import { getOrgContext } from "@/services/authz";
 import { newId } from "@/lib/ids";
-import { insertFile, sumFileBytesByOrg } from "@/models/file";
-import { enforceLimit, limitOf, requireEntitlement } from "@/services/entitlements";
+import { limitOf, requireEntitlement } from "@/services/entitlements";
 import { getStorageAdapter } from "@/services/storage";
-import { cleanupStaleUploads } from "@/services/storage/cleanup";
+import { reserveStorageUpload } from "@/services/storage/uploads";
 import { getAppEnv } from "@/lib/env";
 import {
   DEFAULT_STORAGE_UPLOAD_POLICY_ID,
@@ -23,8 +22,14 @@ import {
 } from "@/config/storage";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
-import type { CreateUploadRequest, CreateUploadResponse } from "@/types/storage";
-import { logger as baseLogger, requestIdFromHeaders } from "@/lib/logger/server";
+import type {
+  CreateUploadRequest,
+  CreateUploadResponse,
+} from "@/types/storage";
+import {
+  logger as baseLogger,
+  requestIdFromHeaders,
+} from "@/lib/logger/server";
 import { notifySlackError } from "@/integrations/slack";
 
 const DEFAULT_MAX_UPLOAD_MB = getAppEnv().STORAGE_MAX_UPLOAD_MB;
@@ -47,7 +52,7 @@ const CreateUploadSchema = z.object({
 
 function metadataWithPolicy(
   metadata: Record<string, string> | undefined,
-  policyId: string
+  policyId: string,
 ): Record<string, string> {
   return {
     ...(metadata ?? {}),
@@ -64,71 +69,37 @@ export async function POST(req: Request) {
 
   try {
     const requestId = requestIdFromHeaders(req.headers);
-    const log = baseLogger.child({ request_id: requestId, route: "/api/storage/uploads" });
+    const log = baseLogger.child({
+      request_id: requestId,
+      route: "/api/storage/uploads",
+    });
     const ctx = await getOrgContext(req);
     if (!ctx) return respNoAuth();
     const userUuid = ctx.userUuid;
 
-    // Accept both JSON and multipart/form-data for convenience
-    let payload: Partial<CreateUploadRequest> &
-      Partial<{ name: string; type: string; mimeType: string; mime: string } & { file?: File }> = {};
-
     const contentTypeHeader = req.headers.get("content-type") || "";
-    let parsedFrom: "json" | "form" | "unknown" = "unknown";
-
-    if (contentTypeHeader.includes("application/json")) {
-      payload = await parseJsonBody(req, CreateUploadSchema);
-      parsedFrom = "json";
+    if (!contentTypeHeader.toLowerCase().includes("application/json")) {
+      return respCode("REQUEST_UNSUPPORTED_MEDIA_TYPE");
     }
-
-    if (
-      contentTypeHeader.includes("multipart/form-data") ||
-      (!contentTypeHeader.includes("application/json") &&
-        (!payload || Object.keys(payload).length === 0))
-    ) {
-      try {
-        const form = await req.formData();
-        const file = form.get("file");
-        if (file && typeof file === "object" && "name" in file && "size" in file) {
-          payload.filename = (file as any).name as string;
-          payload.contentType = ((file as any).type as string) || "application/octet-stream";
-          payload.size = Number(((file as any).size as number) || 0);
-          // optional metadata fields
-          const checksum = form.get("checksumSha256");
-          if (typeof checksum === "string") payload.checksumSha256 = checksum;
-          const policy = form.get("policy");
-          if (typeof policy === "string") payload.policy = policy as any;
-          const visibility = form.get("visibility");
-          if (visibility === "public" || visibility === "private" || visibility === "org") payload.visibility = visibility;
-          const metadataRaw = form.get("metadata");
-          if (typeof metadataRaw === "string") {
-            try {
-              payload.metadata = JSON.parse(metadataRaw);
-            } catch {}
-          }
-          parsedFrom = "form";
-        } else {
-          // allow explicit fields in form
-          const fname = form.get("filename") || form.get("name");
-          const ctype = form.get("contentType") || form.get("type") || form.get("mimeType") || form.get("mime");
-          const sz = form.get("size");
-          const policy = form.get("policy");
-          if (typeof fname === "string") payload.filename = fname;
-          if (typeof ctype === "string") payload.contentType = ctype;
-          if (typeof sz === "string") payload.size = Number(sz);
-          if (typeof policy === "string") payload.policy = policy as any;
-          parsedFrom = "form";
-        }
-      } catch {
-        // ignore and validate below
-      }
-    }
+    const payload: Partial<CreateUploadRequest> &
+      Partial<{
+        name: string;
+        type: string;
+        mimeType: string;
+        mime: string;
+      }> = await parseJsonBody(req, CreateUploadSchema);
 
     // Normalize alternate property names
     const filename = (payload as any).filename || (payload as any).name;
     const contentType =
-      (payload as any).contentType || (payload as any).type || (payload as any).mimeType || (payload as any).mime;
-    const size = typeof (payload as any).size === "string" ? Number((payload as any).size) : (payload as any).size;
+      (payload as any).contentType ||
+      (payload as any).type ||
+      (payload as any).mimeType ||
+      (payload as any).mime;
+    const size =
+      typeof (payload as any).size === "string"
+        ? Number((payload as any).size)
+        : (payload as any).size;
     const checksumSha256 = (payload as any).checksumSha256;
     const policyValue = (payload as any).policy;
     const visibility = (payload as any).visibility;
@@ -136,7 +107,13 @@ export async function POST(req: Request) {
 
     if (!filename || !contentType || !size || Number(size) <= 0) {
       // Keep message consistent but add hint for developers
-      baseLogger.warn({ event: "storage.presign.create.invalid", parsedFrom, filename, contentType, size });
+      baseLogger.warn({
+        event: "storage.presign.create.invalid",
+        parsed_from: "json",
+        filename,
+        contentType,
+        size,
+      });
       return respCode("REQUEST_MISSING_FIELD", {
         details: { fields: ["filename", "contentType", "size"] },
       });
@@ -153,7 +130,12 @@ export async function POST(req: Request) {
     const normalizedContentType = normalizeContentType(contentType);
     const extension = extensionForFilename(filename);
 
-    if (!isAllowedUploadType(policy, { filename, contentType: normalizedContentType })) {
+    if (
+      !isAllowedUploadType(policy, {
+        filename,
+        contentType: normalizedContentType,
+      })
+    ) {
       return respCode("STORAGE_FILE_TYPE_NOT_ALLOWED", {
         details: {
           policy: policy.id,
@@ -187,7 +169,7 @@ export async function POST(req: Request) {
     const effectiveMaxMb = Math.min(
       DEFAULT_MAX_UPLOAD_MB,
       ...(planMaxMb === null ? [] : [planMaxMb]),
-      ...(policy.maxFileMb === undefined ? [] : [policy.maxFileMb])
+      ...(policy.maxFileMb === undefined ? [] : [policy.maxFileMb]),
     );
     const maxBytes = effectiveMaxMb * 1024 * 1024;
 
@@ -197,24 +179,13 @@ export async function POST(req: Request) {
       });
     }
 
-    // Total-storage quota. Checked against what is already stored plus what
-    // this upload would add, at creation time only — a user who downgrades
-    // below what they already hold keeps their files and is simply refused new
-    // ones. Nothing here deletes data because a plan changed.
-    await cleanupStaleUploads({ orgUuid: ctx.orgUuid });
-    const usedBytes = await sumFileBytesByOrg(ctx.orgUuid);
-    await enforceLimit(ctx.orgUuid, "storage.totalMb", {
-      current: Math.round(usedBytes / (1024 * 1024)),
-      adding: Math.ceil(Number(size) / (1024 * 1024)),
-    });
-
     const storage = getStorageAdapter();
     const bucket = storage.getDefaultBucket();
     const key = storage.buildObjectKey({ userUuid, filename });
 
     // Reserve a record in DB with status 'uploading'
     const fileUuid = newId();
-    await insertFile({
+    await reserveStorageUpload(ctx.orgUuid, {
       org_uuid: ctx.orgUuid,
       uuid: fileUuid,
       user_uuid: userUuid,
@@ -261,8 +232,15 @@ export async function POST(req: Request) {
   } catch (error) {
     const appError = toAppError(error, "STORAGE_UPLOAD_FAILED");
     if (appError.statusCode >= 500) {
-      baseLogger.error({ event: "storage.presign.create.error", error_name: (error as any)?.name, error_message: (error as any)?.message });
-      notifySlackError("Storage: create upload failed", error, { route: "/api/storage/uploads", request_id: requestIdFromHeaders(req.headers) });
+      baseLogger.error({
+        event: "storage.presign.create.error",
+        error_name: (error as any)?.name,
+        error_message: (error as any)?.message,
+      });
+      notifySlackError("Storage: create upload failed", error, {
+        route: "/api/storage/uploads",
+        request_id: requestIdFromHeaders(req.headers),
+      });
     }
     return respError(appError, {
       logFields: { event: "storage.presign.create_failed" },

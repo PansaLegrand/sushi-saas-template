@@ -33,12 +33,12 @@ pnpm dev
 Two databases on one server, deliberately: the `tests/db` tier truncates tables
 on every test, so it gets `sushi_test` and never touches your dev data.
 
-| Command | Purpose |
-| --- | --- |
-| `pnpm db:up` / `pnpm db:down` | Start / stop the container (data survives `down`) |
-| `pnpm db:generate` | Generate migration SQL after editing `src/db/schema.ts` |
-| `pnpm db:migrate` | Apply migrations locally |
-| `pnpm db:studio` | Drizzle Studio, a browser UI over the data |
+| Command                       | Purpose                                                 |
+| ----------------------------- | ------------------------------------------------------- |
+| `pnpm db:up` / `pnpm db:down` | Start / stop the container (data survives `down`)       |
+| `pnpm db:generate`            | Generate migration SQL after editing `src/db/schema.ts` |
+| `pnpm db:migrate`             | Apply migrations locally                                |
+| `pnpm db:studio`              | Drizzle Studio, a browser UI over the data              |
 
 To wipe local data entirely: `docker compose down -v`, then `pnpm setup`.
 
@@ -75,14 +75,20 @@ else is read at runtime and takes effect on the next request.
 **Required in production or the app refuses to start** — a deliberate design
 choice, so a deploy cannot silently end up unprotected:
 
-| Variable | Why |
-| --- | --- |
-| `DATABASE_URL` | Everything |
-| `BETTER_AUTH_SECRET` | Session signing. `openssl rand -base64 32` |
+| Variable                                                  | Why                                                                                     |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                                            | Everything                                                                              |
+| `BETTER_AUTH_SECRET`                                      | Session signing. `openssl rand -base64 32`                                              |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` | Bot protection on auth endpoints. Opt out only with `NEXT_PUBLIC_CAPTCHA_ENABLED=false` |
-| `CRON_SECRET` | Guards `/api/cron/jobs`. `openssl rand -hex 32` |
-| `STRIPE_PRICE_{PLUS,MAX}_{MONTHLY,YEARLY}` | Stable recurring Prices used by checkout, entitlement sync, and renewal grants |
-| `RATE_LIMIT_REDIS_URL` | Shared rate-limit counters. Use the managed service's TLS `rediss://` URL |
+| `CRON_SECRET`                                             | Guards `/api/cron/jobs`. `openssl rand -hex 32`                                         |
+| `STRIPE_BILLING_PORTAL_CONFIGURATION_ID`                  | Named `bpc_...` configuration; subscription updates must be disabled                    |
+| `STRIPE_PRICE_{PLUS,MAX}_{MONTHLY,YEARLY}`                | Stable recurring Prices used by checkout, entitlement sync, and renewal grants          |
+| `RATE_LIMIT_REDIS_URL`                                    | Shared rate-limit counters. Use the managed service's TLS `rediss://` URL               |
+| `RATE_LIMIT_IP_SOURCE`                                    | The one client-IP header overwritten by the trusted edge                                |
+
+Production validation rejects auth and cron secrets shorter than 32 UTF-8 bytes
+or recognizable setup placeholders. Generate both independently; never reuse a
+secret across environments or between authentication and cron.
 
 **Required for the features that use them**: `RESEND_API_KEY` + `EMAIL_FROM`
 (password reset, welcome, payment, reservation mail), `STRIPE_PRIVATE_KEY` +
@@ -159,12 +165,15 @@ This is the answer to the question and the reasoning is worth keeping:
   separate step can enforce it.
 
 Instead there is a one-click workflow: [.github/workflows/migrate.yml](.github/workflows/migrate.yml), run from the
-Actions tab. Pick an environment and `check` (report what is pending) or `apply`.
-`DATABASE_URL` is a GitHub *environment* secret, so staging credentials cannot
+Actions tab. Pick an environment and `check` (prove the target exactly matches
+this release) or `apply` (apply pending migrations and verify the result).
+`DATABASE_URL` is a GitHub _environment_ secret, so staging credentials cannot
 reach production, and adding required reviewers to the `production` environment
 makes an apply need approval.
 
-Locally or from any pipeline, the same runner:
+Locally or from any pipeline, the same runner. `db:check:prod` exits non-zero
+when migrations are pending, when an applied SQL hash differs, or when the
+database is ahead of the checked-out release:
 
 ```bash
 DATABASE_URL=postgres://... pnpm db:check:prod
@@ -177,20 +186,33 @@ DATABASE_URL=postgres://... pnpm db:migrate:prod
 [scripts/migrate.mjs](scripts/migrate.mjs) differs from `drizzle-kit migrate` in ways that matter for a
 deployed database: it takes a Postgres **advisory lock** so two overlapping
 deploys serialise instead of racing through the same DDL, it uses a single
-connection, it redacts credentials from its output, it exits non-zero on any
-failure, and it needs only runtime dependencies so it runs in a pruned install.
+connection, verifies the timestamp-and-hash journal prefix before and after an
+apply, redacts credentials from its output, exits non-zero on pending work or
+any failure, and needs only runtime dependencies so it runs in a pruned install.
+
+The `/api/ready` runtime probe checks that every migration compiled into the
+running application exists in the database. It deliberately allows additional
+newer migrations: during the required migrate → verify → ship sequence, the old
+application remains healthy against the expanded schema until the new release
+is promoted.
+
+A hash mismatch means an already-applied migration file was edited. Do not
+allowlist it or rewrite the database journal to make the gate green. Recreate a
+disposable pre-release dev/test database; for a production database, stop the
+release and use an audited one-time baseline or forward repair after confirming
+the exact SQL that was applied.
 
 ### Expand / contract
 
 Because code and schema ship separately, there is always a window where the old
 code runs against the new schema. Design migrations so that window is safe:
 
-| Change | Wrong | Right |
-| --- | --- | --- |
-| Add a column | `NOT NULL` with no default | Nullable or defaulted; backfill; tighten in a later release |
-| Rename a column | `ALTER ... RENAME` | Add new → write both → backfill → read new → drop old |
-| Drop a column | Drop in the release that stops using it | Stop using it, ship, drop in the **next** release |
-| Add a unique index | Plain `CREATE UNIQUE INDEX` on a big table | Deduplicate first, then `CREATE UNIQUE INDEX CONCURRENTLY` |
+| Change             | Wrong                                      | Right                                                       |
+| ------------------ | ------------------------------------------ | ----------------------------------------------------------- |
+| Add a column       | `NOT NULL` with no default                 | Nullable or defaulted; backfill; tighten in a later release |
+| Rename a column    | `ALTER ... RENAME`                         | Add new → write both → backfill → read new → drop old       |
+| Drop a column      | Drop in the release that stops using it    | Stop using it, ship, drop in the **next** release           |
+| Add a unique index | Plain `CREATE UNIQUE INDEX` on a big table | Deduplicate first, then `CREATE UNIQUE INDEX CONCURRENTLY`  |
 
 The rule: **every migration must leave the currently-deployed code working.** One
 release expands the schema, a later one contracts it. Never both at once.
@@ -202,14 +224,14 @@ everything. `tests/db/users.identity.test.ts` now pins that behaviour.
 
 ### Rollback
 
-There is no down-migration. Rolling *back* code is easy; rolling back a schema is
+There is no down-migration. Rolling _back_ code is easy; rolling back a schema is
 not. Expand/contract is what makes that acceptable — a forward-only schema that
 the previous release can still run against means you can revert the deployment
 without touching the database. If a migration is genuinely wrong, write a new
 migration that corrects it.
 
 Take a snapshot before anything destructive. Every managed provider has
-point-in-time restore; know how to trigger yours *before* you need it.
+point-in-time restore; know how to trigger yours _before_ you need it.
 
 ---
 
@@ -217,10 +239,10 @@ point-in-time restore; know how to trigger yours *before* you need it.
 
 Two apps deploy independently from one repository:
 
-| App | Build | Serves |
-| --- | --- | --- |
-| Web | `pnpm build:web` | Public site, auth, checkout, API |
-| Admin | `pnpm build:admin` (root dir `apps/admin`) | Admin console, `/api/admin/*` |
+| App   | Build                                      | Serves                                |
+| ----- | ------------------------------------------ | ------------------------------------- |
+| Web   | `pnpm build:web`                           | SaaS application, auth, checkout, API |
+| Admin | `pnpm build:admin` (root dir `apps/admin`) | Admin console, `/api/admin/*`         |
 
 On Vercel that is two projects on the same repo. The admin project needs the same
 `DATABASE_URL`, `BETTER_AUTH_SECRET`, and Turnstile keys — admin sign-in goes
@@ -261,17 +283,10 @@ differs between the CLI and each deployed endpoint. Subscribe at minimum to
 
 ## Known operational risks
 
-**`SNOWFLAKE_WORKER_ID` is per-instance and defaults to `1`.** It seeds the ID
-generator behind `credits.trans_no` and `orders.order_no`. On serverless, every
-concurrent instance uses the same worker id, so two instances generating an ID in
-the same millisecond can collide. The unique index turns that into a failed
-insert rather than a corrupted ledger — the safe failure — but it is still a
-user-visible error. If you outgrow a single instance, give each one a distinct
-id, or move those IDs to UUIDv7.
-
 **Email deliverability is a DNS problem, not a code problem.** SPF, DKIM, and
 DMARC records must be verified at your sending provider before production mail
-lands. See the email service guide in `/docs`.
+lands. Configure the provider credentials described in `.env.example` and
+verify the auth/email smoke checks in `docs/release-checklist.md`.
 
 ---
 
@@ -285,11 +300,12 @@ lands. See the email service guide in `/docs`.
 - [ ] Real Turnstile keys set on **both** the web and admin projects
 - [ ] Resend domain verified (SPF + DKIM + DMARC), `EMAIL_FROM` on that domain
 - [ ] Stripe webhook endpoint created, `STRIPE_WEBHOOK_SECRET` set from it
+- [ ] Billing Portal configuration created, subscription updates disabled, and its `bpc_...` id copied to `STRIPE_BILLING_PORTAL_CONFIGURATION_ID`
 - [ ] Plus/Max monthly/yearly Stripe Price IDs configured and copied into the matching `STRIPE_PRICE_*` variables
 - [ ] `NEXT_PUBLIC_WEB_URL`, `BETTER_AUTH_URL`, `NEXT_PUBLIC_ADMIN_WEB_URL` set to real origins
 - [ ] Cron scheduled against `/api/cron/jobs`
 - [ ] Demo flags absent
-- [ ] First admin promoted via SQL
+- [ ] First admin promoted with `pnpm admin:promote you@example.com`
 - [ ] Point-in-time restore confirmed available
 
 ### Every schema change

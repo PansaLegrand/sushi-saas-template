@@ -15,6 +15,19 @@ export interface JobPayloads {
     userUuid: string;
     credits: number;
   };
+  storage_object_delete: {
+    fileUuid: string;
+    orgUuid: string;
+  };
+  account_data_export: {
+    requestUuid: string;
+  };
+  account_export_expire: {
+    requestUuid: string;
+  };
+  account_erasure: {
+    requestUuid: string;
+  };
   payment_success_email: {
     to: string;
     orderNo?: string;
@@ -57,8 +70,23 @@ export interface JobPayloads {
 
 export type JobType = keyof JobPayloads;
 
+/**
+ * Stable execution identity supplied by the runner on every attempt.
+ *
+ * `jobUuid` deliberately does not change between retries, so providers can use
+ * it as an idempotency key. `attempt` is diagnostic only and must not be mixed
+ * into an external idempotency key.
+ */
+export type JobHandlerContext = {
+  jobUuid: string;
+  attempt: number;
+  maxAttempts: number;
+  signal: AbortSignal;
+};
+
 export type JobHandler<T extends JobType> = (
-  payload: JobPayloads[T]
+  payload: JobPayloads[T],
+  context: JobHandlerContext,
 ) => Promise<void>;
 
 export type JobHandlerMap = {

@@ -15,7 +15,7 @@
  *
  * Usage:
  *   DATABASE_URL=postgres://... node scripts/migrate.mjs
- *   DATABASE_URL=postgres://... node scripts/migrate.mjs --check   # report only
+ *   DATABASE_URL=postgres://... node scripts/migrate.mjs --check   # release gate
  */
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -24,6 +24,9 @@ import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
+import { readMigrationFiles } from "drizzle-orm/migrator";
+
+import { inspectMigrationState } from "./migration-state.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const migrationsFolder = resolve(root, "src/db/migrations");
@@ -48,17 +51,89 @@ function readJournal() {
   return journal.entries ?? [];
 }
 
-async function appliedCount(sql) {
+function readExpectedMigrations() {
+  const entries = readJournal();
+  const migrations = readMigrationFiles({ migrationsFolder });
+
+  if (entries.length !== migrations.length) {
+    throw new Error(
+      `Migration journal lists ${entries.length} entries but ` +
+        `${migrations.length} SQL files were loaded`,
+    );
+  }
+
+  for (const [index, entry] of entries.entries()) {
+    const previous = entries[index - 1];
+    if (entry.idx !== index) {
+      throw new Error(
+        `Migration journal entry ${entry.tag} has index ${entry.idx}; expected ${index}`,
+      );
+    }
+    if (
+      !Number.isSafeInteger(entry.when) ||
+      (previous && entry.when <= previous.when)
+    ) {
+      throw new Error(
+        `Migration journal entry ${entry.tag} does not have a strictly increasing timestamp`,
+      );
+    }
+  }
+
+  return migrations.map((migration, index) => ({
+    folderMillis: migration.folderMillis,
+    hash: migration.hash,
+    tag: entries[index].tag,
+  }));
+}
+
+async function readAppliedMigrations(sql) {
   // drizzle-orm records applied migrations here. Absent on a fresh database.
   const rows = await sql`
-    select count(*)::int as count
-    from information_schema.tables
-    where table_schema = 'drizzle' and table_name = '__drizzle_migrations'
+    select exists (
+      select 1
+      from information_schema.tables
+      where table_schema = 'drizzle'
+        and table_name = '__drizzle_migrations'
+    ) as "exists"
   `;
-  if (rows[0]?.count === 0) return 0;
+  if (!rows[0]?.exists) return [];
 
-  const [row] = await sql`select count(*)::int as count from drizzle.__drizzle_migrations`;
-  return row?.count ?? 0;
+  const applied = await sql`
+    select "hash", "created_at"
+    from "drizzle"."__drizzle_migrations"
+    order by "created_at" asc, "id" asc
+  `;
+
+  return applied.map((migration) => ({
+    folderMillis: Number(migration.created_at),
+    hash: String(migration.hash),
+  }));
+}
+
+function requireCompatibleState(applied, expected) {
+  const state = inspectMigrationState(applied, expected);
+
+  if (state.status === "diverged") {
+    throw new Error(`Migration history diverged: ${state.reason}`);
+  }
+
+  return state;
+}
+
+function printState(state, expectedCount, appliedCount) {
+  console.log(
+    `  ${expectedCount} migration(s) in repo, ${appliedCount} already applied`,
+  );
+
+  if (state.status === "current") {
+    console.log("  nothing to apply");
+    return;
+  }
+
+  console.log(`  ${state.pending.length} pending:`);
+  for (const migration of state.pending) {
+    console.log(`    - ${migration.tag}`);
+  }
 }
 
 const redacted = url.replace(/\/\/[^@]*@/, "//***@");
@@ -72,26 +147,38 @@ const db = drizzle(sql);
 let exitCode = 0;
 
 try {
-  const entries = readJournal();
-  const already = await appliedCount(sql);
-  const pending = entries.length - already;
+  const expected = readExpectedMigrations();
 
-  console.log(`  ${entries.length} migration(s) in repo, ${already} already applied`);
+  if (checkOnly) {
+    const applied = await readAppliedMigrations(sql);
+    const state = requireCompatibleState(applied, expected);
+    printState(state, expected.length, applied.length);
 
-  if (pending <= 0) {
-    console.log("  nothing to apply");
-  } else if (checkOnly) {
-    console.log(`  ${pending} pending:`);
-    for (const entry of entries.slice(already)) {
-      console.log(`    - ${entry.tag}`);
+    // A check is a release gate: pending migrations mean this artifact is not
+    // safe to deploy yet.
+    if (state.status === "pending") {
+      exitCode = 1;
     }
-    // --check is a report, not a gate: exit 0 either way so a pipeline can use
-    // it for visibility without branching on the result.
   } else {
     await sql`select pg_advisory_lock(${MIGRATION_LOCK_ID})`;
     try {
-      await migrate(db, { migrationsFolder });
-      console.log(`  applied ${pending} migration(s)`);
+      const applied = await readAppliedMigrations(sql);
+      const before = requireCompatibleState(applied, expected);
+      printState(before, expected.length, applied.length);
+
+      if (before.status === "pending") {
+        await migrate(db, { migrationsFolder });
+
+        const verified = await readAppliedMigrations(sql);
+        const after = requireCompatibleState(verified, expected);
+        if (after.status !== "current") {
+          throw new Error(
+            `Migration verification failed: ${after.pending.length} still pending`,
+          );
+        }
+
+        console.log(`  applied and verified ${before.pending.length} migration(s)`);
+      }
     } finally {
       await sql`select pg_advisory_unlock(${MIGRATION_LOCK_ID})`;
     }

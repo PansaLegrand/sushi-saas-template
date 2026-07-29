@@ -55,7 +55,7 @@ describe("POST /api/account/password", () => {
     expect(res.status).toBe(200);
     expect(mocks.setInitialPassword).toHaveBeenCalledWith(
       expect.any(Headers),
-      "a-good-password"
+      "a-good-password",
     );
   });
 
@@ -94,7 +94,7 @@ describe("POST /api/account/password", () => {
     expect(mocks.setInitialPassword).not.toHaveBeenCalled();
   });
 
-  it("is rate limited on the auth bucket", async () => {
+  it("is rate limited on the security-sensitive auth bucket", async () => {
     // A credential-setting endpoint throttled alongside ordinary API traffic is
     // one an attacker can hammer at API speed.
     mocks.rateLimitOrThrow.mockResolvedValue(respCode("REQUEST_RATE_LIMITED"));
@@ -104,7 +104,7 @@ describe("POST /api/account/password", () => {
     expect(res.status).toBe(429);
     expect(mocks.rateLimitOrThrow).toHaveBeenCalledWith(
       expect.anything(),
-      "auth"
+      "auth-sensitive",
     );
     expect(mocks.setInitialPassword).not.toHaveBeenCalled();
   });

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { AdminPageHeader } from "@admin/components/admin-page-header";
 import { getAdminContext } from "@admin/lib/authz";
 import { countAdminUsers, listAdminUsers } from "@admin/lib/data";
 import { Pager } from "@admin/components/pager";
@@ -45,21 +46,23 @@ export default async function AdminUsersPage({
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Users</h1>
-          <p className="text-sm text-muted-foreground">
+      <AdminPageHeader
+        title="Users"
+        description={
+          <p>
             An account, not a tenant. Credits and plans pool at the{" "}
             <Link href="/organizations" className="underline">
               organization
             </Link>
             .
           </p>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          {query ? `Matching: ${total}` : `Total: ${total}`}
-        </p>
-      </header>
+        }
+        actions={
+          <p className="text-sm text-muted-foreground">
+            {query ? `Matching: ${total}` : `Total: ${total}`}
+          </p>
+        }
+      />
 
       {/* A GET form, so a search is a URL an operator can paste into a ticket. */}
       <form method="get" className="flex gap-2">

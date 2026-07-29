@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   hasEmailProviderConfigured,
   logDevAuthEmailLink,
+  sendAuthEmailOrLogDevLink,
   shouldLogAuthLinkInsteadOfSending,
 } from "@/services/email/dev-auth-links";
 import { resetEnvCacheForTests, validateAppEnv } from "@/lib/env";
@@ -36,7 +37,7 @@ describe("dev auth email links", () => {
         kind: "verification",
         email: "user@example.com",
         url: "http://localhost:3000/api/auth/verify-email?token=test",
-      })
+      }),
     ).toBe(true);
 
     vi.stubEnv("NODE_ENV", "production");
@@ -47,7 +48,7 @@ describe("dev auth email links", () => {
         kind: "verification",
         email: "user@example.com",
         url: "http://localhost:3000/api/auth/verify-email?token=test",
-      })
+      }),
     ).toBe(false);
   });
 });
@@ -105,5 +106,43 @@ describe("AUTH_DEV_EMAIL_LINKS", () => {
     resetEnvCacheForTests();
 
     expect(() => validateAppEnv()).toThrow(/AUTH_DEV_EMAIL_LINKS/);
+  });
+});
+
+describe("sendAuthEmailOrLogDevLink", () => {
+  it("surfaces a production delivery failure", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("npm_lifecycle_event", "start");
+    withProvider();
+    resetEnvCacheForTests();
+
+    await expect(
+      sendAuthEmailOrLogDevLink({
+        kind: "password_reset",
+        email: "user@example.com",
+        url: "https://app.example/reset",
+        send: async () => {
+          throw new Error("provider unavailable");
+        },
+      }),
+    ).rejects.toThrow("provider unavailable");
+  });
+
+  it("falls back to a visible local link when development delivery fails", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    withProvider();
+    vi.stubEnv("AUTH_DEV_EMAIL_LINKS", "false");
+    resetEnvCacheForTests();
+
+    await expect(
+      sendAuthEmailOrLogDevLink({
+        kind: "verification",
+        email: "user@example.com",
+        url: "http://localhost:3000/verify",
+        send: async () => {
+          throw new Error("provider unavailable");
+        },
+      }),
+    ).resolves.toBeUndefined();
   });
 });

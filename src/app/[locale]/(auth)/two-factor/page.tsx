@@ -24,17 +24,29 @@ export async function generateMetadata({
   });
 }
 
-export default function TwoFactorPage() {
+export default async function TwoFactorPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ callbackUrl?: string | string[] }>;
+}) {
+  const [t, query] = await Promise.all([
+    getTranslations("auth"),
+    searchParams,
+  ]);
+  const callbackUrl = Array.isArray(query.callbackUrl)
+    ? query.callbackUrl[0]
+    : query.callbackUrl;
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-4 py-16">
       <section className="w-full max-w-sm space-y-6 rounded-lg border border-border bg-card p-8 shadow-sm">
         <header className="space-y-2 text-center">
-          <h1 className="text-2xl font-semibold">Two-factor authentication</h1>
+          <h1 className="text-2xl font-semibold">{t("twoFactorTitle")}</h1>
           <p className="text-sm text-muted-foreground">
-            Enter your authenticator code to finish signing in.
+            {t("twoFactorSubtitle")}
           </p>
         </header>
-        <TwoFactorVerifyForm />
+        <TwoFactorVerifyForm callbackUrl={callbackUrl} />
       </section>
     </main>
   );

@@ -29,14 +29,14 @@ describe("locale paths", () => {
     const { localePath } = await loadLocaleConfig();
 
     expect(localePath("en")).toBe("/");
-    expect(localePath("en", "/blogs/blog-one")).toBe("/blogs/blog-one");
+    expect(localePath("en", "/account/billing")).toBe("/account/billing");
     expect(localePath("en", "account/billing")).toBe("/account/billing");
   });
 
   it("keeps non-default locale prefixes", async () => {
     const { localePath } = await loadLocaleConfig();
 
-    expect(localePath("zh", "/blogs/blog-one")).toBe("/zh/blogs/blog-one");
+    expect(localePath("zh", "/account/billing")).toBe("/zh/account/billing");
     expect(localePath("es", "pricing")).toBe("/es/pricing");
   });
 
@@ -44,7 +44,7 @@ describe("locale paths", () => {
     const { localePath, normalizeLocale } = await loadLocaleConfig();
 
     expect(normalizeLocale("zh-CN")).toBe("zh");
-    expect(localePath("zh-CN", "/docs")).toBe("/zh/docs");
+    expect(localePath("zh-CN", "/pricing")).toBe("/zh/pricing");
   });
 
   it("builds absolute URLs with the same prefix rules", async () => {

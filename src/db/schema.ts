@@ -7,6 +7,7 @@ import {
   timestamp,
   index,
   uniqueIndex,
+  check,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
@@ -54,18 +55,27 @@ export const users = pgTable(
     ban_reason: varchar({ length: 500 }),
     /** `users.uuid` of the admin who banned. Empty for a system ban. */
     banned_by: varchar({ length: 255 }).notNull().default(""),
+
+    // active | deletion_pending | erasing
+    //
+    // Account deletion is an asynchronous, multi-provider workflow. This flag
+    // closes the race where memberships have been removed but an authenticated
+    // request reaches `getOrgContext()` and repairs the personal organization
+    // that the erasure worker is tearing down.
+    lifecycle_status: varchar({ length: 32 }).notNull().default("active"),
+    deletion_requested_at: timestamp({ withTimezone: true }),
   },
   (table) => [
     uniqueIndex("email_provider_unique_idx").on(
       table.email,
-      table.signin_provider
+      table.signin_provider,
     ),
     // Partial: only banned rows are indexed, so the admin console's "who is
     // suspended" list stays cheap without paying for an index over every user.
     index("users_banned_at_idx")
       .on(table.banned_at)
       .where(sql`${table.banned_at} is not null`),
-  ]
+  ],
 );
 
 // Sessions table (Better Auth core)
@@ -89,7 +99,7 @@ export const sessions = pgTable(
   (table) => [
     uniqueIndex("sessions_token_unique_idx").on(table.token),
     index("sessions_user_id_idx").on(table.user_id),
-  ]
+  ],
 );
 
 // Accounts table (Better Auth core)
@@ -113,10 +123,10 @@ export const accounts = pgTable(
   (table) => [
     uniqueIndex("accounts_provider_account_unique_idx").on(
       table.provider_id,
-      table.account_id
+      table.account_id,
     ),
     index("accounts_user_id_idx").on(table.user_id),
-  ]
+  ],
 );
 
 // Verifications table (Better Auth core)
@@ -133,10 +143,10 @@ export const verifications = pgTable(
   (table) => [
     uniqueIndex("verifications_identifier_value_unique_idx").on(
       table.identifier,
-      table.value
+      table.value,
     ),
     index("verifications_expires_at_idx").on(table.expires_at),
-  ]
+  ],
 );
 
 // Two-factor secrets and backup codes (Better Auth `two-factor` plugin)
@@ -150,9 +160,7 @@ export const twoFactor = pgTable(
     secret: text().notNull(),
     backup_codes: text().notNull(),
   },
-  (table) => [
-    uniqueIndex("two_factor_user_id_unique_idx").on(table.user_id),
-  ]
+  (table) => [uniqueIndex("two_factor_user_id_unique_idx").on(table.user_id)],
 );
 
 // ---------------------------------------------------------------------------
@@ -187,10 +195,17 @@ export const organizations = pgTable(
     // True for the org created automatically at signup. A personal org cannot
     // be deleted or left while it is the user's only one.
     is_personal: boolean().notNull().default(false),
+    // active | deleting | deleted. Deleted organizations remain as sanitized
+    // tombstones so retained orders and ledger rows do not point at an
+    // unexplained tenant identifier.
+    lifecycle_status: varchar({ length: 32 }).notNull().default("active"),
+    deleted_at: timestamp({ withTimezone: true }),
     created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("organizations_stripe_customer_idx").on(table.stripe_customer_id)]
+  (table) => [
+    index("organizations_stripe_customer_idx").on(table.stripe_customer_id),
+  ],
 );
 
 export const orgMembers = pgTable(
@@ -209,10 +224,10 @@ export const orgMembers = pgTable(
     // invitation silently grants two rows and the higher role wins by accident.
     uniqueIndex("org_members_org_user_unique_idx").on(
       table.organization_id,
-      table.user_id
+      table.user_id,
     ),
     index("org_members_user_id_idx").on(table.user_id),
-  ]
+  ],
 );
 
 export const orgInvitations = pgTable(
@@ -233,7 +248,7 @@ export const orgInvitations = pgTable(
     // Invitations are looked up by the address that was invited, before that
     // address has an account.
     index("org_invitations_email_idx").on(table.email),
-  ]
+  ],
 );
 
 // Orders table
@@ -250,6 +265,10 @@ export const orders = pgTable(
     expired_at: timestamp({ withTimezone: true }),
     status: varchar({ length: 50 }).notNull(),
     stripe_session_id: varchar({ length: 255 }),
+    // Structured provider identifiers make one-time refunds and disputes
+    // attributable without scanning or parsing receipt blobs.
+    stripe_payment_intent_id: varchar({ length: 255 }),
+    stripe_charge_id: varchar({ length: 255 }),
     credits: integer().notNull(),
     currency: varchar({ length: 50 }),
     sub_id: varchar({ length: 255 }),
@@ -261,9 +280,13 @@ export const orders = pgTable(
     product_id: varchar({ length: 255 }),
     product_name: varchar({ length: 255 }),
     valid_months: integer(),
+    // Minimal allowlisted checkout receipt. Never store the full Stripe request:
+    // its metadata contains user identifiers and email.
     order_detail: text(),
     paid_at: timestamp({ withTimezone: true }),
     paid_email: varchar({ length: 255 }),
+    // Minimal allowlisted payment receipt. Full Stripe objects carry billing
+    // addresses and payment metadata that this ledger does not need.
     paid_detail: text(),
     // One browser purchase intent maps to one order. Nullable so code deployed
     // before this column exists can continue inserting orders during an
@@ -289,9 +312,13 @@ export const orders = pgTable(
     // boundary that turns two requests into one order.
     uniqueIndex("orders_org_checkout_intent_unique_idx").on(
       table.org_uuid,
-      table.checkout_intent_id
+      table.checkout_intent_id,
     ),
-  ]
+    index("orders_stripe_payment_intent_idx").on(
+      table.stripe_payment_intent_id,
+    ),
+    index("orders_stripe_charge_idx").on(table.stripe_charge_id),
+  ],
 );
 
 // Stripe webhook event idempotency
@@ -370,99 +397,117 @@ export const stripeWebhookEvents = pgTable(
     index("stripe_webhook_events_customer_idx").on(table.stripe_customer_id),
     index("stripe_webhook_events_invoice_idx").on(table.stripe_invoice_id),
     index("stripe_webhook_events_subscription_idx").on(
-      table.stripe_subscription_id
+      table.stripe_subscription_id,
     ),
-  ]
+  ],
 );
 
-// API Keys table
-export const apikeys = pgTable("apikeys", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  api_key: varchar({ length: 255 }).notNull().unique(),
-  title: varchar({ length: 100 }),
-  user_uuid: varchar({ length: 255 }).notNull(),
-  created_at: timestamp({ withTimezone: true }),
-  status: varchar({ length: 50 }),
-  org_uuid: varchar({ length: 255 }).notNull(),
-}, (table) => [index("apikeys_org_idx").on(table.org_uuid)]);
-
 // Credits table
-export const credits = pgTable("credits", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  trans_no: varchar({ length: 255 }).notNull().unique(),
-  created_at: timestamp({ withTimezone: true }),
-  // Which member spent or earned this. Kept deliberately alongside `org_uuid`,
-  // because the balance is pooled at the org but per-member quotas and usage
-  // reporting are impossible to build later if nobody recorded who.
-  //
-  // Not the same thing as `actor` below: this is the member the movement is
-  // attributed *to*, which on an admin grant is the recipient, not the admin.
-  user_uuid: varchar({ length: 255 }).notNull(),
-  trans_type: varchar({ length: 50 }).notNull(),
-  credits: integer().notNull(),
-  order_no: varchar({ length: 255 }),
-  expired_at: timestamp({ withTimezone: true }),
-  // The balance keys on this, not on user_uuid.
-  org_uuid: varchar({ length: 255 }).notNull(),
+export const credits = pgTable(
+  "credits",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    trans_no: varchar({ length: 255 }).notNull().unique(),
+    created_at: timestamp({ withTimezone: true }),
+    // Which member spent or earned this. Kept deliberately alongside `org_uuid`,
+    // because the balance is pooled at the org but per-member quotas and usage
+    // reporting are impossible to build later if nobody recorded who.
+    //
+    // Not the same thing as `actor` below: this is the member the movement is
+    // attributed *to*, which on an admin grant is the recipient, not the admin.
+    user_uuid: varchar({ length: 255 }).notNull(),
+    trans_type: varchar({ length: 50 }).notNull(),
+    credits: integer().notNull(),
+    order_no: varchar({ length: 255 }),
+    expired_at: timestamp({ withTimezone: true }),
+    // The balance keys on this, not on user_uuid.
+    org_uuid: varchar({ length: 255 }).notNull(),
 
-  // ------------------------------------------------------------------ audit
-  // The three columns below make a ledger row answer "why does this org have
-  // this balance" without a join and a guess. All three are nullable because
-  // rows written before they existed have no honest value — see migration 0018,
-  // which backfills nothing rather than inventing history.
+    // ------------------------------------------------------------------ audit
+    // The three columns below make a ledger row answer "why does this org have
+    // this balance" without a join and a guess. All three are nullable because
+    // rows written before they existed have no honest value — see migration 0018,
+    // which backfills nothing rather than inventing history.
 
-  // The running total of every row for this org, this row included.
-  //
-  // Deliberately the total, NOT the spendable balance: credits expire without
-  // writing a ledger row, so a spend-aware figure would drift from the sum by
-  // design and a reconciliation script could not tell that apart from a real
-  // inconsistency. The invariant a script checks is that consecutive rows
-  // satisfy `prev.balance_after + row.credits = row.balance_after`.
-  //
-  // Only correct if computed under the same per-org lock that guards a spend,
-  // which is why `src/models/credit.ts` owns every write and the insert type
-  // refuses a caller-supplied value.
-  balance_after: integer(),
-  // Who caused this movement, namespaced: `stripe:webhook`, `admin:<uuid>`,
-  // `user:<uuid>`, `system:<reason>`. Distinguishes a grant an admin issued
-  // from one Stripe paid for — indistinguishable today, because `trans_type`
-  // records what happened and nothing recorded who.
-  actor: varchar({ length: 255 }),
-  // Free-form JSON context: the task a spend paid for, the transaction a refund
-  // reverses. Named `metadata_json` to match `files` and `tasks`; the roadmap
-  // calls it `metadata`, and matching the two neighbouring tables won.
-  metadata_json: text(),
-}, (table) => [index("credits_org_idx").on(table.org_uuid)]);
-
-// Posts table
-export const posts = pgTable("posts", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  uuid: varchar({ length: 255 }).notNull().unique(),
-  slug: varchar({ length: 255 }),
-  title: varchar({ length: 255 }),
-  description: text(),
-  content: text(),
-  created_at: timestamp({ withTimezone: true }),
-  updated_at: timestamp({ withTimezone: true }),
-  status: varchar({ length: 50 }),
-  cover_url: varchar({ length: 255 }),
-  author_name: varchar({ length: 255 }),
-  author_avatar_url: varchar({ length: 255 }),
-  locale: varchar({ length: 50 }),
-});
+    // The running total of every row for this org, this row included.
+    //
+    // Deliberately the total, NOT the spendable balance: credits expire without
+    // writing a ledger row, so a spend-aware figure would drift from the sum by
+    // design and a reconciliation script could not tell that apart from a real
+    // inconsistency. The invariant a script checks is that consecutive rows
+    // satisfy `prev.balance_after + row.credits = row.balance_after`.
+    //
+    // Only correct if computed under the same per-org lock that guards a spend,
+    // which is why `src/models/credit.ts` owns every write and the insert type
+    // refuses a caller-supplied value.
+    balance_after: integer(),
+    // Who caused this movement, namespaced: `stripe:webhook`, `admin:<uuid>`,
+    // `user:<uuid>`, `system:<reason>`. Distinguishes a grant an admin issued
+    // from one Stripe paid for — indistinguishable today, because `trans_type`
+    // records what happened and nothing recorded who.
+    actor: varchar({ length: 255 }),
+    // Free-form JSON context: the task a spend paid for, the transaction a refund
+    // reverses. Named `metadata_json` to match `files` and `tasks`; the roadmap
+    // calls it `metadata`, and matching the two neighbouring tables won.
+    metadata_json: text(),
+  },
+  (table) => [index("credits_org_idx").on(table.org_uuid)],
+);
 
 // Affiliates table
-export const affiliates = pgTable("affiliates", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  user_uuid: varchar({ length: 255 }).notNull(),
-  created_at: timestamp({ withTimezone: true }),
-  status: varchar({ length: 50 }).notNull().default(""),
-  invited_by: varchar({ length: 255 }).notNull(),
-  paid_order_no: varchar({ length: 255 }).notNull().default(""),
-  paid_amount: integer().notNull().default(0),
-  reward_percent: integer().notNull().default(0),
-  reward_amount: integer().notNull().default(0),
-});
+export const affiliates = pgTable(
+  "affiliates",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    user_uuid: varchar({ length: 255 }).notNull(),
+    created_at: timestamp({ withTimezone: true }),
+    status: varchar({ length: 50 }).notNull().default(""),
+    invited_by: varchar({ length: 255 }).notNull(),
+    paid_order_no: varchar({ length: 255 }).notNull().default(""),
+    paid_amount: integer().notNull().default(0),
+    reward_percent: integer().notNull().default(0),
+    reward_amount: integer().notNull().default(0),
+  },
+  (table) => [
+    // Signup attribution rows deliberately carry an empty order number and may
+    // repeat. A paid order, however, may mint exactly one reward even when two
+    // Stripe deliveries race on separate instances.
+    uniqueIndex("affiliates_paid_order_unique_idx")
+      .on(table.paid_order_no)
+      .where(sql`${table.paid_order_no} <> ''`),
+    uniqueIndex("affiliates_signup_user_unique_idx")
+      .on(table.user_uuid)
+      .where(sql`${table.paid_order_no} = ''`),
+  ],
+);
+
+/**
+ * Evidence preserved when the affiliate uniqueness migrations remove a replay.
+ *
+ * This is intentionally separate from the active affiliate table: archived
+ * rows must never participate in commission or attribution queries, but a
+ * financial cleanup must not destroy the facts it removed. `original_row_json`
+ * stores the complete row as JSON text exactly as it existed at migration
+ * time. The original and canonical ids make each decision independently
+ * traceable without introducing a foreign key to mutable application data.
+ */
+export const affiliateDeduplicationArchive = pgTable(
+  "affiliate_deduplication_archive",
+  {
+    archive_id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    original_affiliate_id: integer().notNull(),
+    canonical_affiliate_id: integer().notNull(),
+    reason: varchar({ length: 100 }).notNull(),
+    original_row_json: text().notNull(),
+    archived_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("affiliate_dedup_archive_original_reason_unique_idx").on(
+      table.original_affiliate_id,
+      table.reason,
+    ),
+  ],
+);
 
 // Feedbacks table
 export const feedbacks = pgTable("feedbacks", {
@@ -493,9 +538,7 @@ export const reservationServices = pgTable(
     active: boolean().notNull().default(true),
     created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index("reservation_services_active_idx").on(table.active),
-  ]
+  (table) => [index("reservation_services_active_idx").on(table.active)],
 );
 
 // Reservations (demo feature)
@@ -508,10 +551,21 @@ export const reservations = pgTable(
     service_id: integer().notNull(),
     start_at: timestamp({ withTimezone: true }).notNull(),
     end_at: timestamp({ withTimezone: true }).notNull(),
+    // The occupied range includes the service's before/after buffers. Keeping
+    // the snapshot on the booking lets PostgreSQL enforce the time that was
+    // sold even if an operator later changes the service configuration.
+    blocked_start_at: timestamp({ withTimezone: true }).notNull(),
+    blocked_end_at: timestamp({ withTimezone: true }).notNull(),
     timezone: varchar({ length: 64 }).notNull(),
     status: varchar({ length: 32 }).notNull().default("pending"), // pending|confirmed|canceled|expired
     hold_expires_at: timestamp({ withTimezone: true }),
     order_no: varchar({ length: 255 }),
+    // One browser action owns one reservation. Nullable for rows created before
+    // checkout-intent support; every new browser booking supplies a UUID.
+    checkout_intent_id: varchar({ length: 255 }),
+    // Hash of every reservation and payment term. The same key with different
+    // input is rejected instead of mutating the already-claimed booking.
+    checkout_fingerprint: varchar({ length: 64 }),
     contact_email: varchar({ length: 255 }),
     contact_phone: varchar({ length: 64 }),
     notes: text(),
@@ -523,7 +577,27 @@ export const reservations = pgTable(
     index("reservations_service_time_idx").on(table.service_id, table.start_at),
     index("reservations_user_idx").on(table.user_uuid),
     index("reservations_org_idx").on(table.org_uuid),
-  ]
+    uniqueIndex("reservations_actor_checkout_intent_unique_idx").on(
+      table.org_uuid,
+      table.user_uuid,
+      table.checkout_intent_id,
+    ),
+    uniqueIndex("reservations_order_no_unique_idx")
+      .on(table.order_no)
+      .where(sql`${table.order_no} is not null`),
+    check(
+      "reservations_time_order_check",
+      sql`${table.end_at} > ${table.start_at}`,
+    ),
+    check(
+      "reservations_blocked_time_order_check",
+      sql`${table.blocked_end_at} > ${table.blocked_start_at}`,
+    ),
+    check(
+      "reservations_status_check",
+      sql`${table.status} in ('pending', 'confirmed', 'canceled', 'expired')`,
+    ),
+  ],
 );
 
 // Files (user uploads)
@@ -546,7 +620,9 @@ export const files = pgTable(
 
     // Object properties
     size: integer().notNull().default(0),
-    content_type: varchar({ length: 255 }).notNull().default("application/octet-stream"),
+    content_type: varchar({ length: 255 })
+      .notNull()
+      .default("application/octet-stream"),
     etag: varchar({ length: 255 }),
     checksum_sha256: varchar({ length: 128 }),
     storage_class: varchar({ length: 64 }),
@@ -555,7 +631,7 @@ export const files = pgTable(
     original_filename: varchar({ length: 255 }).notNull().default(""),
     extension: varchar({ length: 32 }).notNull().default(""),
     visibility: varchar({ length: 32 }).notNull().default("private"), // private|public|org
-    status: varchar({ length: 32 }).notNull().default("uploading"), // uploading|active|deleted|failed
+    status: varchar({ length: 32 }).notNull().default("uploading"), // uploading|active|deleting|deleted|failed
     metadata_json: text(),
 
     created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -567,7 +643,7 @@ export const files = pgTable(
     index("files_user_idx").on(table.user_uuid),
     index("files_org_idx").on(table.org_uuid),
     uniqueIndex("files_bucket_key_unique_idx").on(table.bucket, table.key),
-  ]
+  ],
 );
 
 // Tasks (usage + AI actions)
@@ -603,9 +679,9 @@ export const tasks = pgTable(
     uniqueIndex("tasks_idempotency_unique_idx").on(
       table.user_uuid,
       table.type,
-      table.idempotency_key
+      table.idempotency_key,
     ),
-  ]
+  ],
 );
 
 // Auth events (append-only record of signups, sign-ins, and account lifecycle)
@@ -640,7 +716,7 @@ export const authEvents = pgTable(
     index("auth_events_event_idx").on(table.event),
     index("auth_events_created_idx").on(table.created_at),
     index("auth_events_user_event_idx").on(table.user_uuid, table.event),
-  ]
+  ],
 );
 
 // ---------------------------------------------------------------------------
@@ -693,10 +769,10 @@ export const emailBlocklist = pgTable(
     // row that has to be deleted twice before the block actually lifts.
     uniqueIndex("email_blocklist_scope_value_unique_idx").on(
       table.scope,
-      table.value
+      table.value,
     ),
     index("email_blocklist_created_idx").on(table.created_at),
-  ]
+  ],
 );
 
 // Background jobs (durable queue drained by the Vercel cron endpoint)
@@ -725,6 +801,10 @@ export const jobs = pgTable(
 
     // Optional caller-supplied key that makes enqueueing idempotent.
     dedupe_key: varchar({ length: 255 }),
+    // Privacy lifecycle operations need to cancel or scrub work by subject
+    // without searching arbitrary JSON payload text.
+    subject_user_uuid: varchar({ length: 255 }),
+    subject_org_uuid: varchar({ length: 255 }),
 
     last_error: text(),
     created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -734,8 +814,78 @@ export const jobs = pgTable(
   (table) => [
     index("jobs_status_run_at_idx").on(table.status, table.run_at),
     index("jobs_type_idx").on(table.type),
+    index("jobs_subject_user_idx").on(table.subject_user_uuid),
+    index("jobs_subject_org_idx").on(table.subject_org_uuid),
     uniqueIndex("jobs_dedupe_key_unique_idx").on(table.dedupe_key),
-  ]
+  ],
+);
+
+// Account data export and erasure requests.
+//
+// External effects are intentionally not hidden in a Better Auth delete hook:
+// Stripe and object storage cannot join a database transaction. A durable row
+// records progress so the job runner can retry after a crash without pretending
+// a provider deletion succeeded.
+export const privacyRequests = pgTable(
+  "privacy_requests",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    uuid: varchar({ length: 255 }).notNull().unique(),
+    request_type: varchar({ length: 32 }).notNull(), // export | erasure
+    user_id: varchar({ length: 255 }).notNull(),
+    user_uuid: varchar({ length: 255 }).notNull(),
+    status: varchar({ length: 32 }).notNull().default("scheduled"),
+
+    idempotency_key: varchar({ length: 255 }).notNull(),
+    request_fingerprint: varchar({ length: 64 }).notNull(),
+    erased_subject_uuid: varchar({ length: 255 }),
+
+    scheduled_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    started_at: timestamp({ withTimezone: true }),
+    completed_at: timestamp({ withTimezone: true }),
+    canceled_at: timestamp({ withTimezone: true }),
+    attempts: integer().notNull().default(0),
+
+    blockers_json: text(),
+    external_state_json: text(),
+    last_error: text(),
+
+    // Private export artifact. A route returns a short-lived signed URL; the
+    // bucket/key never cross the API boundary.
+    export_bucket: varchar({ length: 255 }),
+    export_key: varchar({ length: 1024 }),
+    export_size: integer(),
+    export_sha256: varchar({ length: 64 }),
+    export_expires_at: timestamp({ withTimezone: true }),
+
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("privacy_requests_user_type_key_unique_idx").on(
+      table.user_uuid,
+      table.request_type,
+      table.idempotency_key,
+    ),
+    uniqueIndex("privacy_requests_active_erasure_unique_idx")
+      .on(table.user_uuid)
+      .where(
+        sql`${table.request_type} = 'erasure' and ${table.status} in ('scheduled', 'processing', 'failed')`,
+      ),
+    index("privacy_requests_user_created_idx").on(
+      table.user_uuid,
+      table.created_at,
+    ),
+    index("privacy_requests_due_idx").on(table.status, table.scheduled_at),
+    check(
+      "privacy_requests_type_check",
+      sql`${table.request_type} in ('export', 'erasure')`,
+    ),
+    check(
+      "privacy_requests_status_check",
+      sql`${table.status} in ('scheduled', 'processing', 'blocked', 'completed', 'canceled', 'failed')`,
+    ),
+  ],
 );
 
 // Admin audit logs (append-only record of admin console actions)
@@ -769,9 +919,12 @@ export const adminAuditLogs = pgTable(
   (table) => [
     index("admin_audit_logs_actor_idx").on(table.actor_uuid),
     index("admin_audit_logs_action_idx").on(table.action),
-    index("admin_audit_logs_target_idx").on(table.target_type, table.target_uuid),
+    index("admin_audit_logs_target_idx").on(
+      table.target_type,
+      table.target_uuid,
+    ),
     index("admin_audit_logs_created_idx").on(table.created_at),
-  ]
+  ],
 );
 
 // Subscriptions: what a user is entitled to right now.
@@ -837,7 +990,7 @@ export const subscriptions = pgTable(
   },
   (table) => [
     uniqueIndex("subscriptions_stripe_id_unique_idx").on(
-      table.stripe_subscription_id
+      table.stripe_subscription_id,
     ),
     // The read path: "everything currently live for this user", on every
     // entitlement check.
@@ -846,5 +999,5 @@ export const subscriptions = pgTable(
     // whoever subscribed. Migration 0017 switches entitlement resolution to it.
     index("subscriptions_org_status_idx").on(table.org_uuid, table.status),
     index("subscriptions_customer_idx").on(table.stripe_customer_id),
-  ]
+  ],
 );

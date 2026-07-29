@@ -1,7 +1,11 @@
 import type Stripe from "stripe";
 
 import { findCreditByOrderNo } from "@/models/credit";
-import { findOrderBySubscriptionPeriod } from "@/models/order";
+import {
+  findOrderByOrderNo,
+  findOrderByStripePayment,
+  findOrderBySubscriptionPeriod,
+} from "@/models/order";
 import { getOrgCredits } from "@/services/credit";
 import { logger } from "@/lib/logger/server";
 
@@ -60,8 +64,12 @@ export type RefundAssessment = {
  */
 async function resolveInvoiceId(
   stripe: Stripe,
-  object: Stripe.Charge | Stripe.Dispute
-): Promise<{ chargeId?: string; invoiceId?: string }> {
+  object: Stripe.Charge | Stripe.Dispute,
+): Promise<{
+  chargeId?: string;
+  invoiceId?: string;
+  paymentIntentId?: string;
+}> {
   const refOf = (value: unknown): string | undefined => {
     if (typeof value === "string") return value || undefined;
     if (value && typeof value === "object") {
@@ -78,22 +86,34 @@ async function resolveInvoiceId(
 
     try {
       const charge = await stripe.charges.retrieve(chargeId);
-      return { chargeId, invoiceId: refOf(charge.invoice) };
+      return {
+        chargeId,
+        invoiceId: refOf(charge.invoice),
+        paymentIntentId: refOf(charge.payment_intent),
+      };
     } catch (e) {
       logger.warn(
-        { err: e, event: "stripe.refund_charge_lookup_failed", charge_id: chargeId },
-        "could not retrieve the disputed charge"
+        {
+          err: e,
+          event: "stripe.refund_charge_lookup_failed",
+          charge_id: chargeId,
+        },
+        "could not retrieve the disputed charge",
       );
       return { chargeId };
     }
   }
 
-  return { chargeId: object.id, invoiceId: refOf(object.invoice) };
+  return {
+    chargeId: object.id,
+    invoiceId: refOf(object.invoice),
+    paymentIntentId: refOf(object.payment_intent),
+  };
 }
 
 export async function assessRefund(
   stripe: Stripe,
-  event: Stripe.Event
+  event: Stripe.Event,
 ): Promise<RefundAssessment> {
   const object = event.data.object as Stripe.Charge | Stripe.Dispute;
   const kind = event.type === "charge.dispute.created" ? "dispute" : "refund";
@@ -112,11 +132,45 @@ export async function assessRefund(
     currency: object.currency ?? undefined,
   };
 
-  const { chargeId, invoiceId } = await resolveInvoiceId(stripe, object);
+  const { chargeId, invoiceId, paymentIntentId } = await resolveInvoiceId(
+    stripe,
+    object,
+  );
   base.charge_id = chargeId;
   base.stripe_invoice_id = invoiceId;
 
-  if (!invoiceId) return base;
+  if (!invoiceId) {
+    let order = await findOrderByStripePayment({
+      paymentIntentId,
+      chargeId,
+    });
+
+    // Backward compatibility for orders paid before structured identifiers were
+    // added: Stripe can resolve the PaymentIntent back to its Checkout Session,
+    // whose signed metadata carries the local order number.
+    if (!order && paymentIntentId) {
+      try {
+        const sessions = await stripe.checkout.sessions.list({
+          payment_intent: paymentIntentId,
+          limit: 1,
+        });
+        const orderNo = sessions.data[0]?.metadata?.order_no;
+        if (orderNo) order = await findOrderByOrderNo(orderNo);
+      } catch (e) {
+        logger.warn(
+          {
+            err: e,
+            event: "stripe.refund_checkout_lookup_failed",
+            payment_intent_id: paymentIntentId,
+          },
+          "could not resolve the refunded one-time Checkout Session",
+        );
+      }
+    }
+
+    if (!order) return base;
+    return assessOrderGrant(order, base);
+  }
 
   // The order number for a renewal is derived from the billing period, so the
   // invoice's subscription and period are what identify it. A checkout charge
@@ -133,19 +187,36 @@ export async function assessRefund(
         : (invoice.subscription?.id ?? undefined);
 
     const line =
-      invoice.lines?.data?.find((l) => l.period?.start) ?? invoice.lines?.data?.[0];
+      invoice.lines?.data?.find((l) => l.period?.start) ??
+      invoice.lines?.data?.[0];
     periodStart = line?.period?.start ?? undefined;
   } catch (e) {
     logger.warn(
-      { err: e, event: "stripe.refund_invoice_lookup_failed", invoice_id: invoiceId },
-      "could not retrieve the refunded invoice"
+      {
+        err: e,
+        event: "stripe.refund_invoice_lookup_failed",
+        invoice_id: invoiceId,
+      },
+      "could not retrieve the refunded invoice",
     );
     return base;
   }
 
   if (!subscriptionId || !periodStart) return base;
 
-  const order = await findOrderBySubscriptionPeriod(subscriptionId, periodStart);
+  const order = await findOrderBySubscriptionPeriod(
+    subscriptionId,
+    periodStart,
+  );
+  if (!order) return base;
+
+  return assessOrderGrant(order, base);
+}
+
+async function assessOrderGrant(
+  order: Awaited<ReturnType<typeof findOrderByOrderNo>>,
+  base: RefundAssessment,
+): Promise<RefundAssessment> {
   if (!order) return base;
 
   base.order_no = order.order_no;

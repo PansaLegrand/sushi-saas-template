@@ -1,4 +1,5 @@
 import { api } from "@/lib/api/client";
+import { organizationHeaders } from "./organization-context";
 
 export interface TaskRecord {
   uuid: string;
@@ -10,11 +11,16 @@ export interface TaskRecord {
 }
 
 export function getLatestTask() {
-  return api.get<{ task: TaskRecord | null }>("/api/tasks/latest");
+  return api.get<{ task: TaskRecord | null }>("/api/tasks/latest", {
+    headers: organizationHeaders(),
+  });
 }
 
 export function getTask(uuid: string) {
-  return api.get<{ task: TaskRecord }>(`/api/tasks/${encodeURIComponent(uuid)}`);
+  return api.get<{ task: TaskRecord }>(
+    `/api/tasks/${encodeURIComponent(uuid)}`,
+    { headers: organizationHeaders() }
+  );
 }
 
 export function createTextToVideoTask(input: {
@@ -29,7 +35,7 @@ export function createTextToVideoTask(input: {
       : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
   return api.post<{ task: TaskRecord }>("/api/tasks/text-to-video", {
-    headers: { "Idempotency-Key": idempotencyKey },
+    headers: organizationHeaders({ "Idempotency-Key": idempotencyKey }),
     body: { ...input, idempotencyKey },
   });
 }

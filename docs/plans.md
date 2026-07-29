@@ -49,7 +49,7 @@ Three steps, and TypeScript enforces the middle one:
 
 1. Add the key to `PlanFeature` or `PlanLimit` in `src/types/plan.ts`.
 2. Fill it in for **every** tier in `src/config/plans.ts`. `Record<PlanFeature,
-   boolean>` means a tier that omits the key does not default to `false` — it
+boolean>` means a tier that omits the key does not default to `false` — it
    fails to compile, and whoever adds the feature is made to decide what it
    means for each tier they already sell.
 3. Guard the call site with `requireEntitlement` or `enforceLimit`.
@@ -70,7 +70,7 @@ the one source for amounts, intervals, credit grants, and Stripe Price IDs;
 ## Where tiers come from
 
 `subscriptions` holds one row per subscription — Stripe's or a comp — and it is
-the *current state* of the billing relationship. `orders` remains the immutable
+the _current state_ of the billing relationship. `orders` remains the immutable
 financial log: what was paid, when, and for what. The two answer different
 questions and must not be merged. Answering "is this user on a paid plan" from
 `orders` means scanning for the newest row whose `expired_at` has not passed,
@@ -84,12 +84,12 @@ would quietly downgrade them.
 
 ### What "entitling" means
 
-| Status | Entitles? |
-| --- | --- |
-| `active`, `trialing` | Yes, until `current_period_end` passes |
-| `active` + `cancel_at_period_end` | Yes, until the period ends — they paid for it |
-| `past_due` | Yes, for `PAST_DUE_GRACE_DAYS` (7) after the period ended |
-| `canceled`, `unpaid`, `incomplete`, `paused` | No |
+| Status                                       | Entitles?                                                 |
+| -------------------------------------------- | --------------------------------------------------------- |
+| `active`, `trialing`                         | Yes, until `current_period_end` passes                    |
+| `active` + `cancel_at_period_end`            | Yes, until the period ends — they paid for it             |
+| `past_due`                                   | Yes, for `PAST_DUE_GRACE_DAYS` (7) after the period ended |
+| `canceled`, `unpaid`, `incomplete`, `paused` | No                                                        |
 
 The grace period exists because Stripe retries a declined card for days.
 Cutting access off on the first failure treats an expired card exactly like a
@@ -148,11 +148,11 @@ resolves through exactly the same path as a paid one:
 await grantManualSubscription({
   userUuid,
   tier: "max",
-  expiresAt: null,          // indefinite
+  expiresAt: null, // indefinite
   note: "design partner",
 });
 
-await revokeManualSubscriptions(userUuid);  // paid rows are untouched
+await revokeManualSubscriptions(userUuid); // paid rows are untouched
 ```
 
 This is also how you try a gated feature locally without a Stripe account.
@@ -206,7 +206,16 @@ optional and appear in the UI only when their Price ID is configured.
   Clawing back credits a user has already spent is a decision with enough
   product judgement in it to belong to a human. What the kit will not do is
   stay silent.
-- **Proration display.** Stripe's billing portal handles plan changes and shows
-  the proration; the billing page links to it rather than reimplementing it.
+- **In-place plan and quantity changes.** The starter intentionally disables
+  `subscription_update` in its named Stripe Billing Portal configuration.
+  Credits are granted once per catalog subscription, so a mutable quantity or
+  prorated price change would make money and entitlement disagree. Customers
+  may cancel, update payment methods, inspect invoices, or purchase another
+  independent subscription from the app. Add a tested proration/credit policy
+  before enabling portal plan changes.
 - **Seat-based pricing.** Billing is per organization, but the catalog does not
   multiply prices or limits by member count. See the roadmap.
+
+Production requires `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` (`bpc_...`). The
+app retrieves that exact configuration on every portal open and fails closed if
+`features.subscription_update.enabled` has drifted to true in Stripe.

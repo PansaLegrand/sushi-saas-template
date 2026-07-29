@@ -1,92 +1,29 @@
 {
   "metadata": {
-    "title": "Sushi SaaS - Next.js Starter Kit for Real SaaS",
-    "description": "最新のツールとクリーンなデザインで、すぐに使えるSaaSテンプレート。",
+    "title": "あなたの SaaS",
+    "description": "安全で、本番運用を見据えた SaaS アプリケーション。",
     "keywords": "saas テンプレート, next.js, better auth"
   },
   "landing": {
     "nav": {
+      "pricing": "料金",
       "docs": "ドキュメント",
-      "blogs": "ブログ",
-      "github": "GitHub"
+      "signIn": "ログイン",
+      "openApp": "アプリを開く"
     },
     "hero": {
-      "title": "本番運用できる Next.js の SaaS スターター。",
-      "subtitle": "認証、決済、クレジット、ストレージ、多言語対応、管理画面、ドキュメントまで接続済み。意図をもって階層化し、テストで担保しています。基盤ではなくプロダクトから始めましょう。",
-      "ctaPrimary": "ドキュメントを読む",
-      "ctaSecondary": "GitHub で見る"
+      "title": "顧客を迎えられるプロダクトへ。",
+      "subtitle": "安全なアカウント、組織単位の請求、共有クレジット、非公開ストレージ、運用基盤まで準備済みです。あなたの SaaS だけの体験を追加してください。",
+      "ctaPrimary": "アカウントを作成",
+      "ctaSecondary": "ログイン",
+      "ctaOpenApp": "アカウントを開く"
     },
-    "about": {
-      "title": "含まれるもの",
-      "intro": "どの SaaS にも必要で、誰も作りたくない部分をまとめました。ロール付きの認証、クレジット台帳を備えた Stripe 課金、非公開ファイルのアップロード、トランザクションメール、独立した管理コンソール、そして 5 言語のローカライズされたルーティング。全体を通じて単一のアーキテクチャで、ドキュメント化され、テストで強制されています。"
-    },
-    "features": {
-      "title": "主な内容",
-      "items": [
-        {
-          "title": "モダンなOSSスタック",
-          "description": "Next.js 15 / TypeScript / Tailwind — すぐに出荷できる土台。"
-        },
-        {
-          "title": "認証とRBAC（Better Auth）",
-          "description": "メール + Google サインイン、セッション、ロールチェックを Drizzle と共に。"
-        },
-        {
-          "title": "グローバル i18n",
-          "description": "ローカライズされたルートとメッセージで多言語提供を容易に。"
-        },
-        {
-          "title": "Stripe 課金 + クレジット",
-          "description": "チェックアウト、サブスク、柔軟なクレジット元帳で従量課金も対応。"
-        },
-        {
-          "title": "予約モジュール",
-          "description": "空き状況、前払いや全額決済、確認メール、カレンダー招待まで。"
-        },
-        {
-          "title": "アフィリエイト/紹介",
-          "description": "招待リンク、計測されたサインアップ、設定可能な報酬で成長を後押し。"
-        },
-        {
-          "title": "管理画面",
-          "description": "ユーザー/注文/クレジット/予約/アフィリエイトをロールで管理。"
-        },
-        {
-          "title": "Docs と MDX",
-          "description": "MDX + Fumadocs による内蔵ドキュメント/ブログと適切な SEO。"
-        }
-      ]
-    },
-    "stack": {
-      "title": "使用技術",
-      "items": [
-        {
-          "name": "Next.js 15",
-          "description": "App Router とサーバーコンポーネント"
-        },
-        {
-          "name": "Tailwind CSS",
-          "description": "ユーティリティファーストなスタイル"
-        },
-        {
-          "name": "Better Auth",
-          "description": "認証とセッション"
-        },
-        {
-          "name": "Drizzle ORM",
-          "description": "型安全な SQL とマイグレーション"
-        }
-      ]
-    },
-    "showcases": {
-      "title": "採用事例"
+    "proof": {
+      "auth": "確認済みアカウント、安全なセッション、組織ロール、MFA 対応の管理者アクセス。",
+      "billing": "Stripe サブスクリプション、冪等なチェックアウト、権限管理、有効期限対応のクレジット台帳。",
+      "operations": "非公開ストレージ、永続ジョブ、準備状態チェック、レート制限、監査証跡、検証済みマイグレーション。"
     },
     "footer": "Next.js 15、Tailwind CSS、Better Auth で構築。"
-  },
-  "docs": {
-    "title": "ドキュメント",
-    "intro": "このスターターキットのセットアップと拡張のための実践ガイド。",
-    "back": "ホームに戻る"
   },
   "tasks": {
     "textToVideo": {
@@ -118,13 +55,26 @@
       "or": "または"
     }
   },
-  "blogs": {
-    "title": "ブログ",
-    "intro": "最新のガイドとアップデートで開発を加速。"
-  },
   "reservation": {
     "title": "サービスの予約",
-    "subtitle": "サービスを選び、時間を選択して、小さな前払いで確定します。"
+    "subtitle": "サービスを選び、時間を選択して、小さな前払いで確定します。",
+    "noServicesTitle": "利用できるサービスがありません",
+    "noServicesDescription": "このワークスペースにはまだサービスが設定されていません。",
+    "serviceLabel": "サービス",
+    "depositPrice": "前払い {price}",
+    "dateLabel": "日付",
+    "timezoneLabel": "タイムゾーン",
+    "timezoneDescription": "ブラウザから自動検出しました。",
+    "loading": "読み込み中…",
+    "refreshAvailability": "空き状況を更新",
+    "availableTimes": "予約可能な時間",
+    "minutes": "{value} 分",
+    "noSlotsTitle": "空き時間がありません",
+    "noSlotsDescription": "別の日付を選ぶか、空き状況を更新してください。",
+    "contactEmail": "連絡先メール",
+    "phone": "電話番号",
+    "notes": "メモ",
+    "optional": "任意。"
   },
   "auth": {
     "signInTitle": "お帰りなさい",
@@ -170,6 +120,15 @@
     "useDifferentEmail": "別のメールを使う",
     "captchaRequired": "認証チャレンジを完了してください。",
     "captchaFailed": "認証に失敗しました。もう一度お試しください。",
+    "twoFactorTitle": "2 要素認証",
+    "twoFactorSubtitle": "認証アプリのコードを入力してログインを完了してください。",
+    "authenticatorCode": "認証コード",
+    "backupCode": "バックアップコード",
+    "trustDevice": "この端末を信頼する",
+    "verifying": "確認中…",
+    "verify": "確認",
+    "useBackupCode": "バックアップコードを使う",
+    "useAuthenticatorCode": "認証アプリのコードを使う",
     "logout": "ログアウト"
   },
   "feedback": {
@@ -189,6 +148,9 @@
   "storage": {
     "uploadLabel": "ファイルをアップロード",
     "hintPrivate": "既定で非公開。各ファイルの最大サイズは {mb} MB です。",
+    "browseFiles": "ファイルを選択",
+    "dragAndDrop": "またはドラッグ＆ドロップ",
+    "uploadProgress": "{file} のアップロード進行状況",
     "errorCreate": "アップロードの作成に失敗しました",
     "errorComplete": "アップロードの完了に失敗しました",
     "errorUpload": "アップロードに失敗しました",
@@ -228,6 +190,143 @@
         "free": "無料",
         "plus": "Plus",
         "max": "Max"
+      }
+    },
+    "checkout": {
+      "success": {
+        "title": "お支払いを確認しました",
+        "description": "サブスクリプションが有効になり、クレジットを利用できます。"
+      },
+      "processing": {
+        "title": "お支払いを受け付けました",
+        "description": "サブスクリプションとクレジット付与を処理しています。しばらくしてから請求ページを更新してください。"
+      },
+      "failed": {
+        "title": "お支払いが完了しませんでした",
+        "description": "サブスクリプションは追加されていません。お支払い情報を確認してもう一度お試しください。"
+      }
+    }
+  },
+  "account": {
+    "accountHome": "アカウント",
+    "workspace": "ワークスペース",
+    "switchWorkspace": "ワークスペースを切り替え",
+    "navigationLabel": "アカウントナビゲーション",
+    "skipToContent": "アカウントの内容へ移動",
+    "navigation": {
+      "billing": "請求",
+      "credits": "クレジット",
+      "files": "ファイル",
+      "team": "チーム",
+      "reservations": "予約",
+      "profile": "プロフィールとセキュリティ"
+    },
+    "roles": {
+      "owner": "オーナー",
+      "admin": "管理者",
+      "member": "メンバー"
+    },
+    "billing": {
+      "title": "請求",
+      "subtitle": "すべてのサブスクリプション、有効なプラン、ワークスペースで共有されるクレジットを確認できます。",
+      "effectivePlan": "有効なプラン",
+      "effectiveDescription": "このプランがワークスペースの機能上限を決定します。",
+      "effectiveStackedDescription": "機能上限には最上位の有効プランを使用し、すべての有料サブスクリプションのクレジットを共有します。",
+      "freeDescription": "このワークスペースは無料プランです。プランを変更しても既存データは保持されます。",
+      "currentBalance": "利用可能残高",
+      "creditsPerRenewal": "更新ごとのクレジット",
+      "expiringSoon": "14 日以内に期限切れ",
+      "creditsValue": "{value} クレジット",
+      "viewCreditHistory": "クレジット履歴を見る",
+      "subscriptionsTitle": "サブスクリプション",
+      "subscriptionsDescription": "各カードは個別のサブスクリプションまたは無償付与です。複数を同時に有効にできます。",
+      "noSubscriptions": "このワークスペースには有効なサブスクリプションがありません。",
+      "paidSubscription": "Stripe で支払い",
+      "complimentarySubscription": "無償プランアクセス",
+      "effectiveBadge": "上限を決定",
+      "subscriptionCredits": "更新ごとに {value} クレジット",
+      "allPlans": "すべてのプラン",
+      "current": "有効",
+      "planCredits": "月 {value} クレジット",
+      "dataPolicy": "プランを変更しても既存データは削除されません。新しい上限を超えている場合、新規アップロードと生成のみ待機します。",
+      "actions": {
+        "manage": "お支払いを管理",
+        "addSubscription": "サブスクリプションを追加",
+        "ownerOnly": "サブスクリプションの追加や支払い情報の変更はワークスペースのオーナーのみ行えます。"
+      },
+      "limits": {
+        "largestFile": "最大ファイル",
+        "totalStorage": "総ストレージ",
+        "videoGenerations": "動画生成",
+        "unlimited": "無制限",
+        "megabytes": "{value} MB",
+        "gigabytes": "{value} GB",
+        "perMonth": "月 {value} 回"
+      },
+      "statuses": {
+        "complimentary": "無償",
+        "complimentaryUntil": "{date} までアクセスできます。",
+        "complimentaryForever": "終了日なしでアクセスできます。",
+        "cancels": "終了予定",
+        "endsOn": "このサブスクリプションは {date} に終了します。",
+        "willNotRenew": "このサブスクリプションは更新されません。",
+        "trial": "トライアル",
+        "trialConvertsOn": "{date} に有料へ移行します。",
+        "paymentFailed": "支払い失敗",
+        "paymentFailedDetail": "このサブスクリプションを継続するには支払い方法を更新してください。",
+        "active": "有効",
+        "renewsOn": "{date} に更新します。"
+      }
+    },
+    "credits": {
+      "title": "クレジット",
+      "subtitle": "クレジットは {workspace} で共有され、すべての付与と利用が記録されます。",
+      "summary": {
+        "balance": "利用可能残高",
+        "granted": "有効な付与",
+        "consumed": "利用済み",
+        "expired": "未使用の期限切れ"
+      },
+      "creditValue": "{value} クレジット",
+      "expiringTitle": "14 日以内に期限切れになるクレジット",
+      "historyTitle": "クレジット履歴",
+      "historyDescription": "新しい台帳項目から表示します。",
+      "historyTableLabel": "ワークスペースのクレジット履歴",
+      "noHistory": "クレジットの履歴はまだありません。",
+      "columns": {
+        "date": "日時",
+        "type": "内容",
+        "change": "増減",
+        "expires": "有効期限"
+      },
+      "types": {
+        "newUser": "ウェルカム付与",
+        "purchase": "サブスクリプションクレジット",
+        "adjustment": "手動調整",
+        "videoTask": "動画生成",
+        "refund": "返金",
+        "usage": "利用",
+        "other": "その他"
+      }
+    },
+    "files": {
+      "title": "ワークスペースのファイル",
+      "description": "ファイルは {workspace} 内で非公開に共有され、メンバーのみ閲覧できます。"
+    },
+    "reservations": {
+      "title": "ワークスペースの予約",
+      "description": "{workspace} の今後と過去の予約を表示します。",
+      "empty": "このワークスペースにはまだ予約がありません。",
+      "serviceFallback": "サービス #{id}",
+      "calendarTitle": "予約: {service}",
+      "calendarDescription": "予約 #{number}",
+      "addToCalendar": "Google カレンダーに追加",
+      "statuses": {
+        "pending": "保留中",
+        "confirmed": "確定",
+        "canceled": "キャンセル済み",
+        "expired": "期限切れ",
+        "other": "不明"
       }
     }
   },

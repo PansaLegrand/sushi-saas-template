@@ -1,9 +1,14 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { useSearchParams } from "next/navigation";
 
 import { Link } from "@/i18n/navigation";
 import { buttonVariants } from "@/components/ui/button";
+import {
+  ORGANIZATION_QUERY_PARAM,
+  normalizeOrganizationSlug,
+} from "@/config/organization-context";
 import {
   Dialog,
   DialogClose,
@@ -48,6 +53,13 @@ export function BillingPromptDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const t = useTranslations("billing.prompt");
+  const searchParams = useSearchParams();
+  const organizationSlug = normalizeOrganizationSlug(
+    searchParams?.get(ORGANIZATION_QUERY_PARAM) ?? null
+  );
+  const organizationQuery = organizationSlug
+    ? `?${ORGANIZATION_QUERY_PARAM}=${encodeURIComponent(organizationSlug)}`
+    : "";
 
   // Keep the dialog mounted through its close animation, but render nothing
   // when there has never been a block to describe.
@@ -83,14 +95,14 @@ export function BillingPromptDialog({
             {t("dismiss")}
           </DialogClose>
           <Link
-            href="/account/billing"
+            href={`/account/billing${organizationQuery}`}
             className={cn(buttonVariants({ variant: "outline" }))}
             onClick={() => onOpenChange(false)}
           >
             {t("manageBilling")}
           </Link>
           <Link
-            href="/pricing"
+            href={`/pricing${organizationQuery}`}
             className={cn(buttonVariants())}
             onClick={() => onOpenChange(false)}
           >

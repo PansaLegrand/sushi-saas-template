@@ -5,7 +5,8 @@ export const AUTH_ROUTES = {
   signup: "/signup",
   forgotPassword: "/forgot-password",
   resetPassword: "/reset-password",
-  defaultCallback: "/",
+  defaultCallback: "/account/billing",
+  signedOutCallback: "/",
 } as const;
 
 export type AuthRouteKey = keyof typeof AUTH_ROUTES;

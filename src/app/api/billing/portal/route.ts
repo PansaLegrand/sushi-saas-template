@@ -5,6 +5,7 @@ import { can, getOrgContext } from "@/services/authz";
 import { findOrganizationByUuid } from "@/models/organization";
 import { findUserByUuid } from "@/models/user";
 import { getOrCreateCustomerIdForOrg } from "@/services/stripe";
+import { createSafeBillingPortalSession } from "@/services/stripe/portal";
 import { newStripeClient } from "@/integrations/stripe";
 import { getAppEnv } from "@/lib/env";
 import { absoluteLocaleUrl } from "@/i18n/locale";
@@ -20,10 +21,15 @@ const BillingPortalSchema = z.object({
   locale: z.string().trim().optional(),
 });
 
-function withLocaleReturnUrl(locale: string | null | undefined) {
+function withLocaleReturnUrl(
+  locale: string | null | undefined,
+  organizationSlug: string,
+) {
   const base = getAppEnv().NEXT_PUBLIC_WEB_URL;
   const loc = locale && locale.length > 0 ? locale : "en";
-  return absoluteLocaleUrl(base, loc, "/account/billing");
+  const url = new URL(absoluteLocaleUrl(base, loc, "/account/billing"));
+  url.searchParams.set("org", organizationSlug);
+  return url.toString();
 }
 
 export async function GET(req: NextRequest) {
@@ -45,7 +51,10 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const locale = searchParams.get("locale");
-    const return_url = withLocaleReturnUrl(locale || user.locale || undefined);
+    const return_url = withLocaleReturnUrl(
+      locale || user.locale || undefined,
+      ctx.orgSlug,
+    );
 
     const customerId = await getOrCreateCustomerIdForOrg({
       orgUuid: org.uuid,
@@ -55,9 +64,10 @@ export async function GET(req: NextRequest) {
     });
 
     const stripe = newStripeClient().stripe();
-    const session = await stripe.billingPortal.sessions.create({
-      customer: customerId,
-      return_url,
+    const session = await createSafeBillingPortalSession(stripe, {
+      customerId,
+      returnUrl: return_url,
+      configurationId: getAppEnv().STRIPE_BILLING_PORTAL_CONFIGURATION_ID!,
     });
 
     return Response.redirect(session.url, 302);
@@ -93,7 +103,7 @@ export async function POST(req: NextRequest) {
       defaultValue: {},
     });
     const locale = body?.locale ?? user.locale ?? "en";
-    const return_url = withLocaleReturnUrl(locale);
+    const return_url = withLocaleReturnUrl(locale, ctx.orgSlug);
 
     const customerId = await getOrCreateCustomerIdForOrg({
       orgUuid: org.uuid,
@@ -102,9 +112,10 @@ export async function POST(req: NextRequest) {
       stripe_customer_id: org.stripe_customer_id,
     });
     const stripe = newStripeClient().stripe();
-    const session = await stripe.billingPortal.sessions.create({
-      customer: customerId,
-      return_url,
+    const session = await createSafeBillingPortalSession(stripe, {
+      customerId,
+      returnUrl: return_url,
+      configurationId: getAppEnv().STRIPE_BILLING_PORTAL_CONFIGURATION_ID!,
     });
     return respData({ url: session.url });
   } catch (error) {

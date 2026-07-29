@@ -87,6 +87,10 @@ export async function markOrderPaidWithGrant(input: {
   paid_at: Date;
   paid_email: string;
   paid_detail: string;
+  amount_paid?: number;
+  currency?: string;
+  stripe_payment_intent_id?: string | null;
+  stripe_charge_id?: string | null;
   grant?: CreditGrant | null;
 }): Promise<PaidOrderResult> {
   return db().transaction(async (tx) => {
@@ -97,6 +101,10 @@ export async function markOrderPaidWithGrant(input: {
         paid_at: input.paid_at,
         paid_email: input.paid_email,
         paid_detail: input.paid_detail,
+        amount: input.amount_paid,
+        currency: input.currency,
+        stripe_payment_intent_id: input.stripe_payment_intent_id,
+        stripe_charge_id: input.stripe_charge_id,
       })
       .where(
         and(

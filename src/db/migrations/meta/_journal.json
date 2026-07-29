@@ -160,6 +160,48 @@
       "when": 1785254988716,
       "tag": "0022_many_husk",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1785312001197,
+      "tag": "0023_woozy_kronos",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1785312663755,
+      "tag": "0024_fancy_mikhail_rasputin",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1785314977462,
+      "tag": "0025_worried_thunderbolt",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1785317849914,
+      "tag": "0026_noisy_mentor",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1785319025942,
+      "tag": "0027_crazy_roughhouse",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1785319872558,
+      "tag": "0028_grey_post",
+      "breakpoints": true
     }
   ]
 }

@@ -1,12 +1,15 @@
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { auth } from "@/lib/auth";
 import { getAppEnv } from "@/lib/env";
 import { AffiliateConfig } from "@/config/affiliate";
 import { findUserByEmail, findUserByUuid } from "@/models/user";
 import { buildMetadata, defaultMetaFallbacks } from "@/lib/seo";
-import { getAffiliateSummary, getAffiliatesByUserUuid } from "@/models/affiliate";
+import {
+  getAffiliateSummary,
+  getAffiliatesByUserUuid,
+} from "@/models/affiliate";
 import InviteLink from "@/components/affiliate/invite-link";
 import AffiliateSummaryCards from "@/components/affiliate/summary-cards";
 import AffiliateTable from "@/components/affiliate/affiliate-table";
@@ -27,7 +30,8 @@ export async function generateMetadata({
     locale,
     path: "/my-invites",
     title: `My Invites | ${tMeta("metadata.title") || defaultMetaFallbacks.title}`,
-    description: tMeta("metadata.description") || defaultMetaFallbacks.description,
+    description:
+      tMeta("metadata.description") || defaultMetaFallbacks.description,
     keywords,
     noindex: true,
   });
@@ -43,7 +47,13 @@ async function getSession() {
   return auth.api.getSession({ headers: h });
 }
 
-export default async function MyInvitesPage({ params }: { params: Promise<{ locale: string }> }) {
+export default async function MyInvitesPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  if (!AffiliateConfig.enabled) notFound();
+
   const session = await getSession();
   if (!session) redirect("/login");
 
@@ -71,7 +81,9 @@ export default async function MyInvitesPage({ params }: { params: Promise<{ loca
     <main className="mx-auto w-full max-w-4xl space-y-8 px-4 py-10">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold">My Invites</h1>
-        <p className="text-sm text-muted-foreground">Share your link and track your rewards.</p>
+        <p className="text-sm text-muted-foreground">
+          Share your link and track your rewards.
+        </p>
       </header>
 
       <section className="rounded-lg border p-4">

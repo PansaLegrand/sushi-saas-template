@@ -35,22 +35,33 @@ export function Pager({
   if (lastPage <= 1) return null;
 
   return (
-    <div className="mt-3 flex items-center justify-between text-sm">
+    <nav
+      aria-label="Pagination"
+      className="mt-4 flex flex-col gap-3 border-t border-border pt-4 text-sm sm:flex-row sm:items-center sm:justify-between"
+    >
       <p className="text-muted-foreground">
         Page {page} of {lastPage} · {total} {unit}
       </p>
-      <div className="flex gap-3">
+      <div className="flex items-center gap-2">
         {page > 1 && (
-          <Link className="underline" href={href(page - 1)}>
+          <Link
+            className="inline-flex min-h-9 items-center rounded-md border border-input bg-background px-3 py-1.5 font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            href={href(page - 1)}
+            aria-label={`Previous page, page ${page - 1}`}
+          >
             Previous
           </Link>
         )}
         {page < lastPage && (
-          <Link className="underline" href={href(page + 1)}>
+          <Link
+            className="inline-flex min-h-9 items-center rounded-md border border-input bg-background px-3 py-1.5 font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            href={href(page + 1)}
+            aria-label={`Next page, page ${page + 1}`}
+          >
             Next
           </Link>
         )}
       </div>
-    </div>
+    </nav>
   );
 }

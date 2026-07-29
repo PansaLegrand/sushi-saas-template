@@ -57,8 +57,53 @@ export function logDevAuthEmailLink(input: {
       url: input.url,
       reason: input.reason,
     },
-    `[dev auth] ${LABELS[input.kind]} link for ${input.email} -> ${input.url}`
+    `[dev auth] ${LABELS[input.kind]} link for ${input.email} -> ${input.url}`,
   );
 
   return true;
+}
+
+/**
+ * Deliver an authentication email, or expose its link only in local mode.
+ *
+ * A production delivery failure rejects the auth request. Returning success
+ * would tell a user to check an inbox that can never receive the recovery or
+ * verification link.
+ */
+export async function sendAuthEmailOrLogDevLink(input: {
+  kind: AuthEmailLinkKind;
+  email: string;
+  url: string;
+  send: () => Promise<unknown>;
+}): Promise<void> {
+  if (shouldLogAuthLinkInsteadOfSending()) {
+    logDevAuthEmailLink({
+      kind: input.kind,
+      email: input.email,
+      url: input.url,
+      reason: hasEmailProviderConfigured()
+        ? "dev_email_links_enabled"
+        : "email_provider_missing",
+    });
+    return;
+  }
+
+  try {
+    await input.send();
+  } catch (error) {
+    const loggedDevLink = logDevAuthEmailLink({
+      kind: input.kind,
+      email: input.email,
+      url: input.url,
+      reason: "email_send_failed",
+    });
+
+    if (loggedDevLink) return;
+
+    logger.error(
+      { err: error, event: "auth.email_send_failed", kind: input.kind },
+      "failed to send auth email",
+    );
+    throw error;
+  }
 }

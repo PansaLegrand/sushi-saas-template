@@ -9,15 +9,15 @@ import { resetRateLimitForTests } from "@/lib/rate-limit";
 import { postJson } from "../helpers/request";
 
 const mocks = vi.hoisted(() => ({
-  cleanupStaleUploads: vi.fn(),
   findFileByUuid: vi.fn(),
+  activateUploadingFile: vi.fn(),
   getOrgContext: vi.fn(),
   getPresignedUpload: vi.fn(),
   headObject: vi.fn(),
-  insertFile: vi.fn(),
   listSubscriptionsByOrg: vi.fn(),
   notifySlackError: vi.fn(),
-  sumFileBytesByOrg: vi.fn(),
+  requestFileDeletion: vi.fn(),
+  reserveStorageUpload: vi.fn(),
   updateFileByUuid: vi.fn(),
 }));
 
@@ -27,21 +27,29 @@ vi.mock("@/services/authz", () => ({
 
 vi.mock("@/models/file", () => ({
   findFileByUuid: mocks.findFileByUuid,
-  insertFile: mocks.insertFile,
-  sumFileBytesByOrg: mocks.sumFileBytesByOrg,
+  activateUploadingFile: mocks.activateUploadingFile,
   updateFileByUuid: mocks.updateFileByUuid,
 }));
 
-vi.mock("@/services/storage/cleanup", () => ({
-  cleanupStaleUploads: mocks.cleanupStaleUploads,
+vi.mock("@/services/storage/uploads", () => ({
+  reserveStorageUpload: mocks.reserveStorageUpload,
+}));
+
+vi.mock("@/services/storage/delete-request", () => ({
+  requestFileDeletion: mocks.requestFileDeletion,
 }));
 
 vi.mock("@/services/storage", () => ({
   getStorageAdapter: () => ({
     provider: "r2",
     getDefaultBucket: () => "bucket",
-    buildObjectKey: ({ userUuid, filename }: { userUuid: string; filename: string }) =>
-      `uploads/${userUuid}/${filename}`,
+    buildObjectKey: ({
+      userUuid,
+      filename,
+    }: {
+      userUuid: string;
+      filename: string;
+    }) => `uploads/${userUuid}/${filename}`,
     getPresignedUpload: mocks.getPresignedUpload,
     headObject: mocks.headObject,
     deleteObject: vi.fn(),
@@ -51,7 +59,7 @@ vi.mock("@/services/storage", () => ({
 
 vi.mock("@/models/subscription", async () => {
   const actual = await vi.importActual<typeof import("@/models/subscription")>(
-    "@/models/subscription"
+    "@/models/subscription",
   );
   return {
     ...actual,
@@ -130,7 +138,6 @@ describe("POST /api/storage/uploads", () => {
     vi.clearAllMocks();
     resetRateLimitForTests();
     mocks.getOrgContext.mockResolvedValue(orgContext());
-    mocks.cleanupStaleUploads.mockResolvedValue(0);
     mocks.getPresignedUpload.mockResolvedValue({
       fileUuid: "",
       bucket: "bucket",
@@ -140,9 +147,8 @@ describe("POST /api/storage/uploads", () => {
       headers: { "Content-Type": "application/pdf" },
       expiresIn: 900,
     });
-    mocks.insertFile.mockResolvedValue(storedFile());
+    mocks.reserveStorageUpload.mockResolvedValue(storedFile());
     mocks.listSubscriptionsByOrg.mockResolvedValue([subscriptionOn("max")]);
-    mocks.sumFileBytesByOrg.mockResolvedValue(0);
   });
 
   it("rejects unauthenticated requests before touching storage data", async () => {
@@ -153,13 +159,29 @@ describe("POST /api/storage/uploads", () => {
         filename: "report.pdf",
         contentType: "application/pdf",
         size: 100,
-      })
+      }),
     );
 
     expect(res.status).toBe(401);
-    expect(mocks.insertFile).not.toHaveBeenCalled();
+    expect(mocks.reserveStorageUpload).not.toHaveBeenCalled();
     expect(mocks.getPresignedUpload).not.toHaveBeenCalled();
-    expect(mocks.cleanupStaleUploads).not.toHaveBeenCalled();
+  });
+
+  it("rejects multipart bodies before buffering an uploaded file", async () => {
+    const body = new FormData();
+    body.set("file", new File(["large payload"], "report.pdf"));
+
+    const res = await createUpload(
+      new Request("http://localhost:3000/api/storage/uploads", {
+        method: "POST",
+        body,
+      }),
+    );
+    const payload = await res.json();
+
+    expect(res.status).toBe(415);
+    expect(payload.error_code).toBe("REQUEST_UNSUPPORTED_MEDIA_TYPE");
+    expect(mocks.reserveStorageUpload).not.toHaveBeenCalled();
   });
 
   it("rejects disallowed file types before reserving a row", async () => {
@@ -168,14 +190,14 @@ describe("POST /api/storage/uploads", () => {
         filename: "installer.exe",
         contentType: "application/x-msdownload",
         size: 100,
-      })
+      }),
     );
     const payload = await res.json();
 
     expect(res.status).toBe(415);
     expect(payload.error_code).toBe("STORAGE_FILE_TYPE_NOT_ALLOWED");
     expect(mocks.listSubscriptionsByOrg).not.toHaveBeenCalled();
-    expect(mocks.insertFile).not.toHaveBeenCalled();
+    expect(mocks.reserveStorageUpload).not.toHaveBeenCalled();
     expect(mocks.getPresignedUpload).not.toHaveBeenCalled();
   });
 
@@ -186,13 +208,13 @@ describe("POST /api/storage/uploads", () => {
         contentType: "application/pdf",
         policy: "verified",
         size: 100,
-      })
+      }),
     );
     const payload = await res.json();
 
     expect(res.status).toBe(400);
     expect(payload.error_code).toBe("STORAGE_CHECKSUM_REQUIRED");
-    expect(mocks.insertFile).not.toHaveBeenCalled();
+    expect(mocks.reserveStorageUpload).not.toHaveBeenCalled();
   });
 
   it("creates a private presigned upload with policy metadata and checksum", async () => {
@@ -205,14 +227,14 @@ describe("POST /api/storage/uploads", () => {
         size: 100,
         checksumSha256: VALID_SHA256,
         metadata: { entity: "invoice" },
-      })
+      }),
     );
     const payload = await res.json();
 
     expect(res.status).toBe(200);
     expect(payload.data.uploadUrl).toBe("https://storage.example/upload");
-    expect(mocks.cleanupStaleUploads).toHaveBeenCalledWith({ orgUuid: "org-test" });
-    expect(mocks.insertFile).toHaveBeenCalledWith(
+    expect(mocks.reserveStorageUpload).toHaveBeenCalledWith(
+      "org-test",
       expect.objectContaining({
         org_uuid: "org-test",
         provider: "r2",
@@ -228,7 +250,7 @@ describe("POST /api/storage/uploads", () => {
           entity: "invoice",
           upload_policy: "documents",
         }),
-      })
+      }),
     );
     expect(mocks.getPresignedUpload).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -236,7 +258,7 @@ describe("POST /api/storage/uploads", () => {
         key: "uploads/user-test/report.pdf",
         contentType: "application/pdf",
         checksumSha256: VALID_SHA256,
-      })
+      }),
     );
   });
 
@@ -247,14 +269,14 @@ describe("POST /api/storage/uploads", () => {
         contentType: "image/png",
         policy: "images",
         size: 11 * 1024 * 1024,
-      })
+      }),
     );
     const payload = await res.json();
 
     expect(res.status).toBe(413);
     expect(payload.error_code).toBe("STORAGE_FILE_TOO_LARGE");
     expect(payload.details).toEqual({ maxBytes: 10 * 1024 * 1024 });
-    expect(mocks.insertFile).not.toHaveBeenCalled();
+    expect(mocks.reserveStorageUpload).not.toHaveBeenCalled();
   });
 });
 
@@ -266,19 +288,25 @@ describe("POST /api/storage/uploads/complete", () => {
     mocks.findFileByUuid.mockResolvedValue(storedFile());
     mocks.headObject.mockResolvedValue({
       size: 100,
-      etag: "\"etag\"",
+      etag: '"etag"',
       contentType: "application/pdf",
       checksumSHA256: VALID_SHA256,
       storageClass: undefined,
     });
-    mocks.updateFileByUuid.mockResolvedValue(storedFile({ status: "active" }));
+    mocks.activateUploadingFile.mockResolvedValue(
+      storedFile({ status: "active" }),
+    );
+    mocks.requestFileDeletion.mockResolvedValue({
+      file: storedFile({ status: "deleting" }),
+      queued: true,
+    });
   });
 
   it("rejects unauthenticated completion before reading the file row", async () => {
     mocks.getOrgContext.mockResolvedValue(null);
 
     const res = await completeUpload(
-      postJson("/api/storage/uploads/complete", { fileUuid: "file-test" })
+      postJson("/api/storage/uploads/complete", { fileUuid: "file-test" }),
     );
 
     expect(res.status).toBe(401);
@@ -286,32 +314,52 @@ describe("POST /api/storage/uploads/complete", () => {
     expect(mocks.headObject).not.toHaveBeenCalled();
   });
 
-  it("marks the upload failed when the provider checksum differs", async () => {
+  it("durably deletes the upload when the provider checksum differs", async () => {
     mocks.findFileByUuid.mockResolvedValue(
-      storedFile({ checksum_sha256: VALID_SHA256 })
+      storedFile({ checksum_sha256: VALID_SHA256 }),
     );
     mocks.headObject.mockResolvedValue({
       size: 100,
-      etag: "\"etag\"",
+      etag: '"etag"',
       contentType: "application/pdf",
       checksumSHA256: OTHER_SHA256,
       storageClass: "STANDARD",
     });
 
     const res = await completeUpload(
-      postJson("/api/storage/uploads/complete", { fileUuid: "file-test" })
+      postJson("/api/storage/uploads/complete", { fileUuid: "file-test" }),
     );
     const payload = await res.json();
 
     expect(res.status).toBe(400);
     expect(payload.error_code).toBe("STORAGE_CHECKSUM_MISMATCH");
-    expect(mocks.updateFileByUuid).toHaveBeenCalledWith(
+    expect(mocks.requestFileDeletion).toHaveBeenCalledWith(
+      expect.objectContaining({ uuid: "file-test", status: "uploading" }),
+      "org-test",
+      {
+        expectedStatuses: ["uploading"],
+        patch: expect.objectContaining({
+          checksum_sha256: OTHER_SHA256,
+        }),
+      },
+    );
+    expect(mocks.updateFileByUuid).not.toHaveBeenCalled();
+  });
+
+  it("does not reactivate an upload after cleanup wins the race", async () => {
+    mocks.activateUploadingFile.mockResolvedValueOnce(undefined);
+
+    const res = await completeUpload(
+      postJson("/api/storage/uploads/complete", { fileUuid: "file-test" }),
+    );
+    const payload = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(payload.error_code).toBe("STORAGE_UPLOAD_STATE_CONFLICT");
+    expect(mocks.activateUploadingFile).toHaveBeenCalledWith(
       "file-test",
       "org-test",
-      expect.objectContaining({
-        checksum_sha256: OTHER_SHA256,
-        status: "failed",
-      })
+      expect.not.objectContaining({ status: "active" }),
     );
   });
 });

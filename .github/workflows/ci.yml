@@ -10,6 +10,11 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# New jobs inherit no write capability by accident. Individual jobs must opt in
+# to the smallest additional permission they actually need.
+permissions:
+  contents: read
+
 jobs:
   checks:
     name: Lint, Test, Build
@@ -55,6 +60,7 @@ jobs:
       TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sushi_test
       TEST_REDIS_URL: redis://localhost:6379
       RATE_LIMIT_REDIS_URL: redis://localhost:6379
+      RATE_LIMIT_IP_SOURCE: x-forwarded-for
       STRIPE_PRIVATE_KEY: sk_test_ci_placeholder
       STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
       STORAGE_BUCKET: ci-placeholder
@@ -66,15 +72,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@7088e561eb65bb68695d245aa206f005ef30921d # v4.1.0
         with:
           version: 10.22.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20.19.5
           cache: pnpm
@@ -95,7 +101,7 @@ jobs:
 
       - name: Upload coverage
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage
           path: coverage/

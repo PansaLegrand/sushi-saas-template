@@ -93,6 +93,25 @@ export type SubscriptionSnapshot = {
 };
 
 /**
+ * One independently billed/granted subscription shown on the billing screen.
+ *
+ * `PlanSnapshot.subscription` remains the single row that determines feature
+ * limits. This list is deliberately separate: organizations may stack several
+ * subscriptions, and hiding all but the highest tier would hide real recurring
+ * charges and credit grants.
+ */
+export type BillingSubscriptionSnapshot = SubscriptionSnapshot & {
+  id: string;
+  tier: Tier | null;
+  name: string;
+  includedMonthlyCredits: number;
+  /** Whether this row currently contributes an entitlement. */
+  entitling: boolean;
+  /** Whether this is the row whose tier supplies the effective feature limits. */
+  effective: boolean;
+};
+
+/**
  * Everything the UI needs to render plan state, in one serializable object.
  *
  * Sent by `GET /api/account/plan` and passed into `PlanProvider` by server
@@ -108,5 +127,8 @@ export type PlanSnapshot = {
   includedMonthlyCredits: number;
   features: Record<PlanFeature, boolean>;
   limits: Record<PlanLimit, LimitValue>;
+  /** The one subscription that determines effective feature limits. */
   subscription: SubscriptionSnapshot | null;
+  /** Every current subscription, including multiple subscriptions on one tier. */
+  subscriptions: BillingSubscriptionSnapshot[];
 };

@@ -17,6 +17,8 @@ export interface Order {
   expired_at?: Date | null;
   status: string;
   stripe_session_id?: string | null;
+  stripe_payment_intent_id?: string | null;
+  stripe_charge_id?: string | null;
   credits: number;
   currency?: string | null;
   sub_id?: string | null;

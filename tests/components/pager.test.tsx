@@ -27,7 +27,9 @@ describe("Pager", () => {
   it("renders nothing when the total exactly fills one page", () => {
     render(<Pager page={1} pageSize={50} total={50} href={href} />);
 
-    expect(screen.queryByRole("link", { name: "Next" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /^Next page/ })
+    ).not.toBeInTheDocument();
   });
 
   it("offers no Next on the last page when the total divides evenly", () => {
@@ -36,8 +38,12 @@ describe("Pager", () => {
     render(<Pager page={2} pageSize={50} total={100} href={href} />);
 
     expect(screen.getByText("Page 2 of 2 · 100 rows")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Next" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Previous" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /^Next page/ })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /^Previous page/ })
+    ).toBeInTheDocument();
   });
 
   it("says how many pages there are, not just which one you are on", () => {
@@ -51,9 +57,9 @@ describe("Pager", () => {
     render(<Pager page={1} pageSize={50} total={200} href={href} />);
 
     expect(
-      screen.queryByRole("link", { name: "Previous" })
+      screen.queryByRole("link", { name: /^Previous page/ })
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Next" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /^Next page/ })).toHaveAttribute(
       "href",
       "/things?page=2"
     );
@@ -70,11 +76,11 @@ describe("Pager", () => {
       />
     );
 
-    expect(screen.getByRole("link", { name: "Previous" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /^Previous page/ })).toHaveAttribute(
       "href",
       "/users?q=ann&page=1"
     );
-    expect(screen.getByRole("link", { name: "Next" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /^Next page/ })).toHaveAttribute(
       "href",
       "/users?q=ann&page=3"
     );
@@ -85,8 +91,12 @@ describe("Pager", () => {
     // end that reads like the data is gone.
     render(<Pager page={9} pageSize={50} total={100} href={href} />);
 
-    expect(screen.getByRole("link", { name: "Previous" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Next" })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /^Previous page/ })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /^Next page/ })
+    ).not.toBeInTheDocument();
   });
 
   it("names the rows when the caller says what they are", () => {

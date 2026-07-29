@@ -5,6 +5,8 @@ import {
   findMembershipsByUserId,
   listMembersWithUsers,
   listPendingInvitations,
+  removeMemberAtomically,
+  updateMemberRoleAtomically,
   type OrgRoleValue,
 } from "@/models/organization";
 
@@ -137,5 +139,60 @@ export function assertCanAssign(ctx: OrgContext, role: string): void {
     throw new AppError("AUTH_FORBIDDEN", {
       message: `${ctx.role} may not assign the role ${role}`,
     });
+  }
+}
+
+/** Change a role through the database-serialized membership invariant. */
+export async function changeMemberRole(
+  orgId: string,
+  memberId: string,
+  role: OrgRoleValue
+): Promise<void> {
+  const outcome = await updateMemberRoleAtomically(orgId, memberId, role);
+
+  switch (outcome.status) {
+    case "updated":
+      return;
+    case "not-found":
+      throw new AppError("ORG_MEMBER_NOT_FOUND", {
+        message: `member ${memberId} is not in organization ${orgId}`,
+      });
+    case "last-owner":
+      throw new AppError("ORG_LAST_OWNER", {
+        message: `refusing to demote the last owner of organization ${orgId}`,
+      });
+    default:
+      throw new AppError("SERVER_ERROR", {
+        message: `unexpected role mutation outcome: ${outcome.status}`,
+      });
+  }
+}
+
+/** Remove a member through the database-serialized membership invariants. */
+export async function removeMember(
+  orgId: string,
+  memberId: string
+): Promise<void> {
+  const outcome = await removeMemberAtomically(orgId, memberId);
+
+  switch (outcome.status) {
+    case "removed":
+      return;
+    case "not-found":
+      throw new AppError("ORG_MEMBER_NOT_FOUND", {
+        message: `member ${memberId} is not in organization ${orgId}`,
+      });
+    case "last-owner":
+      throw new AppError("ORG_LAST_OWNER", {
+        message: `refusing to remove the last owner of organization ${orgId}`,
+      });
+    case "last-organization":
+      throw new AppError("ORG_CANNOT_LEAVE_LAST", {
+        message: `member ${memberId} would be left with no organization`,
+      });
+    default:
+      throw new AppError("SERVER_ERROR", {
+        message: `unexpected removal outcome: ${outcome.status}`,
+      });
   }
 }

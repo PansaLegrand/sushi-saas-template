@@ -1,25 +1,22 @@
 "use client";
 
 import { useEffect } from "react";
+import { captureAffiliateAttribution } from "@/api/affiliate";
+import { AffiliateConfig } from "@/config/affiliate";
 
 export default function AffiliateInit() {
   useEffect(() => {
+    if (!AffiliateConfig.enabled) return;
+
     const key = "affiliate-attribution-ok";
     if (sessionStorage.getItem(key)) return;
 
-    (async () => {
-      try {
-        const res = await fetch("/api/affiliate/update-invite", {
-          method: "POST",
-          credentials: "include",
-        });
-        if (res.ok) {
-          sessionStorage.setItem(key, "1");
-        }
-      } catch {
-        // ignore; will retry on next navigation until it succeeds once
-      }
-    })();
+    captureAffiliateAttribution()
+      .then(() => sessionStorage.setItem(key, "1"))
+      // Best effort. Leave the marker absent so a later navigation repairs a
+      // transient database or network failure.
+      .catch(() => undefined);
   }, []);
+  if (!AffiliateConfig.enabled) return null;
   return null;
 }

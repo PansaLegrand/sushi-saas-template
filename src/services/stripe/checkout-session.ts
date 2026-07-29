@@ -4,12 +4,13 @@ import { markOrderPaidWithGrant } from "@/models/fulfillment";
 import { CreditsTransType } from "@/services/credit";
 import { updateAffiliateForOrder } from "@/services/affiliate";
 import { orderPayTransNo } from "@/services/stripe/idempotency";
+import { extractCheckoutPaymentReceipt } from "@/services/stripe/receipt";
 import { AppError } from "@/lib/errors/app-error";
 import { logger } from "@/lib/logger/server";
 
 export async function handleCheckoutSession(
   stripe: Stripe,
-  session: Stripe.Checkout.Session
+  session: Stripe.Checkout.Session,
 ) {
   const order_no = session.metadata?.order_no;
   if (!order_no) {
@@ -44,37 +45,33 @@ export async function handleCheckoutSession(
   // and conflicts on a `trans_no` that already exists. Idempotent by
   // construction rather than by inspection.
 
-  // Retrieve payment details for both one-time and subscription checkouts.
-  // - payment mode: session.payment_intent is set
-  // - subscription mode: payment_intent is null; we fetch it from the subscription's latest invoice
-  let charge_detail = "";
+  const checkoutReceipt = extractCheckoutPaymentReceipt(session);
+  let paymentIntentId = checkoutReceipt.payment_intent_id;
+  let chargeId: string | null | undefined = checkoutReceipt.charge_id;
 
-  try {
-    if (session.payment_intent) {
-      const pi = await stripe.paymentIntents.retrieve(
-        session.payment_intent as string
-      );
-      const charge = (pi as any).latest_charge ?? pi;
-      charge_detail = JSON.stringify(charge, null, 2);
-    } else if (session.subscription) {
-      const sub = await stripe.subscriptions.retrieve(
-        session.subscription as string,
-        { expand: ["latest_invoice.payment_intent"] as any }
-      );
-      const latestInvoice = (sub as any).latest_invoice;
-      const pi = latestInvoice?.payment_intent;
-      charge_detail = JSON.stringify(pi ?? sub, null, 2);
-    } else {
-      // Fallback: persist the session details
-      charge_detail = JSON.stringify(session, null, 2);
-    }
-  } catch (e) {
-    // Do not fail the flow if charge retrieval fails; persist the session as backup.
-    logger.warn(
-      { err: e, order_no },
-      "failed to fetch charge details, falling back to session"
-    );
-    charge_detail = JSON.stringify(session, null, 2);
+  if (paymentIntentId && !chargeId && session.mode === "payment") {
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+    paymentIntentId = paymentIntent.id;
+    chargeId =
+      typeof paymentIntent.latest_charge === "string"
+        ? paymentIntent.latest_charge
+        : paymentIntent.latest_charge?.id;
+  }
+
+  const paymentReceipt = {
+    ...checkoutReceipt,
+    payment_intent_id: paymentIntentId,
+    charge_id: chargeId,
+  };
+
+  if (
+    session.currency &&
+    order.currency &&
+    session.currency !== order.currency
+  ) {
+    throw new AppError("ORDER_INVALID_PRODUCT", {
+      message: `Stripe currency ${session.currency} does not match order ${order.currency}`,
+    });
   }
 
   // The payment and its credits, in one transaction. Stripe's API calls above
@@ -86,7 +83,14 @@ export async function handleCheckoutSession(
     user_uuid: order.user_uuid,
     paid_at: new Date(),
     paid_email: session.customer_details?.email || "",
-    paid_detail: charge_detail,
+    paid_detail: JSON.stringify(paymentReceipt),
+    amount_paid:
+      typeof session.amount_total === "number"
+        ? session.amount_total
+        : order.amount,
+    currency: session.currency ?? order.currency ?? undefined,
+    stripe_payment_intent_id: paymentIntentId,
+    stripe_charge_id: chargeId,
     grant:
       order.credits && order.credits > 0
         ? {
@@ -122,12 +126,9 @@ export async function handleCheckoutSession(
       // means the ledger key collided with something it should not have.
       credit_granted,
     },
-    "order fulfilled"
+    "order fulfilled",
   );
 
   // Update affiliate rewards for this paid order.
-  await updateAffiliateForOrder({
-    ...order,
-    interval: (order as any).interval ?? "",
-  } as any);
+  await updateAffiliateForOrder(paid);
 }

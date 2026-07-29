@@ -97,7 +97,9 @@ export async function updateUserInvitedBy(
   const [user] = await db()
     .update(users)
     .set({ invited_by, updated_at: new Date() })
-    .where(eq(users.uuid, user_uuid))
+    // First-touch attribution. Two tabs may mount the attribution provider at
+    // once; only the update that still sees an empty value may claim it.
+    .where(and(eq(users.uuid, user_uuid), eq(users.invited_by, "")))
     .returning();
 
   return user;

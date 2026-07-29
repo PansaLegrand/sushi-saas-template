@@ -180,7 +180,7 @@ describeDb("personal organizations (real database)", () => {
     // reading the `nickname` column directly yields undefined in a create hook,
     // which silently named every workspace after an email local part instead.
     expect(org.name).toBe("Ada Lovelace");
-    expect(org.slug).toMatch(/^ada-lovelace-[0-9a-f]{8}$/);
+    expect(org.slug).toMatch(/^ada-lovelace-[0-9a-f]{16}$/);
   });
 
   it("is idempotent — a second call creates nothing", async () => {
@@ -195,6 +195,18 @@ describeDb("personal organizations (real database)", () => {
     // membership. If it were not idempotent it would mint an org per request.
     const memberships = await findMembershipsByUserId(user.id);
     expect(memberships).toHaveLength(1);
+  });
+
+  it("converges concurrent repair calls on one personal organization", async () => {
+    const user = await newUser();
+
+    const [first, second] = await Promise.all([
+      ensurePersonalOrganization({ id: user.id, email: user.email }),
+      ensurePersonalOrganization({ id: user.id, email: user.email }),
+    ]);
+
+    expect(second.id).toBe(first.id);
+    expect(await findMembershipsByUserId(user.id)).toHaveLength(1);
   });
 
   it("prefers a personal org when the user belongs to several", async () => {

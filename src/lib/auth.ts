@@ -18,15 +18,10 @@ import {
 } from "@/services/auth-events";
 import { CreditsAmount } from "@/services/credit";
 import { enqueueJobSafe } from "@/services/jobs";
-import { checkSignupAllowed, isUserIdBanned } from "@/services/moderation";
+import { checkSignupAllowed } from "@/services/moderation";
 import { ensurePersonalOrganization } from "@/services/organizations";
 import { sendResetPasswordEmail, sendVerifyEmail } from "@/services/email/send";
-import {
-  hasEmailProviderConfigured,
-  logDevAuthEmailLink,
-  shouldLogAuthLinkInsteadOfSending,
-  type AuthEmailLinkKind,
-} from "@/services/email/dev-auth-links";
+import { sendAuthEmailOrLogDevLink } from "@/services/email/dev-auth-links";
 import * as schema from "@/db/schema";
 import { logger } from "@/lib/logger/server";
 
@@ -42,7 +37,7 @@ function getAuthSecret() {
     throw new Error("BETTER_AUTH_SECRET must be set in production");
   }
 
-  return "sushi-saas-template-local-dev-auth-secret";
+  return "saas-starter-local-dev-auth-secret";
 }
 
 const socialProviders = (() => {
@@ -62,43 +57,6 @@ const socialProviders = (() => {
   return {} as const;
 })();
 
-async function sendAuthEmailOrLogDevLink(input: {
-  kind: AuthEmailLinkKind;
-  email: string;
-  url: string;
-  send: () => Promise<unknown>;
-}) {
-  if (shouldLogAuthLinkInsteadOfSending()) {
-    logDevAuthEmailLink({
-      kind: input.kind,
-      email: input.email,
-      url: input.url,
-      reason: hasEmailProviderConfigured()
-        ? "dev_email_links_enabled"
-        : "email_provider_missing",
-    });
-    return;
-  }
-
-  try {
-    await input.send();
-  } catch (error) {
-    const loggedDevLink = logDevAuthEmailLink({
-      kind: input.kind,
-      email: input.email,
-      url: input.url,
-      reason: "email_send_failed",
-    });
-
-    if (!loggedDevLink) {
-      logger.error(
-        { err: error, event: "auth.email_send_failed", kind: input.kind },
-        "failed to send auth email"
-      );
-    }
-  }
-}
-
 /**
  * Turnstile challenge on the credential and mail-sending endpoints.
  *
@@ -114,7 +72,7 @@ const captchaPlugins = (() => {
     if (isProductionRuntime() && !env.NEXT_PUBLIC_CAPTCHA_ENABLED) {
       logger.warn(
         { event: "auth.captcha_disabled" },
-        "captcha is disabled: auth endpoints have no bot protection"
+        "captcha is disabled: auth endpoints have no bot protection",
       );
     }
     return [];
@@ -150,6 +108,13 @@ const INVITATION_EXPIRES_IN_SECONDS = 72 * 60 * 60;
  * off costs nothing and keeps three tables out of a fresh install.
  */
 const organizationPlugin = organization({
+  // Deleting an organization through Better Auth would remove only its auth
+  // records. This app intentionally has no foreign keys, so credits, orders,
+  // subscriptions, files, and tasks would be orphaned while Stripe could keep
+  // billing. Keep deletion closed until a dedicated, resumable teardown service
+  // owns every one of those effects.
+  disableOrganizationDeletion: true,
+
   // The tables live in `src/db/schema.ts` under the repo's snake_case
   // convention, so every logical field needs an explicit mapping. A missing
   // entry fails at runtime on first write, not at build time.
@@ -182,6 +147,18 @@ const organizationPlugin = organization({
           required: false,
           input: false,
           fieldName: "is_personal",
+        },
+        lifecycle_status: {
+          type: "string",
+          required: false,
+          input: false,
+          fieldName: "lifecycle_status",
+        },
+        deleted_at: {
+          type: "date",
+          required: false,
+          input: false,
+          fieldName: "deleted_at",
         },
       },
     },
@@ -233,7 +210,10 @@ const organizationPlugin = organization({
         inviterName: inviter.user?.name || undefined,
         expiresInHours: INVITATION_EXPIRES_IN_SECONDS / 3600,
       },
-      { dedupeKey: `org_invitation_email:${id}` }
+      {
+        dedupeKey: `org_invitation_email:${id}`,
+        subjectUserUuid: (inviter.user as { uuid?: string }).uuid,
+      },
     );
   },
 
@@ -243,6 +223,23 @@ const organizationPlugin = organization({
       // references. Generating it here rather than in a database default keeps
       // one rule: Better Auth owns `id`, the app owns `uuid`.
       return { data: { ...org, uuid: randomUUID() } };
+    },
+    // Member removals and role changes carry application invariants that Better
+    // Auth cannot enforce atomically with its own mutation. The app endpoints
+    // use `services/members`, whose model transaction locks the organization,
+    // preserves an owner, and preserves one organization per user. Refuse the
+    // generic plugin endpoints so they cannot bypass that boundary.
+    beforeRemoveMember: async () => {
+      throw new APIError("FORBIDDEN", {
+        code: "AUTH_FORBIDDEN",
+        message: "AUTH_FORBIDDEN",
+      });
+    },
+    beforeUpdateMemberRole: async () => {
+      throw new APIError("FORBIDDEN", {
+        code: "AUTH_FORBIDDEN",
+        message: "AUTH_FORBIDDEN",
+      });
     },
   },
 });
@@ -299,6 +296,12 @@ export const auth = betterAuth({
   socialProviders,
   user: {
     modelName: "users",
+    // Better Auth's generic deletion endpoint knows only its auth tables. It
+    // cannot cancel Stripe subscriptions or prove object deletion, so account
+    // removal is exposed exclusively through the resumable lifecycle service.
+    deleteUser: {
+      enabled: false,
+    },
     fields: {
       name: "nickname",
       image: "avatar_url",
@@ -317,6 +320,17 @@ export const auth = betterAuth({
         type: "string",
         input: false,
         fieldName: "role",
+      },
+      lifecycleStatus: {
+        type: "string",
+        input: false,
+        fieldName: "lifecycle_status",
+      },
+      deletionRequestedAt: {
+        type: "date",
+        required: false,
+        input: false,
+        fieldName: "deletion_requested_at",
       },
     },
   },
@@ -362,6 +376,9 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,
+    // A password reset is an account-recovery event. Any session an attacker
+    // may already hold must stop working when the owner recovers the account.
+    revokeSessionsOnPasswordReset: true,
     sendResetPassword: async ({ user, url }, _request) => {
       await sendAuthEmailOrLogDevLink({
         kind: "password_reset",
@@ -375,7 +392,7 @@ export const auth = betterAuth({
       // and ends up in every log sink this stream is piped to.
       logger.info(
         { event: "auth.password_reset_completed", user_id: user.id },
-        "password reset completed"
+        "password reset completed",
       );
     },
   },
@@ -414,7 +431,11 @@ export const auth = betterAuth({
         await enqueueJobSafe(
           "new_user_credits",
           { userUuid, credits: CreditsAmount.NewUserGet },
-          { dedupeKey: `new_user_credits:${userUuid}` }
+          {
+            dedupeKey: `new_user_credits:${userUuid}`,
+            retryFailed: true,
+            subjectUserUuid: userUuid,
+          },
         );
       }
     },
@@ -463,7 +484,7 @@ export const auth = betterAuth({
                 provider: info.provider,
                 ip: info.ip,
               },
-              "signup rejected by blocklist"
+              "signup rejected by blocklist",
             );
 
             // The message doubles as the catalog code so `resolveAuthError`
@@ -536,7 +557,7 @@ export const auth = betterAuth({
                   event: "auth.personal_org_create_failed",
                   user_id: (created as any).id,
                 },
-                "failed to create personal organization"
+                "failed to create personal organization",
               );
             }
           }
@@ -548,7 +569,10 @@ export const auth = betterAuth({
             await enqueueJobSafe(
               "welcome_email",
               { email, name, userUuid },
-              { dedupeKey: `welcome_email:${userUuid ?? email}` }
+              {
+                dedupeKey: `welcome_email:${userUuid ?? email}`,
+                subjectUserUuid: userUuid,
+              },
             );
           }
         },
@@ -569,7 +593,15 @@ export const auth = betterAuth({
           const userId = (session as { userId?: string }).userId;
           if (!userId) return;
 
-          if (await isUserIdBanned(userId)) {
+          const user = await findUserById(userId);
+          if (user?.lifecycle_status === "erasing") {
+            throw new APIError("FORBIDDEN", {
+              code: "ACCOUNT_DELETION_IN_PROGRESS",
+              message: "ACCOUNT_DELETION_IN_PROGRESS",
+            });
+          }
+
+          if (user?.banned_at) {
             const info = describeAuthRequest(context);
             logger.warn(
               {
@@ -578,7 +610,7 @@ export const auth = betterAuth({
                 provider: info.provider,
                 ip: info.ip,
               },
-              "sign-in rejected: account suspended"
+              "sign-in rejected: account suspended",
             );
 
             throw new APIError("FORBIDDEN", {
@@ -613,6 +645,20 @@ export const auth = betterAuth({
               },
             }),
             touchLastSignin(user.uuid),
+            user.email_verified && CreditsAmount.NewUserGet > 0
+              ? enqueueJobSafe(
+                  "new_user_credits",
+                  {
+                    userUuid: user.uuid,
+                    credits: CreditsAmount.NewUserGet,
+                  },
+                  {
+                    dedupeKey: `new_user_credits:${user.uuid}`,
+                    retryFailed: true,
+                    subjectUserUuid: user.uuid,
+                  },
+                )
+              : Promise.resolve(false),
           ]);
         },
       },

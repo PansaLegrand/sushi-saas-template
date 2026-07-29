@@ -9,6 +9,8 @@ import {
 } from "react";
 
 import { getCaptchaSiteKey, isCaptchaEnabled } from "@/lib/captcha";
+import { turnstileSizeForWidth } from "@/lib/turnstile-size";
+import { cn } from "@/lib/utils";
 
 const SCRIPT_ID = "cf-turnstile-script";
 const SCRIPT_SRC =
@@ -25,6 +27,7 @@ interface TurnstileApi {
       "timeout-callback"?: () => void;
       theme?: "light" | "dark" | "auto";
       appearance?: "always" | "execute" | "interaction-only";
+      size?: "normal" | "compact" | "flexible";
     }
   ) => string;
   reset: (widgetId?: string) => void;
@@ -132,6 +135,13 @@ export const Turnstile = forwardRef<TurnstileHandle, TurnstileProps>(
           if (cancelled || !containerRef.current || !window.turnstile) return;
           if (widgetIdRef.current) return;
 
+          const measuredWidth =
+            containerRef.current.getBoundingClientRect().width ||
+            containerRef.current.clientWidth ||
+            // jsdom and initially hidden containers report zero. This fallback
+            // also keeps a narrow card safe during its first layout frame.
+            Math.max(window.innerWidth - 96, 0);
+
           widgetIdRef.current = window.turnstile.render(containerRef.current, {
             sitekey: siteKey,
             callback: (token) => onTokenRef.current(token),
@@ -142,6 +152,7 @@ export const Turnstile = forwardRef<TurnstileHandle, TurnstileProps>(
             "expired-callback": () => onTokenRef.current(null),
             "timeout-callback": () => onTokenRef.current(null),
             theme: "auto",
+            size: turnstileSizeForWidth(measuredWidth),
           });
         })
         .catch(() => {
@@ -161,7 +172,7 @@ export const Turnstile = forwardRef<TurnstileHandle, TurnstileProps>(
 
     if (!enabled || !siteKey) return null;
 
-    return <div ref={containerRef} className={className} />;
+    return <div ref={containerRef} className={cn("w-full", className)} />;
   }
 );
 

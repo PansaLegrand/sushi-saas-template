@@ -1,3 +1,4 @@
+import { AdminPageHeader } from "@admin/components/admin-page-header";
 import { getAdminContext } from "@admin/lib/authz";
 import { countAdminAuditLogs, listAdminAuditLogs } from "@admin/lib/audit";
 import { Pager } from "@admin/components/pager";
@@ -32,10 +33,13 @@ export default async function AdminAuditPage({
 
   return (
     <div className="space-y-4">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Audit Log</h1>
-        <p className="text-sm text-muted-foreground">Total: {total ?? 0}</p>
-      </header>
+      <AdminPageHeader
+        title="Audit log"
+        description="Trace administrative changes, their target, and the operator responsible."
+        actions={
+          <p className="text-sm text-muted-foreground">Total: {total ?? 0}</p>
+        }
+      />
 
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-sm">

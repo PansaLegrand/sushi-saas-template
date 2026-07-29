@@ -5,10 +5,13 @@ import { getAppEnv } from "@/lib/env";
 
 export async function GET(_req: Request, ctx: any) {
   const { inviteCode } = (ctx?.params || {}) as { inviteCode: string };
+  const redirectTo = new URL("/", getAppEnv().NEXT_PUBLIC_WEB_URL);
+  if (!AffiliateConfig.enabled) {
+    return NextResponse.redirect(redirectTo);
+  }
 
   try {
     const inviter = await findUserByInviteCode(inviteCode);
-    const redirectTo = new URL("/", getAppEnv().NEXT_PUBLIC_WEB_URL);
 
     const res = NextResponse.redirect(redirectTo);
 

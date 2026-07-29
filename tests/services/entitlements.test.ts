@@ -286,7 +286,11 @@ describe("getPlanSnapshot", () => {
   it("serializes the free plan with no subscription", async () => {
     const snapshot = await getPlanSnapshot(ORG);
 
-    expect(snapshot).toMatchObject({ tier: "free", subscription: null });
+    expect(snapshot).toMatchObject({
+      tier: "free",
+      subscription: null,
+      subscriptions: [],
+    });
     expect(snapshot.features["storage.upload"]).toBe(true);
   });
 
@@ -307,6 +311,40 @@ describe("getPlanSnapshot", () => {
     // Round-trips without losing a limit — the reason `null` is the unlimited
     // sentinel rather than Infinity.
     expect(JSON.parse(JSON.stringify(snapshot)).limits).toEqual(snapshot.limits);
+  });
+
+  it("serializes every stacked subscription separately from the effective plan", async () => {
+    listSubscriptionsByOrg.mockResolvedValue([
+      row({ uuid: "sub-plus", tier: "plus" }),
+      row({
+        uuid: "sub-max",
+        tier: "max",
+        stripe_subscription_id: "sub_stripe_2",
+      }),
+    ]);
+
+    const snapshot = await getPlanSnapshot(ORG);
+
+    expect(snapshot.tier).toBe("max");
+    expect(snapshot.subscriptions).toHaveLength(2);
+    expect(snapshot.subscriptions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "sub-plus",
+          name: "Plus",
+          tier: "plus",
+          effective: false,
+          entitling: true,
+        }),
+        expect.objectContaining({
+          id: "sub-max",
+          name: "Max",
+          tier: "max",
+          effective: true,
+          entitling: true,
+        }),
+      ]),
+    );
   });
 });
 

@@ -1,6 +1,8 @@
 import "server-only";
 import type { Logger, LoggerOptions, LogFields } from "./types";
 import pino from "pino";
+import { redactLogFields, redactLogString } from "./redact";
+import { normalizeRequestId } from "./request-id";
 
 function getLevel(): "debug" | "info" | "warn" | "error" {
   const env = (process.env.LOG_LEVEL || "").toLowerCase();
@@ -37,7 +39,7 @@ const redactPaths = [
 
 export function createLogger(options?: LoggerOptions): Logger {
   const level = options?.level || getLevel();
-  const base: LogFields = options?.base || {};
+  const base: LogFields = redactLogFields(options?.base || {});
 
   // Use plain Pino without transports to avoid worker path issues
   // in Next.js/Turbopack bundles. Pretty printing can be achieved by
@@ -49,18 +51,34 @@ export function createLogger(options?: LoggerOptions): Logger {
     timestamp: pino.stdTimeFunctions.isoTime,
   });
 
-  const wrap = (bindings?: LogFields): Logger => {
-    const child = bindings ? instance.child(bindings) : instance;
+  const wrap = (child: pino.Logger): Logger => {
+    const write = (
+      method: "debug" | "info" | "warn" | "error",
+      obj?: LogFields,
+      msg?: string
+    ) => {
+      const safeMessage = msg ? redactLogString(msg) : msg;
+      if (obj) {
+        child[method](redactLogFields(obj), safeMessage);
+      } else {
+        child[method](safeMessage);
+      }
+    };
+
     return {
-      debug: (obj?: LogFields, msg?: string) => (obj ? child.debug(obj, msg) : child.debug(msg)),
-      info: (obj?: LogFields, msg?: string) => (obj ? child.info(obj, msg) : child.info(msg)),
-      warn: (obj?: LogFields, msg?: string) => (obj ? child.warn(obj, msg) : child.warn(msg)),
-      error: (obj?: LogFields, msg?: string) => (obj ? child.error(obj, msg) : child.error(msg)),
-      child: (b?: LogFields) => wrap(b),
+      debug: (obj?: LogFields, msg?: string) => write("debug", obj, msg),
+      info: (obj?: LogFields, msg?: string) => write("info", obj, msg),
+      warn: (obj?: LogFields, msg?: string) => write("warn", obj, msg),
+      error: (obj?: LogFields, msg?: string) => write("error", obj, msg),
+      // Child bindings accumulate. The previous wrapper always created a new
+      // child from the root instance, so `logger.child(a).child(b)` silently
+      // discarded `a` and broke request correlation.
+      child: (bindings?: LogFields) =>
+        wrap(child.child(redactLogFields(bindings || {}))),
     };
   };
 
-  return wrap();
+  return wrap(instance);
 }
 
 export const logger = createLogger();
@@ -72,7 +90,9 @@ export function requestIdFromHeaders(h: Headers | Record<string, string | null |
     const v = (h as any)[k];
     return typeof v === "string" ? v : null;
   };
-  return get("x-request-id") || get("x-amzn-trace-id") || get("cf-ray") || crypto.randomUUID();
+  return normalizeRequestId(
+    get("x-request-id") || get("x-amzn-trace-id") || get("cf-ray")
+  );
 }
 
 export function withApiLogging<T extends (...args: any[]) => Promise<Response> | Response>(
@@ -89,12 +109,13 @@ export function withApiLogging<T extends (...args: any[]) => Promise<Response> |
       const res = await handler(...args);
       const dur = Date.now() - start;
       const status = (res as any).status || 200;
+      res.headers.set("x-request-id", rid);
       log.info({ event: opts?.event ? `${opts?.event}.ok` : "request.ok", status, duration_ms: dur });
       return res;
     } catch (e: any) {
       const dur = Date.now() - start;
       const errObj = { name: e?.name, message: e?.message, code: e?.code };
-      logger.error({ event: opts?.event ? `${opts?.event}.error` : "request.error", ...errObj, duration_ms: dur });
+      log.error({ event: opts?.event ? `${opts?.event}.error` : "request.error", ...errObj, duration_ms: dur });
       throw e;
     }
   }) as T;

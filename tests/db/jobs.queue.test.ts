@@ -67,17 +67,59 @@ describeDb("job queue (real database)", () => {
     expect(second).toBeUndefined();
     expect(await listPendingJobs()).toHaveLength(1);
     expect((await findJobByDedupeKey("welcome_email:u-1"))?.uuid).toBe(
-      first?.uuid
+      first?.uuid,
     );
   });
 
   it("allows many jobs with no dedupe key", async () => {
-    await insertJob({ type: "welcome_email", payload: { email: "a@test.dev" } });
-    await insertJob({ type: "welcome_email", payload: { email: "b@test.dev" } });
+    await insertJob({
+      type: "welcome_email",
+      payload: { email: "a@test.dev" },
+    });
+    await insertJob({
+      type: "welcome_email",
+      payload: { email: "b@test.dev" },
+    });
 
     // A unique index over a nullable column must not collapse NULLs, or every
     // un-deduped job after the first would be silently dropped.
     expect(await listPendingJobs()).toHaveLength(2);
+  });
+
+  it("revives a failed idempotent job when reconciliation asks for it", async () => {
+    const first = await insertJob({
+      type: "new_user_credits",
+      payload: { userUuid: "u-1", credits: 10 },
+      dedupeKey: "new_user_credits:u-1",
+      subjectUserUuid: "u-1",
+    });
+    await db()
+      .update(jobsTable)
+      .set({
+        status: "failed",
+        attempts: 5,
+        last_error: "database unavailable",
+        completed_at: new Date(),
+      })
+      .where(eq(jobsTable.id, first!.id));
+
+    const revived = await insertJob({
+      type: "new_user_credits",
+      payload: { userUuid: "u-1", credits: 10 },
+      dedupeKey: "new_user_credits:u-1",
+      subjectUserUuid: "u-1",
+      retryFailed: true,
+    });
+
+    expect(revived).toMatchObject({
+      id: first!.id,
+      status: "pending",
+      attempts: 0,
+      last_error: null,
+      completed_at: null,
+      subject_user_uuid: "u-1",
+    });
+    expect(await db().select().from(jobsTable)).toHaveLength(1);
   });
 
   it("claims only jobs whose run_at has arrived", async () => {
@@ -139,6 +181,53 @@ describeDb("job queue (real database)", () => {
     expect(reclaimed[0]?.attempts).toBe(2);
   });
 
+  it("rejects completion from a runner whose lease was replaced", async () => {
+    const job = await insertJob({
+      type: "welcome_email",
+      payload: {},
+      maxAttempts: 3,
+    });
+    const [firstLease] = await claimDueJobs(25, STALE_LOCK_MS);
+
+    await db()
+      .update(jobsTable)
+      .set({ locked_at: new Date(Date.now() - STALE_LOCK_MS - 1000) })
+      .where(eq(jobsTable.uuid, job!.uuid));
+
+    const [secondLease] = await claimDueJobs(25, STALE_LOCK_MS);
+
+    expect(await markJobSucceeded(firstLease)).toBe(false);
+    expect(
+      await markJobFailed(firstLease, "late failure", BACKOFF_BASE_MS),
+    ).toBe("lease_lost");
+    expect((await rowByUuid(job!.uuid))?.locked_at?.toISOString()).toBe(
+      secondLease.locked_at?.toISOString(),
+    );
+    expect(await markJobSucceeded(secondLease)).toBe(true);
+    expect((await rowByUuid(job!.uuid))?.status).toBe("succeeded");
+  });
+
+  it("buries an expired final lease instead of running an extra attempt", async () => {
+    const job = await insertJob({
+      type: "welcome_email",
+      payload: {},
+      maxAttempts: 1,
+    });
+    await claimDueJobs(25, STALE_LOCK_MS);
+
+    await db()
+      .update(jobsTable)
+      .set({ locked_at: new Date(Date.now() - STALE_LOCK_MS - 1000) })
+      .where(eq(jobsTable.uuid, job!.uuid));
+
+    expect(await claimDueJobs(25, STALE_LOCK_MS)).toHaveLength(0);
+    expect(await rowByUuid(job!.uuid)).toMatchObject({
+      status: "failed",
+      attempts: 1,
+      locked_at: null,
+    });
+  });
+
   it("reschedules a failure with backoff, then buries it", async () => {
     const job = await insertJob({
       type: "welcome_email",
@@ -150,7 +239,7 @@ describeDb("job queue (real database)", () => {
     const firstOutcome = await markJobFailed(
       firstAttempt,
       "smtp timeout",
-      BACKOFF_BASE_MS
+      BACKOFF_BASE_MS,
     );
 
     expect(firstOutcome).toBe("retrying");
@@ -172,7 +261,7 @@ describeDb("job queue (real database)", () => {
     const secondOutcome = await markJobFailed(
       secondAttempt,
       "smtp timeout",
-      BACKOFF_BASE_MS
+      BACKOFF_BASE_MS,
     );
 
     expect(secondOutcome).toBe("failed");
@@ -197,14 +286,17 @@ describeDb("job queue (real database)", () => {
       dedupeKey: "keep-me",
     });
 
-    await markJobSucceeded(done!.id);
+    const [doneLease] = await claimDueJobs(1, STALE_LOCK_MS);
+    await markJobSucceeded(doneLease);
     const longAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     await db()
       .update(jobsTable)
       .set({ completed_at: longAgo })
       .where(eq(jobsTable.uuid, done!.uuid));
 
-    await deleteFinishedJobsBefore(new Date(Date.now() - 14 * 24 * 60 * 60 * 1000));
+    await deleteFinishedJobsBefore(
+      new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
+    );
 
     expect(await rowByUuid(done!.uuid)).toBeUndefined();
     expect(await rowByUuid(pending!.uuid)).toBeDefined();

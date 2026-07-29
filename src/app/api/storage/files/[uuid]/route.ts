@@ -1,11 +1,11 @@
 import { respData, respNoAuth } from "@/lib/resp";
 import { respCode, respError } from "@/lib/errors/response";
 import { getOrgContext } from "@/services/authz";
-import { findFileByUuid, softDeleteFile } from "@/models/file";
+import { findFileByUuid } from "@/models/file";
 import { getStorageAdapter } from "@/services/storage";
+import { requestFileDeletion } from "@/services/storage/delete-request";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
-import { logger } from "@/lib/logger/server";
 
 export async function GET(req: Request, ctx: { params: Promise<{ uuid: string }> }) {
   const limited = await rateLimitOrThrow(req, "uploads");
@@ -77,24 +77,8 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ uuid: string
       return respCode("STORAGE_FILE_NOT_FOUND");
     }
 
-    const storage = getStorageAdapter();
-    try {
-      await storage.deleteObject({ bucket: file.bucket, key: file.key });
-    } catch (e) {
-      // Ignore storage delete errors; still soft-delete the record
-      logger.warn(
-        {
-          err: e,
-          event: "storage.object_delete_failed",
-          file_uuid: file.uuid,
-          org_uuid: org.orgUuid,
-        },
-        "storage delete failed"
-      );
-    }
-
-    const deleted = await softDeleteFile(file.uuid, org.orgUuid);
-    return respData({ ok: true, file: deleted ?? file });
+    const deletion = await requestFileDeletion(file, org.orgUuid);
+    return respData({ ok: true, ...deletion });
   } catch (error) {
     return respError(error, {
       logFields: { event: "storage.file_delete_failed" },

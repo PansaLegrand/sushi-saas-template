@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const STRONG_AUTH_SECRET = "4qJv9K2mW8pT5xR7cN3sL6dF1hY0bGzA";
+const STRONG_CRON_SECRET = "9Nz3wQ6fH1kM8rV4tY7pC2xD5jL0sBaE";
+
 const ENV_KEYS = [
   "NODE_ENV",
   "npm_lifecycle_event",
@@ -13,6 +16,7 @@ const ENV_KEYS = [
   "AUTH_SECRET",
   "STRIPE_PRIVATE_KEY",
   "STRIPE_WEBHOOK_SECRET",
+  "STRIPE_BILLING_PORTAL_CONFIGURATION_ID",
   "STRIPE_PRICE_PLUS_MONTHLY",
   "STRIPE_PRICE_PLUS_YEARLY",
   "STRIPE_PRICE_MAX_MONTHLY",
@@ -57,8 +61,10 @@ const ENV_KEYS = [
   "NEXT_PUBLIC_CAPTCHA_ENABLED",
   "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
   "TURNSTILE_SECRET_KEY",
-  "NEXT_PUBLIC_SITE_MODE",
+  "CRON_SECRET",
+  "NEXT_PUBLIC_DOCS_URL",
   "RATE_LIMIT_REDIS_URL",
+  "RATE_LIMIT_IP_SOURCE",
 ];
 
 async function loadEnvModule() {
@@ -74,9 +80,10 @@ function setProductionEnv() {
   vi.stubEnv("BETTER_AUTH_URL", "https://example.com");
   vi.stubEnv("NEXT_PUBLIC_AUTH_BASE_URL", "https://example.com");
   vi.stubEnv("DATABASE_URL", "postgresql://user:pass@localhost:5432/app");
-  vi.stubEnv("BETTER_AUTH_SECRET", "secret");
+  vi.stubEnv("BETTER_AUTH_SECRET", STRONG_AUTH_SECRET);
   vi.stubEnv("STRIPE_PRIVATE_KEY", "sk_live_test");
   vi.stubEnv("STRIPE_WEBHOOK_SECRET", "whsec_test");
+  vi.stubEnv("STRIPE_BILLING_PORTAL_CONFIGURATION_ID", "bpc_safe1");
   vi.stubEnv("STRIPE_PRICE_PLUS_MONTHLY", "price_1PlusMonth");
   vi.stubEnv("STRIPE_PRICE_PLUS_YEARLY", "price_1PlusYear");
   vi.stubEnv("STRIPE_PRICE_MAX_MONTHLY", "price_1MaxMonth");
@@ -88,7 +95,12 @@ function setProductionEnv() {
   vi.stubEnv("STORAGE_SECRET_KEY", "secret");
   vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "site-key");
   vi.stubEnv("TURNSTILE_SECRET_KEY", "secret-key");
-  vi.stubEnv("RATE_LIMIT_REDIS_URL", "rediss://production-rate-limit.example.com");
+  vi.stubEnv("CRON_SECRET", STRONG_CRON_SECRET);
+  vi.stubEnv(
+    "RATE_LIMIT_REDIS_URL",
+    "rediss://production-rate-limit.example.com",
+  );
+  vi.stubEnv("RATE_LIMIT_IP_SOURCE", "x-forwarded-for");
 }
 
 describe("typed environment validation", () => {
@@ -131,40 +143,17 @@ describe("typed environment validation", () => {
           "NEXT_PUBLIC_WEB_URL",
           "DATABASE_URL",
           "BETTER_AUTH_SECRET (or AUTH_SECRET)",
+          "CRON_SECRET",
+          "RATE_LIMIT_IP_SOURCE",
           "STRIPE_PRIVATE_KEY",
+          "STRIPE_BILLING_PORTAL_CONFIGURATION_ID",
           "STORAGE_BUCKET (or S3_BUCKET)",
-        ])
+        ]),
       );
     }
   });
 
-  it("needs nothing but a URL in site mode", async () => {
-    // The headline claim of `site` mode: the marketing and docs deployment runs
-    // with no Postgres, no auth secret, and no payment keys. If this test ever
-    // fails, the site can no longer be deployed without provisioning a database
-    // it never reads.
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("NEXT_PUBLIC_SITE_MODE", "site");
-    vi.stubEnv("NEXT_PUBLIC_WEB_URL", "https://example.com");
-
-    const { validateAppEnv } = await loadEnvModule();
-    const env = validateAppEnv();
-
-    expect(env.NEXT_PUBLIC_SITE_MODE).toBe("site");
-  });
-
-  it("still demands a URL in site mode", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("NEXT_PUBLIC_SITE_MODE", "site");
-
-    const { EnvValidationError, validateAppEnv } = await loadEnvModule();
-
-    expect(() => validateAppEnv()).toThrow(EnvValidationError);
-  });
-
-  it("defaults to app mode, which keeps every requirement", async () => {
-    // A deployment that forgets to set the variable must get the strict
-    // contract, not the permissive one.
+  it("always keeps the full production application contract", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("NEXT_PUBLIC_WEB_URL", "https://example.com");
 
@@ -175,13 +164,14 @@ describe("typed environment validation", () => {
       throw new Error("expected validation to fail");
     } catch (error) {
       expect((error as any).issues).toEqual(
-        expect.arrayContaining(["DATABASE_URL", "STRIPE_PRIVATE_KEY"])
+        expect.arrayContaining(["DATABASE_URL", "STRIPE_PRIVATE_KEY"]),
       );
     }
   });
 
   it("accepts required production env and normalizes values", async () => {
     setProductionEnv();
+    vi.stubEnv("NEXT_PUBLIC_DOCS_URL", "https://docs.example.com");
     vi.stubEnv("ENABLE_DEMO_FEATURES", "yes");
     vi.stubEnv("ENABLE_TEXT2VIDEO_MOCK", "on");
     vi.stubEnv("STORAGE_PROVIDER", "R2");
@@ -191,10 +181,67 @@ describe("typed environment validation", () => {
     const env = validateAppEnv();
 
     expect(env.NEXT_PUBLIC_WEB_URL).toBe("https://example.com");
+    expect(env.NEXT_PUBLIC_DOCS_URL).toBe("https://docs.example.com");
     expect(env.STORAGE_PROVIDER).toBe("r2");
     expect(env.STORAGE_MAX_UPLOAD_MB).toBe(50);
     expect(env.ENABLE_DEMO_FEATURES).toBe(true);
     expect(env.ENABLE_TEXT2VIDEO_MOCK).toBe(true);
+  });
+
+  it("rejects short production auth and cron secrets", async () => {
+    setProductionEnv();
+    vi.stubEnv("BETTER_AUTH_SECRET", "a".repeat(31));
+    vi.stubEnv("CRON_SECRET", "b".repeat(31));
+
+    const { EnvValidationError, validateAppEnv } = await loadEnvModule();
+
+    expect(() => validateAppEnv()).toThrow(EnvValidationError);
+    try {
+      validateAppEnv();
+    } catch (error) {
+      expect((error as any).issues).toEqual(
+        expect.arrayContaining([
+          "BETTER_AUTH_SECRET (or AUTH_SECRET; use at least 32 random bytes, not a placeholder)",
+          "CRON_SECRET (use at least 32 random bytes, not a placeholder)",
+        ]),
+      );
+    }
+  });
+
+  it("rejects long setup placeholders as production secrets", async () => {
+    setProductionEnv();
+    vi.stubEnv(
+      "BETTER_AUTH_SECRET",
+      "change-me-in-production-use-a-random-secret",
+    );
+    vi.stubEnv(
+      "CRON_SECRET",
+      "your-secret-token-must-be-replaced-before-launch",
+    );
+
+    const { EnvValidationError, validateAppEnv } = await loadEnvModule();
+
+    expect(() => validateAppEnv()).toThrow(EnvValidationError);
+    try {
+      validateAppEnv();
+    } catch (error) {
+      expect((error as any).issues).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining("BETTER_AUTH_SECRET"),
+          expect.stringContaining("CRON_SECRET"),
+        ]),
+      );
+    }
+  });
+
+  it("accepts the AUTH_SECRET alias when it is production-strength", async () => {
+    setProductionEnv();
+    delete process.env.BETTER_AUTH_SECRET;
+    vi.stubEnv("AUTH_SECRET", STRONG_AUTH_SECRET);
+
+    const { validateAppEnv } = await loadEnvModule();
+
+    expect(validateAppEnv().BETTER_AUTH_SECRET).toBe(STRONG_AUTH_SECRET);
   });
 
   it("requires a shared Redis rate-limit store in production app mode", async () => {
@@ -208,7 +255,7 @@ describe("typed environment validation", () => {
       validateAppEnv();
     } catch (error) {
       expect((error as any).issues).toEqual(
-        expect.arrayContaining(["RATE_LIMIT_REDIS_URL"])
+        expect.arrayContaining(["RATE_LIMIT_REDIS_URL"]),
       );
     }
   });
@@ -236,13 +283,13 @@ describe("typed environment validation", () => {
     const { validateAppEnv } = await loadEnvModule();
 
     expect(validateAppEnv().RATE_LIMIT_REDIS_URL).toBe(
-      "redis://localhost:6379"
+      "redis://localhost:6379",
     );
 
     vi.stubEnv("RATE_LIMIT_REDIS_URL", "rediss://redis.example.com:6380");
     const { validateAppEnv: validateTlsEnv } = await loadEnvModule();
     expect(validateTlsEnv().RATE_LIMIT_REDIS_URL).toBe(
-      "rediss://redis.example.com:6380"
+      "rediss://redis.example.com:6380",
     );
   });
 
@@ -257,7 +304,7 @@ describe("typed environment validation", () => {
       validateAppEnv();
     } catch (error) {
       expect((error as any).issues).toContain(
-        "STRIPE_PRICE_PLUS_YEARLY (or a legacy NEXT_PUBLIC alias)"
+        "STRIPE_PRICE_PLUS_YEARLY (or a legacy NEXT_PUBLIC alias)",
       );
     }
   });
@@ -267,13 +314,13 @@ describe("typed environment validation", () => {
     delete process.env.STRIPE_PRICE_PLUS_MONTHLY;
     vi.stubEnv(
       "NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY",
-      "price_1LegacyPlusMonth"
+      "price_1LegacyPlusMonth",
     );
 
     const { validateAppEnv } = await loadEnvModule();
 
     expect(validateAppEnv().NEXT_PUBLIC_STRIPE_PRICE_LAUNCH_MONTHLY).toBe(
-      "price_1LegacyPlusMonth"
+      "price_1LegacyPlusMonth",
     );
   });
 
@@ -288,7 +335,7 @@ describe("typed environment validation", () => {
       validateAppEnv();
     } catch (error) {
       expect((error as any).issues).toContain(
-        "STRIPE_PRICE_MAX_YEARLY (must be a Stripe Price ID beginning with price_)"
+        "STRIPE_PRICE_MAX_YEARLY (must be a Stripe Price ID beginning with price_)",
       );
     }
   });
@@ -320,11 +367,11 @@ describe("typed environment validation", () => {
     try {
       validateAppEnv();
     } catch (error) {
-      expect((error as Error).message).toContain("Expected one of: s3, r2, minio");
+      expect((error as Error).message).toContain(
+        "Expected one of: s3, r2, minio",
+      );
       expect((error as any).issues).toEqual(
-        expect.arrayContaining([
-          expect.stringContaining("STORAGE_PROVIDER"),
-        ])
+        expect.arrayContaining([expect.stringContaining("STORAGE_PROVIDER")]),
       );
     }
   });
@@ -344,7 +391,7 @@ describe("typed environment validation", () => {
         expect.arrayContaining([
           "TURNSTILE_SECRET_KEY",
           "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
-        ])
+        ]),
       );
     }
   });
@@ -396,6 +443,22 @@ describe("typed environment validation", () => {
     const { EnvValidationError, validateAppEnv } = await loadEnvModule();
 
     expect(() => validateAppEnv()).toThrow(EnvValidationError);
+  });
+
+  it("requires a Stripe Billing Portal configuration id", async () => {
+    setProductionEnv();
+    vi.stubEnv("STRIPE_BILLING_PORTAL_CONFIGURATION_ID", "not-a-config");
+
+    const { EnvValidationError, validateAppEnv } = await loadEnvModule();
+
+    expect(() => validateAppEnv()).toThrow(EnvValidationError);
+    try {
+      validateAppEnv();
+    } catch (error) {
+      expect((error as any).issues).toContain(
+        "STRIPE_BILLING_PORTAL_CONFIGURATION_ID (must be a Stripe Billing Portal configuration ID beginning with bpc_)",
+      );
+    }
   });
 
   it("does not require production secrets during build", async () => {

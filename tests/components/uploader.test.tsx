@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import Uploader from "@/components/storage/uploader";
@@ -21,7 +21,11 @@ vi.mock("next-intl", () => ({
   useLocale: () => "en",
   useTranslations: () => (key: string, values?: Record<string, unknown>) => {
     if (key === "uploadLabel") return "Upload files";
-    if (key === "hintPrivate") return `Private by default. Max size ${values?.mb} MB each.`;
+    if (key === "hintPrivate")
+      return `Private by default. Max size ${values?.mb} MB each.`;
+    if (key === "browseFiles") return "Browse files";
+    if (key === "dragAndDrop") return "or drag and drop";
+    if (key === "uploadProgress") return `Upload progress for ${values?.file}`;
     if (key.startsWith("status.")) return key.slice("status.".length);
     return key;
   },
@@ -51,6 +55,16 @@ class SuccessfulXHR {
       total: file.size,
     } as ProgressEvent);
     this.onload?.();
+  }
+}
+
+class PendingXHR extends SuccessfulXHR {
+  send() {
+    this.upload.onprogress?.({
+      lengthComputable: true,
+      loaded: 1,
+      total: 2,
+    } as ProgressEvent);
   }
 }
 
@@ -103,21 +117,29 @@ describe("Uploader", () => {
 
   it("rejects files outside the selected policy before creating a presign", async () => {
     const { container } = render(<Uploader policy="images" multiple={false} />);
-    const input = container.querySelector<HTMLInputElement>("input[type='file']");
+    const input =
+      container.querySelector<HTMLInputElement>("input[type='file']");
     expect(input).toBeTruthy();
     expect(input).not.toHaveAttribute("multiple");
-    expect(input).toHaveAttribute("accept", expect.stringContaining("image/png"));
+    expect(input).toHaveAttribute(
+      "accept",
+      expect.stringContaining("image/png"),
+    );
 
     fireEvent.change(input!, {
       target: {
         files: [
-          new File(["run"], "installer.exe", { type: "application/x-msdownload" }),
+          new File(["run"], "installer.exe", {
+            type: "application/x-msdownload",
+          }),
         ],
       },
     });
 
     await waitFor(() =>
-      expect(mocks.toastError).toHaveBeenCalledWith("That file type is not allowed.")
+      expect(mocks.toastError).toHaveBeenCalledWith(
+        "That file type is not allowed.",
+      ),
     );
     expect(mocks.createUpload).not.toHaveBeenCalled();
   });
@@ -132,13 +154,16 @@ describe("Uploader", () => {
         visibility="org"
         metadata={(file) => ({ purpose: "contract", originalName: file.name })}
         onUploaded={onUploaded}
-      />
+      />,
     );
-    const input = container.querySelector<HTMLInputElement>("input[type='file']");
+    const input =
+      container.querySelector<HTMLInputElement>("input[type='file']");
 
     await user.upload(input!, source);
 
-    await waitFor(() => expect(mocks.completeUpload).toHaveBeenCalledWith("file-1"));
+    await waitFor(() =>
+      expect(mocks.completeUpload).toHaveBeenCalledWith("file-1"),
+    );
     expect(mocks.createUpload).toHaveBeenCalledWith({
       filename: "report.pdf",
       contentType: "application/pdf",
@@ -150,5 +175,25 @@ describe("Uploader", () => {
     });
     expect(onUploaded).toHaveBeenCalledWith(fileObject(), source);
     expect(mocks.toastSuccess).toHaveBeenCalledWith("done");
+  });
+
+  it("announces in-progress uploads with native progress semantics", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("XMLHttpRequest", PendingXHR);
+    const source = new File(["pdf"], "report.pdf", {
+      type: "application/pdf",
+    });
+    const { container } = render(<Uploader policy="documents" />);
+    const input =
+      container.querySelector<HTMLInputElement>("input[type='file']");
+
+    await user.upload(input!, source);
+
+    const progress = await screen.findByRole("progressbar", {
+      name: "Upload progress for report.pdf",
+    });
+    expect(progress).toHaveAttribute("aria-valuenow", "50");
+    expect(progress).toHaveAttribute("aria-valuetext", "uploading: 50%");
+    expect(progress.closest("li")).toHaveAttribute("aria-busy", "true");
   });
 });

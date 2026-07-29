@@ -28,13 +28,14 @@ export function grantCredits(input: {
   credits: number;
   expiredAt?: string | null;
   note?: string;
+  /**
+   * Browser-owned intent. Retaining it after an uncertain response lets a retry
+   * repair the same ledger mutation instead of creating a second grant.
+   */
+  idempotencyKey: string;
 }) {
   return api.post<unknown>("/api/admin/credits/grant", {
-    body: {
-      ...input,
-      // One key per attempt: a retry of this request cannot double-credit.
-      idempotencyKey: crypto.randomUUID(),
-    },
+    body: input,
   });
 }
 

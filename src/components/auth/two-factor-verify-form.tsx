@@ -2,9 +2,11 @@
 
 import { FormEvent, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 import { authClient } from "@/lib/auth-client";
-import { localePath } from "@/i18n/locale";
+import { AUTH_ROUTES, withLocale } from "@/config/auth";
+import { safeAuthCallbackPath } from "@/lib/auth-callback";
 import { resolveAuthError } from "@/lib/errors/auth-client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -13,10 +15,18 @@ import { Input } from "@/components/ui/input";
 
 type VerificationMode = "totp" | "backup";
 
-export function TwoFactorVerifyForm() {
+export function TwoFactorVerifyForm({
+  callbackUrl,
+}: {
+  callbackUrl?: string;
+}) {
   const params = useParams<{ locale: string }>();
   const locale = params?.locale ?? "";
   const router = useRouter();
+  const t = useTranslations("auth");
+  const callbackPath =
+    safeAuthCallbackPath(callbackUrl) ??
+    withLocale(locale, AUTH_ROUTES.defaultCallback);
 
   const [mode, setMode] = useState<VerificationMode>("totp");
   const [code, setCode] = useState("");
@@ -40,7 +50,7 @@ export function TwoFactorVerifyForm() {
         return;
       }
 
-      router.replace(localePath(locale));
+      router.replace(callbackPath);
       router.refresh();
     } catch {
       setErrorMessage(resolveAuthError(null, locale));
@@ -51,7 +61,10 @@ export function TwoFactorVerifyForm() {
 
   return (
     <form className="space-y-4" onSubmit={submit}>
-      <Field label={mode === "backup" ? "Backup code" : "Authenticator code"} required>
+      <Field
+        label={mode === "backup" ? t("backupCode") : t("authenticatorCode")}
+        required
+      >
         {(field) => (
           <Input
             {...field}
@@ -71,17 +84,17 @@ export function TwoFactorVerifyForm() {
           onChange={(event) => setTrustDevice(event.currentTarget.checked)}
           className="size-4 rounded border-input"
         />
-        Trust this device
+        {t("trustDevice")}
       </label>
 
       {errorMessage ? (
-        <Alert variant="destructive">
+        <Alert role="alert" variant="destructive">
           <AlertDescription>{errorMessage}</AlertDescription>
         </Alert>
       ) : null}
 
       <Button type="submit" className="w-full" disabled={isSubmitting}>
-        {isSubmitting ? "Verifying..." : "Verify"}
+        {isSubmitting ? t("verifying") : t("verify")}
       </Button>
 
       <Button
@@ -94,7 +107,7 @@ export function TwoFactorVerifyForm() {
           setErrorMessage(null);
         }}
       >
-        {mode === "totp" ? "Use a backup code" : "Use an authenticator code"}
+        {mode === "totp" ? t("useBackupCode") : t("useAuthenticatorCode")}
       </Button>
     </form>
   );

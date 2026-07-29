@@ -3,7 +3,7 @@
  *
  * The properties here are the ones that make a ban a ban rather than a
  * decoration. None of them are visible in a type check, and two of them —
- * reaching every account on an address, and failing open — were the bugs that
+ * reaching every account on an address, and failing closed — were the bugs that
  * would have made this feature look like it worked while an abuser walked
  * around it.
  */
@@ -109,7 +109,9 @@ describe("banUserAccount", () => {
   it("reports an unknown user instead of banning nothing quietly", async () => {
     mocks.findUserByUuid.mockResolvedValue(undefined);
 
-    expect(await banUserAccount({ userUuid: "nope", actorUuid: "admin-1" })).toEqual({
+    expect(
+      await banUserAccount({ userUuid: "nope", actorUuid: "admin-1" }),
+    ).toEqual({
       status: "not-found",
     });
   });
@@ -118,7 +120,10 @@ describe("banUserAccount", () => {
     // The bypass this closes: `users.email` is unique per provider, so banning
     // the row an abuser happened to use leaves their Google account open and
     // the ban is one click away from meaningless.
-    const outcome = await banUserAccount({ userUuid: "u-1", actorUuid: "admin-1" });
+    const outcome = await banUserAccount({
+      userUuid: "u-1",
+      actorUuid: "admin-1",
+    });
 
     expect(outcome.status).toBe("ok");
     if (outcome.status !== "ok") return;
@@ -131,7 +136,10 @@ describe("banUserAccount", () => {
   it("revokes sessions on every affected account", async () => {
     // Without this the ban takes effect whenever the cookie happens to expire,
     // which for an active abuser is not soon enough to matter.
-    const outcome = await banUserAccount({ userUuid: "u-1", actorUuid: "admin-1" });
+    const outcome = await banUserAccount({
+      userUuid: "u-1",
+      actorUuid: "admin-1",
+    });
 
     expect(mocks.deleteSessionsByUserId).toHaveBeenCalledWith("id-1");
     expect(mocks.deleteSessionsByUserId).toHaveBeenCalledWith("id-2");
@@ -142,10 +150,13 @@ describe("banUserAccount", () => {
     // The default matters more than the option: without a blocklist entry the
     // banned person signs up again through a provider they have not used, and
     // the fresh row is not banned.
-    const outcome = await banUserAccount({ userUuid: "u-1", actorUuid: "admin-1" });
+    const outcome = await banUserAccount({
+      userUuid: "u-1",
+      actorUuid: "admin-1",
+    });
 
     expect(mocks.insertBlocklistEntry).toHaveBeenCalledWith(
-      expect.objectContaining({ scope: "email", value: "abuser@example.com" })
+      expect.objectContaining({ scope: "email", value: "abuser@example.com" }),
     );
     if (outcome.status === "ok") {
       expect(outcome.result.blocklisted?.value).toBe("abuser@example.com");
@@ -168,7 +179,10 @@ describe("banUserAccount", () => {
     // for see above" is the one that destroys it.
     mocks.markUserBanned.mockResolvedValue(undefined);
 
-    const outcome = await banUserAccount({ userUuid: "u-1", actorUuid: "admin-2" });
+    const outcome = await banUserAccount({
+      userUuid: "u-1",
+      actorUuid: "admin-2",
+    });
 
     if (outcome.status !== "ok") throw new Error("expected ok");
     expect(outcome.result.applied).toBe(false);
@@ -257,7 +271,9 @@ describe("checkSignupAllowed", () => {
   });
 
   it("allows an address nothing matches", async () => {
-    expect(await checkSignupAllowed("new@example.com")).toEqual({ allowed: true });
+    expect(await checkSignupAllowed("new@example.com")).toEqual({
+      allowed: true,
+    });
   });
 
   it("looks up the normalized form, not the raw input", async () => {
@@ -267,7 +283,7 @@ describe("checkSignupAllowed", () => {
       expect.objectContaining({
         normalizedEmail: "ann@gmail.com",
         normalizedDomain: "gmail.com",
-      })
+      }),
     );
   });
 
@@ -313,9 +329,9 @@ describe("isUserIdBanned", () => {
     expect(await isUserIdBanned("id-1")).toBe(false);
   });
 
-  it("fails open when the lookup throws", async () => {
+  it("fails closed when the lookup throws", async () => {
     mocks.findUserById.mockRejectedValue(new Error("db down"));
-    expect(await isUserIdBanned("id-1")).toBe(false);
+    await expect(isUserIdBanned("id-1")).rejects.toThrow("db down");
   });
 });
 
@@ -337,12 +353,18 @@ describe("addBlocklistEntry", () => {
       expect.objectContaining({
         value: "ann@gmail.com",
         original_value: "A.N.N+spam@Gmail.com",
-      })
+      }),
     );
   });
 
   it("rejects input with no key to match on", async () => {
-    expect(await addBlocklistEntry({ scope: "email", value: "nonsense", actorUuid: "a" })).toEqual({
+    expect(
+      await addBlocklistEntry({
+        scope: "email",
+        value: "nonsense",
+        actorUuid: "a",
+      }),
+    ).toEqual({
       status: "invalid",
     });
     expect(mocks.insertBlocklistEntry).not.toHaveBeenCalled();
@@ -368,7 +390,7 @@ describe("addBlocklistEntry", () => {
       .mockResolvedValueOnce(undefined)
       .mockResolvedValueOnce(blocklistRow());
     mocks.insertBlocklistEntry.mockRejectedValue(
-      Object.assign(new Error("duplicate key"), { code: "23505" })
+      Object.assign(new Error("duplicate key"), { code: "23505" }),
     );
 
     const outcome = await addBlocklistEntry({

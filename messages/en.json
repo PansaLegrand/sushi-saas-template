@@ -1,85 +1,27 @@
 {
   "metadata": {
-    "title": "Sushi SaaS - Next.js Starter Kit for Real SaaS",
-    "description": "Launch-ready SaaS starter with modern tooling and clean design.",
+    "title": "Your SaaS",
+    "description": "A secure, production-minded SaaS application.",
     "keywords": "saas template, next.js starter, better auth"
   },
   "landing": {
     "nav": {
+      "pricing": "Pricing",
       "docs": "Docs",
-      "blogs": "Blog",
-      "github": "GitHub"
+      "signIn": "Sign in",
+      "openApp": "Open app"
     },
     "hero": {
-      "title": "A production-ready Next.js SaaS starter.",
-      "subtitle": "Auth, billing, credits, storage, i18n, an admin app, and docs — wired together, layered on purpose, and covered by tests. Start on your product instead of your plumbing.",
-      "ctaPrimary": "Read the docs",
-      "ctaSecondary": "View on GitHub"
+      "title": "Your product, ready for customers.",
+      "subtitle": "Secure accounts, organization billing, pooled credits, private storage, and operations are ready. Add the workflow that makes your SaaS unique.",
+      "ctaPrimary": "Create an account",
+      "ctaSecondary": "Sign in",
+      "ctaOpenApp": "Open your account"
     },
-    "about": {
-      "title": "What you get",
-      "intro": "The parts every SaaS needs and nobody enjoys building: authentication with roles, Stripe billing with a credits ledger, private file uploads, transactional email, a separate admin console, and localized routing in five languages. One architecture throughout, documented and enforced by tests rather than convention."
-    },
-    "features": {
-      "title": "What’s inside",
-      "items": [
-        {
-          "title": "Modern, open‑source stack",
-          "description": "Next.js 15, TypeScript, Tailwind — a production‑ready boilerplate to launch faster."
-        },
-        {
-          "title": "Auth & RBAC (Better Auth)",
-          "description": "Email + Google sign‑in, secure sessions, and role checks with Drizzle."
-        },
-        {
-          "title": "Global i18n",
-          "description": "Localized routes and messages so you can serve multiple languages easily."
-        },
-        {
-          "title": "Stripe billing + Credits",
-          "description": "Checkout, subscriptions, and a flexible credits ledger for usage‑based models."
-        },
-        {
-          "title": "Reservations module",
-          "description": "Bookings with availability, deposits or full payment, confirmations, and calendar invites."
-        },
-        {
-          "title": "Affiliate referrals",
-          "description": "Invite links, tracked signups, and configurable rewards to fuel growth."
-        },
-        {
-          "title": "Admin panel",
-          "description": "Manage users, orders, credits, reservations, and affiliates with role‑based access."
-        },
-        {
-          "title": "Docs & MDX",
-          "description": "Built‑in docs/blog using MDX + Fumadocs with solid SEO metadata."
-        }
-      ]
-    },
-    "stack": {
-      "title": "Tech stack",
-      "items": [
-        {
-          "name": "Next.js 15",
-          "description": "App Router, React Server Components"
-        },
-        {
-          "name": "Tailwind CSS",
-          "description": "Utility-first styling"
-        },
-        {
-          "name": "Better Auth",
-          "description": "Authentication & sessions"
-        },
-        {
-          "name": "Drizzle ORM",
-          "description": "Type-safe SQL and migrations"
-        }
-      ]
-    },
-    "showcases": {
-      "title": "Built with it"
+    "proof": {
+      "auth": "Verified accounts, secure sessions, organization roles, and MFA-ready admin access.",
+      "billing": "Stripe subscriptions, idempotent checkout, entitlements, and an expiry-aware credit ledger.",
+      "operations": "Private storage, durable jobs, readiness probes, rate limits, audit trails, and tested migrations."
     },
     "footer": "Crafted in Next.js 15 with Tailwind CSS and Better Auth."
   },
@@ -113,18 +55,26 @@
       "or": "or"
     }
   },
-  "docs": {
-    "title": "Documentation",
-    "intro": "Hands-on guides for setting up and extending this starter kit.",
-    "back": "Back to home"
-  },
-  "blogs": {
-    "title": "Blog",
-    "intro": "Latest guides and updates to help you ship faster."
-  },
   "reservation": {
     "title": "Reserve a service",
-    "subtitle": "Pick a service, choose a time, and confirm with a small deposit."
+    "subtitle": "Pick a service, choose a time, and confirm with a small deposit.",
+    "noServicesTitle": "No services available",
+    "noServicesDescription": "This workspace has not configured any services yet.",
+    "serviceLabel": "Service",
+    "depositPrice": "{price} deposit",
+    "dateLabel": "Date",
+    "timezoneLabel": "Timezone",
+    "timezoneDescription": "Detected from your browser.",
+    "loading": "Loading…",
+    "refreshAvailability": "Refresh availability",
+    "availableTimes": "Available times",
+    "minutes": "{value} min",
+    "noSlotsTitle": "No slots available",
+    "noSlotsDescription": "Try another date, or refresh availability.",
+    "contactEmail": "Contact email",
+    "phone": "Phone",
+    "notes": "Notes",
+    "optional": "Optional."
   },
   "auth": {
     "signInTitle": "Welcome back",
@@ -170,6 +120,15 @@
     "useDifferentEmail": "Use a different email",
     "captchaRequired": "Please complete the verification challenge.",
     "captchaFailed": "Verification failed. Please try again.",
+    "twoFactorTitle": "Two-factor authentication",
+    "twoFactorSubtitle": "Enter your authenticator code to finish signing in.",
+    "authenticatorCode": "Authenticator code",
+    "backupCode": "Backup code",
+    "trustDevice": "Trust this device",
+    "verifying": "Verifying…",
+    "verify": "Verify",
+    "useBackupCode": "Use a backup code",
+    "useAuthenticatorCode": "Use an authenticator code",
     "logout": "Log out"
   },
   "feedback": {
@@ -189,6 +148,9 @@
   "storage": {
     "uploadLabel": "Upload files",
     "hintPrivate": "Private by default. Max size {mb} MB each.",
+    "browseFiles": "Browse files",
+    "dragAndDrop": "or drag and drop",
+    "uploadProgress": "Upload progress for {file}",
     "errorCreate": "Failed to create upload",
     "errorComplete": "Failed to complete upload",
     "errorUpload": "Upload failed",
@@ -228,6 +190,143 @@
         "free": "Free",
         "plus": "Plus",
         "max": "Max"
+      }
+    },
+    "checkout": {
+      "success": {
+        "title": "Payment confirmed",
+        "description": "Your subscription is active and its credits are ready."
+      },
+      "processing": {
+        "title": "Payment received",
+        "description": "We are finishing your subscription and credit grant. Refresh your billing page shortly."
+      },
+      "failed": {
+        "title": "Payment not completed",
+        "description": "No subscription was added. Review your payment details and try again."
+      }
+    }
+  },
+  "account": {
+    "accountHome": "Account",
+    "workspace": "Workspace",
+    "switchWorkspace": "Switch workspace",
+    "navigationLabel": "Account navigation",
+    "skipToContent": "Skip to account content",
+    "navigation": {
+      "billing": "Billing",
+      "credits": "Credits",
+      "files": "Files",
+      "team": "Team",
+      "reservations": "Reservations",
+      "profile": "Profile & security"
+    },
+    "roles": {
+      "owner": "Owner",
+      "admin": "Admin",
+      "member": "Member"
+    },
+    "billing": {
+      "title": "Billing",
+      "subtitle": "Review every subscription, your effective plan, and the credits pooled in this workspace.",
+      "effectivePlan": "Effective plan",
+      "effectiveDescription": "This plan supplies the workspace feature limits.",
+      "effectiveStackedDescription": "Feature limits use the highest active plan. Credits from every paid subscription are pooled below.",
+      "freeDescription": "This workspace is on the free plan. Existing data is kept when plans change.",
+      "currentBalance": "Spendable balance",
+      "creditsPerRenewal": "Credits per renewal",
+      "expiringSoon": "Expiring in 14 days",
+      "creditsValue": "{value, plural, one {# credit} other {# credits}}",
+      "viewCreditHistory": "View credit history",
+      "subscriptionsTitle": "Subscriptions",
+      "subscriptionsDescription": "Each card is a separate subscription or complimentary grant. Multiple subscriptions can be active together.",
+      "noSubscriptions": "This workspace has no active subscription.",
+      "paidSubscription": "Paid through Stripe",
+      "complimentarySubscription": "Complimentary plan access",
+      "effectiveBadge": "Sets limits",
+      "subscriptionCredits": "{value, plural, one {# credit per renewal} other {# credits per renewal}}",
+      "allPlans": "All plans",
+      "current": "Effective",
+      "planCredits": "{value, plural, one {# credit per month} other {# credits per month}}",
+      "dataPolicy": "Changing plan never deletes existing data. If the workspace is above a new limit, only new uploads and generations wait.",
+      "actions": {
+        "manage": "Manage billing",
+        "addSubscription": "Add subscription",
+        "ownerOnly": "Only a workspace owner can add subscriptions or change payment details."
+      },
+      "limits": {
+        "largestFile": "Largest file",
+        "totalStorage": "Total storage",
+        "videoGenerations": "Video generations",
+        "unlimited": "Unlimited",
+        "megabytes": "{value} MB",
+        "gigabytes": "{value} GB",
+        "perMonth": "{value} / month"
+      },
+      "statuses": {
+        "complimentary": "Complimentary",
+        "complimentaryUntil": "Granted access until {date}.",
+        "complimentaryForever": "Granted access with no end date.",
+        "cancels": "Cancels",
+        "endsOn": "This subscription ends on {date}.",
+        "willNotRenew": "This subscription will not renew.",
+        "trial": "Trial",
+        "trialConvertsOn": "The trial converts on {date}.",
+        "paymentFailed": "Payment failed",
+        "paymentFailedDetail": "Update the payment method to keep this subscription active.",
+        "active": "Active",
+        "renewsOn": "Renews on {date}."
+      }
+    },
+    "credits": {
+      "title": "Credits",
+      "subtitle": "Credits are pooled across {workspace}. Every grant and use is recorded here.",
+      "summary": {
+        "balance": "Spendable balance",
+        "granted": "Active grants",
+        "consumed": "Consumed",
+        "expired": "Expired unused"
+      },
+      "creditValue": "{value, plural, one {# credit} other {# credits}}",
+      "expiringTitle": "Credits expiring within 14 days",
+      "historyTitle": "Credit history",
+      "historyDescription": "The newest ledger entries are shown first.",
+      "historyTableLabel": "Workspace credit history",
+      "noHistory": "No credit activity has been recorded yet.",
+      "columns": {
+        "date": "Date",
+        "type": "Activity",
+        "change": "Change",
+        "expires": "Expires"
+      },
+      "types": {
+        "newUser": "Welcome grant",
+        "purchase": "Subscription credit",
+        "adjustment": "Manual adjustment",
+        "videoTask": "Video generation",
+        "refund": "Refund",
+        "usage": "Usage",
+        "other": "Other"
+      }
+    },
+    "files": {
+      "title": "Workspace files",
+      "description": "Files are private to {workspace} and visible to its members."
+    },
+    "reservations": {
+      "title": "Workspace reservations",
+      "description": "View upcoming and past reservations for {workspace}.",
+      "empty": "This workspace has no reservations yet.",
+      "serviceFallback": "Service #{id}",
+      "calendarTitle": "Reservation: {service}",
+      "calendarDescription": "Reservation #{number}",
+      "addToCalendar": "Add to Google Calendar",
+      "statuses": {
+        "pending": "Pending",
+        "confirmed": "Confirmed",
+        "canceled": "Canceled",
+        "expired": "Expired",
+        "other": "Unknown"
       }
     }
   },

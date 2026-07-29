@@ -1,11 +1,12 @@
 import {
   type CreditActor,
   type CreditRow,
+  findCreditSpendRefundPlan,
   findCreditByTransNo,
-  getOrgValidCredits,
+  getOrgCreditLedgerSnapshot,
   insertCredit,
+  insertCreditRefund,
   insertSpendCreditIfSufficient,
-  listAllCreditsByOrg,
 } from "@/models/credit";
 import { getFirstPaidOrderByOrg } from "@/models/order";
 import { AppError } from "@/lib/errors/app-error";
@@ -98,7 +99,7 @@ interface RefundCreditsParams {
 }
 
 function serializeMetadata(
-  metadata?: Record<string, unknown> | null
+  metadata?: Record<string, unknown> | null,
 ): string | null {
   if (!metadata) return null;
   return JSON.stringify(metadata);
@@ -130,7 +131,7 @@ function parseMetadata(value: string | null): Record<string, unknown> | null {
 
 function buildLedgerEntry(
   row: CreditRow,
-  includeAudit: boolean
+  includeAudit: boolean,
 ): CreditLedgerEntry {
   const entry: CreditLedgerEntry = {
     transNo: row.trans_no,
@@ -153,14 +154,6 @@ function buildLedgerEntry(
   return entry;
 }
 
-function isExpiredGrant(row: CreditRow, now: Date): boolean {
-  return (
-    row.credits > 0 &&
-    !!row.expired_at &&
-    row.expired_at.getTime() <= now.getTime()
-  );
-}
-
 function willExpireSoon(row: CreditRow, now: Date): boolean {
   if (row.credits <= 0 || !row.expired_at) {
     return false;
@@ -174,16 +167,18 @@ function willExpireSoon(row: CreditRow, now: Date): boolean {
 
 export async function getOrgCreditSummary(
   orgUuid: string,
-  options: CreditSummaryOptions = {}
+  options: CreditSummaryOptions = {},
 ): Promise<CreditSummary> {
-  const rows = await listAllCreditsByOrg(orgUuid);
-
   const now = new Date();
+  const { rows, logicalRows, balance } = await getOrgCreditLedgerSnapshot(
+    orgUuid,
+    now,
+  );
   const summary: CreditSummary = {
-    balance: 0,
-    granted: 0,
-    consumed: 0,
-    expired: 0,
+    balance: balance.available,
+    granted: balance.activeGranted,
+    consumed: balance.activeConsumed,
+    expired: balance.expired,
     expiringSoon: [],
     ledger: [],
   };
@@ -192,32 +187,27 @@ export async function getOrgCreditSummary(
   const includeLedger = options.includeLedger ?? true;
   const includeExpiring = options.includeExpiring ?? true;
   const includeAudit = options.includeAudit ?? false;
+  const ledgerRows = includeAudit ? rows : logicalRows;
 
   let ledgerCount = 0;
 
-  for (const row of rows) {
-    const expiredGrant = isExpiredGrant(row, now);
-
-    if (row.credits > 0) {
-      if (expiredGrant) {
-        summary.expired += row.credits;
-      } else {
-        summary.balance += row.credits;
-        summary.granted += row.credits;
-      }
-    } else if (row.credits < 0) {
-      // Negative credits capture consumption so we always subtract them.
-      summary.balance += row.credits;
-      summary.consumed += Math.abs(row.credits);
-    }
-
-    if (includeExpiring && willExpireSoon(row, now) && !expiredGrant) {
-      summary.expiringSoon.push(buildLedgerEntry(row, includeAudit));
-    }
-
+  for (const row of ledgerRows) {
     if (includeLedger && ledgerCount < ledgerLimit) {
       summary.ledger.push(buildLedgerEntry(row, includeAudit));
       ledgerCount += 1;
+    }
+  }
+
+  if (includeExpiring) {
+    for (const bucket of balance.buckets) {
+      if (bucket.remaining > 0 && willExpireSoon(bucket.source, now)) {
+        summary.expiringSoon.push({
+          ...buildLedgerEntry(bucket.source, includeAudit),
+          // Show what will actually disappear, not the grant's original face
+          // value before FEFO consumption.
+          credits: bucket.remaining,
+        });
+      }
     }
   }
 
@@ -237,16 +227,11 @@ export async function getOrgCredits(orgUuid: string): Promise<UserCredits> {
       status.is_recharged = true;
     }
 
-    const credits = await getOrgValidCredits(orgUuid);
-    if (credits?.length) {
-      for (const entry of credits) {
-        status.left_credits += entry.credits || 0;
-      }
-    }
-
-    if (status.left_credits < 0) {
-      status.left_credits = 0;
-    }
+    const summary = await getOrgCreditSummary(orgUuid, {
+      includeLedger: false,
+      includeExpiring: false,
+    });
+    status.left_credits = summary.balance;
 
     if (status.left_credits > 0) {
       status.is_pro = true;
@@ -302,7 +287,7 @@ export async function decreaseCredits({
   } catch (error) {
     logger.error(
       { err: error, org_uuid, user_uuid, trans_type, credits },
-      "decrease credits failed"
+      "decrease credits failed",
     );
     throw error;
   }
@@ -330,8 +315,8 @@ export async function increaseCredits({
       expired_at instanceof Date
         ? expired_at
         : expired_at
-        ? new Date(expired_at)
-        : null;
+          ? new Date(expired_at)
+          : null;
 
     const newCredit: Parameters<typeof insertCredit>[0] = {
       trans_no: trans_no ?? newId(),
@@ -350,7 +335,7 @@ export async function increaseCredits({
   } catch (error) {
     logger.error(
       { err: error, org_uuid, user_uuid, trans_type, credits, order_no },
-      "increase credits failed"
+      "increase credits failed",
     );
     throw error;
   }
@@ -362,12 +347,13 @@ export async function refundCreditsForTransaction({
   original_trans_no,
   actor = "system:credit_refund",
 }: RefundCreditsParams): Promise<string> {
-  const original = await findCreditByTransNo(original_trans_no);
-  if (!original) {
+  const plan = await findCreditSpendRefundPlan(original_trans_no);
+  if (!plan) {
     throw new AppError("CREDITS_TRANSACTION_NOT_FOUND", {
       message: `original credit transaction not found: ${original_trans_no}`,
     });
   }
+  const { original } = plan;
 
   // The tenancy check. `findCreditByTransNo` is unscoped by necessity — a
   // trans_no is globally unique and the caller holds only that — so this is
@@ -386,6 +372,12 @@ export async function refundCreditsForTransaction({
     });
   }
 
+  if (!plan.complete || plan.allocations.length === 0) {
+    throw new AppError("CREDITS_GRANT_FAILED", {
+      message: `credit transaction ${original_trans_no} has an incomplete FEFO allocation`,
+    });
+  }
+
   const refundTransNo = `refund_${original_trans_no}`;
   const existing = await findCreditByTransNo(refundTransNo);
   if (existing) {
@@ -393,29 +385,17 @@ export async function refundCreditsForTransaction({
   }
 
   try {
-    const created = await insertCredit({
-      trans_no: refundTransNo,
+    const created = await insertCreditRefund({
+      root_trans_no: refundTransNo,
+      original_trans_no,
+      original_trans_type: original.trans_type,
       created_at: new Date(getIsoTimestr()),
       org_uuid,
       user_uuid,
       trans_type: CreditsTransType.TaskAdjust,
-      credits: Math.abs(original.credits),
-      order_no: original.order_no,
-      expired_at: original.expired_at,
+      allocations: plan.allocations,
       actor,
-      // The reversed transaction. Also encoded in `trans_no` for idempotency,
-      // recorded here so reading the row does not require parsing its key.
-      metadata_json: serializeMetadata({
-        reverses_trans_no: original_trans_no,
-        reverses_trans_type: original.trans_type,
-      }),
     });
-
-    if (!created) {
-      throw new AppError("CREDITS_GRANT_FAILED", {
-        message: `failed to insert credit refund for ${original_trans_no}`,
-      });
-    }
 
     return created.trans_no;
   } catch (error) {
@@ -426,7 +406,7 @@ export async function refundCreditsForTransaction({
 
     logger.error(
       { err: error, original_trans_no, refund_trans_no: refundTransNo },
-      "refund credits failed"
+      "refund credits failed",
     );
     throw error;
   }

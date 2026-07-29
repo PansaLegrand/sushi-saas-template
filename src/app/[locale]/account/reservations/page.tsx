@@ -1,7 +1,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { auth } from "@/lib/auth";
 import { listOrgReservationsWithService } from "@/models/reservation";
 import { ReservationsConfig } from "@/config/reservations";
 import { buildMetadata, defaultMetaFallbacks } from "@/lib/seo";
@@ -14,7 +13,10 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  const tMeta = await getTranslations();
+  const [tMeta, t] = await Promise.all([
+    getTranslations(),
+    getTranslations("account.reservations"),
+  ]);
   const keywords =
     typeof (tMeta as any).raw === "function"
       ? (tMeta as any).raw("metadata.keywords")
@@ -23,19 +25,34 @@ export async function generateMetadata({
   return buildMetadata({
     locale,
     path: "/account/reservations",
-    title: `My Reservations | ${tMeta("metadata.title") || defaultMetaFallbacks.title}`,
-    description: tMeta("metadata.description") || defaultMetaFallbacks.description,
+    title: `${t("title")} | ${tMeta("metadata.title") || defaultMetaFallbacks.title}`,
+    description:
+      tMeta("metadata.description") || defaultMetaFallbacks.description,
     keywords,
     noindex: true,
   });
 }
 
-async function getSession() {
-  const h = await headers();
-  return auth.api.getSession({ headers: h });
+function reservationStatusKey(status: string): string {
+  switch (status) {
+    case "pending":
+      return "statuses.pending";
+    case "confirmed":
+      return "statuses.confirmed";
+    case "canceled":
+      return "statuses.canceled";
+    case "expired":
+      return "statuses.expired";
+    default:
+      return "statuses.other";
+  }
 }
 
-export default async function MyReservationsPage() {
+export default async function WorkspaceReservationsPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
   if (!ReservationsConfig.enabled) redirect("/");
   // Resolves session and tenant in one call. The previous version fell back to
   // looking the account up by email, which `users` only makes unique per
@@ -44,41 +61,74 @@ export default async function MyReservationsPage() {
   const ctx = await getOrgContextFromHeaders(await headers());
   if (!ctx) redirect("/login");
 
+  const { locale } = await params;
+  const t = await getTranslations("account.reservations");
   const reservations = await listOrgReservationsWithService(ctx.orgUuid);
-  const sorted = reservations.sort((a, b) => new Date(a.start_at as any).getTime() - new Date(b.start_at as any).getTime());
+  const sorted = reservations.sort(
+    (a, b) =>
+      new Date(a.start_at as any).getTime() -
+      new Date(b.start_at as any).getTime(),
+  );
 
   return (
     <main className="mx-auto flex min-h-[calc(100vh-6rem)] max-w-3xl flex-col gap-8 px-4 py-16">
       <header className="space-y-2">
-        <h1 className="text-3xl font-semibold">My Reservations</h1>
-        <p className="text-sm text-muted-foreground">View upcoming and past reservations.</p>
+        <h1 className="text-3xl font-semibold">{t("title")}</h1>
+        <p className="text-sm text-muted-foreground">
+          {t("description", { workspace: ctx.orgName })}
+        </p>
       </header>
 
       <section className="space-y-3 rounded-lg border border-border bg-card p-6 shadow-sm">
         {sorted.length === 0 ? (
-          <p className="text-sm text-muted-foreground">You have no reservations yet.</p>
+          <p className="text-sm text-muted-foreground">
+            {t("empty")}
+          </p>
         ) : (
           <ul className="divide-y divide-border">
             {sorted.map((r) => {
               const d = new Date(r.start_at as any);
-              const when = d.toLocaleString();
+              const when = d.toLocaleString(locale);
               const start = new Date(r.start_at as any);
               const end = new Date(r.end_at as any);
               const gUrl = buildGoogleCalendarUrl({
-                title: `Reservation: ${r.service?.title ?? `Service #${r.service_id}`}`,
+                title: t("calendarTitle", {
+                  service:
+                    r.service?.title ??
+                    t("serviceFallback", { id: r.service_id }),
+                }),
                 start,
                 end,
-                description: `Reservation #${r.reservation_no}`,
+                description: t("calendarDescription", {
+                  number: r.reservation_no,
+                }),
                 timeZone: ReservationsConfig.baseTimeZone,
               });
               return (
-                <li key={r.reservation_no} className="flex items-center justify-between py-3">
-                  <div className="space-y-1">
-                    <p className="font-medium">{r.service?.title ?? `Service #${r.service_id}`}</p>
-                    <p className="text-sm text-muted-foreground">{when} · {r.timezone}</p>
-                    <a href={gUrl} className="text-xs text-blue-600 underline" target="_blank" rel="noreferrer">Add to Google Calendar</a>
+                <li
+                  key={r.reservation_no}
+                  className="flex flex-col items-start gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0 space-y-1">
+                    <p className="font-medium">
+                      {r.service?.title ??
+                        t("serviceFallback", { id: r.service_id })}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {when} · {r.timezone}
+                    </p>
+                    <a
+                      href={gUrl}
+                      className="inline-flex text-xs font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {t("addToCalendar")}
+                    </a>
                   </div>
-                  <span className="rounded-full border px-3 py-1 text-xs capitalize text-muted-foreground">{r.status}</span>
+                  <span className="shrink-0 rounded-full border px-3 py-1 text-xs capitalize text-muted-foreground">
+                    {t(reservationStatusKey(r.status))}
+                  </span>
                 </li>
               );
             })}

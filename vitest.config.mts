@@ -107,9 +107,6 @@ export default defineConfig({
       ],
       exclude: [
         "**/*.d.ts",
-        // Config surfaces, not logic: no branches worth asserting.
-        "src/lib/source.ts",
-        "src/services/page-loader.ts",
       ],
       // A ratchet, not a target. Raise these when a run comes in above them;
       // never lower one to make a red build green — that is the signal working.

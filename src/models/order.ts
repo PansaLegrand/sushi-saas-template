@@ -1,7 +1,6 @@
 import { orders } from "@/db/schema";
 import { db } from "@/db";
-import { asc, desc, eq, gte } from "drizzle-orm";
-import { and } from "drizzle-orm";
+import { and, asc, desc, eq, gte, or } from "drizzle-orm";
 
 import { scopedToOrg } from "./organization";
 
@@ -41,7 +40,7 @@ export async function insertOrder(data: OrderInsert) {
  * `findOrderByCheckoutIntent`.
  */
 export async function insertOrderForCheckoutIntent(
-  data: OrderInsert & { checkout_intent_id: string }
+  data: OrderInsert & { checkout_intent_id: string },
 ): Promise<OrderRow | undefined> {
   const [order] = await db()
     .insert(orders)
@@ -56,7 +55,7 @@ export async function insertOrderForCheckoutIntent(
 
 export async function findOrderByCheckoutIntent(
   orgUuid: string,
-  checkoutIntentId: string
+  checkoutIntentId: string,
 ): Promise<OrderRow | undefined> {
   const [order] = await db()
     .select()
@@ -64,8 +63,8 @@ export async function findOrderByCheckoutIntent(
     .where(
       and(
         scopedToOrg(orders.org_uuid, orgUuid),
-        eq(orders.checkout_intent_id, checkoutIntentId)
-      )
+        eq(orders.checkout_intent_id, checkoutIntentId),
+      ),
     )
     .limit(1);
 
@@ -80,7 +79,7 @@ export async function findOrderByCheckoutIntent(
  * the row's `org_uuid` against their own context.
  */
 export async function findOrderByOrderNo(
-  order_no: string
+  order_no: string,
 ): Promise<typeof orders.$inferSelect | undefined> {
   const [order] = await db()
     .select()
@@ -92,7 +91,7 @@ export async function findOrderByOrderNo(
 }
 
 export async function getFirstPaidOrderByOrg(
-  orgUuid: string
+  orgUuid: string,
 ): Promise<typeof orders.$inferSelect | undefined> {
   const [order] = await db()
     .select()
@@ -100,8 +99,8 @@ export async function getFirstPaidOrderByOrg(
     .where(
       and(
         scopedToOrg(orders.org_uuid, orgUuid),
-        eq(orders.status, OrderStatus.Paid)
-      )
+        eq(orders.status, OrderStatus.Paid),
+      ),
     )
     .orderBy(asc(orders.created_at))
     .limit(1);
@@ -110,7 +109,7 @@ export async function getFirstPaidOrderByOrg(
 }
 
 export async function getFirstPaidOrderByUserEmail(
-  user_email: string
+  user_email: string,
 ): Promise<typeof orders.$inferSelect | undefined> {
   const [order] = await db()
     .select()
@@ -118,8 +117,8 @@ export async function getFirstPaidOrderByUserEmail(
     .where(
       and(
         eq(orders.user_email, user_email),
-        eq(orders.status, OrderStatus.Paid)
-      )
+        eq(orders.status, OrderStatus.Paid),
+      ),
     )
     .orderBy(desc(orders.created_at))
     .limit(1);
@@ -132,7 +131,7 @@ export async function updateOrderStatus(
   status: string,
   paid_at: string,
   paid_email: string,
-  paid_detail: string
+  paid_detail: string,
 ) {
   const [order] = await db()
     .update(orders)
@@ -146,7 +145,7 @@ export async function updateOrderStatus(
 export async function updateOrderSession(
   order_no: string,
   stripe_session_id: string,
-  order_detail: string
+  order_detail: string,
 ) {
   const [order] = await db()
     .update(orders)
@@ -168,7 +167,7 @@ export async function updateOrderSubscription(
   paid_at: string,
   sub_times: number,
   paid_email: string,
-  paid_detail: string
+  paid_detail: string,
 ) {
   const [order] = await db()
     .update(orders)
@@ -191,7 +190,7 @@ export async function updateOrderSubscription(
 }
 
 export async function getOrdersByOrg(
-  orgUuid: string
+  orgUuid: string,
 ): Promise<(typeof orders.$inferSelect)[] | undefined> {
   const data = await db()
     .select()
@@ -199,8 +198,8 @@ export async function getOrdersByOrg(
     .where(
       and(
         scopedToOrg(orders.org_uuid, orgUuid),
-        eq(orders.status, OrderStatus.Paid)
-      )
+        eq(orders.status, OrderStatus.Paid),
+      ),
     )
     .orderBy(desc(orders.created_at));
 
@@ -208,7 +207,7 @@ export async function getOrdersByOrg(
 }
 
 export async function getOrdersByUserEmail(
-  user_email: string
+  user_email: string,
 ): Promise<(typeof orders.$inferSelect)[] | undefined> {
   const data = await db()
     .select()
@@ -216,8 +215,8 @@ export async function getOrdersByUserEmail(
     .where(
       and(
         eq(orders.user_email, user_email),
-        eq(orders.status, OrderStatus.Paid)
-      )
+        eq(orders.status, OrderStatus.Paid),
+      ),
     )
     .orderBy(desc(orders.created_at));
 
@@ -225,7 +224,7 @@ export async function getOrdersByUserEmail(
 }
 
 export async function getOrdersByPaidEmail(
-  paid_email: string
+  paid_email: string,
 ): Promise<(typeof orders.$inferSelect)[] | undefined> {
   const data = await db()
     .select()
@@ -233,8 +232,8 @@ export async function getOrdersByPaidEmail(
     .where(
       and(
         eq(orders.paid_email, paid_email),
-        eq(orders.status, OrderStatus.Paid)
-      )
+        eq(orders.status, OrderStatus.Paid),
+      ),
     )
     .orderBy(desc(orders.created_at));
 
@@ -243,7 +242,7 @@ export async function getOrdersByPaidEmail(
 
 export async function getOrderCountByDate(
   startTime: string,
-  status?: string
+  status?: string,
 ): Promise<Map<string, number> | undefined> {
   const data = await db()
     .select({ created_at: orders.created_at })
@@ -263,14 +262,39 @@ export async function getOrderCountByDate(
 
 export async function findOrderBySubscriptionPeriod(
   sub_id: string,
-  sub_period_start: number
+  sub_period_start: number,
 ): Promise<typeof orders.$inferSelect | undefined> {
   const [order] = await db()
     .select()
     .from(orders)
     .where(
-      and(eq(orders.sub_id, sub_id), eq(orders.sub_period_start, sub_period_start))
+      and(
+        eq(orders.sub_id, sub_id),
+        eq(orders.sub_period_start, sub_period_start),
+      ),
     )
     .limit(1);
+  return order;
+}
+
+export async function findOrderByStripePayment(input: {
+  paymentIntentId?: string;
+  chargeId?: string;
+}): Promise<typeof orders.$inferSelect | undefined> {
+  const predicate =
+    input.paymentIntentId && input.chargeId
+      ? or(
+          eq(orders.stripe_payment_intent_id, input.paymentIntentId),
+          eq(orders.stripe_charge_id, input.chargeId),
+        )
+      : input.paymentIntentId
+        ? eq(orders.stripe_payment_intent_id, input.paymentIntentId)
+        : input.chargeId
+          ? eq(orders.stripe_charge_id, input.chargeId)
+          : undefined;
+
+  if (!predicate) return undefined;
+
+  const [order] = await db().select().from(orders).where(predicate).limit(1);
   return order;
 }

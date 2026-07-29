@@ -15,6 +15,7 @@ import type Stripe from "stripe";
 
 const mocks = vi.hoisted(() => ({
   upsertStripeSubscription: vi.fn(),
+  findSubscriptionByStripeId: vi.fn(),
   findUserByStripeCustomerId: vi.fn(),
   getUserUuidsByEmail: vi.fn(),
   notifySlackError: vi.fn(),
@@ -25,7 +26,11 @@ vi.mock("@/models/subscription", async () => {
   const actual = await vi.importActual<typeof import("@/models/subscription")>(
     "@/models/subscription"
   );
-  return { ...actual, upsertStripeSubscription: mocks.upsertStripeSubscription };
+  return {
+    ...actual,
+    upsertStripeSubscription: mocks.upsertStripeSubscription,
+    findSubscriptionByStripeId: mocks.findSubscriptionByStripeId,
+  };
 });
 
 // The sync path now resolves a tenant as well as a user; without this the
@@ -75,6 +80,7 @@ function stripeSubscription(overrides: Record<string, unknown> = {}): Stripe.Sub
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.findSubscriptionByStripeId.mockResolvedValue(undefined);
   mocks.upsertStripeSubscription.mockResolvedValue({ applied: true, row: { uuid: "row-1" } });
   mocks.tierForPriceIds.mockReturnValue("plus");
 });
@@ -201,5 +207,29 @@ describe("syncStripeSubscription", () => {
     expect(await syncStripeSubscription(stripeSubscription(), EVENT_AT)).toEqual({
       status: "stale",
     });
+  });
+
+  it("does not restore an erased identity from delayed webhook metadata", async () => {
+    mocks.findSubscriptionByStripeId.mockResolvedValue({
+      user_uuid: "erased-subject",
+      org_uuid: "deleted-org",
+    });
+
+    await syncStripeSubscription(
+      stripeSubscription({
+        metadata: {
+          user_uuid: "old-live-user",
+          org_uuid: "old-live-org",
+        },
+      }),
+      EVENT_AT,
+    );
+
+    expect(mocks.upsertStripeSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_uuid: "erased-subject",
+        org_uuid: "deleted-org",
+      }),
+    );
   });
 });

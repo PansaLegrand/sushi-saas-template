@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AdminPageHeader } from "@admin/components/admin-page-header";
 import { getAdminContext } from "@admin/lib/authz";
 import {
   asOrgUuid,
@@ -59,7 +60,11 @@ export default async function AdminOrganizationPage({
     listMembersWithUsers(org.id),
     // The audit columns: this is an admin surface, so `actor` and `metadata`
     // are included. See the note on `includeAudit` in src/services/credit.ts.
-    getOrgCreditSummary(org.uuid, { includeLedger: true, ledgerLimit: 50, includeAudit: true }),
+    getOrgCreditSummary(org.uuid, {
+      includeLedger: true,
+      ledgerLimit: 50,
+      includeAudit: true,
+    }),
     getPlanSnapshot(asOrgUuid(org.uuid)),
     // Every subscription, not just the active one. A canceled row beside a new
     // one is the shape of an upgrade, and hiding it makes a support question
@@ -70,15 +75,17 @@ export default async function AdminOrganizationPage({
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <Link href="/organizations" className="text-sm underline">
-          ← Organizations
-        </Link>
-        <h1 className="text-2xl font-semibold">{org.name}</h1>
-        <p className="text-sm text-muted-foreground">
-          {org.is_personal ? "Personal workspace" : "Team"} · {org.slug}
-        </p>
-      </header>
+      <Link
+        href="/organizations"
+        className="inline-flex text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        ← Organizations
+      </Link>
+      <AdminPageHeader
+        eyebrow="Organization"
+        title={org.name}
+        description={`${org.is_personal ? "Personal workspace" : "Team"} · ${org.slug}`}
+      />
 
       <section className="rounded-lg border p-4">
         <h2 className="mb-3 text-lg font-medium">Identity</h2>
@@ -111,10 +118,7 @@ export default async function AdminOrganizationPage({
             value={plan.subscription?.currentPeriodEnd ?? "—"}
             mono
           />
-          <Field
-            label="Source"
-            value={plan.subscription?.source ?? "—"}
-          />
+          <Field label="Source" value={plan.subscription?.source ?? "—"} />
         </dl>
         {plan.subscription?.cancelAtPeriodEnd && (
           // The answer to "I cancelled and I am still being charged": they are
@@ -211,8 +215,8 @@ export default async function AdminOrganizationPage({
         <h2 className="mb-1 text-lg font-medium">Credits</h2>
         <p className="mb-3 text-sm text-muted-foreground">
           Pooled across the whole organization. <strong>Balance</strong> is what
-          can be spent today; <strong>Balance after</strong> is the running ledger
-          total, which counts expired grants and so will differ.
+          can be spent today; <strong>Balance after</strong> is the running
+          ledger total, which counts expired grants and so will differ.
         </p>
         <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[

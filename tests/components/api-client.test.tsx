@@ -10,6 +10,7 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { getPlan } from "@/api/plan";
 import { api } from "@/lib/api/client";
 import {
   ClientApiError,
@@ -42,6 +43,7 @@ function jsonResponse(body: unknown, status = 200) {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  window.history.replaceState({}, "", "/");
 });
 
 describe("api client", () => {
@@ -131,6 +133,21 @@ describe("api client", () => {
     await api.get("/api/storage/files", { query: { download: 1, cursor: undefined } });
 
     expect(fetchMock.mock.calls[0][0]).toBe("/api/storage/files?download=1");
+  });
+
+  it("carries this tab's workspace query into tenant API calls", async () => {
+    window.history.replaceState({}, "", "/account/billing?org=team-a");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse({ code: 0, message: "ok", data: { tier: "free" } })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getPlan();
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.headers["x-organization-slug"]).toBe("team-a");
   });
 
   it("localizes the message rather than echoing the server's English", async () => {

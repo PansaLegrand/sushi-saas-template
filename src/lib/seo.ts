@@ -1,10 +1,14 @@
 const normalizeBaseUrl = (url: string) => url.replace(/\/+$/, "");
 const normalizePath = (path?: string) => {
   if (!path || path === "/") return "";
-  return path.startsWith("/") ? path.replace(/\/+$/, "") : `/${path.replace(/\/+$/, "")}`;
+  return path.startsWith("/")
+    ? path.replace(/\/+$/, "")
+    : `/${path.replace(/\/+$/, "")}`;
 };
 
-const normalizeKeywords = (keywords?: string | string[]): string[] | undefined => {
+const normalizeKeywords = (
+  keywords?: string | string[],
+): string[] | undefined => {
   if (!keywords) return undefined;
   if (Array.isArray(keywords)) return keywords;
   return keywords
@@ -25,7 +29,7 @@ export const baseUrlFallback = normalizeBaseUrl(FALLBACK_BASE_URL);
 type BuildMetadataOptions = {
   locale: string;
   /**
-   * Path relative to locale root, e.g. "/", "/pricing", "/blogs/quick-start"
+   * Path relative to locale root, e.g. "/", "/pricing", "/account/billing"
    */
   path?: string;
   title: string;
@@ -82,6 +86,7 @@ export function buildMetadata({
 }
 
 export const defaultMetaFallbacks = {
-  title: "Sushi SaaS - Next.js Starter Kit for Real SaaS",
-  description: "Launch-ready Next.js SaaS starter with auth, billing, content, and localization.",
+  title: `${APP_NAME} — SaaS application`,
+  description:
+    "A production-oriented SaaS application with authentication, billing, teams, and localization.",
 };

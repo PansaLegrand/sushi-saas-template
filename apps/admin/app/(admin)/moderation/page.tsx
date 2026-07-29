@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { AdminPageHeader } from "@admin/components/admin-page-header";
 import { getAdminContext } from "@admin/lib/authz";
 import { countAdminBannedUsers, listAdminBannedUsers } from "@admin/lib/data";
 import BanUserPanel from "@admin/components/ban-user";
@@ -30,8 +31,16 @@ export default async function ModerationPage({
 
   return (
     <div className="grid grid-cols-1 gap-6">
+      <AdminPageHeader
+        title="Moderation"
+        description="Suspend abusive accounts, revoke their sessions, and stop repeat signups."
+        actions={
+          <p className="text-sm text-muted-foreground">{total} suspended</p>
+        }
+      />
+
       <section className="rounded-lg border p-4">
-        <h2 className="text-lg font-medium">Abuse</h2>
+        <h2 className="text-lg font-medium">How suspension works</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Suspending an account blocks sign-in and kills every live session. It
           deliberately leaves the row, the credit ledger, and the uploads alone:

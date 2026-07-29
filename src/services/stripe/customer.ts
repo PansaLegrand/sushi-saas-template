@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import { newStripeClient } from "@/integrations/stripe";
+import { logger } from "@/lib/logger/server";
 import { setOrganizationStripeCustomerId } from "@/models/organization";
 
 /**
@@ -25,26 +26,66 @@ type OrgBillingSubject = {
   stripe_customer_id?: string | null;
 };
 
-export async function getOrCreateCustomerIdForOrg(
-  org: OrgBillingSubject
-): Promise<string> {
-  if (org.stripe_customer_id && org.stripe_customer_id.length > 0) {
-    return org.stripe_customer_id;
+async function rememberCustomerId(
+  orgUuid: string,
+  customerId: string,
+): Promise<void> {
+  try {
+    await setOrganizationStripeCustomerId(orgUuid, customerId);
+  } catch (error) {
+    // Stripe already performed the external effect. Returning its stable id
+    // keeps this checkout available; the next request can adopt it by metadata.
+    // The warning is essential, though—silently swallowing the failed local
+    // link would hide a broken database until somebody opened the portal.
+    logger.warn(
+      {
+        err: error,
+        event: "stripe.customer_link_failed",
+        org_id: orgUuid,
+        stripe_customer_id: customerId,
+      },
+      "created Stripe customer could not be linked to its organization",
+    );
   }
+}
 
+export async function getOrCreateCustomerIdForOrg(
+  org: OrgBillingSubject,
+): Promise<string> {
   const client = newStripeClient();
   const stripe: Stripe = client.stripe();
+  let replacedCustomerId: string | undefined;
+
+  if (org.stripe_customer_id && org.stripe_customer_id.length > 0) {
+    try {
+      const stored = await stripe.customers.retrieve(org.stripe_customer_id);
+      if (!stored.deleted) return stored.id;
+      replacedCustomerId = org.stripe_customer_id;
+    } catch (error) {
+      const candidate = error as {
+        statusCode?: number;
+        code?: string;
+        raw?: { code?: string };
+      };
+      const missing =
+        candidate.statusCode === 404 ||
+        candidate.code === "resource_missing" ||
+        candidate.raw?.code === "resource_missing";
+      if (!missing) throw error;
+      replacedCustomerId = org.stripe_customer_id;
+    }
+  }
 
   // Adopt a customer we created for this org but failed to record. A crash
   // between `customers.create` and the database write would otherwise strand
   // that customer and mint a fresh one on every retry.
   const list = await stripe.customers.list({ email: org.email, limit: 100 });
   const existing = list.data.find(
-    (candidate) => candidate.metadata?.org_uuid === org.orgUuid
+    (candidate) => candidate.metadata?.org_uuid === org.orgUuid,
   );
 
   if (existing) {
-    await setOrganizationStripeCustomerId(org.orgUuid, existing.id).catch(() => void 0);
+    await rememberCustomerId(org.orgUuid, existing.id);
     return existing.id;
   }
 
@@ -65,10 +106,12 @@ export async function getOrCreateCustomerIdForOrg(
       // The list/adopt check protects a later retry. This key protects two
       // checkouts that reach customer creation concurrently, before either one
       // has saved the new customer id on the organization.
-      idempotencyKey: `org-customer:${org.orgUuid}`,
-    }
+      idempotencyKey: replacedCustomerId
+        ? `org-customer:${org.orgUuid}:replace:${replacedCustomerId}`
+        : `org-customer:${org.orgUuid}`,
+    },
   );
 
-  await setOrganizationStripeCustomerId(org.orgUuid, created.id).catch(() => void 0);
+  await rememberCustomerId(org.orgUuid, created.id);
   return created.id;
 }

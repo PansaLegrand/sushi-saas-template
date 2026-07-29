@@ -6,6 +6,7 @@ import { notifySlackError } from "@/integrations/slack";
 import {
   SubscriptionStatus,
   endSubscription,
+  findSubscriptionByStripeId,
   insertManualSubscription,
   listSubscriptionsByOrg,
   upsertStripeSubscription,
@@ -52,7 +53,13 @@ export async function syncStripeSubscription(
 ): Promise<SyncOutcome> {
   const log = logger.child({ event: "subscription.sync", stripe_subscription_id: subscription.id });
 
-  const userUuid = await resolveUserUuid(subscription);
+  // Once a Stripe subscription has been attributed, its local row is the
+  // identity boundary. Metadata on a delayed webhook may still contain a
+  // pre-erasure user uuid; preferring it would reintroduce that identifier into
+  // a pseudonymized financial record. It also prevents a dashboard metadata
+  // edit from moving a paid subscription between tenants.
+  const existing = await findSubscriptionByStripeId(subscription.id);
+  const userUuid = existing?.user_uuid ?? (await resolveUserUuid(subscription));
   if (!userUuid) {
     // Loud on purpose. A subscription we cannot attribute is a paying customer
     // with no access, and it will not fix itself.
@@ -79,7 +86,8 @@ export async function syncStripeSubscription(
     return { status: "unmapped", reason: "no-tier" };
   }
 
-  const orgUuid = await resolveOrgUuid(subscription, userUuid);
+  const orgUuid =
+    existing?.org_uuid ?? (await resolveOrgUuid(subscription, userUuid));
   if (!orgUuid) {
     // Same reasoning as an unattributable user: entitlements resolve per org,
     // so a subscription with no org is a paying customer with no access.

@@ -11,7 +11,10 @@ import {
   type BlocklistSearch,
   type EmailBlocklistRow,
 } from "@/models/email-blocklist";
-import { countSessionsByUserId, deleteSessionsByUserId } from "@/models/session";
+import {
+  countSessionsByUserId,
+  deleteSessionsByUserId,
+} from "@/models/session";
 import {
   findUserById,
   findUserByUuid,
@@ -65,7 +68,10 @@ function isUniqueViolation(e: unknown): boolean {
   return cause?.code === "23505";
 }
 
-function truncate(value: string | null | undefined, max: number): string | null {
+function truncate(
+  value: string | null | undefined,
+  max: number,
+): string | null {
   const trimmed = (value ?? "").trim();
   if (!trimmed) return null;
   return trimmed.length > max ? trimmed.slice(0, max) : trimmed;
@@ -113,7 +119,7 @@ export interface SignupCheck {
  * door. The ban check below fails open for the same reason.
  */
 export async function checkSignupAllowed(
-  email: string | null | undefined
+  email: string | null | undefined,
 ): Promise<SignupCheck> {
   const normalizedEmail = normalizeEmail(email);
   const normalizedDomain = normalizeEmailDomain(email);
@@ -139,7 +145,7 @@ export async function checkSignupAllowed(
   } catch (e) {
     logger.error(
       { err: e, event: "moderation.signup_check_failed" },
-      "signup blocklist check failed; allowing signup"
+      "signup blocklist check failed; allowing signup",
     );
     return { allowed: true };
   }
@@ -153,19 +159,12 @@ export async function checkSignupAllowed(
  * second factor alike. Blocking here rather than on a specific endpoint is what
  * makes "banned" mean banned instead of "banned from one of the four ways in".
  *
- * Fails open, for the reason stated on `checkSignupAllowed`.
+ * Fails closed. A database outage must not turn a suspended account back into
+ * an active one; the caller lets sign-in fail until state can be verified.
  */
 export async function isUserIdBanned(userId: string): Promise<boolean> {
-  try {
-    const user = await findUserById(userId);
-    return Boolean(user?.banned_at);
-  } catch (e) {
-    logger.error(
-      { err: e, event: "moderation.ban_check_failed", user_id: userId },
-      "ban check failed; allowing sign-in"
-    );
-    return false;
-  }
+  const user = await findUserById(userId);
+  return Boolean(user?.banned_at);
 }
 
 // ---------------------------------------------------------------------------
@@ -212,9 +211,7 @@ export type BanOutcome =
   | { status: "not-found" }
   | { status: "ok"; result: BanResult };
 
-export async function banUserAccount(
-  input: BanUserInput
-): Promise<BanOutcome> {
+export async function banUserAccount(input: BanUserInput): Promise<BanOutcome> {
   const target = await findUserByUuid(input.userUuid);
   if (!target) return { status: "not-found" };
 
@@ -269,7 +266,7 @@ export async function banUserAccount(
       blocklisted: Boolean(blocklisted),
       already_banned: !applied,
     },
-    "account suspended"
+    "account suspended",
   );
 
   const state = await getBanState(target.uuid);
@@ -344,7 +341,7 @@ export async function unbanUserAccount(input: {
       accounts_affected: accounts.length,
       blocklist_entries_remaining: remaining.length,
     },
-    "account suspension lifted"
+    "account suspension lifted",
   );
 
   const state = await getBanState(target.uuid);
@@ -431,21 +428,21 @@ export async function addBlocklistEntry(input: {
       actor_uuid: input.actorUuid,
       expires_at: input.expiresAt?.toISOString() ?? null,
     },
-    "signup blocklist entry added"
+    "signup blocklist entry added",
   );
 
   return { status: "added", entry: toBlocklistEntry(row) };
 }
 
 export async function removeBlocklistEntry(
-  uuid: string
+  uuid: string,
 ): Promise<BlocklistEntry | null> {
   const row = await deleteBlocklistEntryByUuid(uuid);
   if (!row) return null;
 
   logger.warn(
     { event: "moderation.blocklist_removed", scope: row.scope },
-    "signup blocklist entry removed"
+    "signup blocklist entry removed",
   );
 
   return toBlocklistEntry(row);
@@ -470,7 +467,7 @@ function buildBlocklistSearch(query?: string): BlocklistSearch | undefined {
   if (!text) return undefined;
 
   const keys = [normalizeEmail(text), normalizeEmailDomain(text)].filter(
-    (key): key is string => Boolean(key)
+    (key): key is string => Boolean(key),
   );
 
   return { text, keys };
@@ -479,7 +476,7 @@ function buildBlocklistSearch(query?: string): BlocklistSearch | undefined {
 export async function listBlocklist(
   page: number = 1,
   limit: number = 50,
-  query?: string
+  query?: string,
 ): Promise<{ items: BlocklistEntry[]; total: number }> {
   const search = buildBlocklistSearch(query);
 
@@ -493,7 +490,7 @@ export async function listBlocklist(
 
 /** Every live rule that would stop this address from registering. */
 export async function findMatchingBlocklistEntries(
-  email: string | null | undefined
+  email: string | null | undefined,
 ): Promise<BlocklistEntry[]> {
   const matches = await findActiveBlocklistMatches({
     normalizedEmail: normalizeEmail(email),

@@ -37,6 +37,38 @@ function referencedId(value: unknown): string | null {
 }
 
 /**
+ * The durable payment receipt saved on an order.
+ *
+ * Stripe objects contain addresses, email, names, card fingerprints, metadata,
+ * and provider-internal fields that are not needed to prove fulfillment. Keep a
+ * small allowlist instead: these identifiers are enough to reconcile the local
+ * order against Stripe without turning `orders.paid_detail` into a second copy
+ * of the customer's Stripe profile.
+ */
+export function extractCheckoutPaymentReceipt(
+  session: Stripe.Checkout.Session,
+) {
+  const paymentIntent =
+    session.payment_intent && typeof session.payment_intent === "object"
+      ? session.payment_intent
+      : null;
+  return {
+    schema_version: 1,
+    checkout_session_id: session.id,
+    payment_intent_id: referencedId(session.payment_intent),
+    charge_id: referencedId(paymentIntent?.latest_charge),
+    subscription_id: referencedId(session.subscription),
+    invoice_id: referencedId(session.invoice),
+    customer_id: referencedId(session.customer),
+    payment_status: session.payment_status ?? null,
+    checkout_status: session.status ?? null,
+    amount_total:
+      typeof session.amount_total === "number" ? session.amount_total : null,
+    currency: session.currency ?? null,
+  };
+}
+
+/**
  * Read from the object's own `object` discriminator rather than switching on
  * `event.type`.
  *
@@ -45,7 +77,9 @@ function referencedId(value: unknown): string | null {
  * event type this app starts handling would extract nothing and log no
  * complaint. The discriminator covers every event carrying a shape we know.
  */
-export function extractWebhookReceipt(event: Stripe.Event): StripeWebhookReceipt {
+export function extractWebhookReceipt(
+  event: Stripe.Event,
+): StripeWebhookReceipt {
   // Through `unknown`, because `event.data.object` is a union of ~70 Stripe
   // types and the compiler is right that none of them is an index signature.
   // Every read below is guarded, so a shape without the field yields null rather

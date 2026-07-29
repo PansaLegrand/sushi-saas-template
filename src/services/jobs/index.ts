@@ -7,8 +7,13 @@ import {
   type JobRow,
 } from "@/models/job";
 import { jobHandlers } from "./handlers";
-import type { JobPayloads, JobType } from "./types";
+import type {
+  JobHandlerContext,
+  JobPayloads,
+  JobType,
+} from "./types";
 import { logger } from "@/lib/logger/server";
+import { AppError } from "@/lib/errors";
 
 export type { JobPayloads, JobType } from "./types";
 
@@ -18,11 +23,18 @@ const STALE_LOCK_MS = 5 * 60 * 1000;
 const BACKOFF_BASE_MS = 30 * 1000;
 /** Finished jobs are pruned after this long. */
 const RETENTION_MS = 14 * 24 * 60 * 60 * 1000;
+/** Bound one provider call well below the five-minute lease window. */
+const HANDLER_TIMEOUT_MS = 20 * 1000;
+/** Leave headroom in the 60-second cron request for cleanup and reporting. */
+const DRAIN_DEADLINE_MS = 40 * 1000;
 
 export interface EnqueueOptions {
   runAt?: Date;
   maxAttempts?: number;
   dedupeKey?: string;
+  subjectUserUuid?: string;
+  subjectOrgUuid?: string;
+  retryFailed?: boolean;
 }
 
 /**
@@ -41,7 +53,7 @@ export interface EnqueueOptions {
 export async function enqueueJob<T extends JobType>(
   type: T,
   payload: JobPayloads[T],
-  options: EnqueueOptions = {}
+  options: EnqueueOptions = {},
 ): Promise<boolean> {
   const row = await insertJob({
     type,
@@ -49,6 +61,9 @@ export async function enqueueJob<T extends JobType>(
     runAt: options.runAt,
     maxAttempts: options.maxAttempts,
     dedupeKey: options.dedupeKey,
+    subjectUserUuid: options.subjectUserUuid,
+    subjectOrgUuid: options.subjectOrgUuid,
+    retryFailed: options.retryFailed,
   });
 
   return Boolean(row);
@@ -62,7 +77,7 @@ export async function enqueueJob<T extends JobType>(
 export async function enqueueJobSafe<T extends JobType>(
   type: T,
   payload: JobPayloads[T],
-  options: EnqueueOptions = {}
+  options: EnqueueOptions = {},
 ): Promise<boolean> {
   try {
     return await enqueueJob(type, payload, options);
@@ -77,33 +92,89 @@ export interface RunJobsResult {
   succeeded: number;
   retrying: number;
   failed: number;
+  leaseLost: number;
   results: {
     uuid: string;
     type: string;
-    outcome: "succeeded" | "retrying" | "failed" | "unknown_type";
+    outcome:
+      | "succeeded"
+      | "retrying"
+      | "failed"
+      | "unknown_type"
+      | "lease_lost";
     error?: string;
   }[];
 }
 
-async function runOne(job: JobRow): Promise<RunJobsResult["results"][number]> {
+export interface RunJobsOptions {
+  handlerTimeoutMs?: number;
+  drainDeadlineMs?: number;
+}
+
+async function runWithTimeout(
+  operation: () => Promise<void>,
+  timeoutMs: number,
+  controller: AbortController,
+): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(
+        new AppError("SERVICE_UNAVAILABLE", {
+          message: `job handler timed out after ${timeoutMs}ms`,
+        }),
+      );
+    }, timeoutMs);
+  });
+
+  try {
+    await Promise.race([operation(), timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+async function runOne(
+  job: JobRow,
+  timeoutMs: number,
+): Promise<RunJobsResult["results"][number]> {
   const handler = jobHandlers[job.type as JobType];
 
   if (!handler) {
     // An unknown type means a job outlived the deploy that understood it.
     // Bury it rather than retrying forever.
-    await markJobFailed(
+    const outcome = await markJobFailed(
       { ...job, attempts: job.max_attempts },
       `unknown job type: ${job.type}`,
-      BACKOFF_BASE_MS
+      BACKOFF_BASE_MS,
     );
+    if (outcome === "lease_lost") {
+      return { uuid: job.uuid, type: job.type, outcome };
+    }
     return { uuid: job.uuid, type: job.type, outcome: "unknown_type" };
   }
 
   try {
     const payload = job.payload_json ? JSON.parse(job.payload_json) : {};
-    await handler(payload);
-    await markJobSucceeded(job.id);
-    return { uuid: job.uuid, type: job.type, outcome: "succeeded" };
+    const controller = new AbortController();
+    const context: JobHandlerContext = {
+      jobUuid: job.uuid,
+      attempt: job.attempts,
+      maxAttempts: job.max_attempts,
+      signal: controller.signal,
+    };
+    await runWithTimeout(
+      () => handler(payload, context),
+      timeoutMs,
+      controller,
+    );
+    const completed = await markJobSucceeded(job);
+    return {
+      uuid: job.uuid,
+      type: job.type,
+      outcome: completed ? "succeeded" : "lease_lost",
+    };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     const outcome = await markJobFailed(job, message, BACKOFF_BASE_MS);
@@ -114,24 +185,62 @@ async function runOne(job: JobRow): Promise<RunJobsResult["results"][number]> {
 /**
  * Claim and run due jobs. Safe to call concurrently — claiming uses
  * `FOR UPDATE SKIP LOCKED`, so overlapping runs take disjoint work.
+ *
+ * Jobs are claimed one at a time. Preclaiming a batch and then processing it
+ * sequentially strands the unstarted leases when a serverless request reaches
+ * its hard deadline.
  */
-export async function runDueJobs(limit: number = 25): Promise<RunJobsResult> {
-  const claimed = await claimDueJobs(limit, STALE_LOCK_MS);
-
+export async function runDueJobs(
+  limit: number = 25,
+  options: RunJobsOptions = {},
+): Promise<RunJobsResult> {
+  const maxJobs = Math.max(0, Math.floor(limit));
+  const handlerTimeoutMs = Math.max(
+    1,
+    Math.floor(options.handlerTimeoutMs ?? HANDLER_TIMEOUT_MS),
+  );
+  const drainDeadlineMs = Math.max(
+    1,
+    Math.floor(options.drainDeadlineMs ?? DRAIN_DEADLINE_MS),
+  );
+  const deadlineAt = Date.now() + drainDeadlineMs;
   const results: RunJobsResult["results"] = [];
-  // Sequential on purpose: a cron invocation has a bounded time budget and
-  // handlers hit rate-limited third parties.
-  for (const job of claimed) {
-    results.push(await runOne(job));
+  let claimed = 0;
+
+  while (claimed < maxJobs && Date.now() < deadlineAt) {
+    const [job] = await claimDueJobs(1, STALE_LOCK_MS);
+    if (!job) break;
+    claimed += 1;
+
+    const remainingMs = deadlineAt - Date.now();
+    if (remainingMs <= 0) {
+      // The claim query itself crossed the drain deadline. Release the lease
+      // through the normal retry path instead of leaving it running for five
+      // minutes until stale-lock recovery.
+      const message = "job drain deadline elapsed immediately after claim";
+      const outcome = await markJobFailed(job, message, BACKOFF_BASE_MS);
+      results.push({
+        uuid: job.uuid,
+        type: job.type,
+        outcome,
+        error: message,
+      });
+      break;
+    }
+
+    results.push(
+      await runOne(job, Math.min(handlerTimeoutMs, remainingMs)),
+    );
   }
 
   return {
-    claimed: claimed.length,
+    claimed,
     succeeded: results.filter((r) => r.outcome === "succeeded").length,
     retrying: results.filter((r) => r.outcome === "retrying").length,
     failed: results.filter(
-      (r) => r.outcome === "failed" || r.outcome === "unknown_type"
+      (r) => r.outcome === "failed" || r.outcome === "unknown_type",
     ).length,
+    leaseLost: results.filter((r) => r.outcome === "lease_lost").length,
     results,
   };
 }

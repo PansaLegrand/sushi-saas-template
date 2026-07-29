@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Loader } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PricingItem, Pricing as PricingType } from "@/types/blocks/pricing";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useEffect, useRef, useState } from "react";
@@ -10,15 +11,39 @@ import { Button } from "@/components/ui/button";
 import Icon from "@/components/icon";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { useAppContext } from "@/providers/app-context";
 import { useLocale } from "next-intl";
 import { createCheckout } from "@/api/checkout";
+import { AUTH_ROUTES, withLocale } from "@/config/auth";
 import { isClientApiError, resolveErrorMessage } from "@/lib/errors/client";
+
+const GROUP_GRID_CLASSES: Record<number, string> = {
+  1: "grid-cols-1",
+  2: "grid-cols-2",
+  3: "grid-cols-3",
+  4: "grid-cols-4",
+};
+
+const PLAN_GRID_CLASSES: Record<number, string> = {
+  1: "md:grid-cols-1",
+  2: "md:grid-cols-2",
+  3: "md:grid-cols-3",
+  4: "md:grid-cols-2 xl:grid-cols-4",
+};
+
+function gridClassForCount(
+  count: number,
+  classes: Record<number, string>,
+  fallback: string,
+): string {
+  if (count <= 1) return classes[1];
+  return classes[count] ?? fallback;
+}
 
 export default function Pricing({ pricing }: { pricing: PricingType }) {
   const locale = useLocale();
-
-  const { setShowSignModal } = useAppContext();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const [group, setGroup] = useState(() => {
     // First look for a group with is_featured set to true
@@ -28,6 +53,8 @@ export default function Pricing({ pricing }: { pricing: PricingType }) {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [productId, setProductId] = useState<string | null>(null);
+  const visibleItems =
+    pricing.items?.filter((item) => !item.group || item.group === group) ?? [];
   const checkoutAttemptRef = useRef<{
     fingerprint: string;
     intentId: string;
@@ -84,10 +111,17 @@ export default function Pricing({ pricing }: { pricing: PricingType }) {
       setIsLoading(false);
       setProductId(null);
 
-      // Branching on the code, not on message text: an unauthenticated user
-      // gets the sign-in modal rather than a toast they cannot act on.
+      // Preserve the page they were trying to buy from. AuthScreen validates
+      // this same-origin relative callback before using it, so the query
+      // parameter cannot become an open redirect.
       if (isClientApiError(error) && error.code === "AUTH_REQUIRED") {
-        setShowSignModal(true);
+        const query = searchParams.toString();
+        const callbackPath = query ? `${pathname}?${query}` : pathname;
+        router.push(
+          `${withLocale(locale, AUTH_ROUTES.login)}?callbackUrl=${encodeURIComponent(
+            callbackPath,
+          )}`,
+        );
         return;
       }
 
@@ -112,9 +146,9 @@ export default function Pricing({ pricing }: { pricing: PricingType }) {
     <section id={pricing.name} className="py-16">
       <div className="container">
         <div className="mx-auto mb-12 text-center">
-          <h2 className="mb-4 text-4xl font-semibold lg:text-5xl">
+          <h1 className="mb-4 text-4xl font-semibold lg:text-5xl">
             {pricing.title}
-          </h2>
+          </h1>
           <p className="text-muted-foreground lg:text-lg">
             {pricing.description}
           </p>
@@ -124,7 +158,11 @@ export default function Pricing({ pricing }: { pricing: PricingType }) {
             <div className="flex h-12 mb-12 items-center rounded-md bg-muted p-1 text-lg">
               <RadioGroup
                 value={group}
-                className={`h-full grid-cols-${pricing.groups.length}`}
+                className={`h-full ${gridClassForCount(
+                  pricing.groups.length,
+                  GROUP_GRID_CLASSES,
+                  "grid-flow-col auto-cols-fr",
+                )}`}
                 onValueChange={(value: string) => {
                   setGroup(value);
                 }}
@@ -161,20 +199,21 @@ export default function Pricing({ pricing }: { pricing: PricingType }) {
             </div>
           )}
           <div
-            className={`w-full mt-0 grid gap-6 md:grid-cols-${
-              pricing.items?.filter(
-                (item) => !item.group || item.group === group
-              )?.length
-            }`}
+            data-plan-grid
+            className={`mt-0 grid w-full gap-6 ${gridClassForCount(
+              visibleItems.length,
+              PLAN_GRID_CLASSES,
+              "md:grid-cols-2 xl:grid-cols-3",
+            )}`}
           >
-            {pricing.items?.map((item, index) => {
+            {pricing.items?.map((item) => {
               if (item.group && item.group !== group) {
                 return null;
               }
 
               return (
                 <div
-                  key={index}
+                  key={`${item.group ?? "all"}:${item.product_id}`}
                   className={`rounded-lg p-6 ${
                     item.is_featured
                       ? "border-primary border-2 bg-card text-card-foreground"
@@ -231,7 +270,10 @@ export default function Pricing({ pricing }: { pricing: PricingType }) {
                           {item.features.map((feature, fi) => {
                             return (
                               <li className="flex gap-2" key={`feature-${fi}`}>
-                                <Check className="mt-1 size-4 shrink-0" />
+                                <Check
+                                  aria-hidden
+                                  className="mt-1 size-4 shrink-0"
+                                />
                                 {feature}
                               </li>
                             );
@@ -243,8 +285,13 @@ export default function Pricing({ pricing }: { pricing: PricingType }) {
                       {item.cn_amount && item.cn_amount > 0 ? (
                         <div className="flex items-center gap-x-2 mt-2">
                           <span className="text-sm">人民币支付 👉</span>
-                          <div
-                            className="inline-block p-2 hover:cursor-pointer hover:bg-base-200 rounded-md"
+                          <button
+                            type="button"
+                            aria-label={`Pay for ${
+                              item.title ?? item.product_name
+                            } in CNY`}
+                            disabled={isLoading}
+                            className="inline-block rounded-md p-2 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
                             onClick={() => {
                               if (isLoading) {
                                 return;
@@ -254,16 +301,18 @@ export default function Pricing({ pricing }: { pricing: PricingType }) {
                           >
                             <img
                               src="/imgs/cnpay.png"
-                              alt="cnpay"
+                              alt=""
+                              aria-hidden
                               className="w-20 h-10 rounded-lg"
                             />
-                          </div>
+                          </button>
                         </div>
                       ) : null}
                       {item.button && (
                         <Button
                           className="w-full flex items-center justify-center gap-2 font-semibold"
                           disabled={isLoading}
+                          aria-busy={isLoading && productId === item.product_id}
                           onClick={() => {
                             if (isLoading) {
                               return;
@@ -271,16 +320,12 @@ export default function Pricing({ pricing }: { pricing: PricingType }) {
                             handleCheckout(item);
                           }}
                         >
-                          {(!isLoading ||
-                            (isLoading && productId !== item.product_id)) && (
-                            <p>{item.button.title}</p>
-                          )}
-
+                          <span>{item.button.title}</span>
                           {isLoading && productId === item.product_id && (
-                            <p>{item.button.title}</p>
-                          )}
-                          {isLoading && productId === item.product_id && (
-                            <Loader className="mr-2 h-4 w-4 animate-spin" />
+                            <Loader
+                              aria-hidden
+                              className="mr-2 h-4 w-4 animate-spin"
+                            />
                           )}
                           {item.button.icon && (
                             <Icon

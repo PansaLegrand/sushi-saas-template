@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { AdminPageHeader } from "@admin/components/admin-page-header";
 import { getAdminContext } from "@admin/lib/authz";
 import {
   countAdminOrders,
@@ -46,7 +47,10 @@ function describeOrderNo(orderNo: string): { kind: string; hint: string } {
     };
   }
   if (/^\d+$/.test(orderNo)) {
-    return { kind: "legacy", hint: "Numeric id from before UUIDv7 order numbers" };
+    return {
+      kind: "legacy",
+      hint: "Numeric id from before UUIDv7 order numbers",
+    };
   }
   return { kind: "checkout", hint: "One-off checkout" };
 }
@@ -107,21 +111,23 @@ export default async function AdminOrdersPage({
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Orders</h1>
-          <p className="text-sm text-muted-foreground">
+      <AdminPageHeader
+        title="Orders"
+        description={
+          <p>
             Credits pool at the{" "}
             <Link href="/organizations" className="underline">
               organization
             </Link>
             , which is the tenant an order&apos;s grant lands in.
           </p>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          {query || status ? `Matching: ${total}` : `Total: ${total}`}
-        </p>
-      </header>
+        }
+        actions={
+          <p className="text-sm text-muted-foreground">
+            {query || status ? `Matching: ${total}` : `Total: ${total}`}
+          </p>
+        }
+      />
 
       <nav className="flex flex-wrap gap-2 text-sm">
         {STATUS_FILTERS.map((filter) => {
@@ -281,9 +287,10 @@ export default async function AdminOrdersPage({
       />
 
       <p className="text-xs text-muted-foreground">
-        <strong>Granted</strong> compares <code>orders.credits</code> against the
-        ledger rows carrying that order number. A paid order promising credits
-        with <span className="text-destructive">none</span> granted is the defect{" "}
+        <strong>Granted</strong> compares <code>orders.credits</code> against
+        the ledger rows carrying that order number. A paid order promising
+        credits with <span className="text-destructive">none</span> granted is
+        the defect{" "}
         <Link href="/reconciliation" className="underline">
           reconciliation
         </Link>{" "}

@@ -293,6 +293,22 @@ describe("layering", () => {
     ]) {
       expect(FILES.some(({ path }) => path === file), `missing ${file}`).toBe(true);
     }
+
+    // The separately deployed admin app needs its own recovery surface. The
+    // nested files keep the authenticated shell mounted for page-level
+    // failures, while the root files cover auth, unmatched URLs, and a broken
+    // root layout.
+    for (const file of [
+      "apps/admin/app/global-error.tsx",
+      "apps/admin/app/error.tsx",
+      "apps/admin/app/not-found.tsx",
+      "apps/admin/app/loading.tsx",
+      "apps/admin/app/(admin)/error.tsx",
+      "apps/admin/app/(admin)/not-found.tsx",
+      "apps/admin/app/(admin)/loading.tsx",
+    ]) {
+      expect(existsSync(join(ROOT, file)), `missing ${file}`).toBe(true);
+    }
   });
 
   it("keeps API route failures on the catalogued error boundary", () => {
@@ -328,7 +344,6 @@ describe("tenancy", () => {
    * be working in.
    */
   const TENANT_TABLES = [
-    "apikeys",
     "credits",
     "files",
     "orders",
@@ -372,6 +387,10 @@ describe("tenancy", () => {
       [
         "src/models/organization.ts",
         "Defines the scope predicate; it cannot be written in terms of itself.",
+      ],
+      [
+        "src/models/account-lifecycle.ts",
+        "A privacy request is deliberately account-wide: it locks one authenticated user, enumerates that user's memberships, and applies the export/erasure policy across those explicit organizations.",
       ],
     ]);
 
@@ -541,8 +560,8 @@ describe("conventions", () => {
 
   it("serves every page through the [locale] segment", () => {
     // `localePrefix` is "as-needed": the default locale has no prefix, so `/`
-    // and `/blogs` are English while `/es/blogs` is Spanish. That is done by the
-    // middleware rewriting `/blogs` to `/en/blogs` internally — which only works
+    // and `/pricing` are English while `/es/pricing` is Spanish. That is done by
+    // middleware rewriting `/pricing` to `/en/pricing` internally — which works
     // if no physical route shadows it.
     //
     // A `src/app/page.tsx` did exactly that, and the failure was not a wrong

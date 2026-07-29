@@ -33,7 +33,7 @@ function EmptyState({
       {...props}
     >
       {icon ? <div className="text-muted-foreground">{icon}</div> : null}
-      <p className="text-sm font-medium">{title}</p>
+      <h3 className="text-sm font-medium">{title}</h3>
       {description ? (
         <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
       ) : null}

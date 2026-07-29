@@ -160,11 +160,61 @@ export const ERROR_CATALOG = {
    */
   ACCOUNT_SUSPENDED: {
     statusCode: 403,
-    defaultMessage: "This account has been suspended. Contact support if you think this is a mistake.",
+    defaultMessage:
+      "This account has been suspended. Contact support if you think this is a mistake.",
   },
   ACCOUNT_SIGNUP_BLOCKED: {
     statusCode: 403,
-    defaultMessage: "This email address cannot be used to register. Contact support if you think this is a mistake.",
+    defaultMessage:
+      "This email address cannot be used to register. Contact support if you think this is a mistake.",
+  },
+  AUTH_REAUTHENTICATION_REQUIRED: {
+    statusCode: 401,
+    defaultMessage: "Please sign in again before changing account ownership.",
+  },
+  ACCOUNT_DELETION_PENDING: {
+    statusCode: 409,
+    defaultMessage: "Account deletion is already scheduled.",
+  },
+  ACCOUNT_DELETION_IN_PROGRESS: {
+    statusCode: 409,
+    defaultMessage: "Account deletion is in progress.",
+  },
+  ACCOUNT_DELETION_OWNER_TRANSFER_REQUIRED: {
+    statusCode: 409,
+    defaultMessage:
+      "Transfer ownership of your shared workspaces before deleting your account.",
+  },
+  ACCOUNT_DELETION_ADMIN_CONTINUITY_REQUIRED: {
+    statusCode: 409,
+    defaultMessage:
+      "Assign another full-access administrator before deleting this account.",
+  },
+  ACCOUNT_DELETION_CANNOT_CANCEL: {
+    statusCode: 409,
+    defaultMessage: "Account deletion can no longer be canceled.",
+  },
+  ACCOUNT_EXPORT_NOT_READY: {
+    statusCode: 409,
+    defaultMessage: "Your data export is still being prepared.",
+  },
+  ACCOUNT_EXPORT_EXPIRED: {
+    statusCode: 410,
+    defaultMessage: "This data export has expired. Request a new one.",
+  },
+  ACCOUNT_EXPORT_FAILED: {
+    statusCode: 500,
+    defaultMessage: "Your data export could not be prepared. Please try again.",
+  },
+  ACCOUNT_LIFECYCLE_CONFLICT: {
+    statusCode: 409,
+    defaultMessage:
+      "That request key was already used for a different account action.",
+  },
+  ACCOUNT_LIFECYCLE_FAILED: {
+    statusCode: 500,
+    defaultMessage:
+      "The account lifecycle operation could not be completed. It will be retried safely.",
   },
 
   // ------------------------------------------------------------- request
@@ -178,6 +228,14 @@ export const ERROR_CATALOG = {
     defaultMessage: "The request body is not valid JSON.",
     legacyCodes: ["invalid json"],
   },
+  REQUEST_BODY_TOO_LARGE: {
+    statusCode: 413,
+    defaultMessage: "The request body is too large.",
+  },
+  REQUEST_UNSUPPORTED_MEDIA_TYPE: {
+    statusCode: 415,
+    defaultMessage: "This request must use JSON.",
+  },
   REQUEST_VALIDATION_FAILED: {
     statusCode: 400,
     defaultMessage: "Some fields need attention.",
@@ -185,7 +243,11 @@ export const ERROR_CATALOG = {
   REQUEST_MISSING_FIELD: {
     statusCode: 400,
     defaultMessage: "A required field is missing.",
-    legacyCodes: ["uuid required", "userUuid required", "idempotencyKey required"],
+    legacyCodes: [
+      "uuid required",
+      "userUuid required",
+      "idempotencyKey required",
+    ],
   },
   REQUEST_ORIGIN_REJECTED: {
     statusCode: 403,
@@ -210,7 +272,10 @@ export const ERROR_CATALOG = {
   CREDITS_INVALID_AMOUNT: {
     statusCode: 400,
     defaultMessage: "The credit amount is invalid.",
-    legacyCodes: ["credits must be a positive number", "credits must be greater than zero"],
+    legacyCodes: [
+      "credits must be a positive number",
+      "credits must be greater than zero",
+    ],
   },
   CREDITS_GRANT_LIMIT_EXCEEDED: {
     statusCode: 400,
@@ -244,7 +309,8 @@ export const ERROR_CATALOG = {
   },
   PAYMENT_SESSION_FAILED: {
     statusCode: 502,
-    defaultMessage: "The payment provider is unavailable. Please try again shortly.",
+    defaultMessage:
+      "The payment provider is unavailable. Please try again shortly.",
     legacyCodes: ["checkout failed"],
   },
   PAYMENT_SESSION_EXPIRED: {
@@ -308,6 +374,10 @@ export const ERROR_CATALOG = {
     defaultMessage: "The uploaded file did not match the expected size.",
     legacyCodes: ["uploaded size mismatch"],
   },
+  STORAGE_UPLOAD_STATE_CONFLICT: {
+    statusCode: 409,
+    defaultMessage: "This upload is no longer pending.",
+  },
   STORAGE_UPLOAD_FAILED: {
     statusCode: 500,
     defaultMessage: "The upload could not be completed.",
@@ -361,6 +431,11 @@ export const ERROR_CATALOG = {
   },
 
   // ------------------------------------------------------- organizations
+  ORG_CONTEXT_REQUIRED: {
+    statusCode: 409,
+    defaultMessage:
+      "Choose a workspace before continuing. Refresh the page and try again.",
+  },
   BILLING_OWNER_ONLY: {
     statusCode: 403,
     defaultMessage:
@@ -372,8 +447,7 @@ export const ERROR_CATALOG = {
   },
   ORG_LAST_OWNER: {
     statusCode: 409,
-    defaultMessage:
-      "This is the only owner. Make someone else an owner first.",
+    defaultMessage: "This is the only owner. Make someone else an owner first.",
   },
   ORG_CANNOT_LEAVE_LAST: {
     statusCode: 409,
@@ -405,7 +479,8 @@ export const ERROR_CATALOG = {
   },
   SERVICE_UNAVAILABLE: {
     statusCode: 503,
-    defaultMessage: "The service is temporarily unavailable. Please try again shortly.",
+    defaultMessage:
+      "The service is temporarily unavailable. Please try again shortly.",
   },
   SERVER_ERROR: {
     statusCode: 500,
@@ -421,7 +496,8 @@ export const ERROR_CATALOG = {
    */
   NETWORK_UNAVAILABLE: {
     statusCode: 503,
-    defaultMessage: "Could not reach the server. Check your connection and try again.",
+    defaultMessage:
+      "Could not reach the server. Check your connection and try again.",
   },
 } as const satisfies Record<string, ErrorCatalogEntry>;
 
@@ -460,7 +536,7 @@ const LEGACY_LOOKUP: Record<string, ErrorCode> = (() => {
  * silently mislabelling a failure.
  */
 export function normalizeErrorCode(
-  value: string | null | undefined
+  value: string | null | undefined,
 ): ErrorCode | undefined {
   if (!value) return undefined;
 

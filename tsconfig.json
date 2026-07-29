@@ -19,7 +19,6 @@
       }
     ],
     "paths": {
-      "@/.source": ["./.source/index.ts"],
       "@admin/*": ["./apps/admin/*"],
       "@/*": ["./src/*"]
     },

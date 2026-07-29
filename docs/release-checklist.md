@@ -22,11 +22,16 @@ pnpm db:migrate
 pnpm test:db
 ```
 
-Before applying production migrations, run:
+To prove a target database already matches the release artifact, run:
 
 ```bash
 pnpm db:check:prod
 ```
+
+The command fails when migrations are pending or the journal has drifted. If
+pending migrations are expected, run `pnpm db:migrate:prod` through the approved
+migration workflow first; the apply path verifies the journal again before the
+application is promoted.
 
 ## Manual Smoke Checks
 
@@ -47,8 +52,10 @@ pnpm db:check:prod
 
 - Admin changes: sign in to `apps/admin`, complete MFA if required, and verify
   read/write guards on the affected admin surface.
-- Billing changes: open the billing portal, cancel or update a subscription in
-  Stripe test mode, and verify the webhook result.
+- Billing changes: open the named billing portal configuration, verify plan and
+  quantity updates are disabled, cancel a subscription in Stripe test mode, and
+  verify the webhook result. A `subscription_update`, multi-item renewal, or
+  quantity other than one must park for manual action and grant no credits.
 - Billing changes: run the reconciliation check against the target database and
   confirm it exits zero.
 
@@ -61,6 +68,7 @@ pnpm db:check:prod
   recorded for. Errors exit 1; warnings (an event already parked for a human) exit
   0 on purpose, so the check never blocks a release on someone else's queue. With
   no `STRIPE_PRIVATE_KEY` it runs local checks only and says so.
+
 - Confirm `STRIPE_WEBHOOK_SECRET` in production is the **live-mode** endpoint's
   signing secret, not the test-mode one. The webhook rejects any non-live event
   with a 400 in production, so a test-mode secret makes every delivery fail
@@ -72,9 +80,9 @@ pnpm db:check:prod
   [docs/storage-providers.md](storage-providers.md) against the target provider
   and verify objects remain private except through signed URLs. Confirm a
   disallowed file type is rejected before a presigned URL is created.
-- Site-mode changes: run or build with `NEXT_PUBLIC_SITE_MODE=site` and verify
-  only landing, `/docs`, `/blogs`, `/privacy`, `/terms`, and `/api/health` are
-  reachable.
+- Public-guidance changes: update and validate the detached documentation
+  repository independently, then link its commit or pull request from the
+  application PR. This repository must not regain a docs-site build mode.
 - Consent changes: with an analytics or ad id configured, confirm no vendor
   script is in the DOM before a choice is made, that "reject" leaves it absent,
   and that the footer's cookie settings control reopens the banner. See
@@ -93,6 +101,8 @@ a deploy.
 - [ ] `RATE_LIMIT_REDIS_URL` set to the managed service's `rediss://` URL. The
       production app refuses to boot without it because each serverless
       instance would otherwise keep a private, advisory-only counter.
+- [ ] `RATE_LIMIT_IP_SOURCE` names the one client-IP header that the trusted
+      edge overwrites; clients must not be able to supply it unchanged.
 - [ ] Production log destination decided: a drain, an error tracker, or a
       deliberate "stdout is enough for now".
 - [ ] Point-in-time restore confirmed available, and the restore procedure run

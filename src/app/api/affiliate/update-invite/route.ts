@@ -1,15 +1,20 @@
 import { cookies } from "next/headers";
 import { requireSameOrigin } from "@/lib/origin";
+import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { respOk, respNoAuth } from "@/lib/resp";
+import { respCode, respError } from "@/lib/errors/response";
 import { getUserUuid } from "@/services/user";
-import { findUserByUuid, updateUserInvitedBy } from "@/models/user";
-import { insertAffiliate } from "@/models/affiliate";
-import { AffiliateConfig, AffiliateRewardAmount, AffiliateRewardPercent, AffiliateStatus } from "@/config/affiliate";
-import { getIsoTimestr } from "@/lib/time";
+import { applyAffiliateAttribution } from "@/services/affiliate";
+import { AffiliateConfig } from "@/config/affiliate";
 
 export async function POST(req: Request) {
+  if (!AffiliateConfig.enabled) return respCode("RESOURCE_NOT_FOUND");
+
   const invalidOrigin = requireSameOrigin(req);
   if (invalidOrigin) return invalidOrigin;
+
+  const limited = await rateLimitOrThrow(req, "auth");
+  if (limited) return limited;
 
   const userUuid = await getUserUuid(req);
   if (!userUuid) {
@@ -20,38 +25,18 @@ export async function POST(req: Request) {
     const c = await cookies();
     const ref = c.get(AffiliateConfig.cookieName)?.value || "";
 
-    const user = await findUserByUuid(userUuid);
-    if (!user) {
-      return respOk(); // nothing to do
-    }
+    if (!ref) return respOk();
 
-    if (!ref || ref === "") {
-      return respOk();
-    }
-
-    if (!AffiliateConfig.allowSelfReferral && ref === user.uuid) {
-      return respOk();
-    }
-
-    if (!user.invited_by) {
-      await updateUserInvitedBy(user.uuid, ref);
-
-      // Optionally record a signup affiliate row (defaults to 0 reward)
-      await insertAffiliate({
-        user_uuid: user.uuid,
-        invited_by: ref,
-        created_at: new Date(getIsoTimestr()),
-        status: AffiliateStatus.Pending,
-        paid_order_no: "",
-        paid_amount: 0,
-        reward_percent: AffiliateRewardPercent.Invited,
-        reward_amount: AffiliateRewardAmount.Invited,
-      });
-    }
+    await applyAffiliateAttribution({
+      userUuid,
+      referrerUuid: ref,
+    });
 
     return respOk();
-  } catch (e) {
-    // Do not leak errors; attribution is best-effort.
-    return respOk();
+  } catch (error) {
+    return respError(error, {
+      logFields: { event: "affiliate.attribution_failed" },
+      fallback: "SERVER_ERROR",
+    });
   }
 }

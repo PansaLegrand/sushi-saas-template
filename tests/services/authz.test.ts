@@ -33,7 +33,12 @@ vi.mock("@/services/organizations", () => ({
   ensurePersonalOrganization: mocks.ensurePersonalOrganization,
 }));
 
-import { allowedActions, can, getOrgContextFromHeaders } from "@/services/authz";
+import {
+  allowedActions,
+  can,
+  getOrgContext,
+  getOrgContextFromHeaders,
+} from "@/services/authz";
 
 function org(overrides: Record<string, unknown> = {}) {
   return {
@@ -104,6 +109,11 @@ describe("organization context resolution", () => {
       user: { id: "id-1", uuid: "u-1", email: "a@test.dev", name: "A" },
       session: { activeOrganizationId: null },
     });
+    mocks.findUserById.mockResolvedValue({
+      id: "id-1",
+      uuid: "u-1",
+      lifecycle_status: "active",
+    });
   });
 
   it("returns null without a session", async () => {
@@ -152,6 +162,81 @@ describe("organization context resolution", () => {
     expect(ctx?.role).toBe("member");
   });
 
+  it("uses an explicit organization header independently in each tab", async () => {
+    mocks.findMembershipBySlug.mockImplementation(async (_userId, slug) =>
+      membership(
+        slug === "team-a" ? "owner" : "member",
+        org({
+          id: slug,
+          uuid: `${slug}-uuid`,
+          slug,
+          name: slug === "team-a" ? "Team A" : "Team B",
+        })
+      )
+    );
+
+    const [tabA, tabB] = await Promise.all([
+      getOrgContextFromHeaders(
+        new Headers({
+          cookie: "session=test",
+          "x-organization-slug": "team-a",
+        })
+      ),
+      getOrgContextFromHeaders(
+        new Headers({
+          cookie: "session=test",
+          "x-organization-slug": "team-b",
+        })
+      ),
+    ]);
+
+    expect(tabA?.orgSlug).toBe("team-a");
+    expect(tabB?.orgSlug).toBe("team-b");
+    expect(mocks.findMembershipsByUserId).not.toHaveBeenCalled();
+  });
+
+  it("fails an ambiguous API request closed instead of using session state", async () => {
+    mocks.findMembershipsByUserId.mockResolvedValue([
+      membership("owner", org({ id: "org-1", slug: "mine", is_personal: true })),
+      membership("member", org({ id: "org-2", slug: "team" })),
+    ]);
+
+    await expect(
+      getOrgContext(new Request("https://app.test/api/storage/files"))
+    ).rejects.toMatchObject({
+      code: "ORG_CONTEXT_REQUIRED",
+      statusCode: 409,
+    });
+  });
+
+  it("keeps an API request ergonomic when there is only one workspace", async () => {
+    mocks.findMembershipsByUserId.mockResolvedValue([
+      membership("owner", org({ slug: "only" })),
+    ]);
+
+    await expect(
+      getOrgContext(new Request("https://app.test/api/storage/files"))
+    ).resolves.toMatchObject({ orgSlug: "only" });
+  });
+
+  it("resolves the organization query on navigated API endpoints", async () => {
+    mocks.findMembershipBySlug.mockResolvedValue(
+      membership("owner", org({ slug: "billing-team" }))
+    );
+
+    const ctx = await getOrgContext(
+      new Request(
+        "https://app.test/api/billing/portal?locale=en&org=billing-team"
+      )
+    );
+
+    expect(ctx?.orgSlug).toBe("billing-team");
+    expect(mocks.findMembershipBySlug).toHaveBeenCalledWith(
+      "id-1",
+      "billing-team"
+    );
+  });
+
   it("prefers the personal org when nothing else points anywhere", async () => {
     mocks.findMembershipsByUserId.mockResolvedValue([
       membership("member", org({ id: "org-2", slug: "team" })),
@@ -178,6 +263,18 @@ describe("organization context resolution", () => {
     });
     expect(ctx?.orgSlug).toBe("recovered");
     expect(ctx?.role).toBe("owner");
+  });
+
+  it("never repairs an organization while account erasure is running", async () => {
+    mocks.findUserById.mockResolvedValue({
+      id: "id-1",
+      uuid: "u-1",
+      lifecycle_status: "erasing",
+    });
+
+    await expect(getOrgContextFromHeaders(headers)).resolves.toBeNull();
+    expect(mocks.findMembershipsByUserId).not.toHaveBeenCalled();
+    expect(mocks.ensurePersonalOrganization).not.toHaveBeenCalled();
   });
 
   it("falls back to uuid lookup when the session carries no uuid", async () => {

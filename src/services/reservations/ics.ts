@@ -29,7 +29,7 @@ export function buildReservationICS(params: {
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//SushiSaaS//Reservations//EN",
+    "PRODID:-//SaaS Starter//Reservations//EN",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "BEGIN:VEVENT",
@@ -38,7 +38,9 @@ export function buildReservationICS(params: {
     `DTSTART:${dtStart}`,
     `DTEND:${dtEnd}`,
     `SUMMARY:${escapeICS(params.title)}`,
-    params.description ? `DESCRIPTION:${escapeICS(params.description)}` : undefined,
+    params.description
+      ? `DESCRIPTION:${escapeICS(params.description)}`
+      : undefined,
     params.url ? `URL:${escapeICS(params.url)}` : undefined,
     "END:VEVENT",
     "END:VCALENDAR",
@@ -53,4 +55,3 @@ function escapeICS(text: string): string {
     .replace(/,/g, "\\,")
     .replace(/;/g, "\\;");
 }
-

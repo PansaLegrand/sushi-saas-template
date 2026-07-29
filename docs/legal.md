@@ -22,8 +22,9 @@ lawyer review both documents.
 | Footer links and cookie settings | `src/components/site-footer.tsx` |
 | Which vendors are configured | `src/config/analytics.ts` |
 
-Both pages render on a `site`-mode deployment, because a marketing site is
-exactly where they get read.
+Both pages remain public in the SaaS application because payment processors and
+customers expect to find the governing policy beside signup and checkout. The
+detached marketing site may link to the same reviewed policy.
 
 ## Before you launch
 

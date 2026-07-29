@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import { getUserCredits, grantCredits } from "@admin/lib/api";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,11 @@ export default function GrantCreditsPanel({ canWrite }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<CreditSummary | null>(null);
+  const grantAttemptRef = useRef<{
+    fingerprint: string;
+    idempotencyKey: string;
+    inFlight: boolean;
+  } | null>(null);
 
   const disabled = useMemo(() => loading || !userUuid, [loading, userUuid]);
 
@@ -43,20 +48,48 @@ export default function GrantCreditsPanel({ canWrite }: Props) {
       setError("Credits must be a positive whole number");
       return;
     }
+    const normalizedUserUuid = userUuid.trim();
+    if (!normalizedUserUuid) return;
+    const normalizedNote = note.trim();
+    const fingerprint = JSON.stringify([
+      normalizedUserUuid,
+      credits,
+      expiredAt || null,
+      normalizedNote,
+    ]);
+    const currentAttempt = grantAttemptRef.current;
+    if (currentAttempt?.inFlight) return;
+
+    const idempotencyKey =
+      currentAttempt?.fingerprint === fingerprint
+        ? currentAttempt.idempotencyKey
+        : crypto.randomUUID();
+    grantAttemptRef.current = {
+      fingerprint,
+      idempotencyKey,
+      inFlight: true,
+    };
+
+    let confirmed = false;
     setLoading(true);
     setError(null);
     try {
       await grantCredits({
-        userUuid,
+        userUuid: normalizedUserUuid,
         credits,
         expiredAt: expiredAt || null,
-        note: note.trim() || undefined,
+        note: normalizedNote || undefined,
+        idempotencyKey,
       });
+      confirmed = true;
       setNote("");
       await load();
     } catch (e) {
       setError(resolveErrorMessage(e, null, "CREDITS_GRANT_FAILED"));
     } finally {
+      grantAttemptRef.current = confirmed
+        ? null
+        : { fingerprint, idempotencyKey, inFlight: false };
       setLoading(false);
     }
   }, [userUuid, amount, expiredAt, note, canWrite, load]);
@@ -183,4 +216,3 @@ export default function GrantCreditsPanel({ canWrite }: Props) {
     </div>
   );
 }
-

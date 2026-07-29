@@ -8,6 +8,7 @@ import { getAppEnv } from "@/lib/env";
 import { newId } from "@/lib/ids";
 import { logger as baseLogger } from "@/lib/logger/server";
 import {
+  findOrderByOrderNo,
   findOrderByCheckoutIntent,
   insertOrderForCheckoutIntent,
   OrderStatus,
@@ -39,6 +40,8 @@ type CreateCheckoutSessionInput = {
   requestId?: string;
 };
 
+export type CheckoutReturnStatus = "success" | "processing" | "failed";
+
 function checkoutFingerprint(input: {
   productId: string;
   stripePriceId: string;
@@ -55,7 +58,7 @@ function checkoutFingerprint(input: {
         input.stripePriceId,
         input.currency,
         input.locale,
-      ])
+      ]),
     )
     .digest("hex");
 }
@@ -63,7 +66,7 @@ function checkoutFingerprint(input: {
 function orderExpiry(
   createdAt: Date,
   validMonths: number,
-  isSubscription: boolean
+  isSubscription: boolean,
 ): Date | null {
   if (validMonths <= 0) return null;
 
@@ -83,7 +86,7 @@ function appRedirectUrl(locale: string, configuredPath?: string): string {
   return absoluteLocaleUrl(
     env.NEXT_PUBLIC_WEB_URL,
     locale,
-    target.startsWith("/") ? target : `/${target}`
+    target.startsWith("/") ? target : `/${target}`,
   );
 }
 
@@ -95,16 +98,19 @@ function cancelCheckoutUrl(locale: string): string {
   const env = getAppEnv();
   return appRedirectUrl(
     locale,
-    env.NEXT_PUBLIC_PAY_CANCEL_URL || env.NEXT_PUBLIC_WEB_URL
+    env.NEXT_PUBLIC_PAY_CANCEL_URL || env.NEXT_PUBLIC_WEB_URL,
   );
 }
 
 function successCallbackUrl(
   locale: string,
   orderNo: string,
-  sessionId: string
+  sessionId: string,
 ): string {
-  const url = new URL("/api/pay/callback/stripe", getAppEnv().NEXT_PUBLIC_WEB_URL);
+  const url = new URL(
+    "/api/pay/callback/stripe",
+    getAppEnv().NEXT_PUBLIC_WEB_URL,
+  );
   url.searchParams.set("locale", locale);
   url.searchParams.set("session_id", sessionId);
   url.searchParams.set("order_no", orderNo);
@@ -116,10 +122,61 @@ function successCallbackUrl(
     .replace("%7BCHECKOUT_SESSION_ID%7D", "{CHECKOUT_SESSION_ID}");
 }
 
+/**
+ * Verify the browser's return parameters against Stripe and durable local
+ * state. The redirect itself never fulfills an order; signed webhooks remain
+ * the only write path.
+ */
+export async function resolveStripeCheckoutReturn(input: {
+  sessionId: string;
+  orderNo: string;
+}): Promise<{ status: CheckoutReturnStatus; locale: string }> {
+  const order = await findOrderByOrderNo(input.orderNo);
+  if (!order) {
+    throw new AppError("REQUEST_INVALID", {
+      message: `checkout return order not found: ${input.orderNo}`,
+    });
+  }
+
+  if (order.stripe_session_id && order.stripe_session_id !== input.sessionId) {
+    throw new AppError("REQUEST_INVALID", {
+      message: `checkout return session does not belong to order ${input.orderNo}`,
+    });
+  }
+
+  const stripe = newStripeClient().stripe();
+  const session = await stripe.checkout.sessions.retrieve(input.sessionId);
+  const referencedOrder =
+    session.client_reference_id || session.metadata?.order_no || null;
+  if (referencedOrder !== order.order_no) {
+    throw new AppError("REQUEST_INVALID", {
+      message: `Stripe session ${session.id} references a different order`,
+    });
+  }
+
+  const locale = normalizeLocale(order.checkout_locale);
+  if (order.status === OrderStatus.Paid) {
+    return { status: "success", locale };
+  }
+
+  if (
+    session.payment_status === "paid" ||
+    session.payment_status === "no_payment_required" ||
+    session.status === "complete"
+  ) {
+    // Checkout may finish before an asynchronous method settles, and even a
+    // paid session can reach the browser before its signed webhook. Be honest
+    // about that gap instead of claiming local fulfillment already happened.
+    return { status: "processing", locale };
+  }
+
+  return { status: "failed", locale };
+}
+
 function checkoutResultForExistingSession(
   order: OrderRow,
   session: Stripe.Checkout.Session,
-  locale: string
+  locale: string,
 ): CheckoutResult {
   if (session.status === "expired") {
     throw new AppError("PAYMENT_SESSION_EXPIRED", {
@@ -176,7 +233,11 @@ function buildStripeOptions(input: {
     client_reference_id: order.order_no,
     metadata,
     mode: isSubscription ? "subscription" : "payment",
-    success_url: successCallbackUrl(locale, order.order_no, "{CHECKOUT_SESSION_ID}"),
+    success_url: successCallbackUrl(
+      locale,
+      order.order_no,
+      "{CHECKOUT_SESSION_ID}",
+    ),
     cancel_url: cancelCheckoutUrl(locale),
     billing_address_collection: "auto",
     customer: customerId,
@@ -212,7 +273,7 @@ function buildStripeOptions(input: {
  * one-subscription-per-organization policy: "buy another" is simply a new key.
  */
 export async function createCheckoutSession(
-  input: CreateCheckoutSessionInput
+  input: CreateCheckoutSessionInput,
 ): Promise<CheckoutResult> {
   const checkoutIntentId = input.checkoutIntentId.trim();
   if (
@@ -231,7 +292,7 @@ export async function createCheckoutSession(
   const locale = normalizeLocale(input.locale);
   const selection = findPurchasableBillingProduct(
     input.productId,
-    input.currency
+    input.currency,
   );
   if (!selection) {
     throw new AppError("ORDER_INVALID_PRODUCT", {
@@ -273,11 +334,7 @@ export async function createCheckoutSession(
     user_email: user.email,
     amount: price.amount,
     interval: product.interval,
-    expired_at: orderExpiry(
-      createdAt,
-      product.validMonths,
-      isSubscription
-    ),
+    expired_at: orderExpiry(createdAt, product.validMonths, isSubscription),
     status: OrderStatus.Created,
     credits: product.credits,
     currency: price.currency,
@@ -292,10 +349,7 @@ export async function createCheckoutSession(
   const reused = !order;
 
   if (!order) {
-    order = await findOrderByCheckoutIntent(
-      input.orgUuid,
-      checkoutIntentId
-    );
+    order = await findOrderByCheckoutIntent(input.orgUuid, checkoutIntentId);
   }
   if (!order) {
     throw new AppError("ORDER_CREATE_FAILED", {
@@ -305,8 +359,7 @@ export async function createCheckoutSession(
 
   if (order.checkout_fingerprint !== fingerprint) {
     throw new AppError("CHECKOUT_INTENT_CONFLICT", {
-      message:
-        `checkout intent ${checkoutIntentId} was reused with different terms`,
+      message: `checkout intent ${checkoutIntentId} was reused with different terms`,
       details: { field: "Idempotency-Key" },
     });
   }
@@ -324,7 +377,7 @@ export async function createCheckoutSession(
   const stripe = newStripeClient().stripe();
   if (order.stripe_session_id) {
     const session = await stripe.checkout.sessions.retrieve(
-      order.stripe_session_id
+      order.stripe_session_id,
     );
     return checkoutResultForExistingSession(order, session, stableLocale);
   }
@@ -358,7 +411,13 @@ export async function createCheckoutSession(
   const updated = await updateOrderSession(
     order.order_no,
     session.id,
-    JSON.stringify(options)
+    JSON.stringify({
+      schema_version: 1,
+      mode: options.mode,
+      stripe_price_id: stablePriceId,
+      quantity: 1,
+      currency: order.currency,
+    }),
   );
   if (!updated) {
     throw new AppError("ORDER_CREATE_FAILED", {

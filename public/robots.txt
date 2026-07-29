@@ -1,8 +1,0 @@
-User-agent: *
-Disallow: /*?*q=
-Disallow: /privacy-policy
-Disallow: /terms-of-service
-
-# Point this at your own domain, and generate the sitemap with:
-#   SITEMAP_BASE_URL=https://your-domain.com pnpm gen:sitemap
-Sitemap: http://localhost:3000/sitemap.xml

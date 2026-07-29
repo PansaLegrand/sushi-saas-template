@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { AdminPageHeader } from "@admin/components/admin-page-header";
 import { getAdminContext } from "@admin/lib/authz";
 import {
   reconcileLocalBilling,
@@ -28,18 +29,15 @@ const FINDING_LIMIT = 100;
 const KIND_COPY: Record<string, { title: string; what: string }> = {
   order_missing_credits: {
     title: "Paid orders with no credits",
-    what:
-      "The customer paid and the ledger has nothing. The most serious thing this check finds — grant the credits, then find out why fulfillment did not.",
+    what: "The customer paid and the ledger has nothing. The most serious thing this check finds — grant the credits, then find out why fulfillment did not.",
   },
   ledger_balance_drift: {
     title: "Ledger balance drift",
-    what:
-      "A row's balance_after disagrees with the sum of the ledger before it, which means two writes raced. The balance shown to the customer may be wrong.",
+    what: "A row's balance_after disagrees with the sum of the ledger before it, which means two writes raced. The balance shown to the customer may be wrong.",
   },
   stuck_event: {
     title: "Stuck webhook events",
-    what:
-      "Parked for a human, or failed past Stripe's retry window. Resolve or replay them from the events page.",
+    what: "Parked for a human, or failed past Stripe's retry window. Resolve or replay them from the events page.",
   },
 };
 
@@ -83,30 +81,36 @@ export default async function AdminReconciliationPage({
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Reconciliation</h1>
-          <p className="text-sm text-muted-foreground">
-            Every billing guarantee is enforced by an index or a transaction. This
-            is the audit that turns those from beliefs into checks.
+      <AdminPageHeader
+        title="Reconciliation"
+        description={
+          <p>
+            Every billing guarantee is enforced by an index or a transaction.
+            This is the audit that turns those from beliefs into checks.
           </p>
-        </div>
-        <nav className="flex gap-2 text-sm">
-          {WINDOWS.map((window) => (
-            <Link
-              key={window}
-              href={`/reconciliation?days=${window}`}
-              className={`rounded border px-3 py-1 ${
-                days === window
-                  ? "border-foreground bg-foreground text-background"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {window}d
-            </Link>
-          ))}
-        </nav>
-      </header>
+        }
+        actions={
+          <nav
+            aria-label="Reconciliation window"
+            className="flex gap-2 text-sm"
+          >
+            {WINDOWS.map((window) => (
+              <Link
+                key={window}
+                href={`/reconciliation?days=${window}`}
+                aria-current={days === window ? "page" : undefined}
+                className={`rounded border px-3 py-1 ${
+                  days === window
+                    ? "border-foreground bg-foreground text-background"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {window}d
+              </Link>
+            ))}
+          </nav>
+        }
+      />
 
       <div
         className={`rounded-lg border p-3 text-sm ${
@@ -123,8 +127,8 @@ export default async function AdminReconciliationPage({
         ) : (
           <>
             <strong>{errors}</strong> finding{errors === 1 ? "" : "s"} at error
-            severity since {report.since.slice(0, 10)}. Money and entitlement may
-            disagree right now.
+            severity since {report.since.slice(0, 10)}. Money and entitlement
+            may disagree right now.
           </>
         )}
       </div>
@@ -135,9 +139,8 @@ export default async function AdminReconciliationPage({
         This is the <strong>local</strong> half: it compares this database
         against itself and needs no Stripe key. It cannot detect &ldquo;Stripe
         charged them and we were never told&rdquo; — that requires walking the
-        invoice API, which stays in{" "}
-        <code>pnpm reconcile:stripe</code>. Findings are capped at{" "}
-        {FINDING_LIMIT} per check.
+        invoice API, which stays in <code>pnpm reconcile:stripe</code>. Findings
+        are capped at {FINDING_LIMIT} per check.
       </p>
 
       {report.findings.length === 0 && (
@@ -171,27 +174,26 @@ export default async function AdminReconciliationPage({
                 </thead>
                 <tbody>
                   {findings.map((finding, index) => (
-                    <tr
-                      key={`${kind}-${index}`}
-                      className="border-t align-top"
-                    >
+                    <tr key={`${kind}-${index}`} className="border-t align-top">
                       <td className="py-2 pr-4">
                         <Severity severity={finding.severity} />
                       </td>
                       <td className="py-2 pr-4">
                         <dl className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
-                          {Object.entries(finding.detail).map(([key, value]) => (
-                            <div key={key} className="flex gap-2">
-                              <dt className="text-xs text-muted-foreground">
-                                {key}
-                              </dt>
-                              <dd className="font-mono text-xs break-all">
-                                {value === null || value === undefined
-                                  ? "—"
-                                  : String(value)}
-                              </dd>
-                            </div>
-                          ))}
+                          {Object.entries(finding.detail).map(
+                            ([key, value]) => (
+                              <div key={key} className="flex gap-2">
+                                <dt className="text-xs text-muted-foreground">
+                                  {key}
+                                </dt>
+                                <dd className="font-mono text-xs break-all">
+                                  {value === null || value === undefined
+                                    ? "—"
+                                    : String(value)}
+                                </dd>
+                              </div>
+                            ),
+                          )}
                         </dl>
                       </td>
                     </tr>
@@ -212,7 +214,10 @@ export default async function AdminReconciliationPage({
             {kind === "stuck_event" && (
               <p className="mt-3 text-xs text-muted-foreground">
                 Act on these from{" "}
-                <Link href="/stripe-events?status=action_required" className="underline">
+                <Link
+                  href="/stripe-events?status=action_required"
+                  className="underline"
+                >
                   Stripe Events
                 </Link>
                 .

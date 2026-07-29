@@ -15,7 +15,10 @@
 import { describe, expect, it } from "vitest";
 import type Stripe from "stripe";
 
-import { extractWebhookReceipt } from "@/services/stripe/receipt";
+import {
+  extractCheckoutPaymentReceipt,
+  extractWebhookReceipt,
+} from "@/services/stripe/receipt";
 
 function event(overrides: Record<string, unknown>): Stripe.Event {
   return {
@@ -43,7 +46,7 @@ describe("extractWebhookReceipt", () => {
             invoice: "in_1",
           },
         },
-      })
+      }),
     );
 
     expect(receipt).toMatchObject({
@@ -69,7 +72,7 @@ describe("extractWebhookReceipt", () => {
             subscription: "sub_2",
           },
         },
-      })
+      }),
     );
 
     expect(receipt.stripe_invoice_id).toBe("in_2");
@@ -88,7 +91,7 @@ describe("extractWebhookReceipt", () => {
             customer: "cus_3",
           },
         },
-      })
+      }),
     );
 
     expect(receipt.stripe_subscription_id).toBe("sub_3");
@@ -109,7 +112,7 @@ describe("extractWebhookReceipt", () => {
             subscription: { id: "sub_4", object: "subscription" },
           },
         },
-      })
+      }),
     );
 
     expect(receipt.stripe_customer_id).toBe("cus_4");
@@ -126,7 +129,7 @@ describe("extractWebhookReceipt", () => {
         data: {
           object: { object: "dispute", id: "dp_1", charge: "ch_1" },
         },
-      })
+      }),
     );
 
     expect(receipt.stripe_object_id).toBe("dp_1");
@@ -138,8 +141,10 @@ describe("extractWebhookReceipt", () => {
   it("treats an empty-string id as absent", () => {
     const receipt = extractWebhookReceipt(
       event({
-        data: { object: { object: "checkout.session", id: "cs_5", customer: "" } },
-      })
+        data: {
+          object: { object: "checkout.session", id: "cs_5", customer: "" },
+        },
+      }),
     );
 
     expect(receipt.stripe_customer_id).toBeNull();
@@ -152,7 +157,7 @@ describe("extractWebhookReceipt", () => {
       event({
         livemode: false,
         data: { object: { object: "checkout.session", id: "cs_6" } },
-      })
+      }),
     );
 
     expect(receipt.livemode).toBe(false);
@@ -163,7 +168,7 @@ describe("extractWebhookReceipt", () => {
       event({
         request: { id: "req_1", idempotency_key: null },
         data: { object: { object: "charge", id: "ch_2", invoice: "in_3" } },
-      })
+      }),
     );
 
     expect(receipt.request_id).toBe("req_1");
@@ -175,7 +180,7 @@ describe("extractWebhookReceipt", () => {
       event({
         request: null,
         data: { object: { object: "invoice", id: "in_4" } },
-      })
+      }),
     );
 
     expect(receipt.request_id).toBeNull();
@@ -186,7 +191,7 @@ describe("extractWebhookReceipt", () => {
     // fail the webhook: losing the receipt costs a query later, while throwing
     // would make Stripe retry a delivery that was otherwise handled fine.
     const receipt = extractWebhookReceipt(
-      event({ type: "some.future.event", data: { object: {} } })
+      event({ type: "some.future.event", data: { object: {} } }),
     );
 
     expect(receipt.stripe_object_id).toBeNull();
@@ -194,5 +199,47 @@ describe("extractWebhookReceipt", () => {
     // Event-level fields are still recorded — they do not depend on the shape.
     expect(receipt.livemode).toBe(true);
     expect(receipt.api_version).toBe("2025-01-01");
+  });
+});
+
+describe("extractCheckoutPaymentReceipt", () => {
+  it("keeps reconciliation identifiers and excludes customer PII", () => {
+    const receipt = extractCheckoutPaymentReceipt({
+      id: "cs_123",
+      payment_intent: { id: "pi_123" },
+      subscription: "sub_123",
+      invoice: { id: "in_123" },
+      customer: "cus_123",
+      payment_status: "paid",
+      status: "complete",
+      amount_total: 7900,
+      currency: "usd",
+      customer_details: {
+        email: "private@example.test",
+        name: "Private Person",
+        address: { line1: "1 Secret Street" },
+      },
+      metadata: {
+        user_uuid: "user-private",
+        org_uuid: "org-private",
+      },
+    } as unknown as Stripe.Checkout.Session);
+
+    expect(receipt).toEqual({
+      schema_version: 1,
+      checkout_session_id: "cs_123",
+      payment_intent_id: "pi_123",
+      charge_id: null,
+      subscription_id: "sub_123",
+      invoice_id: "in_123",
+      customer_id: "cus_123",
+      payment_status: "paid",
+      checkout_status: "complete",
+      amount_total: 7900,
+      currency: "usd",
+    });
+    expect(JSON.stringify(receipt)).not.toContain("private@example.test");
+    expect(JSON.stringify(receipt)).not.toContain("Secret Street");
+    expect(JSON.stringify(receipt)).not.toContain("user-private");
   });
 });

@@ -1,5 +1,12 @@
 import { auth } from "@/lib/auth";
 import {
+  ORGANIZATION_CONTEXT_MODE_HEADER,
+  ORGANIZATION_HEADER,
+  ORGANIZATION_QUERY_PARAM,
+  normalizeOrganizationSlug,
+} from "@/config/organization-context";
+import { AppError } from "@/lib/errors";
+import {
   findMembershipBySlug,
   findMembershipsByUserId,
   asOrgUuid,
@@ -48,6 +55,19 @@ export interface OrgContext {
   /** True for the workspace created at signup. It cannot be left or deleted. */
   orgIsPersonal: boolean;
   role: OrgRoleValue;
+}
+
+export interface OrgWorkspace {
+  slug: string;
+  name: string;
+  isPersonal: boolean;
+  role: OrgRoleValue;
+}
+
+export interface OrgNavigationState {
+  /** The browser needs display/routing fields only; internal ids stay server-side. */
+  current: Pick<OrgContext, "orgSlug" | "orgName" | "role">;
+  workspaces: OrgWorkspace[];
 }
 
 /**
@@ -156,7 +176,8 @@ export function allowedActions(role: OrgRoleValue): OrgAction[] {
  */
 export async function getOrgContextFromHeaders(
   requestHeaders: Headers,
-  orgSlug?: string
+  orgSlug?: string,
+  options: { requireExplicitForMultiple?: boolean } = {}
 ): Promise<OrgContext | null> {
   const session = await auth.api.getSession({ headers: requestHeaders });
   if (!session) return null;
@@ -164,17 +185,31 @@ export async function getOrgContextFromHeaders(
   const userId = session.user.id;
   if (!userId) return null;
 
+  // Always read lifecycle state from the database, even when the session
+  // already carries the public uuid. A session is a cached identity snapshot;
+  // letting it authorize an erasing user reopens the race where this function
+  // repairs the personal workspace the worker is deleting.
+  const storedUser = await findUserById(userId);
+  if (!storedUser || storedUser.lifecycle_status === "erasing") return null;
+
   const userUuid =
     ((session.user as { uuid?: string }).uuid ??
-      (await findUserById(userId))?.uuid) ||
+      storedUser.uuid) ||
     null;
   if (!userUuid) return null;
 
-  // Named in the URL: resolve exactly that org, or refuse. Never fall back to
+  const rawExplicitSlug = orgSlug ?? requestHeaders.get(ORGANIZATION_HEADER);
+  const explicitSlug = normalizeOrganizationSlug(rawExplicitSlug);
+
+  // A supplied but malformed value is not the same as no value. Refuse it
+  // rather than falling back to a different workspace.
+  if (rawExplicitSlug != null && !explicitSlug) return null;
+
+  // Named in the URL/header: resolve exactly that org, or refuse. Never fall back to
   // another organization here — silently serving a different tenant's data than
   // the URL asked for is the worst possible outcome of a bad link.
-  if (orgSlug) {
-    const membership = await findMembershipBySlug(userId, orgSlug);
+  if (explicitSlug) {
+    const membership = await findMembershipBySlug(userId, explicitSlug);
     if (!membership) return null;
 
     return toContext(userId, userUuid, membership);
@@ -204,6 +239,17 @@ export async function getOrgContextFromHeaders(
     };
   }
 
+  const requireExplicit =
+    options.requireExplicitForMultiple ??
+    requestHeaders.get(ORGANIZATION_CONTEXT_MODE_HEADER) === "api";
+
+  if (memberships.length > 1 && requireExplicit) {
+    throw new AppError("ORG_CONTEXT_REQUIRED", {
+      message:
+        "a user with multiple workspaces made an API request without an explicit organization",
+    });
+  }
+
   const activeId = (session.session as { activeOrganizationId?: string | null })
     .activeOrganizationId;
 
@@ -221,7 +267,56 @@ export async function getOrgContext(
   req: Request,
   orgSlug?: string
 ): Promise<OrgContext | null> {
-  return getOrgContextFromHeaders(req.headers, orgSlug);
+  const requestedSlug =
+    orgSlug ??
+    new URL(req.url).searchParams.get(ORGANIZATION_QUERY_PARAM) ??
+    undefined;
+
+  return getOrgContextFromHeaders(req.headers, requestedSlug, {
+    // API requests must never pick a tenant from session-global state when the
+    // user belongs to more than one. A page may use that value once as a
+    // landing preference, then the account shell writes the choice into its
+    // tab-local URL.
+    requireExplicitForMultiple: true,
+  });
+}
+
+/**
+ * Workspace data for the account shell.
+ *
+ * This deliberately uses the non-strict page resolution above: a legacy
+ * `/account/...` link may land via the session preference once. The client
+ * shell immediately canonicalizes it to `?org=<slug>`, after which every link
+ * and API request is explicit and independent across browser tabs.
+ */
+export async function getOrgNavigationStateFromHeaders(
+  requestHeaders: Headers
+): Promise<OrgNavigationState | null> {
+  const current = await getOrgContextFromHeaders(requestHeaders);
+  if (!current) return null;
+
+  const memberships = await findMembershipsByUserId(current.userId);
+  const workspaces = memberships
+    .map(({ member, organization }) => ({
+      slug: organization.slug,
+      name: organization.name,
+      isPersonal: organization.is_personal,
+      role: isOrgRole(member.role) ? member.role : OrgRole.Member,
+    }))
+    .sort(
+      (a, b) =>
+        Number(b.isPersonal) - Number(a.isPersonal) ||
+        a.name.localeCompare(b.name)
+    );
+
+  return {
+    current: {
+      orgSlug: current.orgSlug,
+      orgName: current.orgName,
+      role: current.role,
+    },
+    workspaces,
+  };
 }
 
 function toContext(

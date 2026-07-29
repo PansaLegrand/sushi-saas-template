@@ -1,4 +1,5 @@
 import { api } from "@/lib/api/client";
+import { organizationHeaders } from "./organization-context";
 
 export function createCheckout(input: {
   product_id: string;
@@ -11,7 +12,7 @@ export function createCheckout(input: {
     checkout_url: string;
     reused: boolean;
   }>("/api/checkout", {
-    headers: { "Idempotency-Key": checkoutIntentId },
+    headers: organizationHeaders({ "Idempotency-Key": checkoutIntentId }),
     body: input,
   });
 }

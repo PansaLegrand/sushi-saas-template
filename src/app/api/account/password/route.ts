@@ -32,9 +32,7 @@ export async function POST(req: Request) {
   const invalidOrigin = requireSameOrigin(req);
   if (invalidOrigin) return invalidOrigin;
 
-  // The `auth` bucket: this is an account-credential change, and it should be
-  // throttled alongside sign-in rather than with ordinary API traffic.
-  const limited = await rateLimitOrThrow(req, "auth");
+  const limited = await rateLimitOrThrow(req, "auth-sensitive");
   if (limited) return limited;
 
   let payload: z.infer<typeof SetPasswordSchema>;
@@ -50,7 +48,10 @@ export async function POST(req: Request) {
   try {
     // Better Auth reads the session from the incoming headers rather than from
     // a token in the body, so they are forwarded as-is.
-    const outcome = await setInitialPassword(await headers(), payload.newPassword);
+    const outcome = await setInitialPassword(
+      await headers(),
+      payload.newPassword,
+    );
 
     if (outcome.status === "unauthenticated") return respNoAuth();
 

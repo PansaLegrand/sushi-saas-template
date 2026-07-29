@@ -1,14 +1,25 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ArrowLeft, MailCheck, RefreshCw } from "lucide-react";
 
 import { authClient, signIn, signUp, useSession } from "@/lib/auth-client";
 import { AUTH_ROUTES, withLocale } from "@/config/auth";
 import { captchaHeaders } from "@/lib/captcha";
-import { resolveAuthError, resolveAuthErrorCode } from "@/lib/errors/auth-client";
+import {
+  resolveAuthError,
+  resolveAuthErrorCode,
+} from "@/lib/errors/auth-client";
+import { safeAuthCallbackPath } from "@/lib/auth-callback";
 import {
   Turnstile,
   canSubmitWithCaptcha,
@@ -20,6 +31,7 @@ import { Button } from "@/components/ui/button";
 type AuthMode = "signIn" | "signUp";
 
 interface AuthScreenProps {
+  callbackUrl?: string;
   initialMode?: AuthMode;
 }
 
@@ -35,20 +47,30 @@ const INITIAL_STATE: FormState = {
   name: "",
 };
 
-
-export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
+export function AuthScreen({
+  callbackUrl,
+  initialMode = "signIn",
+}: AuthScreenProps) {
   const params = useParams<{ locale: string }>();
   const locale = params?.locale ?? "";
   const router = useRouter();
   const session = useSession();
   const t = useTranslations("auth");
+  const callbackPath = useMemo(
+    () =>
+      safeAuthCallbackPath(callbackUrl) ??
+      withLocale(locale, AUTH_ROUTES.defaultCallback),
+    [callbackUrl, locale],
+  );
 
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [form, setForm] = useState<FormState>(INITIAL_STATE);
   const [isSubmitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [verificationEmail, setVerificationEmail] = useState<string | null>(null);
+  const [verificationEmail, setVerificationEmail] = useState<string | null>(
+    null,
+  );
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileHandle>(null);
 
@@ -58,8 +80,18 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
   }, [initialMode]);
 
   const buildPath = useCallback(
-    (path: string = "") => withLocale(locale, path || AUTH_ROUTES.defaultCallback),
-    [locale]
+    (path: string = "") => (path ? withLocale(locale, path) : callbackPath),
+    [callbackPath, locale],
+  );
+
+  const buildAuthPath = useCallback(
+    (path: string) => {
+      const localizedPath = withLocale(locale, path);
+      return safeAuthCallbackPath(callbackUrl)
+        ? `${localizedPath}?callbackUrl=${encodeURIComponent(callbackPath)}`
+        : localizedPath;
+    },
+    [callbackPath, callbackUrl, locale],
   );
 
   useEffect(() => {
@@ -94,12 +126,19 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
           if (resolveAuthErrorCode(error) === "AUTH_EMAIL_NOT_VERIFIED") {
             setSuccessMessage(t("msgVerifyEmailPending"));
             setVerificationEmail(form.email);
-            setForm((state) => ({ email: state.email, password: "", name: "" }));
+            setForm((state) => ({
+              email: state.email,
+              password: "",
+              name: "",
+            }));
           } else {
             setErrorMessage(resolveAuthError(error, locale));
           }
         } else if ((data as any)?.twoFactorRedirect) {
-          router.replace(buildPath("/two-factor"));
+          const verificationPath = withLocale(locale, "/two-factor");
+          router.replace(
+            `${verificationPath}?callbackUrl=${encodeURIComponent(callbackPath)}`,
+          );
         } else {
           router.replace(buildPath());
         }
@@ -171,7 +210,7 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
     setSuccessMessage(null);
     setForm(INITIAL_STATE);
     setCaptchaToken(null);
-    router.replace(buildPath(AUTH_ROUTES.signup));
+    router.replace(buildAuthPath(AUTH_ROUTES.signup));
   };
 
   const toggleMode = (nextMode: AuthMode) => {
@@ -181,8 +220,9 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
     setSuccessMessage(null);
     setForm(INITIAL_STATE);
 
-    const nextPath = nextMode === "signUp" ? AUTH_ROUTES.signup : AUTH_ROUTES.login;
-    router.replace(buildPath(nextPath));
+    const nextPath =
+      nextMode === "signUp" ? AUTH_ROUTES.signup : AUTH_ROUTES.login;
+    router.replace(buildAuthPath(nextPath));
   };
 
   const submitLabel = mode === "signIn" ? t("submitSignIn") : t("submitSignUp");
@@ -265,6 +305,7 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
           <button
             type="button"
             onClick={() => toggleMode("signIn")}
+            aria-pressed={mode === "signIn"}
             className={`flex-1 rounded-sm px-4 py-2 text-sm font-medium transition-colors ${
               mode === "signIn"
                 ? "bg-background text-foreground shadow"
@@ -272,11 +313,12 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
             }`}
             disabled={isSubmitting}
           >
-            Log in
+            {t("submitSignIn")}
           </button>
           <button
             type="button"
             onClick={() => toggleMode("signUp")}
+            aria-pressed={mode === "signUp"}
             className={`flex-1 rounded-sm px-4 py-2 text-sm font-medium transition-colors ${
               mode === "signUp"
                 ? "bg-background text-foreground shadow"
@@ -284,7 +326,7 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
             }`}
             disabled={isSubmitting}
           >
-            Sign up
+            {t("linkSignUp")}
           </button>
         </div>
 
@@ -335,7 +377,9 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
             <input
               id="password"
               type="password"
-              autoComplete={mode === "signIn" ? "current-password" : "new-password"}
+              autoComplete={
+                mode === "signIn" ? "current-password" : "new-password"
+              }
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none transition focus-visible:ring focus-visible:ring-primary/40"
               value={form.password}
               onChange={(event) =>
@@ -387,7 +431,9 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
         {/* Social sign-in */}
         <div className="flex items-center gap-3 py-2">
           <div className="h-px flex-1 bg-border" />
-          <span className="text-xs text-muted-foreground">{t("orContinueWith")}</span>
+          <span className="text-xs text-muted-foreground">
+            {t("orContinueWith")}
+          </span>
           <div className="h-px flex-1 bg-border" />
         </div>
         <button
@@ -396,7 +442,7 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
             signIn.social({
               provider: "google",
               callbackURL: buildPath(),
-              errorCallbackURL: buildPath("/login"),
+              errorCallbackURL: buildAuthPath(AUTH_ROUTES.login),
             })
           }
           className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-60"
@@ -410,14 +456,17 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
             height="16"
             aria-hidden
           >
-            <path fill="#EA4335" d="M12 10.2v3.84h5.34c-.24 1.26-1.6 3.7-5.34 3.7a6.18 6.18 0 1 1 0-12.36c1.76 0 2.94.74 3.62 1.38l2.46-2.38C16.7 3.38 14.6 2.5 12 2.5a9.5 9.5 0 1 0 0 19c5.48 0 9.08-3.84 9.08-9.24 0-.62-.06-1.1-.14-1.56H12Z"/>
+            <path
+              fill="#EA4335"
+              d="M12 10.2v3.84h5.34c-.24 1.26-1.6 3.7-5.34 3.7a6.18 6.18 0 1 1 0-12.36c1.76 0 2.94.74 3.62 1.38l2.46-2.38C16.7 3.38 14.6 2.5 12 2.5a9.5 9.5 0 1 0 0 19c5.48 0 9.08-3.84 9.08-9.24 0-.62-.06-1.1-.14-1.56H12Z"
+            />
           </svg>
           {t("continueWithGoogle")}
         </button>
 
         {mode === "signIn" ? (
           <p className="text-center text-sm text-muted-foreground">
-            {t("noAccount")} {" "}
+            {t("noAccount")}{" "}
             <button
               type="button"
               className="font-medium text-primary hover:underline"
@@ -429,7 +478,7 @@ export function AuthScreen({ initialMode = "signIn" }: AuthScreenProps) {
           </p>
         ) : (
           <p className="text-center text-sm text-muted-foreground">
-            {t("haveAccount")} {" "}
+            {t("haveAccount")}{" "}
             <button
               type="button"
               className="font-medium text-primary hover:underline"

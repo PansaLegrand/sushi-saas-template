@@ -25,7 +25,7 @@ const describeRedis = describe.skipIf(!hasTestRedis);
 describeRedis("rate limiter with real Redis", () => {
   const previousRateLimitUrl = process.env.RATE_LIMIT_REDIS_URL;
   const ip = `redis-test-${randomUUID()}`;
-  const redisKey = `sushi:rate_limit:feedback:${ip}`;
+  const redisKey = `rate_limit:feedback:${ip}`;
   const observer = createClient({ url: redisUrl });
 
   beforeAll(async () => {

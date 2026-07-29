@@ -1,5 +1,5 @@
 import { ReservationsConfig } from "@/config/reservations";
-import { ensureDemoService, listActiveServices } from "@/models/reservation";
+import { listReservationServices } from "@/services/reservations";
 import { respData } from "@/lib/resp";
 import { respCode, respError } from "@/lib/errors/response";
 
@@ -9,15 +9,7 @@ export async function GET() {
   }
 
   try {
-    // Seed a demo service if configured
-    if (ReservationsConfig.autoSeedDemo) {
-      try {
-        await ensureDemoService();
-      } catch {
-        // ignore
-      }
-    }
-    const services = await listActiveServices();
+    const services = await listReservationServices();
     return respData({ services });
   } catch (error) {
     return respError(error, {

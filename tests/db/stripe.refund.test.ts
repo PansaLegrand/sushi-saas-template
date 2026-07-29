@@ -39,10 +39,13 @@ const INVOICE = "in_refund_1";
  * rather than mocked at the module level so each test can change one answer —
  * a missing invoice, a throwing lookup — and see the resolution change.
  */
-function stubStripe(overrides: {
-  charge?: Partial<Stripe.Charge> | Error;
-  invoice?: Partial<Stripe.Invoice> | Error;
-} = {}) {
+function stubStripe(
+  overrides: {
+    charge?: Partial<Stripe.Charge> | Error;
+    invoice?: Partial<Stripe.Invoice> | Error;
+    checkoutSession?: Partial<Stripe.Checkout.Session> | Error;
+  } = {},
+) {
   const resolve = <T>(value: T | Error | undefined, fallback: T) => {
     if (value instanceof Error) return Promise.reject(value);
     return Promise.resolve({ ...fallback, ...(value ?? {}) });
@@ -51,7 +54,10 @@ function stubStripe(overrides: {
   return {
     charges: {
       retrieve: vi.fn(() =>
-        resolve(overrides.charge, { id: "ch_1", invoice: INVOICE } as Stripe.Charge)
+        resolve(overrides.charge, {
+          id: "ch_1",
+          invoice: INVOICE,
+        } as Stripe.Charge),
       ),
     },
     invoices: {
@@ -60,8 +66,27 @@ function stubStripe(overrides: {
           id: INVOICE,
           subscription: SUB,
           lines: { data: [{ period: { start: PERIOD_START, end: 0 } }] },
-        } as unknown as Stripe.Invoice)
+        } as unknown as Stripe.Invoice),
       ),
+    },
+    checkout: {
+      sessions: {
+        list: vi.fn(async () => {
+          if (overrides.checkoutSession instanceof Error) {
+            throw overrides.checkoutSession;
+          }
+          return {
+            data: overrides.checkoutSession
+              ? [
+                  {
+                    id: "cs_legacy",
+                    ...overrides.checkoutSession,
+                  } as Stripe.Checkout.Session,
+                ]
+              : [],
+          };
+        }),
+      },
     },
   } as unknown as Stripe;
 }
@@ -121,6 +146,28 @@ async function seedRenewalOrder(credits: number) {
     });
 
   return `renewal:${SUB}:${PERIOD_START}`;
+}
+
+async function seedOneTimeOrder(input: {
+  orderNo: string;
+  credits: number;
+  paymentIntentId?: string;
+  chargeId?: string;
+}) {
+  await db().insert(ordersTable).values({
+    order_no: input.orderNo,
+    created_at: new Date(),
+    org_uuid: ORG,
+    user_uuid: USER,
+    user_email: "buyer@test.dev",
+    amount: 2900,
+    status: OrderStatus.Paid,
+    credits: input.credits,
+    currency: "usd",
+    stripe_payment_intent_id: input.paymentIntentId,
+    stripe_charge_id: input.chargeId,
+    paid_at: new Date(),
+  });
 }
 
 useCleanDatabase();
@@ -296,7 +343,7 @@ describeDb("refund assessment (real database)", () => {
     const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const assessment = await assessRefund(
       stubStripe({ invoice: new Error("stripe down") }),
-      refundedEvent()
+      refundedEvent(),
     );
 
     expect(assessment.resolution).toBe("order_unresolved");
@@ -305,13 +352,81 @@ describeDb("refund assessment (real database)", () => {
     consoleWarn.mockRestore();
   });
 
-  it("handles a charge with no invoice behind it", async () => {
-    // A one-off checkout charge has no invoice, so there is no path to an order
-    // yet. Recorded honestly as unresolved rather than guessed at — see the
-    // roadmap note on `stripe_payment_intent_id`.
+  it("resolves a one-time checkout refund through structured payment identifiers", async () => {
+    const orderNo = "order_one_time_structured";
+    await seedOneTimeOrder({
+      orderNo,
+      credits: 100,
+      paymentIntentId: "pi_one_time",
+      chargeId: "ch_one_time",
+    });
+    await increaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.OrderPay,
+      credits: 100,
+      order_no: orderNo,
+      actor: "stripe:webhook",
+    });
+
     const assessment = await assessRefund(
       stubStripe(),
-      refundedEvent({ invoice: null })
+      refundedEvent({
+        id: "ch_one_time",
+        invoice: null,
+        payment_intent: "pi_one_time",
+      }),
+    );
+
+    expect(assessment).toMatchObject({
+      resolution: "resolved",
+      order_no: orderNo,
+      charge_id: "ch_one_time",
+      granted_credits: 100,
+      shortfall: 0,
+    });
+    expect(assessment.stripe_invoice_id).toBeUndefined();
+  });
+
+  it("keeps pre-migration one-time orders resolvable through Checkout metadata", async () => {
+    const orderNo = "order_one_time_legacy";
+    await seedOneTimeOrder({ orderNo, credits: 50 });
+    await increaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.OrderPay,
+      credits: 50,
+      order_no: orderNo,
+      actor: "stripe:webhook",
+    });
+
+    const stripe = stubStripe({
+      checkoutSession: { metadata: { order_no: orderNo } },
+    });
+    const assessment = await assessRefund(
+      stripe,
+      refundedEvent({
+        id: "ch_legacy",
+        invoice: null,
+        payment_intent: "pi_legacy",
+      }),
+    );
+
+    expect(assessment).toMatchObject({
+      resolution: "resolved",
+      order_no: orderNo,
+      granted_credits: 50,
+    });
+    expect(stripe.checkout.sessions.list).toHaveBeenCalledWith({
+      payment_intent: "pi_legacy",
+      limit: 1,
+    });
+  });
+
+  it("records an unmatched one-time charge honestly as unresolved", async () => {
+    const assessment = await assessRefund(
+      stubStripe(),
+      refundedEvent({ invoice: null }),
     );
 
     expect(assessment.resolution).toBe("order_unresolved");

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { AdminPageHeader } from "@admin/components/admin-page-header";
 import { getAdminContext } from "@admin/lib/authz";
 import { Pager } from "@admin/components/pager";
 import {
@@ -41,15 +42,13 @@ export default async function AdminOrganizationsPage({
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Organizations</h1>
-          <p className="text-sm text-muted-foreground">
-            Credits, plans, and Stripe customers belong here — not to a user.
-          </p>
-        </div>
-        <p className="text-sm text-muted-foreground">Total: {total}</p>
-      </header>
+      <AdminPageHeader
+        title="Organizations"
+        description="Credits, plans, and Stripe customers belong here — not to a user."
+        actions={
+          <p className="text-sm text-muted-foreground">Total: {total}</p>
+        }
+      />
 
       {/* A GET form, so a search is a URL an operator can paste into a ticket. */}
       <form method="get" className="flex gap-2">

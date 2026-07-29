@@ -21,6 +21,14 @@ export interface StorageAdapter {
     expiresIn?: number; // seconds
     responseContentType?: string;
   }): Promise<SignedDownloadUrl>;
+  /** Server-side write used for private lifecycle artifacts. */
+  putObject(params: {
+    bucket: string;
+    key: string;
+    body: Uint8Array;
+    contentType: string;
+    metadata?: Record<string, string>;
+  }): Promise<void>;
   headObject(params: { bucket: string; key: string }): Promise<
     | {
         size: number;

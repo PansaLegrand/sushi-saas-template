@@ -14,10 +14,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const { claimDueJobs, markJobSucceeded, markJobFailed, insertJob } = vi.hoisted(
   () => ({
     claimDueJobs: vi.fn(),
-    markJobSucceeded: vi.fn().mockResolvedValue(undefined),
+    markJobSucceeded: vi.fn().mockResolvedValue(true),
     markJobFailed: vi.fn().mockResolvedValue("retrying"),
     insertJob: vi.fn().mockResolvedValue({ id: 1 }),
-  })
+  }),
 );
 
 vi.mock("@/models/job", () => ({
@@ -58,31 +58,60 @@ function buildJob(overrides: Record<string, unknown> = {}) {
     created_at: new Date(),
     updated_at: new Date(),
     completed_at: null,
+    subject_user_uuid: null,
+    subject_org_uuid: null,
     ...overrides,
   };
+}
+
+function queueClaims(...jobs: ReturnType<typeof buildJob>[]) {
+  for (const job of jobs) {
+    claimDueJobs.mockResolvedValueOnce([job]);
+  }
+  claimDueJobs.mockResolvedValue([]);
 }
 
 describe("runDueJobs", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    claimDueJobs.mockReset();
+    claimDueJobs.mockResolvedValue([]);
+    welcomeEmail.mockReset();
+    welcomeEmail.mockResolvedValue(undefined);
+    newUserCredits.mockReset();
+    newUserCredits.mockResolvedValue(undefined);
+    markJobSucceeded.mockReset();
+    markJobSucceeded.mockResolvedValue(true);
+    markJobFailed.mockReset();
     markJobFailed.mockResolvedValue("retrying");
   });
 
-  it("runs a claimed job and marks it succeeded", async () => {
-    claimDueJobs.mockResolvedValue([buildJob()]);
+  it("runs a claimed job with stable retry context and marks it succeeded", async () => {
+    queueClaims(buildJob({ attempts: 2 }));
 
     const result = await runDueJobs();
 
-    expect(welcomeEmail).toHaveBeenCalledWith({
-      email: "a@example.com",
-      name: "A",
-    });
-    expect(markJobSucceeded).toHaveBeenCalledWith(1);
+    expect(welcomeEmail).toHaveBeenCalledWith(
+      {
+        email: "a@example.com",
+        name: "A",
+      },
+      expect.objectContaining({
+        jobUuid: "job-1",
+        attempt: 2,
+        maxAttempts: 5,
+        signal: expect.any(AbortSignal),
+      }),
+    );
+    expect(claimDueJobs).toHaveBeenCalledWith(1, expect.any(Number));
+    expect(markJobSucceeded).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 1, locked_at: expect.any(Date) }),
+    );
     expect(result).toMatchObject({ claimed: 1, succeeded: 1, failed: 0 });
   });
 
   it("retries a failing job instead of dropping it", async () => {
-    claimDueJobs.mockResolvedValue([buildJob()]);
+    queueClaims(buildJob());
     welcomeEmail.mockRejectedValueOnce(new Error("smtp down"));
 
     const result = await runDueJobs();
@@ -94,7 +123,7 @@ describe("runDueJobs", () => {
   });
 
   it("reports a job that has exhausted its attempts as failed", async () => {
-    claimDueJobs.mockResolvedValue([buildJob({ attempts: 5 })]);
+    queueClaims(buildJob({ attempts: 5 }));
     welcomeEmail.mockRejectedValueOnce(new Error("still down"));
     markJobFailed.mockResolvedValue("failed");
 
@@ -104,7 +133,7 @@ describe("runDueJobs", () => {
   });
 
   it("buries an unknown job type rather than retrying forever", async () => {
-    claimDueJobs.mockResolvedValue([buildJob({ type: "removed_in_a_deploy" })]);
+    queueClaims(buildJob({ type: "removed_in_a_deploy" }));
 
     const result = await runDueJobs();
 
@@ -115,10 +144,10 @@ describe("runDueJobs", () => {
   });
 
   it("keeps processing after one job fails", async () => {
-    claimDueJobs.mockResolvedValue([
+    queueClaims(
       buildJob({ id: 1, uuid: "job-1" }),
       buildJob({ id: 2, uuid: "job-2" }),
-    ]);
+    );
     welcomeEmail.mockRejectedValueOnce(new Error("transient"));
 
     const result = await runDueJobs();
@@ -129,12 +158,92 @@ describe("runDueJobs", () => {
   });
 
   it("does nothing when the queue is empty", async () => {
-    claimDueJobs.mockResolvedValue([]);
-
     const result = await runDueJobs();
 
     expect(result).toMatchObject({ claimed: 0, succeeded: 0 });
     expect(welcomeEmail).not.toHaveBeenCalled();
+  });
+
+  it("does not report success after another runner replaces its lease", async () => {
+    queueClaims(buildJob());
+    markJobSucceeded.mockResolvedValueOnce(false);
+
+    const result = await runDueJobs();
+
+    expect(result).toMatchObject({
+      claimed: 1,
+      succeeded: 0,
+      failed: 0,
+      results: [expect.objectContaining({ outcome: "lease_lost" })],
+    });
+  });
+
+  it("never preclaims the next job while the current handler is running", async () => {
+    let finish: (() => void) | undefined;
+    welcomeEmail.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    queueClaims(
+      buildJob({ id: 1, uuid: "job-1" }),
+      buildJob({ id: 2, uuid: "job-2" }),
+    );
+
+    const drain = runDueJobs(2);
+    await vi.waitFor(() => expect(welcomeEmail).toHaveBeenCalledOnce());
+
+    expect(claimDueJobs).toHaveBeenCalledTimes(1);
+    expect(claimDueJobs).toHaveBeenLastCalledWith(1, expect.any(Number));
+
+    finish?.();
+    await drain;
+    expect(claimDueJobs).toHaveBeenCalledTimes(2);
+  });
+
+  it("aborts and retries a handler that exceeds its timeout", async () => {
+    let signal: AbortSignal | undefined;
+    welcomeEmail.mockImplementationOnce((_payload, context) => {
+      signal = context.signal;
+      return new Promise<void>(() => {});
+    });
+    queueClaims(buildJob());
+
+    const result = await runDueJobs(1, {
+      handlerTimeoutMs: 10,
+      drainDeadlineMs: 100,
+    });
+
+    expect(signal?.aborted).toBe(true);
+    expect(markJobSucceeded).not.toHaveBeenCalled();
+    expect(markJobFailed).toHaveBeenCalledWith(
+      expect.objectContaining({ uuid: "job-1" }),
+      "job handler timed out after 10ms",
+      expect.any(Number),
+    );
+    expect(result).toMatchObject({ claimed: 1, retrying: 1 });
+  });
+
+  it("releases a lease when the claim itself crosses the drain deadline", async () => {
+    claimDueJobs.mockImplementationOnce(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      return [buildJob()];
+    });
+
+    const result = await runDueJobs(2, {
+      handlerTimeoutMs: 100,
+      drainDeadlineMs: 5,
+    });
+
+    expect(welcomeEmail).not.toHaveBeenCalled();
+    expect(markJobFailed).toHaveBeenCalledWith(
+      expect.objectContaining({ uuid: "job-1" }),
+      "job drain deadline elapsed immediately after claim",
+      expect.any(Number),
+    );
+    expect(claimDueJobs).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ claimed: 1, retrying: 1 });
   });
 });
 
@@ -148,7 +257,7 @@ describe("enqueueJobSafe", () => {
     // `false` rather than nothing, so a caller that tells someone "I queued an
     // alert" can tell the difference between having done so and not.
     await expect(
-      enqueueJobSafe("welcome_email", { email: "a@example.com" })
+      enqueueJobSafe("welcome_email", { email: "a@example.com" }),
     ).resolves.toBe(false);
   });
 
@@ -159,12 +268,12 @@ describe("enqueueJobSafe", () => {
     // and claiming to have sent it would be a lie told to whoever is on call.
     insertJob.mockResolvedValueOnce({ uuid: "job-1" });
     await expect(
-      enqueueJobSafe("welcome_email", { email: "a@example.com" })
+      enqueueJobSafe("welcome_email", { email: "a@example.com" }),
     ).resolves.toBe(true);
 
     insertJob.mockResolvedValueOnce(undefined);
     await expect(
-      enqueueJobSafe("welcome_email", { email: "a@example.com" })
+      enqueueJobSafe("welcome_email", { email: "a@example.com" }),
     ).resolves.toBe(false);
   });
 
@@ -172,14 +281,20 @@ describe("enqueueJobSafe", () => {
     await enqueueJobSafe(
       "new_user_credits",
       { userUuid: "u-1", credits: 10 },
-      { dedupeKey: "new_user_credits:u-1" }
+      {
+        dedupeKey: "new_user_credits:u-1",
+        retryFailed: true,
+        subjectUserUuid: "u-1",
+      },
     );
 
     expect(insertJob).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "new_user_credits",
         dedupeKey: "new_user_credits:u-1",
-      })
+        retryFailed: true,
+        subjectUserUuid: "u-1",
+      }),
     );
   });
 });

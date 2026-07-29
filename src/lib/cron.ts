@@ -1,6 +1,17 @@
-import { isProductionRuntime } from "@/lib/env";
-import { respForbidden, respNoAuth } from "@/lib/resp";
-import { logger } from "@/lib/logger/server";
+import { createHash, timingSafeEqual } from "node:crypto";
+
+import {
+  isProductionRuntime,
+  isStrongProductionSecret,
+} from "@/lib/env";
+import { respCode } from "@/lib/errors/response";
+
+function constantTimeMatch(provided: string, expected: string): boolean {
+  const providedDigest = createHash("sha256").update(provided, "utf8").digest();
+  const expectedDigest = createHash("sha256").update(expected, "utf8").digest();
+
+  return timingSafeEqual(providedDigest, expectedDigest);
+}
 
 /**
  * Guard for cron endpoints.
@@ -21,22 +32,32 @@ export function requireCronAuth(req: Request): Response | null {
     // Fail closed in production: an unauthenticated cron endpoint is worse
     // than a cron that does not run.
     if (isProductionRuntime()) {
-      logger.error(
-        { event: "cron.secret_missing" },
-        "CRON_SECRET is not set; refusing to run cron endpoint"
-      );
-      return respForbidden("cron secret not configured");
+      return respCode("AUTH_FORBIDDEN", {
+        message: "CRON_SECRET is not set; refusing to run cron endpoint",
+        logFields: { operation: "cron.auth", configuration: "missing" },
+      });
     }
     // Local development without the variable is allowed so the endpoint can
     // be exercised by hand.
     return null;
   }
 
+  if (isProductionRuntime() && !isStrongProductionSecret(secret)) {
+    return respCode("AUTH_FORBIDDEN", {
+      message:
+        "CRON_SECRET is too short or is a setup placeholder; refusing to run cron endpoint",
+      logFields: { operation: "cron.auth", configuration: "weak" },
+    });
+  }
+
   const header = req.headers.get("authorization") ?? "";
   const expected = `Bearer ${secret}`;
 
-  if (header.length !== expected.length || header !== expected) {
-    return respNoAuth("invalid cron credentials");
+  if (!constantTimeMatch(header, expected)) {
+    return respCode("AUTH_REQUIRED", {
+      message: "invalid cron credentials",
+      logFields: { operation: "cron.auth" },
+    });
   }
 
   return null;

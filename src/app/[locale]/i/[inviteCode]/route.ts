@@ -5,15 +5,18 @@ import { getAppEnv } from "@/lib/env";
 import { absoluteLocaleUrl } from "@/i18n/locale";
 
 export async function GET(_req: Request, ctx: any) {
-  const { inviteCode, locale } = await (ctx?.params || {}) as {
+  const { inviteCode, locale } = (await (ctx?.params || {})) as {
     locale: string;
     inviteCode: string;
   };
+  const base = getAppEnv().NEXT_PUBLIC_WEB_URL;
+  const redirectTo = absoluteLocaleUrl(base, locale, "/signup");
+  if (!AffiliateConfig.enabled) {
+    return NextResponse.redirect(redirectTo);
+  }
 
   try {
     const inviter = await findUserByInviteCode(inviteCode);
-    const base = getAppEnv().NEXT_PUBLIC_WEB_URL;
-    const redirectTo = absoluteLocaleUrl(base, locale, "/signup");
 
     const res = NextResponse.redirect(redirectTo);
 
@@ -30,7 +33,6 @@ export async function GET(_req: Request, ctx: any) {
 
     return res;
   } catch (e) {
-    const base = getAppEnv().NEXT_PUBLIC_WEB_URL;
     return NextResponse.redirect(absoluteLocaleUrl(base, locale));
   }
 }

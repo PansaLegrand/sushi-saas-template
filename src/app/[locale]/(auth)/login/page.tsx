@@ -18,12 +18,24 @@ export async function generateMetadata({
     locale,
     path: "/login",
     title: `Log in | ${tMeta("metadata.title") || defaultMetaFallbacks.title}`,
-    description: tMeta("metadata.description") || defaultMetaFallbacks.description,
+    description:
+      tMeta("metadata.description") || defaultMetaFallbacks.description,
     keywords,
     noindex: true,
   });
 }
 
-export default function LoginPage() {
-  return <AuthScreen initialMode="signIn" />;
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ callbackUrl?: string | string[] }>;
+}) {
+  const callbackUrl = (await searchParams).callbackUrl;
+
+  return (
+    <AuthScreen
+      callbackUrl={Array.isArray(callbackUrl) ? callbackUrl[0] : callbackUrl}
+      initialMode="signIn"
+    />
+  );
 }

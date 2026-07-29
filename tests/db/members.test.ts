@@ -22,6 +22,7 @@ import {
   assertNotLastOrganization,
   assertNotLastOwner,
   assignableRoles,
+  changeMemberRole,
   getTeam,
 } from "@/services/members";
 import { ensurePersonalOrganization } from "@/services/organizations";
@@ -108,6 +109,29 @@ describeDb("last-owner protection (real database)", () => {
     const memberId = await addMember(colleague.id, "member");
 
     await expect(assertNotLastOwner(orgId, memberId, "remove")).resolves.toBeUndefined();
+  });
+
+  it("serializes concurrent demotions so one owner always remains", async () => {
+    const colleague = await newUser("colleague");
+    const colleagueMemberId = await addMember(colleague.id, "owner");
+    const ownerMember = (await db()
+      .select()
+      .from(orgMembers)
+      .where(eq(orgMembers.user_id, owner.id)))[0];
+
+    const results = await Promise.allSettled([
+      changeMemberRole(orgId, ownerMember.id, "member"),
+      changeMemberRole(orgId, colleagueMemberId, "member"),
+    ]);
+
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+    expect(
+      results.find((result) => result.status === "rejected")
+    ).toMatchObject({
+      reason: expect.objectContaining({ code: "ORG_LAST_OWNER" }),
+    });
+    expect(await countOwners(orgId)).toBe(1);
   });
 
   it("reports a member from another organization as not found", async () => {

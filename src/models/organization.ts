@@ -2,7 +2,13 @@ import { and, asc, desc, eq, gt, ilike, or, sql, type SQL } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
-import { orgInvitations, orgMembers, organizations, users } from "@/db/schema";
+import {
+  orgInvitations,
+  orgMembers,
+  organizations,
+  sessions,
+  users,
+} from "@/db/schema";
 
 /** An organization row. Exported so services can type over rows without importing the schema. */
 export type OrganizationRow = typeof organizations.$inferSelect;
@@ -60,6 +66,64 @@ export async function findMembershipsByUserId(
     .where(eq(orgMembers.user_id, userId));
 
   return rows;
+}
+
+/**
+ * Create the fallback personal workspace once, even when the signup hook and a
+ * first authenticated request race to repair the same user.
+ *
+ * The advisory lock, existence check, organization insert, and owner insert are
+ * one transaction. Better Auth's create endpoint cannot provide that invariant
+ * because its own read and writes happen on separate calls.
+ */
+export async function createPersonalOrganizationIfAbsent(input: {
+  userId: string;
+  organizationId: string;
+  organizationUuid: string;
+  memberId: string;
+  name: string;
+  slug: string;
+}): Promise<OrganizationRow> {
+  return db().transaction(async (tx) => {
+    await tx.execute(sql`
+      select pg_advisory_xact_lock(
+        hashtextextended(${`personal-organization:${input.userId}`}, 0::bigint)
+      )
+    `);
+
+    const existing = await tx
+      .select({ organization: organizations })
+      .from(orgMembers)
+      .innerJoin(
+        organizations,
+        eq(organizations.id, orgMembers.organization_id)
+      )
+      .where(eq(orgMembers.user_id, input.userId))
+      .orderBy(desc(organizations.is_personal), asc(organizations.created_at))
+      .limit(1);
+
+    if (existing[0]) return existing[0].organization;
+
+    const [organization] = await tx
+      .insert(organizations)
+      .values({
+        id: input.organizationId,
+        uuid: input.organizationUuid,
+        name: input.name,
+        slug: input.slug,
+        is_personal: true,
+      })
+      .returning();
+
+    await tx.insert(orgMembers).values({
+      id: input.memberId,
+      organization_id: organization.id,
+      user_id: input.userId,
+      role: OrgRole.Owner,
+    });
+
+    return organization;
+  });
 }
 
 /** A user's place in one organization: the membership row and the org it is in. */
@@ -228,6 +292,8 @@ export async function listOrganizationsForAdmin({
       metadata: organizations.metadata,
       stripe_customer_id: organizations.stripe_customer_id,
       is_personal: organizations.is_personal,
+      lifecycle_status: organizations.lifecycle_status,
+      deleted_at: organizations.deleted_at,
       created_at: organizations.created_at,
       updated_at: organizations.updated_at,
       // A join and GROUP BY rather than a correlated subquery, and not for
@@ -357,6 +423,177 @@ export async function countOwners(orgId: string): Promise<number> {
     orgMembers,
     and(eq(orgMembers.organization_id, orgId), eq(orgMembers.role, OrgRole.Owner))
   );
+}
+
+type MembershipMutationOutcome =
+  | { status: "updated"; member: OrgMemberRow }
+  | { status: "removed"; member: OrgMemberRow }
+  | { status: "not-found" }
+  | { status: "last-owner" }
+  | { status: "last-organization" };
+
+/** An open transaction, as handed to the callback of `db().transaction()`. */
+type Tx = Parameters<Parameters<ReturnType<typeof db>["transaction"]>[0]>[0];
+
+async function lockMembershipMutation(
+  tx: Tx,
+  orgId: string,
+  userId?: string
+): Promise<void> {
+  // Serialize every role/removal decision for one organization. A lock on the
+  // count query alone would be meaningless: both transactions could still
+  // observe two owners before either mutation lands.
+  await tx.execute(sql`
+    select pg_advisory_xact_lock(
+      hashtextextended(${`organization-members:${orgId}`}, 0::bigint)
+    )
+  `);
+
+  if (userId) {
+    // A user leaving two organizations concurrently must not have both
+    // transactions observe "2 memberships" and remove both rows.
+    await tx.execute(sql`
+      select pg_advisory_xact_lock(
+        hashtextextended(${`user-memberships:${userId}`}, 0::bigint)
+      )
+    `);
+  }
+}
+
+async function countOwnersInTransaction(tx: Tx, orgId: string): Promise<number> {
+  const [row] = await tx
+    .select({ total: sql<number>`count(*)::int` })
+    .from(orgMembers)
+    .where(
+      and(
+        eq(orgMembers.organization_id, orgId),
+        eq(orgMembers.role, OrgRole.Owner)
+      )
+    );
+
+  return row?.total ?? 0;
+}
+
+/**
+ * Change a member role without ever allowing the organization to reach zero
+ * owners. The decision and update share one transaction and advisory lock.
+ */
+export async function updateMemberRoleAtomically(
+  orgId: string,
+  memberId: string,
+  role: OrgRoleValue
+): Promise<MembershipMutationOutcome> {
+  return db().transaction(async (tx) => {
+    await lockMembershipMutation(tx, orgId);
+
+    const [member] = await tx
+      .select()
+      .from(orgMembers)
+      .where(
+        and(
+          eq(orgMembers.organization_id, orgId),
+          eq(orgMembers.id, memberId)
+        )
+      )
+      .limit(1);
+
+    if (!member) return { status: "not-found" };
+
+    if (
+      member.role === OrgRole.Owner &&
+      role !== OrgRole.Owner &&
+      (await countOwnersInTransaction(tx, orgId)) <= 1
+    ) {
+      return { status: "last-owner" };
+    }
+
+    const [updated] = await tx
+      .update(orgMembers)
+      .set({ role })
+      .where(
+        and(
+          eq(orgMembers.organization_id, orgId),
+          eq(orgMembers.id, memberId)
+        )
+      )
+      .returning();
+
+    return updated
+      ? { status: "updated", member: updated }
+      : { status: "not-found" };
+  });
+}
+
+/**
+ * Remove a membership while preserving both invariants: every organization
+ * retains an owner and every account retains at least one organization.
+ */
+export async function removeMemberAtomically(
+  orgId: string,
+  memberId: string
+): Promise<MembershipMutationOutcome> {
+  return db().transaction(async (tx) => {
+    // Resolve the target under the organization lock first. Once known, the
+    // user lock serializes concurrent leaves from different organizations.
+    await lockMembershipMutation(tx, orgId);
+
+    const [member] = await tx
+      .select()
+      .from(orgMembers)
+      .where(
+        and(
+          eq(orgMembers.organization_id, orgId),
+          eq(orgMembers.id, memberId)
+        )
+      )
+      .limit(1);
+
+    if (!member) return { status: "not-found" };
+
+    await lockMembershipMutation(tx, orgId, member.user_id);
+
+    if (
+      member.role === OrgRole.Owner &&
+      (await countOwnersInTransaction(tx, orgId)) <= 1
+    ) {
+      return { status: "last-owner" };
+    }
+
+    const [membershipCount] = await tx
+      .select({ total: sql<number>`count(*)::int` })
+      .from(orgMembers)
+      .where(eq(orgMembers.user_id, member.user_id));
+
+    if ((membershipCount?.total ?? 0) <= 1) {
+      return { status: "last-organization" };
+    }
+
+    const [removed] = await tx
+      .delete(orgMembers)
+      .where(
+        and(
+          eq(orgMembers.organization_id, orgId),
+          eq(orgMembers.id, memberId)
+        )
+      )
+      .returning();
+
+    if (!removed) return { status: "not-found" };
+
+    // Better Auth stores the active tenant on each session. Clear a tenant the
+    // user no longer belongs to in the same transaction as the removal.
+    await tx
+      .update(sessions)
+      .set({ active_organization_id: null, updated_at: new Date() })
+      .where(
+        and(
+          eq(sessions.user_id, removed.user_id),
+          eq(sessions.active_organization_id, orgId)
+        )
+      );
+
+    return { status: "removed", member: removed };
+  });
 }
 
 /**

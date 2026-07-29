@@ -8,7 +8,10 @@ export const ReservationsData = {
   baseTimeZone: "America/Los_Angeles",
 
   // How long a pending reservation remains on hold before payment completes (minutes)
-  holdMinutes: 15,
+  // Stripe requires a Checkout Session with a custom expiry to live for at
+  // least 30 minutes. Five minutes of margin keeps a slow first request inside
+  // that boundary while preserving one stable expiry across idempotent retries.
+  holdMinutes: 35,
 
   // Availability window into the future (days)
   horizonDays: 14,
@@ -28,9 +31,11 @@ export type ReservationsDataType = typeof ReservationsData;
 // env switches that gate the feature, so callers have a single import rather
 // than reaching for `process.env` themselves.
 export const ReservationsConfig = {
-  // Toggle the entire feature on/off (kept as env for easy disabling)
+  // Opt-in because every deployment must intentionally supply its service
+  // catalog, business hours, Stripe webhook, and email policy. The database and
+  // checkout invariants are enforced even while the feature is disabled.
   enabled:
-    (process.env.NEXT_PUBLIC_FEATURE_RESERVATIONS_ENABLED ?? "true").toLowerCase() ===
+    (process.env.NEXT_PUBLIC_FEATURE_RESERVATIONS_ENABLED ?? "false").toLowerCase() ===
     "true",
   // Auto-seed a demo service if none exist (env-controlled convenience)
   autoSeedDemo: isReservationDemoAutoSeedEnabled(),

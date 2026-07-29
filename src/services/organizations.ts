@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 
 import {
+  createPersonalOrganizationIfAbsent,
   findMembershipsByUserId,
-  markOrganizationPersonal,
   type OrganizationRow,
 } from "@/models/organization";
 
@@ -39,7 +39,7 @@ function personalOrgSlug(name: string) {
       .replace(/^-+|-+$/g, "")
       .slice(0, 32) || "workspace";
 
-  return `${stem}-${randomUUID().slice(0, 8)}`;
+  return `${stem}-${randomUUID().replaceAll("-", "").slice(0, 16)}`;
 }
 
 /**
@@ -66,26 +66,15 @@ export async function ensurePersonalOrganization(user: {
 
   const name = personalOrgName(user);
 
-  // Imported lazily on purpose. `src/lib/auth.ts` imports this module for its
-  // signup hook, so a static import back would be a module cycle. Everything
-  // here runs well after both modules are initialized.
-  const { auth } = await import("@/lib/auth");
-
-  const created = await auth.api.createOrganization({
-    body: {
-      name,
-      slug: personalOrgSlug(name),
-      // Server-side creation: there is no session yet when this runs from the
-      // signup hook, so the plugin takes the owner explicitly.
-      userId: user.id,
-    },
+  // The model repeats the existence check under a per-user database lock. The
+  // optimistic read above keeps ordinary requests cheap; the locked check is
+  // what makes concurrent signup/repair calls converge on one workspace.
+  return createPersonalOrganizationIfAbsent({
+    userId: user.id,
+    organizationId: randomUUID(),
+    organizationUuid: randomUUID(),
+    memberId: randomUUID(),
+    name,
+    slug: personalOrgSlug(name),
   });
-
-  if (!created) {
-    throw new Error(`failed to create personal organization for user ${user.id}`);
-  }
-
-  await markOrganizationPersonal(created.id);
-
-  return { ...(created as unknown as OrganizationRow), is_personal: true };
 }

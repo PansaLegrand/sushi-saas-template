@@ -12,24 +12,41 @@ import {
   getOrgCreditSummary,
 } from "@/services/credit";
 import { findPersonalOrganizationByUserUuid } from "@/models/organization";
-import type { JobHandlerMap } from "./types";
+import { deleteStoredObject } from "@/services/storage/delete-worker";
+import type { JobHandlerContext, JobHandlerMap } from "./types";
+
+function queuedMailDelivery(context: JobHandlerContext) {
+  return {
+    // Attempts intentionally share one key. A worker can time out after Resend
+    // accepted a message but before the response reached us.
+    idempotencyKey: `job-${context.jobUuid}`,
+    signal: context.signal,
+  };
+}
 
 /**
  * Handlers must be idempotent: a job can be retried after a partial failure, or
  * re-run if a runner died mid-flight without releasing its lock.
  */
 export const jobHandlers: JobHandlerMap = {
-  welcome_email: async ({ email, name }) => {
-    await sendWelcomeEmail(email, name);
+  welcome_email: async ({ email, name }, context) => {
+    await sendWelcomeEmail(email, name, queuedMailDelivery(context));
   },
 
-  org_invitation_email: async ({ to, url, organizationName, inviterName, expiresInHours }) => {
-    await sendOrgInvitationEmail(to, {
-      url,
-      organizationName,
-      inviterName,
-      expiresInHours,
-    });
+  org_invitation_email: async (
+    { to, url, organizationName, inviterName, expiresInHours },
+    context,
+  ) => {
+    await sendOrgInvitationEmail(
+      to,
+      {
+        url,
+        organizationName,
+        inviterName,
+        expiresInHours,
+      },
+      queuedMailDelivery(context),
+    );
   },
 
   new_user_credits: async ({ userUuid, credits }) => {
@@ -67,17 +84,59 @@ export const jobHandlers: JobHandlerMap = {
     await getOrgCreditSummary(org.uuid, { includeLedger: false });
   },
 
-  payment_success_email: async ({ to, orderNo, amount, currency }) => {
-    await sendPaymentSuccessEmail(to, { orderNo, amount, currency });
+  storage_object_delete: async ({ fileUuid, orgUuid }) => {
+    await deleteStoredObject({ fileUuid, orgUuid });
   },
 
-  payment_failed_email: async ({ to, invoiceNumber, amount, currency, manageUrl }) => {
-    await sendPaymentFailedEmail(to, {
-      invoiceNumber,
-      amount,
-      currency,
-      manageUrl,
-    });
+  account_data_export: async ({ requestUuid }) => {
+    // Dynamic import avoids making the auth configuration and the job registry
+    // initialize each other. Lifecycle route helpers use `auth`; workers do not
+    // need it, and are loaded only when their durable job actually runs.
+    const { runAccountDataExport } = await import(
+      "@/services/account-lifecycle"
+    );
+    await runAccountDataExport({ requestUuid });
+  },
+
+  account_export_expire: async ({ requestUuid }) => {
+    const { expireAccountExport } = await import(
+      "@/services/account-lifecycle"
+    );
+    await expireAccountExport({ requestUuid });
+  },
+
+  account_erasure: async ({ requestUuid }) => {
+    const { runAccountErasure } = await import(
+      "@/services/account-lifecycle"
+    );
+    await runAccountErasure({ requestUuid });
+  },
+
+  payment_success_email: async (
+    { to, orderNo, amount, currency },
+    context,
+  ) => {
+    await sendPaymentSuccessEmail(
+      to,
+      { orderNo, amount, currency },
+      queuedMailDelivery(context),
+    );
+  },
+
+  payment_failed_email: async (
+    { to, invoiceNumber, amount, currency, manageUrl },
+    context,
+  ) => {
+    await sendPaymentFailedEmail(
+      to,
+      {
+        invoiceNumber,
+        amount,
+        currency,
+        manageUrl,
+      },
+      queuedMailDelivery(context),
+    );
   },
 
   reservation_confirmed_email: async ({
@@ -88,15 +147,19 @@ export const jobHandlers: JobHandlerMap = {
     timezone,
     icsContent,
     googleCalendarUrl,
-  }) => {
-    await sendReservationConfirmedEmail(to, {
-      reservationNo,
-      serviceTitle,
-      startsAt,
-      timezone,
-      icsContent,
-      googleCalendarUrl,
-    });
+  }, context) => {
+    await sendReservationConfirmedEmail(
+      to,
+      {
+        reservationNo,
+        serviceTitle,
+        startsAt,
+        timezone,
+        icsContent,
+        googleCalendarUrl,
+      },
+      queuedMailDelivery(context),
+    );
   },
 
   slack_event: async ({ title, context }) => {

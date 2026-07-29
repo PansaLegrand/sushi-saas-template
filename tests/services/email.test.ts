@@ -16,7 +16,7 @@ vi.mock("resend", () => ({
   },
 }));
 
-import { sendVerifyEmail } from "@/services/email/send";
+import { sendMail, sendVerifyEmail } from "@/services/email/send";
 
 describe("sendVerifyEmail", () => {
   beforeEach(() => {
@@ -39,5 +39,28 @@ describe("sendVerifyEmail", () => {
     );
     expect(mocks.send.mock.calls[0][0].html).toContain("Verify your email");
     expect(mocks.send.mock.calls[0][0].html).toContain(url);
+  });
+
+  it("forwards durable-job identity and cancellation to Resend", async () => {
+    const signal = new AbortController().signal;
+
+    await sendMail({
+      to: "user@example.com",
+      subject: "Queued",
+      html: "<p>Queued</p>",
+      idempotencyKey: "job-7152ea1f-c2fa-4163-9af8-0b34007b76a5",
+      signal,
+    });
+
+    expect(mocks.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: ["user@example.com"],
+        subject: "Queued",
+      }),
+      {
+        idempotencyKey: "job-7152ea1f-c2fa-4163-9af8-0b34007b76a5",
+        signal,
+      },
+    );
   });
 });

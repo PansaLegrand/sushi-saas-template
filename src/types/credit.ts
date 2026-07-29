@@ -1,4 +1,8 @@
 export interface CreditLedgerEntry {
+  /**
+   * The logical root transaction for customer views. Admin audit views expose
+   * each immutable physical FEFO part under its own transaction number.
+   */
   transNo: string;
   transType: string;
   credits: number;
@@ -28,10 +32,15 @@ export interface CreditLedgerEntry {
 }
 
 export interface CreditSummary {
+  /** Credits that can be spent now, after FEFO allocation and expiration. */
   balance: number;
+  /** Face value of positive ledger rows whose expiration has not passed. */
   granted: number;
+  /** Portion of active grants already consumed. */
   consumed: number;
+  /** Unused credits that reached expiration. */
   expired: number;
+  /** Remaining amounts in grant buckets expiring within the warning window. */
   expiringSoon: CreditLedgerEntry[];
   ledger: CreditLedgerEntry[];
 }

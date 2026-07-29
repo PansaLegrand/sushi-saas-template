@@ -1,3 +1,4 @@
+import { organizationHeaders } from "@/api/organization-context";
 import { api } from "@/lib/api/client";
 
 export interface ReservationService {
@@ -26,11 +27,26 @@ export function getAvailability(
   signal?: AbortSignal
 ) {
   return api.post<{ slots: string[] }>("/api/reservations/availability", {
+    headers: organizationHeaders(),
     body: input,
     signal,
   });
 }
 
-export function createReservation(input: CreateReservationInput) {
-  return api.post<{ checkout_url?: string }>("/api/reservations", { body: input });
+export function createReservation(
+  input: CreateReservationInput,
+  checkoutIntentId: string
+) {
+  return api.post<{
+    checkout_url: string;
+    reservation_no: string;
+    order_no: string;
+    session_id: string | null;
+    reused: boolean;
+  }>("/api/reservations", {
+    headers: organizationHeaders({
+      "Idempotency-Key": checkoutIntentId,
+    }),
+    body: input,
+  });
 }

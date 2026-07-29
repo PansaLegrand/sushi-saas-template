@@ -1,18 +1,51 @@
 import { affiliates } from "@/db/schema";
 import { db } from "@/db";
 import { getUsersByUuids } from "./user";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 
 export async function insertAffiliate(
-  data: typeof affiliates.$inferInsert
+  data: typeof affiliates.$inferInsert,
 ): Promise<typeof affiliates.$inferSelect | undefined> {
   const [affiliate] = await db().insert(affiliates).values(data).returning();
 
   return affiliate;
 }
 
+/**
+ * Record the commission for a paid order exactly once.
+ *
+ * Stripe may deliver two different events for the same payment concurrently,
+ * and those events may run on different application instances. A lookup before
+ * an insert cannot serialize that race; the partial unique index on
+ * `paid_order_no` does. Returning `undefined` is the expected replay outcome.
+ */
+export async function insertPaidAffiliateOnce(
+  data: typeof affiliates.$inferInsert,
+): Promise<typeof affiliates.$inferSelect | undefined> {
+  const [affiliate] = await db()
+    .insert(affiliates)
+    .values(data)
+    .onConflictDoNothing()
+    .returning();
+
+  return affiliate;
+}
+
+/** One zero-value attribution row per invited account. */
+export async function insertSignupAffiliateOnce(
+  data: typeof affiliates.$inferInsert,
+): Promise<typeof affiliates.$inferSelect | undefined> {
+  const [affiliate] = await db()
+    .insert(affiliates)
+    .values(data)
+    .onConflictDoNothing()
+    .returning();
+
+  return affiliate;
+}
+
 export async function findAffiliateByUserUuid(
-  user_uuid: string
+  user_uuid: string,
 ): Promise<typeof affiliates.$inferSelect | undefined> {
   const [affiliate] = await db()
     .select()
@@ -26,7 +59,7 @@ export async function findAffiliateByUserUuid(
 export async function getAffiliatesByUserUuid(
   user_uuid: string,
   page: number = 1,
-  limit: number = 50
+  limit: number = 50,
 ): Promise<(typeof affiliates.$inferSelect)[] | undefined> {
   const offset = (page - 1) * limit;
 
@@ -87,6 +120,24 @@ export async function findAffiliateByOrderNo(order_no: string) {
     .from(affiliates)
     .where(eq(affiliates.paid_order_no, order_no))
     .limit(1);
+
+  return affiliate;
+}
+
+export async function cancelPendingAffiliateByOrderNo(
+  orderNo: string,
+  canceledStatus: string,
+): Promise<typeof affiliates.$inferSelect | undefined> {
+  const [affiliate] = await db()
+    .update(affiliates)
+    .set({ status: canceledStatus })
+    .where(
+      and(
+        eq(affiliates.paid_order_no, orderNo),
+        ne(affiliates.status, canceledStatus),
+      ),
+    )
+    .returning();
 
   return affiliate;
 }

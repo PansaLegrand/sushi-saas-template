@@ -1,44 +1,37 @@
 import { respData, respNoAuth, respOk } from "@/lib/resp";
+import { respCode } from "@/lib/errors/response";
 import { requireSameOrigin } from "@/lib/origin";
 import { getUserUuid } from "@/services/user";
-import {
-  findUserByInviteCode,
-  findUserByUuid,
-  updateUserInviteCode,
-} from "@/models/user";
 import { AffiliateConfig } from "@/config/affiliate";
-import { newId, newShortCode } from "@/lib/ids";
 import { getAppEnv } from "@/lib/env";
+import {
+  ensureAffiliateInviteCode,
+  getAffiliateInviteCode,
+} from "@/services/affiliate";
 
 function toShareUrl(code: string): string {
   const base = getAppEnv().NEXT_PUBLIC_WEB_URL;
   return `${base}${AffiliateConfig.sharePath}/${code}`;
 }
 
-async function generateUniqueCode(): Promise<string> {
-  for (let i = 0; i < 5; i++) {
-    const code = newShortCode(8);
-    const exists = await findUserByInviteCode(code);
-    if (!exists) return code;
-  }
-
-  // Five random 8-character codes all colliding means something is wrong with
-  // the generator, not that the space is full. A longer code is the safe way to
-  // end the loop rather than returning a duplicate.
-  return `ref-${newId()}`;
-}
-
 export async function GET(req: Request) {
+  if (!AffiliateConfig.enabled) return respCode("RESOURCE_NOT_FOUND");
+
   const userUuid = await getUserUuid(req);
   if (!userUuid) return respNoAuth();
 
-  const user = await findUserByUuid(userUuid);
-  if (!user) return respOk();
+  const inviteCode = await getAffiliateInviteCode(userUuid);
+  if (!inviteCode) return respOk();
 
-  return respData({ inviteCode: user.invite_code, shareUrl: toShareUrl(user.invite_code) });
+  return respData({
+    inviteCode,
+    shareUrl: toShareUrl(inviteCode),
+  });
 }
 
 export async function POST(req: Request) {
+  if (!AffiliateConfig.enabled) return respCode("RESOURCE_NOT_FOUND");
+
   const invalidOrigin = requireSameOrigin(req);
   if (invalidOrigin) return invalidOrigin;
 
@@ -48,15 +41,14 @@ export async function POST(req: Request) {
   const url = new URL(req.url);
   const regen = url.searchParams.get("regen");
 
-  const user = await findUserByUuid(userUuid);
-  if (!user) return respOk();
+  const code = await ensureAffiliateInviteCode({
+    userUuid,
+    regenerate: Boolean(regen),
+  });
+  if (!code) return respOk();
 
-  if (!regen && user.invite_code) {
-    return respData({ inviteCode: user.invite_code, shareUrl: toShareUrl(user.invite_code) });
-  }
-
-  const code = await generateUniqueCode();
-  const updated = await updateUserInviteCode(userUuid, code);
-
-  return respData({ inviteCode: updated?.invite_code ?? code, shareUrl: toShareUrl(code) });
+  return respData({
+    inviteCode: code,
+    shareUrl: toShareUrl(code),
+  });
 }

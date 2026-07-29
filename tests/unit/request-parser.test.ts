@@ -19,15 +19,22 @@ function request(body?: string) {
 describe("parseJsonBody", () => {
   it("parses and validates JSON with zod", async () => {
     await expect(
-      parseJsonBody(request(JSON.stringify({ name: "  Sushi  ", count: "2" })), Schema)
+      parseJsonBody(
+        request(JSON.stringify({ name: "  Sushi  ", count: "2" })),
+        Schema,
+      ),
     ).resolves.toEqual({ name: "Sushi", count: 2 });
   });
 
   it("uses a default for empty optional bodies", async () => {
     await expect(
-      parseJsonBody(request(""), z.object({ includeLedger: z.boolean().optional() }), {
-        defaultValue: {},
-      })
+      parseJsonBody(
+        request(""),
+        z.object({ includeLedger: z.boolean().optional() }),
+        {
+          defaultValue: {},
+        },
+      ),
     ).resolves.toEqual({});
   });
 
@@ -39,12 +46,26 @@ describe("parseJsonBody", () => {
   });
 
   it("turns schema failures into safe validation details", async () => {
-    await expect(parseJsonBody(request(JSON.stringify({ name: "" })), Schema)).rejects.toMatchObject({
+    await expect(
+      parseJsonBody(request(JSON.stringify({ name: "" })), Schema),
+    ).rejects.toMatchObject({
       code: "REQUEST_VALIDATION_FAILED",
       statusCode: 400,
       details: {
         fields: [expect.objectContaining({ field: "name" })],
       },
+    });
+  });
+
+  it("stops reading a streamed body once the configured limit is exceeded", async () => {
+    const oversized = request(JSON.stringify({ name: "x".repeat(256) }));
+
+    await expect(
+      parseJsonBody(oversized, Schema, { maxBytes: 64 }),
+    ).rejects.toMatchObject({
+      code: "REQUEST_BODY_TOO_LARGE",
+      statusCode: 413,
+      details: { maxBytes: 64 },
     });
   });
 });

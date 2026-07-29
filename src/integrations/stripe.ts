@@ -16,8 +16,7 @@ class StripeClient {
       // integrations list, which is what makes a support thread about a failed
       // request traceable to the code that sent it.
       appInfo: {
-        name: "sushi-saas-template",
-        url: "https://www.sushi-templates.com",
+        name: "saas-starter",
       },
       // Pinned rather than changed: 2 is also the SDK default today. Stated
       // explicitly so an SDK upgrade that lowers the default cannot quietly

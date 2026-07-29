@@ -95,12 +95,12 @@ describe("AuthScreen signup verification", () => {
 
     expect(mocks.signUpEmail).toHaveBeenCalledWith(
       expect.objectContaining({
-        callbackURL: "/",
+        callbackURL: "/account/billing",
         email: "jane@example.com",
         fetchOptions: { headers: {} },
         name: "Jane Doe",
         password: "correct-horse",
-      })
+      }),
     );
     expect(screen.getByRole("status")).toHaveTextContent("jane@example.com");
     expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
@@ -126,11 +126,13 @@ describe("AuthScreen signup verification", () => {
     await user.click(screen.getByRole("button", { name: "Create Account" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Too many requests. Please wait a moment and try again."
+      "Too many requests. Please wait a moment and try again.",
     );
-    expect(screen.queryByText("Server-owned English fallback")).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("heading", { name: "Check your email" })
+      screen.queryByText("Server-owned English fallback"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Check your email" }),
     ).not.toBeInTheDocument();
   });
 
@@ -150,13 +152,13 @@ describe("AuthScreen signup verification", () => {
 
     await waitFor(() =>
       expect(mocks.sendVerificationEmail).toHaveBeenCalledWith({
-        callbackURL: "/",
+        callbackURL: "/account/billing",
         email: "jane@example.com",
         fetchOptions: { headers: {} },
-      })
+      }),
     );
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Verification email sent again."
+      "Verification email sent again.",
     );
   });
 
@@ -177,10 +179,80 @@ describe("AuthScreen signup verification", () => {
 
     expect(mocks.sendVerificationEmail).not.toHaveBeenCalled();
     expect(screen.getByRole("status")).toHaveTextContent(
-      "This account still needs email verification."
+      "This account still needs email verification.",
     );
     expect(screen.getByRole("status")).toHaveTextContent("jane@example.com");
     expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
     expect(mocks.replace).not.toHaveBeenCalled();
+  });
+
+  it("returns a signed-in customer to a validated checkout callback", async () => {
+    const user = userEvent.setup();
+    mocks.signInEmail.mockResolvedValue({ data: {}, error: null });
+
+    render(
+      <AuthScreen initialMode="signIn" callbackUrl="/en/pricing?plan=max" />,
+    );
+
+    await user.type(screen.getByLabelText("Email"), "jane@example.com");
+    await user.type(screen.getByLabelText("Password"), "correct-horse");
+    await user.click(screen.getAllByRole("button", { name: "Log in" })[1]);
+
+    await waitFor(() =>
+      expect(mocks.signInEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          callbackURL: "/en/pricing?plan=max",
+        }),
+      ),
+    );
+    expect(mocks.replace).toHaveBeenCalledWith("/en/pricing?plan=max");
+  });
+
+  it("carries the validated checkout callback into two-factor verification", async () => {
+    const user = userEvent.setup();
+    mocks.signInEmail.mockResolvedValue({
+      data: { twoFactorRedirect: true },
+      error: null,
+    });
+
+    render(
+      <AuthScreen
+        initialMode="signIn"
+        callbackUrl="/pricing?org=team-workspace"
+      />,
+    );
+
+    await user.type(screen.getByLabelText("Email"), "jane@example.com");
+    await user.type(screen.getByLabelText("Password"), "correct-horse");
+    await user.click(screen.getAllByRole("button", { name: "Log in" })[1]);
+
+    await waitFor(() =>
+      expect(mocks.replace).toHaveBeenCalledWith(
+        "/two-factor?callbackUrl=%2Fpricing%3Forg%3Dteam-workspace",
+      ),
+    );
+  });
+
+  it("rejects an external authentication callback", async () => {
+    const user = userEvent.setup();
+    mocks.signInEmail.mockResolvedValue({ data: {}, error: null });
+
+    render(
+      <AuthScreen
+        initialMode="signIn"
+        callbackUrl="https://malicious.example/collect"
+      />,
+    );
+
+    await user.type(screen.getByLabelText("Email"), "jane@example.com");
+    await user.type(screen.getByLabelText("Password"), "correct-horse");
+    await user.click(screen.getAllByRole("button", { name: "Log in" })[1]);
+
+    await waitFor(() =>
+      expect(mocks.signInEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ callbackURL: "/account/billing" }),
+      ),
+    );
+    expect(mocks.replace).toHaveBeenCalledWith("/account/billing");
   });
 });

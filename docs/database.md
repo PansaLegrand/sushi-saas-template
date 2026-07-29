@@ -1,6 +1,6 @@
 # Database Reference
 
-The schema in [src/db/schema.ts](../src/db/schema.ts) is the single source of truth — 18 tables, no
+The schema in [src/db/schema.ts](../src/db/schema.ts) is the single source of truth — 24 tables, no
 hand-written SQL. This document explains what each table is for, the rules that
 hold across all of them, and what to do when you change one.
 
@@ -15,9 +15,9 @@ You need **two databases**: one for the app, one for the tests. They must be
 separate — the test tier runs `TRUNCATE` before every test, so if it shared your
 dev database it would erase your data on every `pnpm test:db`.
 
-| Database | Env var | Purpose |
-| --- | --- | --- |
-| `sushi_dev` | `DATABASE_URL` | What `pnpm dev` reads and writes |
+| Database     | Env var             | Purpose                                        |
+| ------------ | ------------------- | ---------------------------------------------- |
+| `sushi_dev`  | `DATABASE_URL`      | What `pnpm dev` reads and writes               |
 | `sushi_test` | `TEST_DATABASE_URL` | Wiped constantly. Holds nothing you care about |
 
 Both live on the **same** Postgres server — same host, same port, same
@@ -34,8 +34,7 @@ both databases, and migrates them. Then `pnpm dev`.
 
 ### If you already have Postgres running
 
-Very common — and `pnpm setup` detects it and stops rather than fighting for port
-5432. Create the two databases on the server you already have:
+Very common — and `pnpm setup` detects it and stops rather than fighting for port 5432. Create the two databases on the server you already have:
 
 ```bash
 createdb sushi_dev && createdb sushi_test
@@ -104,13 +103,13 @@ thing to know before writing a delete path.
 
 `users` carries two identifiers:
 
-| Column | Owner | Use |
-| --- | --- | --- |
-| `id` | Better Auth | Session lookups only |
-| `uuid` | The app | Everything else — every other table joins on this |
+| Column | Owner       | Use                                               |
+| ------ | ----------- | ------------------------------------------------- |
+| `id`   | Better Auth | Session lookups only                              |
+| `uuid` | The app     | Everything else — every other table joins on this |
 
-**Never resolve a user by email.** `users.email` is unique only *per
-`signin_provider`*, so one address can legitimately have two rows. An email
+**Never resolve a user by email.** `users.email` is unique only _per
+`signin_provider`_, so one address can legitimately have two rows. An email
 lookup can return a different account than the session's — which, in an
 authorization path, is an account takeover. `apps/admin/lib/authz.ts` resolves
 roles strictly from the session uuid/id for exactly this reason.
@@ -127,11 +126,11 @@ edited.
 
 **Three audit columns, added in `0018`, and two traps in them:**
 
-| Column | Holds |
-| --- | --- |
-| `balance_after` | The running total of every row for the org, this one included |
-| `actor` | Who caused it: `stripe:webhook`, `admin:<uuid>`, `user:<uuid>`, `system:<reason>` |
-| `metadata_json` | Free-form JSON — the task a spend paid for, the transaction a refund reverses |
+| Column          | Holds                                                                             |
+| --------------- | --------------------------------------------------------------------------------- |
+| `balance_after` | The running total of every row for the org, this one included                     |
+| `actor`         | Who caused it: `stripe:webhook`, `admin:<uuid>`, `user:<uuid>`, `system:<reason>` |
+| `metadata_json` | Free-form JSON — the task a spend paid for, the transaction a refund reverses     |
 
 The first trap: **`balance_after` is not the spendable balance.** Credits expire
 without writing a ledger row, so a spend-aware figure would drift from the sum by
@@ -140,7 +139,7 @@ corruption. `balance_after` tracks the ledger total; `getOrgCredits` computes
 what can actually be spent. They are allowed to disagree, and usually do.
 
 The second: **`actor` is not `user_uuid`.** `user_uuid` is who the movement is
-credited *to*; `actor` is who caused it. On an admin grant they are two different
+credited _to_; `actor` is who caused it. On an admin grant they are two different
 people, which is the entire reason the column exists.
 
 Both are only correct when written under the per-organization advisory lock, so
@@ -148,24 +147,59 @@ Both are only correct when written under the per-organization advisory lock, so
 caller-supplied `balance_after`. Do not insert into `credits` from anywhere else.
 A null in any of the three means "written before `0018`", which a script must
 treat as out of scope rather than as drift.
+**Spends use FEFO (first-expiring, first-out).** The active grant with the
+nearest `expired_at` is consumed first; grants sharing an expiration use oldest
+grant first, and grants that never expire come last. If one logical spend crosses
+two expiration/order buckets, it is inserted atomically as two negative ledger
+rows. The first row keeps the transaction number returned to the caller; later
+parts use deterministic `:part:<n>` suffixes. Private `__credit_fefo` metadata on
+the group names every part, so a refund can restore all buckets atomically and
+idempotently while tasks continue to store one stable transaction number.
+Customer ledger DTOs collapse those physical parts back into one movement
+before applying the page limit, report the full logical amount under the root
+transaction number, and never serialize the private grouping metadata. Admin
+audit views intentionally retain every physical part and its metadata.
+`findCreditByTransNo` follows the customer/logical meaning even when given a
+child part id; refund reconstruction uses a private physical lookup instead.
+
+Each debit part inherits the expiration and `order_no` of the grant bucket it
+consumed. When that grant expires, its matching debit expires with it; credits
+remaining in a later bucket do not disappear. Refund parts inherit the same
+bucket terms, so a refund restores the original credits rather than minting a
+new never-expiring grant.
+
+Balance reads replay the immutable ledger through the same FEFO allocator used
+by the spend guard. This is deliberate compatibility behavior: older versions
+wrote one debit against only the last bucket a spend touched, and trusting that
+single `expired_at` would continue to misstate historical balances. Summary
+fields therefore mean:
+
+- `balance`: credits spendable now
+- `granted`: face value of positive rows still active now
+- `consumed`: active grant value already used (`granted - balance`)
+- `expired`: unused credits that actually reached expiration, not the face
+  value of grants already consumed
+- `expiringSoon`: the remaining amount in each soon-expiring grant bucket
 
 ### 4. Idempotency lives in unique indexes, not in code
 
 Every "must happen exactly once" guarantee is a database constraint. The code
 catches the resulting `23505` and treats it as success. Full map:
 
-| Constraint | Protects against |
-| --- | --- |
-| `credits.trans_no` unique | Double-granting signup credits, double-refunding |
-| `jobs.dedupe_key` unique | Two welcome emails from one retried signup |
-| `tasks (user_uuid, type, idempotency_key)` unique | Double-charging for a double-clicked task |
-| `stripe_webhook_events.event_id` unique | Reprocessing a Stripe retry |
-| `subscriptions.stripe_subscription_id` unique | Two rows for one Stripe subscription. Nullable, so comps (many NULLs) do not collide |
-| `orders.order_no` unique | Reusing one order identifier |
-| `orders (org_uuid, checkout_intent_id)` unique | Two orders from one checkout double-click or retry. A new intent id still creates another subscription |
-| `reservations.reservation_no` unique | Duplicate bookings |
-| `files (bucket, key)` unique | Two rows for one object |
-| `users (email, signin_provider)` unique | One address claimed twice per provider |
+| Constraint                                                      | Protects against                                                                                       |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `credits.trans_no` unique                                       | Double-granting signup credits, double-refunding                                                       |
+| `jobs.dedupe_key` unique                                        | Two welcome emails from one retried signup                                                             |
+| `tasks (user_uuid, type, idempotency_key)` unique               | Double-charging for a double-clicked task                                                              |
+| `stripe_webhook_events.event_id` unique                         | Reprocessing a Stripe retry                                                                            |
+| `subscriptions.stripe_subscription_id` unique                   | Two rows for one Stripe subscription. Nullable, so comps (many NULLs) do not collide                   |
+| `orders.order_no` unique                                        | Reusing one order identifier                                                                           |
+| `orders (org_uuid, checkout_intent_id)` unique                  | Two orders from one checkout double-click or retry. A new intent id still creates another subscription |
+| `reservations.reservation_no` unique                            | Duplicate bookings                                                                                     |
+| `reservations (org_uuid, user_uuid, checkout_intent_id)` unique | Two bookings from one browser reservation intent                                                       |
+| `reservations.order_no` unique (non-null rows)                  | Attaching one paid order to two bookings                                                               |
+| `files (bucket, key)` unique                                    | Two rows for one object                                                                                |
+| `users (email, signin_provider)` unique                         | One address claimed twice per provider                                                                 |
 
 If you remove or weaken one of these, the catch blocks that depend on it turn
 into silent double-effects. `tests/db/` exists to make that impossible to do
@@ -179,7 +213,30 @@ string. Divide only at the display edge.
 
 Credits are a separate unit with no fixed currency value — do not conflate them.
 
-### 6. Stripe period columns are Unix seconds, not timestamps
+### 6. Reservation overlap is a database invariant
+
+Migration `0025` installs PostgreSQL's `btree_gist` extension and an exclusion
+constraint over each service's half-open
+`tstzrange(blocked_start_at, blocked_end_at, '[)')`. Pending and confirmed
+bookings cannot overlap even if a future writer bypasses the service lock.
+`blocked_*` includes the buffer snapshot, while `start_at` / `end_at` remain the
+time shown to the customer.
+
+The migration deliberately does not guess how to repair pre-existing invalid or
+overlapping reservations. Before applying it to a database with reservation
+data, verify that active ranges do not overlap and that the database role may
+install `btree_gist`. If either condition is false, stop the migration and
+resolve the data or extension permission explicitly; do not silently discard a
+customer booking.
+
+An elapsed hold with no persisted Stripe Session can be expired under the same
+per-service advisory lock that claims the next booking. Once a Session id is
+stored, only a signed `checkout.session.expired` or
+`checkout.session.async_payment_failed` webhook releases the range.
+That deliberately favors holding a slot too long during a webhook outage over
+selling it while Stripe can still accept the earlier payment.
+
+### 7. Stripe period columns are Unix seconds, not timestamps
 
 `orders.sub_period_start`, `sub_period_end`, and `sub_cycle_anchor` are
 `integer`, holding epoch seconds exactly as Stripe sends them. Everything else
@@ -190,15 +247,53 @@ migrating the values.
 instants as `timestamptz`, because they are read on every entitlement check and
 comparing epoch integers at each one is how a timezone bug gets in.
 
-### 7. State copied from a webhook records the event's timestamp
+### 8. State copied from a webhook records the event's timestamp
 
-`subscriptions.stripe_event_at` holds the moment Stripe *emitted* the event the
+`subscriptions.stripe_event_at` holds the moment Stripe _emitted_ the event the
 row was written from, not the moment we received it. Deliveries are retried for
 days and arrive out of order, so the upsert compares this column and drops
 anything older. Without it, a delayed `customer.subscription.updated` landing
 after the `deleted` that followed it resurrects a cancelled subscription — the
 user keeps a paid tier they no longer pay for, and nothing in the logs looks
 wrong. Any future table that mirrors external state needs the same column.
+
+### 9. Affiliate deduplication preserves the removed facts
+
+Migrations `0023` and `0024` install the two affiliate uniqueness constraints.
+Historical webhook or signup races can leave more than one row for the same
+logical fact, so the migrations keep the lowest `affiliates.id` as the active
+canonical row. Every other row is copied to
+`affiliate_deduplication_archive` before it is removed from `affiliates`.
+
+The archive is evidence, not application state:
+
+- `original_affiliate_id` identifies the removed row and
+  `canonical_affiliate_id` identifies the row that won.
+- `reason` is `duplicate_paid_order_no` or
+  `duplicate_signup_attribution`.
+- `original_row_json` is the complete pre-cleanup affiliate row, serialized as
+  JSON text; `archived_at` records when the migration made the decision.
+- The unique `(original_affiliate_id, reason)` index makes replaying an archive
+  insert harmless. There is deliberately no foreign key: the evidence must
+  remain readable even if the active row is later retained, anonymized, or
+  removed under policy.
+
+Do not update or delete archive rows in normal application code. The one
+deliberate update is account erasure: it replaces matching `user_uuid` and
+`invited_by` values inside `original_row_json` with the account's irreversible
+erasure id while preserving amounts, order references, status, and the
+deduplication decision. Subject-access exports include matching archive rows.
+Migration `0028` creates the same table with `IF NOT EXISTS` for development or
+pre-release databases that ran an earlier form of `0023`/`0024`; on a fresh
+install it is a no-op.
+`0028` cannot reconstruct a row that an older migration already deleted. If
+that earlier form ever ran against data that must be retained, recover the
+removed rows from the database backup and import them into the archive before
+calling the migration complete. The strict migration checker will also report
+the changed `0023`/`0024` hashes on such a database. Recreate disposable
+pre-release databases; for a data-bearing environment, preserve the database,
+recover the evidence, and follow the migration-drift response in
+`DEPLOYMENT.md` rather than weakening checksum validation.
 
 ---
 
@@ -218,6 +313,7 @@ graph LR
   users -.uuid.-> reservations
   users -.uuid.-> affiliates
   users -.uuid.-> auth_events
+  affiliates -.deduplication evidence.-> affiliate_deduplication_archive
   orders -.order_no.-> credits
   tasks -.credits_trans_no.-> credits
   reservation_services -.service_id.-> reservations
@@ -226,70 +322,76 @@ graph LR
 
 ### Auth — owned by Better Auth
 
-| Table | Purpose | Notes |
-| --- | --- | --- |
-| `users` | Accounts | Dual id (`id`/`uuid`). `role` is `user` / `admin_ro` / `admin_rw`. `last_signin_at` is denormalized from `auth_events`. `banned_at` non-null is a suspension — a timestamp rather than a boolean pair, and a re-ban never overwrites the first one (the UPDATE carries `WHERE banned_at IS NULL`). Renaming a column here means updating `src/lib/auth.ts` field mapping. |
-| `email_blocklist` | Addresses and domains barred from signing up | Enforced in the `user.create.before` hook, so it covers **OAuth signup too** — the path with no captcha in front of it. `scope` is `email` / `domain`; `value` is the *normalized* key from `src/lib/email-address.ts` (plus-suffix stripped everywhere, dots stripped for Gmail), never raw input. Unique on `(scope, value)` so a re-block is a no-op. `expires_at` null means permanent; an expired row stops matching but stays for the trail. |
-| `sessions` | Live sessions | Deleted on sign-out and expiry — cannot be used as a log. Also deleted deliberately by a ban: that is what makes a suspension take effect now rather than at cookie expiry. |
-| `accounts` | Provider linkage + password hash | Unique on `(provider_id, account_id)`. |
-| `verifications` | Email/reset tokens | Unique on `(identifier, value)`. |
-| `auth_events` | Append-only signup / signin / email_verified log | Exists because `sessions` are deleted. Answers "how often does this user sign in". |
+| Table             | Purpose                                          | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ----------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `users`           | Accounts                                         | Dual id (`id`/`uuid`). `role` is `user` / `admin_ro` / `admin_rw`. `last_signin_at` is denormalized from `auth_events`. `banned_at` non-null is a suspension — a timestamp rather than a boolean pair, and a re-ban never overwrites the first one (the UPDATE carries `WHERE banned_at IS NULL`). Renaming a column here means updating `src/lib/auth.ts` field mapping.                                                                          |
+| `email_blocklist` | Addresses and domains barred from signing up     | Enforced in the `user.create.before` hook, so it covers **OAuth signup too** — the path with no captcha in front of it. `scope` is `email` / `domain`; `value` is the _normalized_ key from `src/lib/email-address.ts` (plus-suffix stripped everywhere, dots stripped for Gmail), never raw input. Unique on `(scope, value)` so a re-block is a no-op. `expires_at` null means permanent; an expired row stops matching but stays for the trail. |
+| `sessions`        | Live sessions                                    | Deleted on sign-out and expiry — cannot be used as a log. Also deleted deliberately by a ban: that is what makes a suspension take effect now rather than at cookie expiry.                                                                                                                                                                                                                                                                        |
+| `accounts`        | Provider linkage + password hash                 | Unique on `(provider_id, account_id)`.                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `verifications`   | Email/reset tokens                               | Unique on `(identifier, value)`.                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `auth_events`     | Append-only signup / signin / email_verified log | Exists because `sessions` are deleted. Answers "how often does this user sign in".                                                                                                                                                                                                                                                                                                                                                                 |
 
 ### Billing & credits
 
-| Table | Purpose | Notes |
-| --- | --- | --- |
-| `orders` | Purchases — the immutable financial log | `status` is `created` / paid states. Browser checkouts are idempotent on `(org_uuid, checkout_intent_id)`; `checkout_fingerprint` refuses the same key with different terms, while `stripe_price_id` and `checkout_locale` preserve the exact Stripe request across a crash. Subscription period columns are epoch seconds. Never rewritten after the fact; do not answer "what is this user entitled to" from it. |
-| `subscriptions` | Current billing state, one row per subscription | What `orders` is not: rewritten in place on every Stripe event. `status` uses Stripe's own vocabulary. `source` is `stripe` or `manual` (a comp). `stripe_event_at` orders concurrent webhook deliveries (ground rule 7). Read through `src/services/entitlements.ts`, never directly. |
-| `credits` | Append-only ledger | Positive = grant, negative = spend. `expired_at` null means never expires. `trans_type` values are the `CreditsTransType` enum in `src/services/credit.ts`. `balance_after` / `actor` / `metadata_json` are the audit columns — see ground rule 3, including the two traps in them. |
+| Table                   | Purpose                                            | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ----------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `orders`                | Purchases — the immutable financial log            | `status` is `created` / paid states. Browser checkouts are idempotent on `(org_uuid, checkout_intent_id)`; `checkout_fingerprint` refuses the same key with different terms, while `stripe_price_id` and `checkout_locale` preserve the exact Stripe request across a crash. Subscription period columns are epoch seconds. Never rewritten after the fact; do not answer "what is this user entitled to" from it.                                                                                                                                                                                                                                                                                                                                                                 |
+| `subscriptions`         | Current billing state, one row per subscription    | What `orders` is not: rewritten in place on every Stripe event. `status` uses Stripe's own vocabulary. `source` is `stripe` or `manual` (a comp). `stripe_event_at` orders concurrent webhook deliveries (ground rule 7). Read through `src/services/entitlements.ts`, never directly.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `credits`               | Append-only ledger                                 | Positive = grant, negative = spend. `expired_at` null means never expires. `trans_type` values are the `CreditsTransType` enum in `src/services/credit.ts`. `balance_after` / `actor` / `metadata_json` are the audit columns — see ground rule 3, including the two traps in them.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `stripe_webhook_events` | Webhook idempotency + retry state, and the receipt | `status` is `processing` / `completed` / `failed` / `action_required`; `attempts` counts retries. **`action_required` is not a failure** — it is a permanent condition needing a human (an unmapped price), answered with a 200 so Stripe stops retrying, with the reason in `last_error`. `failed` retries automatically; `action_required` is reclaimable only by a deliberate replay. `payload` is the record of truth; the `stripe_*` id columns, `livemode`, `api_version`, and `request_id` are denormalized out of it at write time by `src/services/stripe/receipt.ts`, because a `text` column cannot answer "every event for this subscription" without a full scan. Indexed by customer, invoice, and subscription. Nulls are normal: no single event carries every id. |
 
 ### Storage & usage
 
-| Table | Purpose | Notes |
-| --- | --- | --- |
+| Table   | Purpose               | Notes                                                                                                                                                                                                                                |
+| ------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `files` | S3/R2 object metadata | Lifecycle `uploading` → `active` → `deleted`. **Soft delete**: set `status='deleted'` and `deleted_at`; the row stays. Tenant ownership is `org_uuid`; the older `org_id` column is legacy and should not be used for authorization. |
-| `tasks` | AI/usage work records | `credits_trans_no` traces the exact ledger row that paid for it. Idempotent per `(user_uuid, type, idempotency_key)`. |
+| `tasks` | AI/usage work records | `credits_trans_no` traces the exact ledger row that paid for it. Idempotent per `(user_uuid, type, idempotency_key)`.                                                                                                                |
 
 ### Operations
 
-| Table | Purpose | Notes |
-| --- | --- | --- |
-| `jobs` | Durable queue drained by `/api/cron/jobs` | Claimed with `FOR UPDATE SKIP LOCKED`. `locked_at` allows reclaiming a job whose runner died. Backoff via `run_at`. `dedupe_key` is nullable and NULLs stay distinct, so un-deduped jobs are unaffected. |
-| `admin_audit_logs` | Append-only admin action trail | `actor_email` is denormalized so the trail survives user edits. Every admin write must call `writeAdminAuditLog()`. |
+| Table              | Purpose                                   | Notes                                                                                                                                                                                                    |
+| ------------------ | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `jobs`             | Durable queue drained by `/api/cron/jobs` | Claimed with `FOR UPDATE SKIP LOCKED`. `locked_at` allows reclaiming a job whose runner died. Backoff via `run_at`. `dedupe_key` is nullable and NULLs stay distinct, so un-deduped jobs are unaffected. |
+| `admin_audit_logs` | Append-only admin action trail            | `actor_email` is denormalized so the trail survives user edits. Every admin write must call `writeAdminAuditLog()`.                                                                                      |
 
 ### Product & growth
 
-| Table | Purpose | Notes |
-| --- | --- | --- |
-| `affiliates` | Referral attribution and rewards | Amounts in minor units. |
-| `feedbacks` | User feedback, read in the admin console | |
-| `reservation_services` | Bookable service definitions (demo) | Prices in cents. |
-| `reservations` | Bookings (demo) | `status` `pending` / `confirmed` / `canceled` / `expired`; `hold_expires_at` backs the pending hold. `policy_snapshot` freezes cancellation terms at booking time. |
+| Table                             | Purpose                                              | Notes                                                                                                                                                                                                                          |
+| --------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `affiliates`                      | Referral attribution and rewards                     | Amounts in minor units.                                                                                                                                                                                                        |
+| `affiliate_deduplication_archive` | Immutable evidence from affiliate uniqueness cleanup | Complete removed rows live in `original_row_json`; never queried as active attribution or commission state. See ground rule 9.                                                                                                 |
+| `feedbacks`                       | User feedback, read in the admin console             |                                                                                                                                                                                                                                |
+| `reservation_services`            | Bookable service definitions (demo)                  | Prices in cents.                                                                                                                                                                                                               |
+| `reservations`                    | Bookings (optional module)                           | `status` is constrained to `pending` / `confirmed` / `canceled` / `expired`; `blocked_*` drives the no-overlap exclusion; the intent/fingerprint pair makes creation replayable; `policy_snapshot` freezes cancellation terms. |
 
-### Dormant
+### Retired scaffolding
 
-| Table | Status |
-| --- | --- |
-| `posts` | **Unused.** `src/models/post.ts` has zero call sites; blog content is MDX under `content/`. Either wire it up or drop both in a contract migration. |
-| `apikeys` | **Unused.** `src/models/apikey.ts` has zero call sites. Scaffolding for programmatic API access that was never finished. |
+Migration `0026` removes the unfinished `posts` and `apikeys` tables. Neither
+had an application route or service, and public editorial content now belongs
+to the detached documentation-site repository. A future API-key feature must be
+designed as a complete security boundary—hashed credentials, scopes, rotation,
+revocation, and audit logging—rather than reviving the raw-key scaffold.
+
+The drop is intentionally destructive. An existing deployment that used either
+table outside this starter must back up and migrate that data before applying
+`0026`.
 
 ---
 
 ## Conventions
 
-| Concern | Rule |
-| --- | --- |
-| Table names | Plural snake_case (`auth_events`, `reservation_services`) |
-| Column names | snake_case, including in TypeScript — the Drizzle model mirrors SQL exactly |
-| Index names | `<table>_<columns>_idx`, or `_unique_idx` for unique |
-| Primary keys | `integer().primaryKey().generatedAlwaysAsIdentity()` for app tables; `varchar` for Better Auth tables |
-| Public identifiers | A separate `uuid` column, unique. Never expose the integer `id` in an API |
-| Timestamps | `timestamp({ withTimezone: true })` — always. No naked `timestamp` |
-| `updated_at` | Set by application code. **There is no trigger.** If you write a row and skip it, it goes stale |
-| Status columns | `varchar` with allowed values in a comment, not a Postgres enum — cheaper to extend. Validate in TypeScript |
-| Text | `varchar({length})` when bounded, `text()` when not. JSON blobs are `text()` with a `_json` suffix |
-| Booleans | `.notNull().default(...)` — avoid nullable booleans |
+| Concern            | Rule                                                                                                        |
+| ------------------ | ----------------------------------------------------------------------------------------------------------- |
+| Table names        | Plural snake_case (`auth_events`, `reservation_services`)                                                   |
+| Column names       | snake_case, including in TypeScript — the Drizzle model mirrors SQL exactly                                 |
+| Index names        | `<table>_<columns>_idx`, or `_unique_idx` for unique                                                        |
+| Primary keys       | `integer().primaryKey().generatedAlwaysAsIdentity()` for app tables; `varchar` for Better Auth tables       |
+| Public identifiers | A separate `uuid` column, unique. Never expose the integer `id` in an API                                   |
+| Timestamps         | `timestamp({ withTimezone: true })` — always. No naked `timestamp`                                          |
+| `updated_at`       | Set by application code. **There is no trigger.** If you write a row and skip it, it goes stale             |
+| Status columns     | `varchar` with allowed values in a comment, not a Postgres enum — cheaper to extend. Validate in TypeScript |
+| Text               | `varchar({length})` when bounded, `text()` when not. JSON blobs are `text()` with a `_json` suffix          |
+| Booleans           | `.notNull().default(...)` — avoid nullable booleans                                                         |
 
 ### Where code for a table lives
 
@@ -346,40 +448,23 @@ Ordered by how much they will hurt.
    silent data corruption into a loud error. Start with `credits.user_uuid` and
    `tasks.user_uuid`.
 
-2. **No user-deletion path.** With no cascades, deleting a user today orphans
-   rows in nine tables carrying `user_uuid`, plus `admin_audit_logs.actor_uuid`
-   and the Better Auth tables. GDPR/CCPA erasure requests will force this; design
-   it before someone asks. Decide per table: delete, anonymize, or retain
-   (`credits` and `admin_audit_logs` are financial/audit records — likely retain
-   with the uuid anonymized).
-
-   **Abuse is already handled and is not this.** Suspension (`users.banned_at`
-   plus `email_blocklist`) is the answer to a bot wave, and deleting would be
-   the wrong one: it frees the address to register again and destroys the signup
-   IPs and timestamps that identify the rest of the wave. What is still missing
-   is *erasure* — a person asking for their data back — which is a policy
-   decision first and a query second. See `src/services/moderation.ts`.
-
-3. **`created_at` nullability is inconsistent.** Newer tables use
-   `.notNull().defaultNow()`; older ones (`orders`, `credits`, `posts`,
-   `affiliates`, `feedbacks`, `apikeys`) are nullable and set from application
+2. **`created_at` nullability is inconsistent.** Newer tables use
+   `.notNull().defaultNow()`; older ones (`orders`, `credits`, `affiliates`,
+   `feedbacks`) are nullable and set from application
    code. That means a forgotten field yields a null timestamp and breaks
    ordering. Backfill and tighten. **Do not copy the old pattern into new
    tables.**
 
-4. **`posts` and `apikeys` are dead.** Drop them, or build the features. Dead
-   tables mislead everyone who reads the schema next.
-
-5. **`files.org_id` is legacy.** Tenancy now uses `org_uuid` across application
+3. **`files.org_id` is legacy.** Tenancy now uses `org_uuid` across application
    tables. `files.org_id` remains as an older placeholder column and should be
    dropped in a contract migration once no deployed code can reference it.
 
-6. **No retention policy on the append-only tables.** `auth_events`,
-   `admin_audit_logs`, and `jobs` grow forever. `jobs` alone has pruning
-   (`pruneFinishedJobs`, 14 days). Decide retention for the other two before
-   they are large enough that adding an index requires a maintenance window.
+4. **No committed retention period for the audit tables.** Finished `jobs` are
+   pruned after 14 days, while `auth_events` and `admin_audit_logs` remain
+   append-only. Decide their retention before they are large enough that
+   deleting or repartitioning them requires a maintenance window.
 
-7. ~~**`getSnowId()` collides across instances.**~~ **Fixed.** It seeded
+5. ~~**`getSnowId()` collides across instances.**~~ **Fixed.** It seeded
    `credits.trans_no` and `orders.order_no` from `SNOWFLAKE_WORKER_ID`, which
    defaulted to `1` on every serverless instance, so two concurrent lambdas in one
    millisecond minted the same id. The unique index made that a failed insert
@@ -393,9 +478,11 @@ Ordered by how much they will hurt.
    before the change. Expect both shapes side by side, plus the
    `renewal:<sub>:<period>` form that migration-era Stripe renewals write.
 
-8. **Status columns have no CHECK constraints.** Allowed values live in comments
-   and TypeScript. A bad direct `UPDATE` in psql will happily write nonsense.
-   Low priority while all writes go through the app.
+6. **Some status columns have no CHECK constraints.** Reservations and privacy
+   requests are constrained in PostgreSQL, but several older tables still rely
+   on TypeScript validation. A bad direct `UPDATE` can write an unsupported
+   state. Add constraints through expand/contract migrations as those tables
+   change.
 
 ---
 

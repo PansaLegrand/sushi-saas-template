@@ -5,12 +5,7 @@ import { Link } from "@/i18n/navigation";
 import { SiteConfig } from "@/config/site";
 import { SiteFooter } from "@/components/site-footer";
 
-/**
- * Chrome for the legal pages.
- *
- * These have to render on a `site`-mode deployment too, which has no database,
- * so nothing here may touch a signed-in surface.
- */
+/** Lightweight product chrome for the public legal pages. */
 export default async function LegalLayout({
   children,
   params,
@@ -32,11 +27,21 @@ export default async function LegalLayout({
           </Link>
           <div className="flex items-center gap-6 text-sm">
             <Link
-              href="/docs"
+              href="/pricing"
               className="text-muted-foreground transition hover:text-foreground"
             >
-              {t("nav.docs")}
+              {t("nav.pricing")}
             </Link>
+            {SiteConfig.docsUrl ? (
+              <a
+                href={SiteConfig.docsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-muted-foreground transition hover:text-foreground"
+              >
+                {t("nav.docs")}
+              </a>
+            ) : null}
           </div>
         </nav>
       </header>

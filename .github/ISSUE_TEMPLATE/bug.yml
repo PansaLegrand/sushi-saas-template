@@ -1,0 +1,70 @@
+name: Bug report
+description: Report a reproducible problem in the starter.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include secrets, customer data, or vulnerability details. Use private security reporting for security issues.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Include the smallest sequence, code sample, or public repository that reproduces the issue.
+    validations:
+      required: true
+  - type: input
+    id: commit
+    attributes:
+      label: Version or commit
+      placeholder: release tag or commit SHA
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Authentication
+        - Billing or Stripe
+        - Credits or tasks
+        - Organizations or authorization
+        - Storage
+        - Admin
+        - UI or accessibility
+        - Database or migrations
+        - Tooling or documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Node, pnpm, database, Redis, browser, and deployment platform versions that matter.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs
+      description: Remove tokens, cookies, emails, URLs containing credentials, and personal data.
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues and pull requests.
+          required: true
+        - label: This report contains no secrets, private customer data, or undisclosed vulnerability details.
+          required: true

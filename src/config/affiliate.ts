@@ -31,7 +31,9 @@ export const AffiliateRewardAmount = {
 } as const;
 
 export const AffiliateConfig = {
-  enabled: true,
+  // Opt-in. The built-in workflow records an earned cash commission for manual
+  // review/payout; it never moves money or credits automatically.
+  enabled: false,
   // Link structure
   sharePath: "/i", // final link: `${WEB_URL}${sharePath}/${inviteCode}`
   myInvitesPath: "/[locale]/my-invites",
@@ -44,9 +46,8 @@ export const AffiliateConfig = {
 
   // Payout representation
   // - "cash": reward_amount represents minor currency units (e.g., cents)
-  // - "credits": reward_amount represents in-app credits to grant the inviter
-  // payoutType: "cash" as "cash" | "credits",
-  payoutType: "credits" as "cash" | "credits",
+  // - "credits": reserved for adopters that add a deterministic ledger grant
+  payoutType: "cash" as "cash" | "credits",
   // Rewards
   commissionMode: CommissionMode.GreaterOf,
   signup: {

@@ -31,19 +31,21 @@ function assertDisposable(connectionString: string): void {
     name = new URL(connectionString).pathname.replace(/^\//, "");
   } catch {
     throw new Error(
-      `TEST_DATABASE_URL is not a valid connection URL: ${connectionString}`
+      `TEST_DATABASE_URL is not a valid connection URL: ${connectionString}`,
     );
   }
 
   if (!name) {
-    throw new Error("TEST_DATABASE_URL must name a database, e.g. .../sushi_test");
+    throw new Error(
+      "TEST_DATABASE_URL must name a database, e.g. .../sushi_test",
+    );
   }
 
   if (!name.toLowerCase().includes("test")) {
     throw new Error(
       `Refusing to run destructive tests against database "${name}". ` +
         `The database tier truncates tables on every test, so TEST_DATABASE_URL ` +
-        `must point at a throwaway database whose name contains "test".`
+        `must point at a throwaway database whose name contains "test".`,
     );
   }
 }
@@ -56,7 +58,7 @@ export const hasTestDatabase = Boolean(rawUrl);
 if (!hasTestDatabase && process.env.CI) {
   throw new Error(
     "TEST_DATABASE_URL is not set in CI. The database tier must not be skipped " +
-      "on CI — check the postgres service and env block in .github/workflows/ci.yml."
+      "on CI — check the postgres service and env block in .github/workflows/ci.yml.",
   );
 }
 
@@ -77,18 +79,27 @@ export const describeDb = describe.skipIf(!hasTestDatabase);
 /** Tables the database tier writes to. Truncated between tests. */
 const MANAGED_TABLES = [
   "accounts",
+  "admin_audit_logs",
+  "affiliates",
+  "affiliate_deduplication_archive",
+  "auth_events",
   "credits",
   "email_blocklist",
+  "feedbacks",
   "files",
   "jobs",
   "orders",
   "org_invitations",
   "org_members",
   "organizations",
+  "privacy_requests",
+  "reservations",
+  "reservation_services",
   "sessions",
   "stripe_webhook_events",
   "subscriptions",
   "tasks",
+  "two_factor",
   "users",
   // Password-reset and email-verification tokens. Left out, they accumulate
   // across every file in the tier, and a test that looks up "the reset token"
@@ -163,7 +174,7 @@ async function acquireTierLock(): Promise<void> {
           `Another process is running this tier against the same database — check for a ` +
           `second "vitest --project db" or "pnpm test:db". They cannot share one database: ` +
           `each truncates the tables the other is mid-test on.`,
-        { cause: error }
+        { cause: error },
       );
     }
   })();
@@ -199,7 +210,9 @@ export async function resetTables(): Promise<void> {
 
   const { db } = await import("@/db");
   const list = MANAGED_TABLES.map((t) => `"${t}"`).join(", ");
-  await db().execute(sql.raw(`truncate table ${list} restart identity cascade`));
+  await db().execute(
+    sql.raw(`truncate table ${list} restart identity cascade`),
+  );
 }
 
 /**
@@ -217,8 +230,9 @@ if (rawUrl) {
   afterAll(async () => {
     try {
       const { db } = await import("@/db");
-      const client = (db() as unknown as { $client?: { end?: () => Promise<void> } })
-        .$client;
+      const client = (
+        db() as unknown as { $client?: { end?: () => Promise<void> } }
+      ).$client;
       await client?.end?.();
     } finally {
       // Whatever happened above, the next process is entitled to the database

@@ -56,6 +56,8 @@ export type ResolvedPlan = {
   plan: PlanDefinition;
   /** The row that granted this tier, or null when the user is on the default. */
   subscription: SubscriptionRow | null;
+  /** Every current candidate row; billing must not hide stacked subscriptions. */
+  subscriptions: SubscriptionRow[];
 };
 
 /**
@@ -145,13 +147,23 @@ export const resolvePlan = cache(async function resolvePlan(
     }
   }
 
-  if (!best) return freePlan();
+  if (!best) return freePlan(rows);
 
-  return { tier: best.tier, plan: planFor(best.tier), subscription: best.row };
+  return {
+    tier: best.tier,
+    plan: planFor(best.tier),
+    subscription: best.row,
+    subscriptions: rows,
+  };
 });
 
-function freePlan(): ResolvedPlan {
-  return { tier: DEFAULT_TIER, plan: planFor(DEFAULT_TIER), subscription: null };
+function freePlan(subscriptions: SubscriptionRow[] = []): ResolvedPlan {
+  return {
+    tier: DEFAULT_TIER,
+    plan: planFor(DEFAULT_TIER),
+    subscription: null,
+    subscriptions,
+  };
 }
 
 // ---------------------------------------------------------------- features
@@ -280,7 +292,13 @@ export function lowestTierAllowing(limit: PlanLimit, usage: LimitUsage): Tier | 
 export async function getPlanSnapshot(
   orgUuid: OrgUuid | null | undefined
 ): Promise<PlanSnapshot> {
-  const { tier, plan, subscription } = await resolvePlan(orgUuid);
+  const { tier, plan, subscription, subscriptions } = await resolvePlan(orgUuid);
+  const serializeSubscription = (row: SubscriptionRow) => ({
+    status: row.status,
+    currentPeriodEnd: row.current_period_end?.toISOString() ?? null,
+    cancelAtPeriodEnd: row.cancel_at_period_end,
+    source: row.source,
+  });
 
   return {
     tier,
@@ -289,14 +307,21 @@ export async function getPlanSnapshot(
     includedMonthlyCredits: plan.includedMonthlyCredits,
     features: { ...plan.features },
     limits: { ...plan.limits },
-    subscription: subscription
-      ? {
-          status: subscription.status,
-          currentPeriodEnd: subscription.current_period_end?.toISOString() ?? null,
-          cancelAtPeriodEnd: subscription.cancel_at_period_end,
-          source: subscription.source,
-        }
-      : null,
+    subscription: subscription ? serializeSubscription(subscription) : null,
+    subscriptions: subscriptions.map((row) => {
+      const rowTier = isTier(row.tier) ? row.tier : null;
+      const rowPlan = rowTier ? planFor(rowTier) : null;
+
+      return {
+        id: row.uuid,
+        tier: rowTier,
+        name: rowPlan?.name ?? "Subscription",
+        includedMonthlyCredits: rowPlan?.includedMonthlyCredits ?? 0,
+        entitling: isEntitling(row),
+        effective: row.uuid === subscription?.uuid,
+        ...serializeSubscription(row),
+      };
+    }),
   };
 }
 

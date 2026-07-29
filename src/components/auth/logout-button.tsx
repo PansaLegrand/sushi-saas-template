@@ -20,7 +20,7 @@ export default function LogoutButton() {
       await signOut({
         fetchOptions: {
           onSuccess: () => {
-            router.replace(withLocale(locale, AUTH_ROUTES.defaultCallback));
+            router.replace(withLocale(locale, AUTH_ROUTES.signedOutCallback));
           },
         },
       });
@@ -40,4 +40,3 @@ export default function LogoutButton() {
     </button>
   );
 }
-

@@ -23,7 +23,7 @@ export interface FileObject {
   original_filename: string;
   extension: string;
   visibility: "private" | "public" | "org";
-  status: "uploading" | "active" | "deleted" | "failed";
+  status: "uploading" | "active" | "deleting" | "deleted" | "failed";
   metadata_json?: string | null;
   created_at?: string | Date;
   updated_at?: string | Date;

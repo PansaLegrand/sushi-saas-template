@@ -6,10 +6,7 @@ out
 .DS_Store
 .data/
 *.db
-.source/index.ts
-.source/source.config.mjs
 /node_modules
-/.source
 /.next
 tsconfig.tsbuildinfo
 TODO.md

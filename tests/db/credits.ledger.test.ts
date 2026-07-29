@@ -31,6 +31,7 @@ import {
 
 import { db } from "@/db";
 import { credits as creditsTable, users } from "@/db/schema";
+import { calculateCreditBalance, findCreditByTransNo } from "@/models/credit";
 import {
   CreditsTransType,
   decreaseCredits,
@@ -58,9 +59,17 @@ async function seedUserWithOrg(): Promise<{ user: string; org: string }> {
 
   await db()
     .insert(users)
-    .values({ id, uuid, email: `ledger-${uuid}@test.dev`, signin_provider: "credential" });
+    .values({
+      id,
+      uuid,
+      email: `ledger-${uuid}@test.dev`,
+      signin_provider: "credential",
+    });
 
-  const org = await ensurePersonalOrganization({ id, email: `ledger-${uuid}@test.dev` });
+  const org = await ensurePersonalOrganization({
+    id,
+    email: `ledger-${uuid}@test.dev`,
+  });
   return { user: uuid, org: org.uuid };
 }
 
@@ -135,7 +144,7 @@ describeDb("credit ledger (real database)", () => {
         trans_type: CreditsTransType.Ping,
         credits: 25,
         actor: `user:${USER}`,
-      })
+      }),
     ).rejects.toMatchObject({
       code: "CREDITS_INSUFFICIENT",
       // The numbers that turn "not enough credits" into "buy 15 more". They
@@ -176,7 +185,7 @@ describeDb("credit ledger (real database)", () => {
         trans_type: CreditsTransType.Ping,
         credits: 5,
         actor: `user:${USER}`,
-      })
+      }),
     ).rejects.toMatchObject({
       details: { required: 5, available: 3, shortfall: 2 },
     });
@@ -208,7 +217,9 @@ describeDb("credit ledger (real database)", () => {
       }),
     ]);
 
-    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(
+      results.filter((result) => result.status === "fulfilled"),
+    ).toHaveLength(1);
     const rejected = results.find((result) => result.status === "rejected");
     expect(rejected).toMatchObject({
       status: "rejected",
@@ -248,10 +259,16 @@ describeDb("credit ledger (real database)", () => {
     // 23505 and calls that success. If the unique index on trans_no ever went
     // missing, that catch would turn a retry into a second free grant.
     const payload = { userUuid: USER, credits: 10 };
+    const context = {
+      jobUuid: "new-user-credit-job",
+      attempt: 1,
+      maxAttempts: 5,
+      signal: new AbortController().signal,
+    };
 
-    await jobHandlers.new_user_credits(payload);
-    await jobHandlers.new_user_credits(payload);
-    await jobHandlers.new_user_credits(payload);
+    await jobHandlers.new_user_credits(payload, context);
+    await jobHandlers.new_user_credits(payload, { ...context, attempt: 2 });
+    await jobHandlers.new_user_credits(payload, { ...context, attempt: 3 });
 
     expect(await countRows()).toBe(1);
     expect((await getOrgCreditSummary(ORG)).balance).toBe(10);
@@ -304,6 +321,388 @@ describeDb("credit ledger (real database)", () => {
 
     expect(summary.expiringSoon).toHaveLength(1);
     expect(summary.expiringSoon[0]?.credits).toBe(5);
+  });
+
+  it("partially consumes the earliest-expiring bucket first", async () => {
+    const earlyExpiry = daysFromNow(3);
+    const laterExpiry = daysFromNow(30);
+
+    await increaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.OrderPay,
+      credits: 10,
+      order_no: "early-order",
+      expired_at: earlyExpiry,
+      actor: "stripe:webhook",
+    });
+    await increaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.OrderPay,
+      credits: 20,
+      order_no: "later-order",
+      expired_at: laterExpiry,
+      actor: "stripe:webhook",
+    });
+
+    const transNo = await decreaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.Ping,
+      credits: 4,
+      actor: `user:${USER}`,
+    });
+
+    const spend = (await ledgerRows()).find((row) => row.trans_no === transNo);
+    expect(spend).toMatchObject({
+      credits: -4,
+      order_no: "early-order",
+    });
+    expect(spend?.expired_at?.getTime()).toBe(earlyExpiry.getTime());
+
+    const summary = await getOrgCreditSummary(ORG);
+    expect(summary).toMatchObject({
+      balance: 26,
+      granted: 30,
+      consumed: 4,
+      expired: 0,
+    });
+    // The warning is the six credits actually left in the bucket, not the
+    // original ten-credit grant.
+    expect(summary.expiringSoon.map((entry) => entry.credits)).toEqual([6]);
+  });
+
+  it("splits a cross-expiry spend into one immutable row per FEFO bucket", async () => {
+    const earlyExpiry = daysFromNow(5);
+    const laterExpiry = daysFromNow(30);
+
+    await increaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.OrderPay,
+      credits: 5,
+      order_no: "early-order",
+      expired_at: earlyExpiry,
+      actor: "stripe:webhook",
+    });
+    await increaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.OrderPay,
+      credits: 10,
+      order_no: "later-order",
+      expired_at: laterExpiry,
+      actor: "stripe:webhook",
+    });
+
+    const transNo = await decreaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.TaskTextToVideo,
+      credits: 8,
+      actor: `user:${USER}`,
+      metadata: { task_uuid: "cross-bucket-task" },
+    });
+
+    const spends = (await ledgerRows()).filter((row) => row.credits < 0);
+    expect(spends.map((row) => row.trans_no)).toEqual([
+      transNo,
+      `${transNo}:part:2`,
+    ]);
+    expect(
+      spends.map((row) => ({
+        credits: row.credits,
+        orderNo: row.order_no,
+        expiredAt: row.expired_at?.getTime(),
+      })),
+    ).toEqual([
+      {
+        credits: -5,
+        orderNo: "early-order",
+        expiredAt: earlyExpiry.getTime(),
+      },
+      {
+        credits: -3,
+        orderNo: "later-order",
+        expiredAt: laterExpiry.getTime(),
+      },
+    ]);
+    expect((await ledgerRows()).map((row) => row.balance_after)).toEqual([
+      5, 15, 10, 7,
+    ]);
+
+    const rootMetadata = JSON.parse(spends[0]!.metadata_json!);
+    expect(rootMetadata).toMatchObject({
+      task_uuid: "cross-bucket-task",
+      __credit_fefo: {
+        version: 1,
+        root_trans_no: transNo,
+        part_trans_nos: [transNo, `${transNo}:part:2`],
+        part_index: 0,
+      },
+    });
+
+    const summary = await getOrgCreditSummary(ORG);
+    const logicalSpend = summary.ledger.find((row) => row.transNo === transNo);
+    const status = await getOrgCredits(ORG);
+    expect(summary.balance).toBe(7);
+    expect(status.left_credits).toBe(summary.balance);
+    expect(summary.ledger).toHaveLength(3);
+    expect(logicalSpend).toMatchObject({
+      transNo,
+      transType: CreditsTransType.TaskTextToVideo,
+      credits: -8,
+      orderNo: null,
+      expiredAt: null,
+      balanceAfter: 7,
+    });
+    expect(JSON.stringify(summary)).not.toContain(":part:2");
+    expect(JSON.stringify(summary)).not.toContain("__credit_fefo");
+
+    // Pagination is applied after logical grouping: one action consumes one
+    // customer ledger slot even when it needed two immutable debit rows.
+    const limitedSummary = await getOrgCreditSummary(ORG, { ledgerLimit: 1 });
+    expect(limitedSummary.ledger).toEqual([
+      expect.objectContaining({ transNo, credits: -8 }),
+    ]);
+
+    const logicalRoot = await findCreditByTransNo(transNo);
+    const logicalFromChild = await findCreditByTransNo(`${transNo}:part:2`);
+    expect(logicalRoot).toMatchObject({
+      trans_no: transNo,
+      credits: -8,
+      order_no: null,
+      expired_at: null,
+      balance_after: 7,
+    });
+    expect(JSON.parse(logicalRoot!.metadata_json!)).toEqual({
+      task_uuid: "cross-bucket-task",
+    });
+    expect(logicalFromChild).toEqual(logicalRoot);
+
+    const auditSummary = await getOrgCreditSummary(ORG, {
+      includeAudit: true,
+    });
+    const auditSpendRows = auditSummary.ledger.filter(
+      (row) => row.transNo === transNo || row.transNo === `${transNo}:part:2`,
+    );
+    expect(auditSpendRows).toHaveLength(2);
+    expect(
+      auditSpendRows
+        .map((row) => row.credits)
+        .sort((left, right) => left - right),
+    ).toEqual([-5, -3]);
+    expect(auditSpendRows.every((row) => row.metadata?.__credit_fefo)).toBe(
+      true,
+    );
+
+    await expect(
+      decreaseCredits({
+        org_uuid: ORG,
+        user_uuid: USER,
+        trans_type: CreditsTransType.Ping,
+        credits: 8,
+        actor: `user:${USER}`,
+      }),
+    ).rejects.toMatchObject({
+      code: "CREDITS_INSUFFICIENT",
+      details: { required: 8, available: 7, shortfall: 1 },
+    });
+  });
+
+  it("keeps later-bucket credits after an earlier consumed bucket expires", async () => {
+    const baseline = Date.now();
+    const earlyExpiry = new Date(baseline + 5 * 24 * 60 * 60 * 1000);
+    const laterExpiry = new Date(baseline + 30 * 24 * 60 * 60 * 1000);
+
+    await increaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.OrderPay,
+      credits: 5,
+      order_no: "early-order",
+      expired_at: earlyExpiry,
+      actor: "stripe:webhook",
+    });
+    await increaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.OrderPay,
+      credits: 10,
+      order_no: "later-order",
+      expired_at: laterExpiry,
+      actor: "stripe:webhook",
+    });
+    await decreaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.Ping,
+      credits: 8,
+      actor: `user:${USER}`,
+    });
+
+    const rows = await ledgerRows();
+    const beforeEarlyExpiry = calculateCreditBalance(
+      rows,
+      new Date(baseline + 2 * 24 * 60 * 60 * 1000),
+    );
+    const afterEarlyExpiry = calculateCreditBalance(
+      rows,
+      new Date(baseline + 10 * 24 * 60 * 60 * 1000),
+    );
+    const afterAllExpiry = calculateCreditBalance(
+      rows,
+      new Date(baseline + 40 * 24 * 60 * 60 * 1000),
+    );
+
+    expect(beforeEarlyExpiry.available).toBe(7);
+    // The old single-debit implementation returned 2 here: it dropped the
+    // early +5 grant but kept the whole -8 debit attached to the later grant.
+    expect(afterEarlyExpiry.available).toBe(7);
+    expect(afterEarlyExpiry.expired).toBe(0);
+    expect(afterAllExpiry.available).toBe(0);
+    expect(afterAllExpiry.expired).toBe(7);
+  });
+
+  it("replays and correctly refunds a legacy single-row cross-bucket spend", async () => {
+    const baseline = Date.now();
+    const earlyExpiry = new Date(baseline + 5 * 24 * 60 * 60 * 1000);
+    const laterExpiry = new Date(baseline + 30 * 24 * 60 * 60 * 1000);
+
+    await increaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.OrderPay,
+      credits: 5,
+      order_no: "legacy-early-order",
+      expired_at: earlyExpiry,
+      actor: "stripe:webhook",
+    });
+    await increaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.OrderPay,
+      credits: 10,
+      order_no: "legacy-later-order",
+      expired_at: laterExpiry,
+      actor: "stripe:webhook",
+    });
+
+    // This is the pre-FEFO bug shape: all -8 was tagged with only the last
+    // bucket's terms, even though five of it consumed the earlier grant.
+    await db()
+      .insert(creditsTable)
+      .values({
+        trans_no: "legacy-cross-bucket-spend",
+        created_at: new Date(),
+        org_uuid: ORG,
+        user_uuid: USER,
+        trans_type: CreditsTransType.TaskTextToVideo,
+        credits: -8,
+        order_no: "legacy-later-order",
+        expired_at: laterExpiry,
+        balance_after: 7,
+        actor: `user:${USER}`,
+      });
+
+    const legacyRows = await ledgerRows();
+    expect(
+      calculateCreditBalance(
+        legacyRows,
+        new Date(baseline + 10 * 24 * 60 * 60 * 1000),
+      ).available,
+    ).toBe(7);
+
+    const refundTransNo = await refundCreditsForTransaction({
+      org_uuid: ORG,
+      user_uuid: USER,
+      original_trans_no: "legacy-cross-bucket-spend",
+    });
+    const refunds = (await ledgerRows()).filter(
+      (row) =>
+        row.trans_no === refundTransNo ||
+        row.trans_no.startsWith(`${refundTransNo}:part:`),
+    );
+
+    expect(refunds.map((row) => row.credits)).toEqual([5, 3]);
+    expect(refunds.map((row) => row.expired_at?.getTime())).toEqual([
+      earlyExpiry.getTime(),
+      laterExpiry.getTime(),
+    ]);
+    expect((await getOrgCreditSummary(ORG)).balance).toBe(15);
+  });
+
+  it("refunds every FEFO part atomically and only once", async () => {
+    const baseline = Date.now();
+    const earlyExpiry = new Date(baseline + 5 * 24 * 60 * 60 * 1000);
+    const laterExpiry = new Date(baseline + 30 * 24 * 60 * 60 * 1000);
+
+    await increaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.OrderPay,
+      credits: 5,
+      order_no: "early-order",
+      expired_at: earlyExpiry,
+      actor: "stripe:webhook",
+    });
+    await increaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.OrderPay,
+      credits: 10,
+      order_no: "later-order",
+      expired_at: laterExpiry,
+      actor: "stripe:webhook",
+    });
+    const spendTransNo = await decreaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.TaskTextToVideo,
+      credits: 8,
+      actor: `user:${USER}`,
+    });
+
+    const [first, second] = await Promise.all([
+      refundCreditsForTransaction({
+        org_uuid: ORG,
+        user_uuid: USER,
+        original_trans_no: spendTransNo,
+      }),
+      refundCreditsForTransaction({
+        org_uuid: ORG,
+        user_uuid: USER,
+        original_trans_no: spendTransNo,
+      }),
+    ]);
+
+    expect(first).toBe(`refund_${spendTransNo}`);
+    expect(second).toBe(first);
+
+    const rows = await ledgerRows();
+    const refunds = rows.filter(
+      (row) =>
+        row.trans_no === first || row.trans_no.startsWith(`${first}:part:`),
+    );
+    expect(refunds.map((row) => row.credits)).toEqual([5, 3]);
+    expect(refunds.map((row) => row.expired_at?.getTime())).toEqual([
+      earlyExpiry.getTime(),
+      laterExpiry.getTime(),
+    ]);
+    expect(rows).toHaveLength(6);
+    let runningBalance = 0;
+    for (const row of rows) {
+      runningBalance += row.credits;
+      expect(row.balance_after).toBe(runningBalance);
+    }
+    expect((await getOrgCreditSummary(ORG)).balance).toBe(15);
+
+    const afterEarlyExpiry = calculateCreditBalance(
+      rows,
+      new Date(baseline + 10 * 24 * 60 * 60 * 1000),
+    );
+    expect(afterEarlyExpiry.available).toBe(10);
   });
 
   it("refunds a spend once, however many times it is retried", async () => {
@@ -359,24 +758,22 @@ describeDb("credit ledger (real database)", () => {
         org_uuid: "some-other-org",
         user_uuid: USER,
         original_trans_no: spendTransNo,
-      })
+      }),
     ).rejects.toThrow(/does not belong/i);
   });
 
   it("never reports a negative spendable balance", async () => {
     // getOrgCredits floors at zero for display; the ledger itself may still go
     // negative through an admin adjustment, and the two must not disagree.
-    await db()
-      .insert(creditsTable)
-      .values({
-        trans_no: "manual-negative",
-        created_at: new Date(),
-        org_uuid: ORG,
-        user_uuid: USER,
-        trans_type: CreditsTransType.TaskAdjust,
-        credits: -25,
-        order_no: "",
-      });
+    await db().insert(creditsTable).values({
+      trans_no: "manual-negative",
+      created_at: new Date(),
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.TaskAdjust,
+      credits: -25,
+      order_no: "",
+    });
 
     const status = await getOrgCredits(ORG);
 
@@ -444,9 +841,9 @@ describeDb("credit ledger (real database)", () => {
 
     expect(rows).toHaveLength(2);
     // Order is whichever won the lock, so assert the set rather than a sequence.
-    expect(rows.map((row) => row.balance_after).sort((a, b) => a! - b!)).toEqual([
-      10, 20,
-    ]);
+    expect(
+      rows.map((row) => row.balance_after).sort((a, b) => a! - b!),
+    ).toEqual([10, 20]);
 
     // The invariant a reconciliation script checks, stated directly.
     let running = 0;
@@ -600,19 +997,17 @@ describeDb("credit ledger (real database)", () => {
     // The column is `text`. A malformed value must not take down the whole
     // ledger view — an incident is exactly when a half-written row is most
     // likely to be the thing being looked at.
-    await db()
-      .insert(creditsTable)
-      .values({
-        trans_no: "bad-metadata",
-        created_at: new Date(),
-        org_uuid: ORG,
-        user_uuid: USER,
-        trans_type: CreditsTransType.SystemAdd,
-        credits: 5,
-        order_no: "",
-        actor: "system:test",
-        metadata_json: "{not json",
-      });
+    await db().insert(creditsTable).values({
+      trans_no: "bad-metadata",
+      created_at: new Date(),
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.SystemAdd,
+      credits: 5,
+      order_no: "",
+      actor: "system:test",
+      metadata_json: "{not json",
+    });
 
     const summary = await getOrgCreditSummary(ORG, { includeAudit: true });
 
@@ -624,17 +1019,15 @@ describeDb("credit ledger (real database)", () => {
     // Stands in for pre-0018 history. A null means "written before this
     // existed", which a reconciliation script must treat as out of scope rather
     // than as drift — and the balance arithmetic must not care either way.
-    await db()
-      .insert(creditsTable)
-      .values({
-        trans_no: "legacy-row",
-        created_at: new Date(),
-        org_uuid: ORG,
-        user_uuid: USER,
-        trans_type: CreditsTransType.SystemAdd,
-        credits: 15,
-        order_no: "",
-      });
+    await db().insert(creditsTable).values({
+      trans_no: "legacy-row",
+      created_at: new Date(),
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.SystemAdd,
+      credits: 15,
+      order_no: "",
+    });
 
     const [legacy] = await ledgerRows();
 

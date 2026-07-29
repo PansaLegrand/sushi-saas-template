@@ -1,92 +1,29 @@
 {
   "metadata": {
-    "title": "Sushi SaaS - Next.js Starter Kit for Real SaaS",
-    "description": "Démarrage SaaS prêt à l’emploi avec outils modernes et design épuré.",
+    "title": "Votre SaaS",
+    "description": "Une application SaaS sécurisée et pensée pour la production.",
     "keywords": "modèle saas, next.js, better auth"
   },
   "landing": {
     "nav": {
+      "pricing": "Tarifs",
       "docs": "Documentation",
-      "blogs": "Blog",
-      "github": "GitHub"
+      "signIn": "Se connecter",
+      "openApp": "Ouvrir l’application"
     },
     "hero": {
-      "title": "Un starter SaaS Next.js prêt pour la production.",
-      "subtitle": "Authentification, paiements, crédits, stockage, i18n, console d'administration et documentation : reliés entre eux, organisés en couches et couverts par des tests. Commencez par votre produit, pas par la plomberie.",
-      "ctaPrimary": "Lire la documentation",
-      "ctaSecondary": "Voir sur GitHub"
+      "title": "Votre produit, prêt pour vos clients.",
+      "subtitle": "Comptes sécurisés, facturation par organisation, crédits partagés, stockage privé et opérations sont prêts. Ajoutez le parcours qui rend votre SaaS unique.",
+      "ctaPrimary": "Créer un compte",
+      "ctaSecondary": "Se connecter",
+      "ctaOpenApp": "Ouvrir votre compte"
     },
-    "about": {
-      "title": "Ce que vous obtenez",
-      "intro": "Les briques dont tout SaaS a besoin et que personne n'aime construire : authentification avec rôles, facturation Stripe avec registre de crédits, envoi de fichiers privés, e-mails transactionnels, console d'administration séparée et routage localisé en cinq langues. Une seule architecture, documentée et garantie par des tests."
-    },
-    "features": {
-      "title": "Ce qu’il contient",
-      "items": [
-        {
-          "title": "Stack moderne et open‑source",
-          "description": "Next.js 15, TypeScript, Tailwind — boilerplate prêt à lancer rapidement."
-        },
-        {
-          "title": "Auth & RBAC (Better Auth)",
-          "description": "Connexion email + Google, sessions sécurisées et rôles avec Drizzle."
-        },
-        {
-          "title": "i18n global",
-          "description": "Routes et messages localisés pour servir plusieurs langues facilement."
-        },
-        {
-          "title": "Stripe + crédits",
-          "description": "Checkout, abonnements et grand livre de crédits pour la facturation à l’usage."
-        },
-        {
-          "title": "Module de réservations",
-          "description": "Créneaux avec disponibilité, acompte ou paiement total, confirmations et invitations calendrier."
-        },
-        {
-          "title": "Affiliation / parrainage",
-          "description": "Liens d’invitation, inscriptions attribuées et récompenses configurables."
-        },
-        {
-          "title": "Panneau admin",
-          "description": "Gérez utilisateurs, commandes, crédits, réservations et affiliés avec contrôle des rôles."
-        },
-        {
-          "title": "Docs & MDX",
-          "description": "Docs/blog intégrés avec MDX + Fumadocs et bon SEO."
-        }
-      ]
-    },
-    "stack": {
-      "title": "Stack technique",
-      "items": [
-        {
-          "name": "Next.js 15",
-          "description": "App Router, composants serveur"
-        },
-        {
-          "name": "Tailwind CSS",
-          "description": "CSS utilitaire"
-        },
-        {
-          "name": "Better Auth",
-          "description": "Authentification et sessions"
-        },
-        {
-          "name": "Drizzle ORM",
-          "description": "SQL typé et migrations"
-        }
-      ]
-    },
-    "showcases": {
-      "title": "Réalisé avec"
+    "proof": {
+      "auth": "Comptes vérifiés, sessions sécurisées, rôles d’organisation et accès admin prêt pour la MFA.",
+      "billing": "Abonnements Stripe, paiement idempotent, droits et registre de crédits avec expiration.",
+      "operations": "Stockage privé, tâches durables, sondes de disponibilité, limites de débit, audit et migrations testées."
     },
     "footer": "Conçu avec Next.js 15, Tailwind CSS et Better Auth."
-  },
-  "docs": {
-    "title": "Documentation",
-    "intro": "Guides pratiques pour configurer et étendre ce kit de démarrage.",
-    "back": "Retour à l’accueil"
   },
   "tasks": {
     "textToVideo": {
@@ -118,13 +55,26 @@
       "or": "ou"
     }
   },
-  "blogs": {
-    "title": "Blog",
-    "intro": "Guides et actualités pour expédier plus vite."
-  },
   "reservation": {
     "title": "Réserver un service",
-    "subtitle": "Choisissez un service, une heure et confirmez avec un petit acompte."
+    "subtitle": "Choisissez un service, une heure et confirmez avec un petit acompte.",
+    "noServicesTitle": "Aucun service disponible",
+    "noServicesDescription": "Cet espace n’a encore configuré aucun service.",
+    "serviceLabel": "Service",
+    "depositPrice": "acompte de {price}",
+    "dateLabel": "Date",
+    "timezoneLabel": "Fuseau horaire",
+    "timezoneDescription": "Détecté depuis votre navigateur.",
+    "loading": "Chargement…",
+    "refreshAvailability": "Actualiser les disponibilités",
+    "availableTimes": "Horaires disponibles",
+    "minutes": "{value} min",
+    "noSlotsTitle": "Aucun créneau disponible",
+    "noSlotsDescription": "Essayez une autre date ou actualisez les disponibilités.",
+    "contactEmail": "E-mail de contact",
+    "phone": "Téléphone",
+    "notes": "Notes",
+    "optional": "Facultatif."
   },
   "auth": {
     "signInTitle": "Bon retour parmi nous",
@@ -170,6 +120,15 @@
     "useDifferentEmail": "Utiliser un autre e‑mail",
     "captchaRequired": "Veuillez compléter la vérification de sécurité.",
     "captchaFailed": "La vérification a échoué. Veuillez réessayer.",
+    "twoFactorTitle": "Authentification à deux facteurs",
+    "twoFactorSubtitle": "Saisissez le code de votre application d’authentification pour terminer la connexion.",
+    "authenticatorCode": "Code d’authentification",
+    "backupCode": "Code de secours",
+    "trustDevice": "Faire confiance à cet appareil",
+    "verifying": "Vérification…",
+    "verify": "Vérifier",
+    "useBackupCode": "Utiliser un code de secours",
+    "useAuthenticatorCode": "Utiliser un code d’authentification",
     "logout": "Se déconnecter"
   },
   "feedback": {
@@ -189,6 +148,9 @@
   "storage": {
     "uploadLabel": "Importer des fichiers",
     "hintPrivate": "Privé par défaut. Taille max {mb} Mo chacun.",
+    "browseFiles": "Parcourir les fichiers",
+    "dragAndDrop": "ou glissez-déposez-les",
+    "uploadProgress": "Progression de l’import de {file}",
     "errorCreate": "Échec de création de l’upload",
     "errorComplete": "Échec de validation de l’upload",
     "errorUpload": "Échec de l’upload",
@@ -228,6 +190,143 @@
         "free": "Gratuit",
         "plus": "Plus",
         "max": "Max"
+      }
+    },
+    "checkout": {
+      "success": {
+        "title": "Paiement confirmé",
+        "description": "Votre abonnement est actif et ses crédits sont disponibles."
+      },
+      "processing": {
+        "title": "Paiement reçu",
+        "description": "Nous finalisons l’abonnement et l’attribution des crédits. Actualisez bientôt la page de facturation."
+      },
+      "failed": {
+        "title": "Paiement non finalisé",
+        "description": "Aucun abonnement n’a été ajouté. Vérifiez vos informations de paiement puis réessayez."
+      }
+    }
+  },
+  "account": {
+    "accountHome": "Compte",
+    "workspace": "Espace de travail",
+    "switchWorkspace": "Changer d’espace",
+    "navigationLabel": "Navigation du compte",
+    "skipToContent": "Accéder au contenu du compte",
+    "navigation": {
+      "billing": "Facturation",
+      "credits": "Crédits",
+      "files": "Fichiers",
+      "team": "Équipe",
+      "reservations": "Réservations",
+      "profile": "Profil et sécurité"
+    },
+    "roles": {
+      "owner": "Propriétaire",
+      "admin": "Administrateur",
+      "member": "Membre"
+    },
+    "billing": {
+      "title": "Facturation",
+      "subtitle": "Consultez chaque abonnement, la formule effective et les crédits partagés de cet espace.",
+      "effectivePlan": "Formule effective",
+      "effectiveDescription": "Cette formule définit les limites fonctionnelles de l’espace.",
+      "effectiveStackedDescription": "Les limites utilisent la formule active la plus élevée. Les crédits de tous les abonnements payants sont partagés.",
+      "freeDescription": "Cet espace utilise la formule gratuite. Les données existantes sont conservées lors d’un changement.",
+      "currentBalance": "Solde disponible",
+      "creditsPerRenewal": "Crédits par renouvellement",
+      "expiringSoon": "Expirent sous 14 jours",
+      "creditsValue": "{value, plural, one {# crédit} other {# crédits}}",
+      "viewCreditHistory": "Voir l’historique des crédits",
+      "subscriptionsTitle": "Abonnements",
+      "subscriptionsDescription": "Chaque carte représente un abonnement ou un accès offert distinct. Plusieurs peuvent être actifs ensemble.",
+      "noSubscriptions": "Cet espace n’a aucun abonnement actif.",
+      "paidSubscription": "Payé via Stripe",
+      "complimentarySubscription": "Accès offert",
+      "effectiveBadge": "Définit les limites",
+      "subscriptionCredits": "{value, plural, one {# crédit par renouvellement} other {# crédits par renouvellement}}",
+      "allPlans": "Toutes les formules",
+      "current": "Effective",
+      "planCredits": "{value, plural, one {# crédit par mois} other {# crédits par mois}}",
+      "dataPolicy": "Changer de formule ne supprime jamais les données existantes. Si l’espace dépasse une nouvelle limite, seuls les nouveaux imports et générations attendent.",
+      "actions": {
+        "manage": "Gérer la facturation",
+        "addSubscription": "Ajouter un abonnement",
+        "ownerOnly": "Seul un propriétaire peut ajouter des abonnements ou modifier les informations de paiement."
+      },
+      "limits": {
+        "largestFile": "Fichier le plus volumineux",
+        "totalStorage": "Stockage total",
+        "videoGenerations": "Générations vidéo",
+        "unlimited": "Illimité",
+        "megabytes": "{value} Mo",
+        "gigabytes": "{value} Go",
+        "perMonth": "{value} / mois"
+      },
+      "statuses": {
+        "complimentary": "Offert",
+        "complimentaryUntil": "Accès accordé jusqu’au {date}.",
+        "complimentaryForever": "Accès accordé sans date de fin.",
+        "cancels": "S’arrête",
+        "endsOn": "Cet abonnement se termine le {date}.",
+        "willNotRenew": "Cet abonnement ne sera pas renouvelé.",
+        "trial": "Essai",
+        "trialConvertsOn": "L’essai devient payant le {date}.",
+        "paymentFailed": "Échec du paiement",
+        "paymentFailedDetail": "Mettez à jour le moyen de paiement pour garder cet abonnement actif.",
+        "active": "Actif",
+        "renewsOn": "Renouvellement le {date}."
+      }
+    },
+    "credits": {
+      "title": "Crédits",
+      "subtitle": "Les crédits sont partagés dans {workspace}. Chaque attribution et utilisation est enregistrée ici.",
+      "summary": {
+        "balance": "Solde disponible",
+        "granted": "Attributions actives",
+        "consumed": "Consommés",
+        "expired": "Expirés inutilisés"
+      },
+      "creditValue": "{value, plural, one {# crédit} other {# crédits}}",
+      "expiringTitle": "Crédits expirant sous 14 jours",
+      "historyTitle": "Historique des crédits",
+      "historyDescription": "Les écritures les plus récentes apparaissent en premier.",
+      "historyTableLabel": "Historique des crédits de l’espace",
+      "noHistory": "Aucune activité de crédit n’a encore été enregistrée.",
+      "columns": {
+        "date": "Date",
+        "type": "Activité",
+        "change": "Variation",
+        "expires": "Expiration"
+      },
+      "types": {
+        "newUser": "Crédit de bienvenue",
+        "purchase": "Crédit d’abonnement",
+        "adjustment": "Ajustement manuel",
+        "videoTask": "Génération vidéo",
+        "refund": "Remboursement",
+        "usage": "Utilisation",
+        "other": "Autre"
+      }
+    },
+    "files": {
+      "title": "Fichiers de l’espace",
+      "description": "Les fichiers sont privés à {workspace} et visibles par ses membres."
+    },
+    "reservations": {
+      "title": "Réservations de l’espace",
+      "description": "Consultez les réservations passées et à venir de {workspace}.",
+      "empty": "Cet espace n’a encore aucune réservation.",
+      "serviceFallback": "Service n° {id}",
+      "calendarTitle": "Réservation : {service}",
+      "calendarDescription": "Réservation n° {number}",
+      "addToCalendar": "Ajouter à Google Agenda",
+      "statuses": {
+        "pending": "En attente",
+        "confirmed": "Confirmée",
+        "canceled": "Annulée",
+        "expired": "Expirée",
+        "other": "Inconnue"
       }
     }
   },
