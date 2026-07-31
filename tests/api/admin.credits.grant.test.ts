@@ -159,6 +159,33 @@ describe("POST /api/admin/credits/grant", () => {
     expect(credit.increaseCredits).not.toHaveBeenCalled();
   });
 
+  it("accepts an explicit null expiry for credits that never expire", async () => {
+    const res = await grantCredits(
+      buildRequest({ ...validBody, expiredAt: null })
+    );
+    const credit = await import("@/services/credit");
+
+    expect(res.status).toBe(200);
+    expect(credit.increaseCredits).toHaveBeenCalledWith(
+      expect.objectContaining({ expired_at: null })
+    );
+  });
+
+  it("rejects an already-expired grant before touching the ledger", async () => {
+    const res = await grantCredits(
+      buildRequest({
+        ...validBody,
+        expiredAt: "2020-01-01T00:00:00.000Z",
+      })
+    );
+    const payload = await res.json();
+    const credit = await import("@/services/credit");
+
+    expect(res.status).toBe(400);
+    expect(payload.details).toMatchObject({ field: "expiredAt" });
+    expect(credit.increaseCredits).not.toHaveBeenCalled();
+  });
+
   it("grants credits, writes an audit entry, and ignores client order numbers", async () => {
     const res = await grantCredits(
       buildRequest({ ...validBody, orderNo: "forged-order-123" })

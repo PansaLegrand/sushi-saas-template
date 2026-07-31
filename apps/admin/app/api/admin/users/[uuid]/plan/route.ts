@@ -32,7 +32,7 @@ import {
 const GrantPlanSchema = z.object({
   tier: z.string().trim().min(1),
   /** ISO date. Omit for an indefinite comp. */
-  expiresAt: z.string().trim().optional(),
+  expiresAt: z.string().trim().nullable().optional(),
   note: z.string().trim().optional(),
 });
 
@@ -100,7 +100,7 @@ export async function POST(
   let expiresAt: Date | null = null;
   if (payload.expiresAt) {
     const parsed = new Date(payload.expiresAt);
-    if (Number.isNaN(parsed.getTime())) {
+    if (Number.isNaN(parsed.getTime()) || parsed.getTime() <= Date.now()) {
       return respCode("REQUEST_VALIDATION_FAILED", {
         details: { field: "expiresAt" },
       });

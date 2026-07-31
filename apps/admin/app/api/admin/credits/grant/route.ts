@@ -35,7 +35,7 @@ interface AdminGrantRequest {
 const AdminGrantSchema = z.object({
   userUuid: z.string().trim().min(1),
   credits: z.union([z.string(), z.number()]),
-  expiredAt: z.string().trim().optional(),
+  expiredAt: z.string().trim().nullable().optional(),
   idempotencyKey: z.string().trim().min(1),
   note: z.string().trim().optional(),
 });
@@ -105,7 +105,7 @@ export async function POST(req: Request) {
   let expiredAt: Date | null = null;
   if (payload.expiredAt) {
     const parsed = new Date(payload.expiredAt);
-    if (Number.isNaN(parsed.getTime())) {
+    if (Number.isNaN(parsed.getTime()) || parsed.getTime() <= Date.now()) {
       return respCode("REQUEST_VALIDATION_FAILED", {
         details: { field: "expiredAt" },
       });

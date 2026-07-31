@@ -181,6 +181,31 @@ describe("admin user plan API", () => {
     expect(mocks.grantManualSubscription).not.toHaveBeenCalled();
   });
 
+  it("accepts an explicit null expiry as an indefinite comp", async () => {
+    const res = await compPlan(
+      compRequest({ tier: "plus", expiresAt: null }),
+      params("u-1")
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.grantManualSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({ tier: "plus", expiresAt: null })
+    );
+  });
+
+  it("rejects an already-expired comp before replacing the current one", async () => {
+    const res = await compPlan(
+      compRequest({ tier: "max", expiresAt: "2020-01-01T00:00:00.000Z" }),
+      params("u-1")
+    );
+    const payload = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(payload.details).toMatchObject({ field: "expiresAt" });
+    expect(mocks.revokeManualSubscriptions).not.toHaveBeenCalled();
+    expect(mocks.grantManualSubscription).not.toHaveBeenCalled();
+  });
+
   it("revokes comps and reports the resulting plan", async () => {
     const res = await revokePlan(
       new Request("http://admin.test", { method: "DELETE" }),

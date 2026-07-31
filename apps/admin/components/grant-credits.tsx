@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 
+import { ExpirationPicker } from "@admin/components/expiration-picker";
 import { getUserCredits, grantCredits } from "@admin/lib/api";
 import { Input } from "@/components/ui/input";
 import { StatCard } from "@/components/ui/card";
@@ -15,7 +16,7 @@ interface Props {
 export default function GrantCreditsPanel({ canWrite }: Props) {
   const [userUuid, setUserUuid] = useState("");
   const [amount, setAmount] = useState("100");
-  const [expiredAt, setExpiredAt] = useState("");
+  const [expiredAt, setExpiredAt] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +55,7 @@ export default function GrantCreditsPanel({ canWrite }: Props) {
     const fingerprint = JSON.stringify([
       normalizedUserUuid,
       credits,
-      expiredAt || null,
+      expiredAt,
       normalizedNote,
     ]);
     const currentAttempt = grantAttemptRef.current;
@@ -77,7 +78,7 @@ export default function GrantCreditsPanel({ canWrite }: Props) {
       await grantCredits({
         userUuid: normalizedUserUuid,
         credits,
-        expiredAt: expiredAt || null,
+        expiredAt,
         note: normalizedNote || undefined,
         idempotencyKey,
       });
@@ -96,7 +97,7 @@ export default function GrantCreditsPanel({ canWrite }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-start">
         <Input
           aria-label="User UUID"
           placeholder="User UUID"
@@ -111,11 +112,11 @@ export default function GrantCreditsPanel({ canWrite }: Props) {
           value={amount}
           onChange={(e) => setAmount(e.currentTarget.value)}
         />
-        <Input
-          aria-label="Expires (optional)"
-          type="datetime-local"
+        <ExpirationPicker
+          kind="credits"
           value={expiredAt}
-          onChange={(e) => setExpiredAt(e.currentTarget.value)}
+          onChange={setExpiredAt}
+          disabled={loading}
         />
       </div>
 

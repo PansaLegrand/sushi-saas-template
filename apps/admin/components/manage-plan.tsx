@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 
+import { ExpirationPicker } from "@admin/components/expiration-picker";
 import { getUserPlan, grantUserPlan, revokeUserPlan } from "@admin/lib/api";
 import { Input } from "@/components/ui/input";
 import { StatCard } from "@/components/ui/card";
@@ -25,7 +26,7 @@ interface Props {
 export default function ManagePlanPanel({ canWrite, tiers }: Props) {
   const [userUuid, setUserUuid] = useState("");
   const [tier, setTier] = useState(tiers.at(-1)?.tier ?? "");
-  const [expiresAt, setExpiresAt] = useState("");
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +56,7 @@ export default function ManagePlanPanel({ canWrite, tiers }: Props) {
         await grantUserPlan({
           userUuid,
           tier,
-          expiresAt: expiresAt || null,
+          expiresAt,
           note: note.trim() || undefined,
         })
       );
@@ -82,10 +83,13 @@ export default function ManagePlanPanel({ canWrite, tiers }: Props) {
   }, [canWrite, userUuid]);
 
   const subscription = plan?.subscription;
+  const selectedTierName = tiers.find(
+    (option) => option.tier === tier
+  )?.name;
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-start">
         <Input
           aria-label="User UUID"
           placeholder="User UUID"
@@ -104,11 +108,16 @@ export default function ManagePlanPanel({ canWrite, tiers }: Props) {
             </option>
           ))}
         </select>
-        <Input
-          aria-label="Comp expires (optional)"
-          type="datetime-local"
+        <ExpirationPicker
+          kind="plan"
           value={expiresAt}
-          onChange={(e) => setExpiresAt(e.currentTarget.value)}
+          onChange={setExpiresAt}
+          subject={
+            selectedTierName
+              ? `Complimentary ${selectedTierName} access`
+              : "Complimentary access"
+          }
+          disabled={loading}
         />
       </div>
 

@@ -62,6 +62,20 @@ Every admin write action must be recorded via `writeAdminAuditLog()` in `apps/ad
 
 Write actions must also be idempotent. `POST /api/admin/credits/grant` requires an `idempotencyKey` per attempt and derives a deterministic `credits.trans_no` from it, so a retry or double-click cannot credit twice.
 
+## Expiration Controls
+
+Complimentary plans and manual credit grants share the same expiration picker.
+**Never** is the default: a manual plan stays active until an admin revokes it,
+and unused granted credits remain spendable until they are consumed. The 7, 30,
+and 90 day shortcuts count forward from the current moment. A custom calendar
+choice defaults to 23:59 in the operator's local timezone and is converted to an
+ISO timestamp before it is sent. The confirmation text shows the exact timezone
+and explains what happens when the expiration is reached.
+
+Both APIs reject timestamps that are already in the past. This is deliberate:
+accepting one would report a successful write whose plan or credit balance is
+already expired.
+
 ## Finding a User
 
 Every write tool in the console — grant credits, comp a plan, suspend an account
