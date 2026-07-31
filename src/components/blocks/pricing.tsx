@@ -171,7 +171,7 @@ export default function Pricing({ pricing }: { pricing: PricingType }) {
                   return (
                     <div
                       key={i}
-                      className='h-full rounded-md transition-all has-[button[data-state="checked"]]:bg-white'
+                      className='h-full rounded-md transition-all has-[button[data-state="checked"]]:bg-background'
                     >
                       <RadioGroupItem
                         value={item.name || ""}

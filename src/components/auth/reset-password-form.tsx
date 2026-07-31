@@ -14,7 +14,11 @@ export default function ResetPasswordForm() {
   const locale = params?.locale;
   const router = useRouter();
   const search = useSearchParams();
-  const token = search?.get("token") ?? (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("token") ?? "" : "");
+  const token =
+    search?.get("token") ??
+    (typeof window !== "undefined"
+      ? (new URLSearchParams(window.location.search).get("token") ?? "")
+      : "");
   const errorQuery = search?.get("error");
 
   const [password, setPassword] = useState("");
@@ -24,7 +28,9 @@ export default function ResetPasswordForm() {
 
   useEffect(() => {
     if (errorQuery && !message && !error) {
-      setError(errorQuery === "INVALID_TOKEN" ? t("errorInvalidToken") : errorQuery);
+      setError(
+        errorQuery === "INVALID_TOKEN" ? t("errorInvalidToken") : errorQuery,
+      );
     }
   }, [errorQuery, message, error, t]);
 
@@ -38,12 +44,18 @@ export default function ResetPasswordForm() {
         setError(t("errorInvalidToken"));
         return;
       }
-      const { error } = await authClient.resetPassword({ newPassword: password, token });
+      const { error } = await authClient.resetPassword({
+        newPassword: password,
+        token,
+      });
       if (error) {
         setError(resolveAuthError(error, locale));
       } else {
         setMessage(t("msgResetDone"));
-        setTimeout(() => router.replace(withLocale(locale, AUTH_ROUTES.login)), 800);
+        setTimeout(
+          () => router.replace(withLocale(locale, AUTH_ROUTES.login)),
+          800,
+        );
       }
     } catch {
       setError(resolveAuthError(null, locale));
@@ -62,7 +74,9 @@ export default function ResetPasswordForm() {
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor="password">{t("password")}</label>
+            <label className="text-sm font-medium" htmlFor="password">
+              {t("password")}
+            </label>
             <input
               id="password"
               type="password"
@@ -76,8 +90,12 @@ export default function ResetPasswordForm() {
               disabled={isSubmitting}
             />
           </div>
-          {message && <p className="text-sm text-emerald-500">{message}</p>}
-          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+          {message && <p className="text-sm text-success">{message}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
           <button
             type="submit"
             className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition focus-visible:outline-none focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-60"

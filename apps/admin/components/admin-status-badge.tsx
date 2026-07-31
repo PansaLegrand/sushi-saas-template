@@ -11,13 +11,10 @@ export type AdminStatusTone =
 
 const TONE_CLASSES: Record<AdminStatusTone, string> = {
   neutral: "border-border bg-muted/60 text-muted-foreground",
-  info: "border-blue-500/25 bg-blue-500/10 text-blue-700 dark:text-blue-300",
-  success:
-    "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-  warning:
-    "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-  danger:
-    "border-destructive/30 bg-destructive/10 text-destructive dark:text-red-300",
+  info: "border-info/30 bg-info/10 text-info",
+  success: "border-success/30 bg-success/10 text-success",
+  warning: "border-warning/30 bg-warning/10 text-warning",
+  danger: "border-destructive/30 bg-destructive/10 text-destructive",
 };
 
 export function AdminStatusBadge({

@@ -79,7 +79,7 @@ describe("layering", () => {
         !path.startsWith("src/models/") &&
         !path.startsWith("src/db/") &&
         !ALLOWED.has(path) &&
-        importsModule(body, "@/db")
+        importsModule(body, "@/db"),
     ).map(({ path }) => path);
 
     expect(offenders).toEqual([]);
@@ -96,7 +96,7 @@ describe("layering", () => {
         !path.startsWith("src/models/") &&
         !path.startsWith("src/db/") &&
         !ALLOWED.has(path) &&
-        importsModule(body, "@/db/schema")
+        importsModule(body, "@/db/schema"),
     ).map(({ path }) => path);
 
     expect(offenders).toEqual([]);
@@ -139,7 +139,7 @@ describe("layering", () => {
       ({ path, body }) =>
         path.startsWith("src/lib/") &&
         !ALLOWED.has(path) &&
-        (importsModule(body, "@/services") || importsModule(body, "@/models"))
+        (importsModule(body, "@/services") || importsModule(body, "@/models")),
     ).map(({ path }) => path);
 
     expect(offenders).toEqual([]);
@@ -154,10 +154,14 @@ describe("layering", () => {
     //
     // The service re-exports what other layers legitimately need
     // (`tierForPriceId` for the Stripe webhook, `describePlans` for billing UI).
-    const ALLOWED = new Set(["src/config/plans.ts", "src/services/entitlements.ts"]);
+    const ALLOWED = new Set([
+      "src/config/plans.ts",
+      "src/services/entitlements.ts",
+    ]);
 
     const offenders = FILES.filter(
-      ({ path, body }) => !ALLOWED.has(path) && importsModule(body, "@/config/plans")
+      ({ path, body }) =>
+        !ALLOWED.has(path) && importsModule(body, "@/config/plans"),
     ).map(({ path }) => path);
 
     expect(offenders).toEqual([]);
@@ -177,7 +181,7 @@ describe("layering", () => {
 
     const offenders = FILES.filter(
       ({ path, body }) =>
-        !ALLOWED.has(path) && importsModule(body, "@/config/billing")
+        !ALLOWED.has(path) && importsModule(body, "@/config/billing"),
     ).map(({ path }) => path);
 
     expect(offenders).toEqual([]);
@@ -191,13 +195,17 @@ describe("layering", () => {
     // Add a tier to the catalog and add it here too.
     const TIER_LITERALS = ["free", "plus", "max"];
     const pattern = new RegExp(
-      `\\b(?:tier|plan)\\w*\\s*[!=]==\\s*["'](?:${TIER_LITERALS.join("|")})["']`
+      `\\b(?:tier|plan)\\w*\\s*[!=]==\\s*["'](?:${TIER_LITERALS.join("|")})["']`,
     );
 
-    const ALLOWED = new Set(["src/config/plans.ts", "src/services/entitlements.ts"]);
+    const ALLOWED = new Set([
+      "src/config/plans.ts",
+      "src/services/entitlements.ts",
+    ]);
 
     const offenders = FILES.filter(
-      ({ path, body }) => !ALLOWED.has(path) && pattern.test(stripComments(body))
+      ({ path, body }) =>
+        !ALLOWED.has(path) && pattern.test(stripComments(body)),
     ).map(({ path }) => path);
 
     expect(offenders).toEqual([]);
@@ -207,7 +215,7 @@ describe("layering", () => {
     const offenders = FILES.filter(
       ({ path, body }) =>
         path.startsWith("src/components/") &&
-        (importsModule(body, "@/db") || importsModule(body, "@/models"))
+        (importsModule(body, "@/db") || importsModule(body, "@/models")),
     ).map(({ path }) => path);
 
     expect(offenders).toEqual([]);
@@ -248,9 +256,10 @@ describe("layering", () => {
 
     const offenders = FILES.filter(
       ({ path, body }) =>
-        (path.startsWith("src/components/") || path.startsWith("src/app/[locale]/")) &&
+        (path.startsWith("src/components/") ||
+          path.startsWith("src/app/[locale]/")) &&
         !ALLOWED.has(path) &&
-        /\bfetch\s*\(/.test(stripComments(body))
+        /\bfetch\s*\(/.test(stripComments(body)),
     ).map(({ path }) => path);
 
     expect(offenders).toEqual([]);
@@ -291,7 +300,10 @@ describe("layering", () => {
       "src/app/[locale]/error.tsx",
       "src/app/[locale]/not-found.tsx",
     ]) {
-      expect(FILES.some(({ path }) => path === file), `missing ${file}`).toBe(true);
+      expect(
+        FILES.some(({ path }) => path === file),
+        `missing ${file}`,
+      ).toBe(true);
     }
 
     // The separately deployed admin app needs its own recovery surface. The
@@ -316,7 +328,7 @@ describe("layering", () => {
     // for exceptions. respErr(...) is the old escape hatch that sends ad-hoc
     // English over the wire and leaves clients branching on message text.
     const offenders = API_ROUTE_FILES.filter(({ body }) =>
-      /\brespErr\s*\(/.test(stripComments(body))
+      /\brespErr\s*\(/.test(stripComments(body)),
     ).map(({ path }) => path);
 
     expect(offenders).toEqual([]);
@@ -328,7 +340,7 @@ describe("layering", () => {
     // failure. JSON routes should use parseJsonBody(...). Non-JSON routes can
     // still read text/formData directly, e.g. Stripe webhooks and uploads.
     const offenders = API_ROUTE_FILES.filter(({ body }) =>
-      /\b(?:req|request)\.json\s*\(/.test(stripComments(body))
+      /\b(?:req|request)\.json\s*\(/.test(stripComments(body)),
     ).map(({ path }) => path);
 
     expect(offenders).toEqual([]);
@@ -352,20 +364,22 @@ describe("tenancy", () => {
     "tasks",
   ] as const;
 
-  const MODEL_FILES = FILES.filter(({ path }) => path.startsWith("src/models/"));
+  const MODEL_FILES = FILES.filter(({ path }) =>
+    path.startsWith("src/models/"),
+  );
 
   /** `.from(files)`, `.update(tasks)`, `.delete(credits)` — a query root. */
   function queryRoots(body: string, table: string): boolean {
-    return new RegExp(
-      `\\.(?:from|update|delete)\\(\\s*${table}\\s*[,)]`
-    ).test(stripComments(body));
+    return new RegExp(`\\.(?:from|update|delete)\\(\\s*${table}\\s*[,)]`).test(
+      stripComments(body),
+    );
   }
 
   it("finds the tenant models to check", () => {
     // Guards the guard. A regex that stops matching would make every rule
     // below vacuously pass — the worst outcome for a rule about data leaks.
     const touched = MODEL_FILES.filter(({ body }) =>
-      TENANT_TABLES.some((table) => queryRoots(body, table))
+      TENANT_TABLES.some((table) => queryRoots(body, table)),
     );
 
     expect(touched.length).toBeGreaterThanOrEqual(TENANT_TABLES.length);
@@ -411,7 +425,7 @@ describe("tenancy", () => {
     const offenders = MODEL_FILES.filter(({ body }) => {
       const source = stripComments(body);
       const inserts = TENANT_TABLES.some((table) =>
-        new RegExp(`\\.insert\\(\\s*${table}\\s*[,)]`).test(source)
+        new RegExp(`\\.insert\\(\\s*${table}\\s*[,)]`).test(source),
       );
 
       return inserts && !/\borg_uuid\b/.test(source);
@@ -425,7 +439,7 @@ describe("tenancy", () => {
     // by getOrgContext(). A body-supplied org_uuid is an authorization bypass
     // with a friendly name: anyone could post another tenant's id.
     const offenders = API_ROUTE_FILES.filter(({ body }) =>
-      /\borg_?[uU]uid\s*:\s*z\./.test(stripComments(body))
+      /\borg_?[uU]uid\s*:\s*z\./.test(stripComments(body)),
     ).map(({ path }) => path);
 
     expect(offenders).toEqual([]);
@@ -444,7 +458,9 @@ describe("site content", () => {
     const offenders = FILES.filter(
       ({ path, body }) =>
         path !== SITE_ISLAND &&
-        /[\w.+-]+@(?!example\.(?:com|org)\b)[\w-]+\.[a-z]{2,}/i.test(stripComments(body))
+        /[\w.+-]+@(?!example\.(?:com|org)\b)[\w-]+\.[a-z]{2,}/i.test(
+          stripComments(body),
+        ),
     ).map(({ path }) => path);
 
     expect(offenders).toEqual([]);
@@ -456,8 +472,8 @@ describe("site content", () => {
       ({ path, body }) =>
         path !== SITE_ISLAND &&
         /(github\.com\/[\w-]+\/[\w.-]+|discord\.gg\/|x\.com\/|twitter\.com\/)/i.test(
-          stripComments(body)
-        )
+          stripComments(body),
+        ),
     ).map(({ path }) => path);
 
     expect(offenders).toEqual([]);
@@ -465,12 +481,40 @@ describe("site content", () => {
 });
 
 describe("conventions", () => {
+  it("keeps application UI colors on semantic theme tokens", () => {
+    // Named Tailwind palettes make a component look correct in one preset and
+    // silently ignore the other four. Brand artwork and root-error fallback
+    // CSS use SVG/style values rather than utility classes, so they remain
+    // deliberate exceptions without weakening this guard.
+    const uiFiles = [
+      ...FILES.filter(
+        ({ path }) =>
+          path.startsWith("src/components/") ||
+          (path.startsWith("src/app/") && !path.startsWith("src/app/api/")),
+      ),
+      ...[
+        ...sourceFiles(join(ROOT, "apps/admin/app")),
+        ...sourceFiles(join(ROOT, "apps/admin/components")),
+      ].map((file) => ({
+        path: relative(ROOT, file),
+        body: readFileSync(file, "utf8"),
+      })),
+    ];
+    const namedPaletteUtility =
+      /\b(?:bg|text|border|ring|outline|fill|stroke)-(?:white|black|slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(?:-\d{2,3})?\b/;
+    const offenders = uiFiles
+      .filter((file) => namedPaletteUtility.test(stripComments(file.body)))
+      .map((file) => file.path);
+
+    expect(offenders).toEqual([]);
+  });
+
   it("has no src/features directory", () => {
     // The repo settled on horizontal layers. features/reservations was the lone
     // vertical slice and was flattened; this stops a second one from appearing
     // and re-splitting the codebase into two architectures.
     const dirs = readdirSync(SRC).filter((entry) =>
-      statSync(join(SRC, entry)).isDirectory()
+      statSync(join(SRC, entry)).isDirectory(),
     );
 
     expect(dirs).not.toContain("features");
@@ -497,12 +541,15 @@ describe("conventions", () => {
 
     // The two the kit ships with, asserted by name so deleting the gate from an
     // existing provider fails even if the vendor URL moves into a dependency.
-    for (const path of ["src/providers/google-analytics.tsx", "src/providers/adsense.tsx"]) {
+    for (const path of [
+      "src/providers/google-analytics.tsx",
+      "src/providers/adsense.tsx",
+    ]) {
       const file = FILES.find((f) => f.path === path);
       expect(file, `missing ${path}`).toBeDefined();
       expect(
         /useConsent\s*\(/.test(stripComments(file!.body)),
-        `${path} must gate on useConsent()`
+        `${path} must gate on useConsent()`,
       ).toBe(true);
     }
   });
@@ -532,7 +579,7 @@ describe("conventions", () => {
       if (ALLOWED(path)) return false;
       if (/^\s*["']use client["']/.test(body)) return false;
       return /\bconsole\.(log|info|warn|error|debug)\s*\(/.test(
-        stripComments(body)
+        stripComments(body),
       );
     }).map(({ path }) => path);
 
@@ -552,7 +599,7 @@ describe("conventions", () => {
 
     const offenders = FILES.filter(
       ({ path, body }) =>
-        !ALLOWED.has(path) && /\bnew\s+Stripe\s*\(/.test(stripComments(body))
+        !ALLOWED.has(path) && /\bnew\s+Stripe\s*\(/.test(stripComments(body)),
     ).map(({ path }) => path);
 
     expect(offenders).toEqual([]);
@@ -588,7 +635,7 @@ describe("conventions", () => {
     // fine anywhere a worker id is actually assigned, and this deployment target
     // does not assign one. Use `newId()` from `src/lib/ids.ts`.
     const offenders = FILES.filter(({ body }) =>
-      /from\s+["']simple-flakeid["']|@\/lib\/hash/.test(stripComments(body))
+      /from\s+["']simple-flakeid["']|@\/lib\/hash/.test(stripComments(body)),
     ).map(({ path }) => path);
 
     expect(offenders).toEqual([]);

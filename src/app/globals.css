@@ -5,6 +5,25 @@
 
 @plugin "tailwindcss-animate";
 
+/*
+ * Semantic background utilities double as the material hook. The glass preset
+ * turns the hook on; opaque presets resolve it to `none`.
+ */
+@utility bg-background {
+  -webkit-backdrop-filter: var(--surface-backdrop-filter);
+  backdrop-filter: var(--surface-backdrop-filter);
+}
+
+@utility bg-card {
+  -webkit-backdrop-filter: var(--surface-backdrop-filter);
+  backdrop-filter: var(--surface-backdrop-filter);
+}
+
+@utility bg-popover {
+  -webkit-backdrop-filter: var(--surface-backdrop-filter);
+  backdrop-filter: var(--surface-backdrop-filter);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -19,7 +38,21 @@
   }
 
   body {
-    @apply min-h-screen bg-background text-foreground antialiased;
+    @apply min-h-screen bg-background font-sans text-foreground antialiased;
+    background-image: var(--body-background-image);
+    background-size: var(--body-background-size, auto);
+    background-attachment: fixed;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--app-font-display);
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--primary) 24%, transparent);
   }
 }
 
@@ -43,4 +76,59 @@ button:disabled {
 
 pre {
   @apply px-4;
+}
+
+/*
+ * Sonner ships its own visual palette. Bind those public variables back to the
+ * same semantic status tokens so toasts do not become a sixth theme.
+ */
+[data-sonner-toaster] {
+  --border-radius: var(--style-radius-md) !important;
+  --normal-bg: var(--popover) !important;
+  --normal-border: var(--border) !important;
+  --normal-text: var(--popover-foreground) !important;
+  --success-bg: color-mix(
+    in oklab,
+    var(--success) 14%,
+    var(--popover)
+  ) !important;
+  --success-border: color-mix(
+    in oklab,
+    var(--success) 42%,
+    var(--border)
+  ) !important;
+  --success-text: var(--success) !important;
+  --info-bg: color-mix(in oklab, var(--info) 14%, var(--popover)) !important;
+  --info-border: color-mix(in oklab, var(--info) 42%, var(--border)) !important;
+  --info-text: var(--info) !important;
+  --warning-bg: color-mix(
+    in oklab,
+    var(--warning) 14%,
+    var(--popover)
+  ) !important;
+  --warning-border: color-mix(
+    in oklab,
+    var(--warning) 42%,
+    var(--border)
+  ) !important;
+  --warning-text: var(--warning) !important;
+  --error-bg: color-mix(
+    in oklab,
+    var(--destructive) 14%,
+    var(--popover)
+  ) !important;
+  --error-border: color-mix(
+    in oklab,
+    var(--destructive) 42%,
+    var(--border)
+  ) !important;
+  --error-text: var(--destructive) !important;
+  font-family: var(--app-font-sans) !important;
+}
+
+:where([data-sonner-toast][data-styled="true"]) {
+  border-width: var(--style-border-width) !important;
+  box-shadow: var(--style-shadow-lg) !important;
+  -webkit-backdrop-filter: var(--surface-backdrop-filter);
+  backdrop-filter: var(--surface-backdrop-filter);
 }

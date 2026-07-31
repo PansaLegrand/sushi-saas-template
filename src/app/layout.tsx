@@ -1,6 +1,7 @@
 import "@/app/globals.css";
 
 import { getLocale, setRequestLocale } from "next-intl/server";
+import { stylePreset } from "@/config/style";
 import { absoluteLocaleUrl, defaultLocale, locales } from "@/i18n/locale";
 import { baseUrlFallback } from "@/lib/seo";
 
@@ -17,7 +18,7 @@ export default async function RootLayout({
   const localeHref = (loc: string) => absoluteLocaleUrl(webUrl, loc);
 
   return (
-    <html lang={locale} suppressHydrationWarning>
+    <html lang={locale} data-style={stylePreset} suppressHydrationWarning>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         {googleAdsenseCode && (

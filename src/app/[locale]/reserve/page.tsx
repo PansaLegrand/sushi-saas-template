@@ -34,7 +34,13 @@ export async function generateMetadata({
 
 export const dynamic = "force-dynamic";
 
-export default async function ReservePage({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams?: Promise<{ [k: string]: string | string[] | undefined }> }) {
+export default async function ReservePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams?: Promise<{ [k: string]: string | string[] | undefined }>;
+}) {
   if (!ReservationsConfig.enabled) return notFound();
 
   const t = await getTranslations("reservation");
@@ -44,7 +50,8 @@ export default async function ReservePage({ params, searchParams }: { params: Pr
 
   const sp = (await searchParams) ?? {};
   const success = sp?.success === "1" || sp?.success === "true";
-  const reservationNo = typeof sp?.reservation_no === "string" ? sp.reservation_no : undefined;
+  const reservationNo =
+    typeof sp?.reservation_no === "string" ? sp.reservation_no : undefined;
   let googleUrl: string | null = null;
   if (success && reservationNo) {
     try {
@@ -69,10 +76,20 @@ export default async function ReservePage({ params, searchParams }: { params: Pr
       <h1 className="mb-2 text-2xl font-semibold">{t("title")}</h1>
       <p className="mb-8 text-sm text-muted-foreground">{t("subtitle")}</p>
       {success ? (
-        <div className="mb-6 rounded-md border border-green-300 bg-green-50 p-3 text-sm text-green-900">
-          <div>Reservation confirmed{reservationNo ? ` (#${reservationNo})` : ""}. Check your email for details.</div>
+        <div className="mb-6 rounded-md border border-success/40 bg-success/10 p-3 text-sm text-foreground">
+          <div>
+            Reservation confirmed{reservationNo ? ` (#${reservationNo})` : ""}.
+            Check your email for details.
+          </div>
           {googleUrl ? (
-            <a href={googleUrl} className="mt-2 inline-block underline" target="_blank" rel="noreferrer">Add to Google Calendar</a>
+            <a
+              href={googleUrl}
+              className="mt-2 inline-block underline"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Add to Google Calendar
+            </a>
           ) : null}
         </div>
       ) : null}

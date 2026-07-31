@@ -41,7 +41,10 @@ export default function FeedbackModal() {
 
     try {
       setSubmitting(true);
-      await submitFeedback({ content: content.trim(), rating: rating ?? undefined });
+      await submitFeedback({
+        content: content.trim(),
+        rating: rating ?? undefined,
+      });
       toast.success(t("submitSuccess"));
       reset();
       setOpen(false);
@@ -91,7 +94,9 @@ export default function FeedbackModal() {
                   <Star
                     size={20}
                     className={
-                      active ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"
+                      active
+                        ? "fill-rating text-rating"
+                        : "text-muted-foreground"
                     }
                   />
                 </button>
@@ -114,7 +119,11 @@ export default function FeedbackModal() {
         </Field>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)} disabled={submitting}>
+          <Button
+            variant="ghost"
+            onClick={() => setOpen(false)}
+            disabled={submitting}
+          >
             {t("cancel")}
           </Button>
           <Button onClick={onSubmit} disabled={submitting}>

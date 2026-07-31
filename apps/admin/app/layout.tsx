@@ -1,6 +1,7 @@
 import "./globals.css";
 
 import type { Metadata } from "next";
+import { stylePreset } from "@/config/style";
 
 const appName = process.env.NEXT_PUBLIC_APP_NAME || "Your SaaS";
 
@@ -15,7 +16,7 @@ export default function AdminRootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" data-style={stylePreset} suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );

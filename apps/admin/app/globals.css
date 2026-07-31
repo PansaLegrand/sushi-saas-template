@@ -1,2 +1,17 @@
 @import "../../../src/app/globals.css";
 @import "@daypicker/react/style.css";
+
+/*
+ * DayPicker owns its internal CSS, so bridge its public variables to the shared
+ * shape and line contract after the vendor stylesheet is loaded.
+ */
+.rdp-root {
+  --rdp-day_button-border-radius: var(--style-radius-md);
+  --rdp-day_button-border: var(--style-border-width) solid transparent;
+  --rdp-selected-border: var(--style-border-width) solid var(--rdp-accent-color);
+  --rdp-week_number-border-radius: var(--style-radius-md);
+  --rdp-week_number-border: var(--style-border-width) solid transparent;
+  --rdp-range_start-color: var(--primary-foreground);
+  --rdp-range_end-color: var(--primary-foreground);
+  font-family: var(--app-font-sans);
+}

@@ -61,7 +61,7 @@ function MetricCard({
     tone === "danger"
       ? "border-destructive/30 bg-destructive/[0.04]"
       : tone === "warning"
-        ? "border-amber-500/30 bg-amber-500/[0.05]"
+        ? "border-warning/30 bg-warning/[0.05]"
         : "";
 
   return (
@@ -289,10 +289,10 @@ export default async function AdminHomePage() {
             </CardHeader>
             <CardContent>
               {attentionTotal === 0 ? (
-                <div className="flex items-start gap-3 rounded-lg border border-emerald-500/25 bg-emerald-500/10 p-3">
+                <div className="flex items-start gap-3 rounded-lg border border-success/25 bg-success/10 p-3">
                   <CheckCircle2
                     aria-hidden
-                    className="mt-0.5 size-4 shrink-0 text-emerald-700 dark:text-emerald-300"
+                    className="mt-0.5 size-4 shrink-0 text-success"
                   />
                   <div>
                     <p className="text-sm font-medium">No open queues</p>

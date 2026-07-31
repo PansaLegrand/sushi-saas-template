@@ -123,7 +123,7 @@ export default async function AdminOrganizationPage({
         {plan.subscription?.cancelAtPeriodEnd && (
           // The answer to "I cancelled and I am still being charged": they are
           // still on the tier they paid for, until the period ends.
-          <p className="mt-3 rounded border border-amber-500/30 bg-amber-500/10 p-2 text-sm">
+          <p className="mt-3 rounded border border-warning/30 bg-warning/10 p-2 text-sm">
             Cancels at period end — access continues until{" "}
             {plan.subscription.currentPeriodEnd ?? "the end of the period"}.
           </p>

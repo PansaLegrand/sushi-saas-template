@@ -106,7 +106,7 @@ export default async function CreditsPage({
       {summary.expiringSoon.length > 0 ? (
         <section
           aria-labelledby="expiring-credits-title"
-          className="rounded-lg border border-amber-300 bg-amber-50 p-5 text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
+          className="rounded-lg border border-warning/40 bg-warning/10 p-5 text-foreground"
         >
           <h2 id="expiring-credits-title" className="font-semibold">
             {t("expiringTitle")}
@@ -175,9 +175,7 @@ export default async function CreditsPage({
                     </td>
                     <td
                       className={`px-4 py-3 text-right font-medium ${
-                        entry.credits > 0
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : "text-foreground"
+                        entry.credits > 0 ? "text-success" : "text-foreground"
                       }`}
                     >
                       {entry.credits > 0 ? "+" : ""}

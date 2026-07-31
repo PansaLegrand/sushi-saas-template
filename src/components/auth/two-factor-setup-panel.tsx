@@ -65,11 +65,13 @@ export function TwoFactorSetupPanel({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const socialProvider = providers.find((provider) => provider !== "credential");
+  const socialProvider = providers.find(
+    (provider) => provider !== "credential",
+  );
 
   const totpSecret = useMemo(
     () => (totpURI ? extractTotpSecret(totpURI) : null),
-    [totpURI]
+    [totpURI],
   );
 
   /** One code per line — what a password manager's note field and a text editor both want. */
@@ -91,7 +93,7 @@ export function TwoFactorSetupPanel({
         `Generated ${new Date().toISOString()}\n\n`,
         `${backupCodesText}\n`,
       ],
-      { type: "text/plain" }
+      { type: "text/plain" },
     );
 
     const url = URL.createObjectURL(blob);
@@ -116,7 +118,7 @@ export function TwoFactorSetupPanel({
       setHasPassword(true);
       setNewPassword("");
       setSuccessMessage(
-        "Password set. Enter it below to create your authenticator secret."
+        "Password set. Enter it below to create your authenticator secret.",
       );
     } catch (error) {
       setErrorMessage(resolveErrorMessage(error));
@@ -143,7 +145,9 @@ export function TwoFactorSetupPanel({
 
       setTotpURI(data.totpURI);
       setBackupCodes(data.backupCodes);
-      setSuccessMessage("Add this account to your authenticator, then enter the code it shows.");
+      setSuccessMessage(
+        "Add this account to your authenticator, then enter the code it shows.",
+      );
     } catch {
       setErrorMessage(resolveAuthError(null, locale));
     } finally {
@@ -171,7 +175,9 @@ export function TwoFactorSetupPanel({
       setCode("");
       setPassword("");
       setTotpURI(null);
-      setSuccessMessage("Two-factor authentication is enabled. Store your backup codes somewhere safe.");
+      setSuccessMessage(
+        "Two-factor authentication is enabled. Store your backup codes somewhere safe.",
+      );
     } catch {
       setErrorMessage(resolveAuthError(null, locale));
     } finally {
@@ -213,13 +219,14 @@ export function TwoFactorSetupPanel({
       <div className="space-y-1">
         <h2 className="text-lg font-medium">Security</h2>
         <p className="text-sm text-muted-foreground">
-          Admin accounts must enable two-factor authentication before they can use the admin console.
+          Admin accounts must enable two-factor authentication before they can
+          use the admin console.
         </p>
       </div>
 
       <div className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
         <span>Two-factor authentication</span>
-        <span className={enabled ? "text-emerald-600" : "text-muted-foreground"}>
+        <span className={enabled ? "text-success" : "text-muted-foreground"}>
           {enabled ? "Enabled" : "Disabled"}
         </span>
       </div>
@@ -253,8 +260,10 @@ export function TwoFactorSetupPanel({
           </Alert>
 
           <div className="space-y-3">
-            <p className="text-sm font-medium">1. Scan with your authenticator</p>
-            <div className="flex justify-center rounded-md border border-border bg-white p-4">
+            <p className="text-sm font-medium">
+              1. Scan with your authenticator
+            </p>
+            <div className="flex justify-center rounded-md border border-border bg-qr-background p-4">
               <QrCode
                 value={totpURI}
                 size={200}
@@ -278,8 +287,8 @@ export function TwoFactorSetupPanel({
             <div className="mt-3 space-y-3">
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">
-                  Setup key — choose &ldquo;enter a setup key&rdquo; in your app,
-                  with type &ldquo;time based&rdquo;.
+                  Setup key — choose &ldquo;enter a setup key&rdquo; in your
+                  app, with type &ldquo;time based&rdquo;.
                 </p>
                 <div className="flex items-center gap-2">
                   <code className="min-w-0 flex-1 overflow-x-auto rounded bg-muted px-2 py-1 font-mono text-xs">
@@ -301,7 +310,10 @@ export function TwoFactorSetupPanel({
                   <code className="min-w-0 flex-1 overflow-x-auto rounded bg-muted px-2 py-1 font-mono text-xs">
                     {totpURI}
                   </code>
-                  <CopyButton value={totpURI} ariaLabel="Copy authenticator URI" />
+                  <CopyButton
+                    value={totpURI}
+                    ariaLabel="Copy authenticator URI"
+                  />
                 </div>
               </div>
             </div>
@@ -310,7 +322,9 @@ export function TwoFactorSetupPanel({
           {backupCodes.length > 0 ? (
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-medium">2. Store your backup codes</p>
+                <p className="text-sm font-medium">
+                  2. Store your backup codes
+                </p>
                 <div className="flex gap-2">
                   <CopyButton
                     value={backupCodesText}

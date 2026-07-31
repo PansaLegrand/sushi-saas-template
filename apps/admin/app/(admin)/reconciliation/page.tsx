@@ -45,7 +45,7 @@ function Severity({ severity }: { severity: ReconcileFinding["severity"] }) {
   const tone =
     severity === "error"
       ? "bg-destructive/10 text-destructive border-destructive/30"
-      : "bg-amber-500/10 text-amber-700 border-amber-500/30 dark:text-amber-400";
+      : "border-warning/30 bg-warning/10 text-warning";
 
   return (
     <span className={`inline-block rounded border px-2 py-0.5 text-xs ${tone}`}>

@@ -72,8 +72,8 @@ export function QrCode({ value, size = 200, label, className }: QrCodeProps) {
       {/* Always white, never the theme background: a scanner needs light
           modules to be light, and a dark-theme card behind a transparent QR
           inverts the contrast and stops it scanning. */}
-      <rect width={dimension} height={dimension} fill="#ffffff" />
-      <path d={path} fill="#000000" />
+      <rect width={dimension} height={dimension} fill="var(--qr-background)" />
+      <path d={path} fill="var(--qr-foreground)" />
     </svg>
   );
 }

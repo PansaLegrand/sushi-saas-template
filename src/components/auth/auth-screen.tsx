@@ -239,7 +239,7 @@ export function AuthScreen({
           </header>
 
           <Alert role="status" variant="success">
-            <MailCheck aria-hidden className="text-emerald-600" />
+            <MailCheck aria-hidden className="text-success" />
             <AlertTitle>{t("verifyEmailStatusTitle")}</AlertTitle>
             <AlertDescription className="space-y-3">
               <p>{successMessage ?? t("msgVerifyEmailSent")}</p>
@@ -416,7 +416,7 @@ export function AuthScreen({
           )}
 
           {successMessage && (
-            <p className="text-sm text-emerald-500">{successMessage}</p>
+            <p className="text-sm text-success">{successMessage}</p>
           )}
 
           <button

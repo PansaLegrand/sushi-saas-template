@@ -10,16 +10,14 @@ const alertVariants = cva(
       variant: {
         default: "border-border bg-background text-foreground",
         destructive: "border-destructive/50 bg-destructive/10 text-destructive",
-        warning:
-          "border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
-        success:
-          "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+        warning: "border-warning/50 bg-warning/10 text-warning",
+        success: "border-success/50 bg-success/10 text-success",
       },
     },
     defaultVariants: {
       variant: "default",
     },
-  }
+  },
 );
 
 export interface AlertProps
@@ -36,7 +34,7 @@ const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
       className={cn(alertVariants({ variant }), className)}
       {...props}
     />
-  )
+  ),
 );
 Alert.displayName = "Alert";
 
@@ -44,7 +42,11 @@ const AlertTitle = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLHeadingElement>
 >(({ className, ...props }, ref) => (
-  <h5 ref={ref} className={cn("mb-1 font-medium leading-none", className)} {...props} />
+  <h5
+    ref={ref}
+    className={cn("mb-1 font-medium leading-none", className)}
+    {...props}
+  />
 ));
 AlertTitle.displayName = "AlertTitle";
 
@@ -52,7 +54,11 @@ const AlertDescription = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("[&_p]:leading-relaxed", className)} {...props} />
+  <div
+    ref={ref}
+    className={cn("[&_p]:leading-relaxed", className)}
+    {...props}
+  />
 ));
 AlertDescription.displayName = "AlertDescription";
 
