@@ -1,11 +1,27 @@
 import Link from "next/link";
 
+import { AdminHelp } from "@admin/components/admin-help";
 import { AdminPageHeader } from "@admin/components/admin-page-header";
 import { getAdminContext } from "@admin/lib/authz";
 import { countAdminBannedUsers, listAdminBannedUsers } from "@admin/lib/data";
 import BanUserPanel from "@admin/components/ban-user";
 import EmailBlocklistPanel from "@admin/components/email-blocklist";
 import { Pager } from "@admin/components/pager";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const PAGE_SIZE = 50;
 
@@ -30,7 +46,7 @@ export default async function ModerationPage({
   ]);
 
   return (
-    <div className="grid grid-cols-1 gap-6">
+    <div className="space-y-8">
       <AdminPageHeader
         title="Moderation"
         description="Suspend abusive accounts, revoke their sessions, and stop repeat signups."
@@ -39,92 +55,115 @@ export default async function ModerationPage({
         }
       />
 
-      <section className="rounded-lg border p-4">
-        <h2 className="text-lg font-medium">How suspension works</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Suspend an account</CardTitle>
+            <CardDescription>
+              Search users by email, UUID, or nickname when you need the account
+              identifier.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <BanUserPanel canWrite={!!canWrite} />
+            <p className="text-sm text-muted-foreground">
+              Need an identifier?{" "}
+              <Link
+                href="/users"
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                Search users
+              </Link>
+              .
+            </p>
+          </CardContent>
+        </Card>
+
+        <AdminHelp summary="What suspension changes">
           Suspending an account blocks sign-in and kills every live session. It
           deliberately leaves the row, the credit ledger, and the uploads alone:
           during an abuse wave the account is the evidence, and deleting it
           frees the address to register again. Erasing someone&apos;s data is a
           separate operation with a separate policy behind it, and it is not
           here.
-        </p>
-      </section>
+        </AdminHelp>
+      </div>
 
-      <section className="rounded-lg border p-4">
-        <h2 className="mb-1 text-lg font-medium">Suspend an account</h2>
-        <p className="mb-3 text-sm text-muted-foreground">
-          Find the user&apos;s UUID by{" "}
-          <Link href="/users" className="underline">
-            searching users
-          </Link>{" "}
-          — by address, uuid, or nickname.
-        </p>
-        <BanUserPanel canWrite={!!canWrite} />
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>Signup blocklist</CardTitle>
+          <CardDescription>
+            Stop individual addresses or entire disposable-email domains before
+            account creation.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <EmailBlocklistPanel canWrite={!!canWrite} />
+          <AdminHelp summary="How address matching works">
+            Rules apply to email and OAuth signups. Addresses are normalized
+            before matching: <code>+suffix</code> is removed everywhere and dots
+            are removed for Gmail. A domain rule is the fastest response to a
+            disposable-mail flood.
+          </AdminHelp>
+        </CardContent>
+      </Card>
 
-      <section className="rounded-lg border p-4">
-        <h2 className="mb-1 text-lg font-medium">Signup blocklist</h2>
-        <p className="mb-3 text-sm text-muted-foreground">
-          Checked on every signup, including OAuth. Addresses are matched in a
-          normalized form — <code>+suffix</code> stripped everywhere, dots
-          stripped for Gmail — so one rule covers the alias cycling that beats a
-          literal match. Blocking a whole domain is the fastest way to end a
-          flood from a disposable-mail provider.
-        </p>
-        <EmailBlocklistPanel canWrite={!!canWrite} />
-      </section>
-
-      <section className="rounded-lg border p-4">
-        <h2 className="mb-3 text-lg font-medium">
-          Suspended accounts ({total})
-        </h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left text-muted-foreground">
-              <tr>
-                <th className="py-2 pr-4">Email</th>
-                <th className="py-2 pr-4">UUID</th>
-                <th className="py-2 pr-4">Provider</th>
-                <th className="py-2 pr-4">Suspended</th>
-                <th className="py-2 pr-4">Reason</th>
-                <th className="py-2 pr-4">By</th>
-              </tr>
-            </thead>
-            <tbody>
-              {banned.length === 0 && (
-                <tr>
-                  <td className="py-3 text-muted-foreground" colSpan={6}>
+      <Card>
+        <CardHeader>
+          <CardTitle>Suspended accounts</CardTitle>
+          <CardDescription>
+            Active restrictions and the operator context behind each decision.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Email</TableHead>
+                <TableHead>User UUID</TableHead>
+                <TableHead>Provider</TableHead>
+                <TableHead>Suspended</TableHead>
+                <TableHead>Reason</TableHead>
+                <TableHead>Operator</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {banned.length === 0 ? (
+                <TableRow>
+                  <TableCell className="text-muted-foreground" colSpan={6}>
                     Nobody is suspended.
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                banned.map((user) => (
+                  <TableRow key={user.uuid} className="align-top">
+                    <TableCell className="font-medium">{user.email}</TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {user.uuid}
+                    </TableCell>
+                    <TableCell>{user.signin_provider || "—"}</TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {user.banned_at ? user.banned_at.toISOString() : "—"}
+                    </TableCell>
+                    <TableCell>{user.ban_reason || "—"}</TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {user.banned_by || "—"}
+                    </TableCell>
+                  </TableRow>
+                ))
               )}
-              {banned.map((user) => (
-                <tr key={user.uuid} className="border-t align-top">
-                  <td className="py-2 pr-4">{user.email}</td>
-                  <td className="py-2 pr-4 font-mono text-xs">{user.uuid}</td>
-                  <td className="py-2 pr-4">{user.signin_provider || "—"}</td>
-                  <td className="py-2 pr-4 font-mono text-xs">
-                    {user.banned_at ? user.banned_at.toISOString() : "—"}
-                  </td>
-                  <td className="py-2 pr-4">{user.ban_reason || "—"}</td>
-                  <td className="py-2 pr-4 font-mono text-xs">
-                    {user.banned_by || "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
 
-        <Pager
-          page={page}
-          pageSize={PAGE_SIZE}
-          total={total}
-          unit="accounts"
-          href={(target) => `/moderation?page=${target}`}
-        />
-      </section>
+          <Pager
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={total}
+            unit="accounts"
+            href={(target) => `/moderation?page=${target}`}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }

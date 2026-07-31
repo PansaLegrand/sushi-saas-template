@@ -28,7 +28,10 @@ export function AdminTwoFactorForm() {
     try {
       const { error } =
         mode === "backup"
-          ? await adminAuthClient.twoFactor.verifyBackupCode({ code, trustDevice })
+          ? await adminAuthClient.twoFactor.verifyBackupCode({
+              code,
+              trustDevice,
+            })
           : await adminAuthClient.twoFactor.verifyTotp({ code, trustDevice });
 
       if (error) {
@@ -47,12 +50,17 @@ export function AdminTwoFactorForm() {
 
   return (
     <form className="space-y-4" onSubmit={submit}>
-      <Field label={mode === "backup" ? "Backup code" : "Authenticator code"} required>
+      <Field
+        label={mode === "backup" ? "Backup code" : "Authenticator code"}
+        required
+      >
         {(field) => (
           <Input
             {...field}
+            className="h-11 text-base"
             inputMode={mode === "backup" ? "text" : "numeric"}
             autoComplete="one-time-code"
+            placeholder={mode === "backup" ? "Enter a backup code" : "000000"}
             value={code}
             onChange={(event) => setCode(event.currentTarget.value)}
             required
@@ -61,6 +69,8 @@ export function AdminTwoFactorForm() {
       </Field>
 
       <label className="flex items-center gap-2 text-sm">
+        {/* Native checkbox is intentional: the shared system has no checkbox
+            primitive, and the platform control preserves keyboard semantics. */}
         <input
           type="checkbox"
           checked={trustDevice}
@@ -76,13 +86,13 @@ export function AdminTwoFactorForm() {
         </Alert>
       ) : null}
 
-      <Button type="submit" className="w-full" disabled={isSubmitting}>
+      <Button type="submit" className="h-11 w-full" disabled={isSubmitting}>
         {isSubmitting ? "Verifying..." : "Verify"}
       </Button>
 
       <Button
         type="button"
-        variant="link"
+        variant="ghost"
         className="w-full"
         onClick={() => {
           setMode((current) => (current === "totp" ? "backup" : "totp"));
@@ -90,7 +100,9 @@ export function AdminTwoFactorForm() {
           setErrorMessage(null);
         }}
       >
-        {mode === "totp" ? "Use a backup code" : "Use an authenticator code"}
+        {mode === "totp"
+          ? "Use a backup code instead"
+          : "Use an authenticator code instead"}
       </Button>
     </form>
   );

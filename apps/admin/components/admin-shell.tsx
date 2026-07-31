@@ -98,7 +98,7 @@ function AdminNavigation({
       <div className="space-y-6">
         {NAV_GROUPS.map((group) => (
           <div key={group.label}>
-            <p className="mb-2 px-3 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {group.label}
             </p>
             <ul className="space-y-1">
@@ -113,7 +113,7 @@ function AdminNavigation({
                       aria-current={active ? "page" : undefined}
                       onClick={onNavigate}
                       className={cn(
-                        "group flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                        "group flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                         active
                           ? "bg-sidebar-accent text-sidebar-accent-foreground"
@@ -255,7 +255,7 @@ export function AdminShell({
             </p>
           </div>
         </div>
-        <span className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[0.6875rem] font-medium text-muted-foreground">
+        <span className="rounded-full border border-border bg-muted/50 px-3 py-1.5 text-xs font-medium text-muted-foreground">
           {role === "admin_rw" ? "Read & write" : "Read only"}
         </span>
       </header>

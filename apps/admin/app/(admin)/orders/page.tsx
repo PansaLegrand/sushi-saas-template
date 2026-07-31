@@ -1,12 +1,29 @@
 import Link from "next/link";
 
+import { AdminPanel } from "@admin/components/admin-panel";
 import { AdminPageHeader } from "@admin/components/admin-page-header";
+import { AdminStatusBadge } from "@admin/components/admin-status-badge";
+import {
+  AdminTable,
+  AdminTableBody,
+  AdminTableCell,
+  AdminTableEmpty,
+  AdminTableHead,
+  AdminTableHeader,
+  AdminTableRow,
+} from "@admin/components/admin-table";
+import {
+  AdminFilterLink,
+  AdminFilterNav,
+  AdminSearchToolbar,
+} from "@admin/components/admin-toolbar";
 import { getAdminContext } from "@admin/lib/authz";
 import {
   countAdminOrders,
   countAdminOrdersByStatus,
   listAdminOrders,
 } from "@admin/lib/data";
+import { formatAdminDate } from "@admin/lib/format";
 import { Pager } from "@admin/components/pager";
 import { findCreditsByOrderNos } from "@/models/credit";
 
@@ -110,7 +127,7 @@ export default async function AdminOrdersPage({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <AdminPageHeader
         title="Orders"
         description={
@@ -129,154 +146,141 @@ export default async function AdminOrdersPage({
         }
       />
 
-      <nav className="flex flex-wrap gap-2 text-sm">
-        {STATUS_FILTERS.map((filter) => {
-          const active = (status ?? "") === filter.value;
-          const count = filter.value ? (byStatus[filter.value] ?? 0) : allTotal;
+      {/* GET keeps search and status together in a shareable support URL. */}
+      <AdminSearchToolbar
+        defaultValue={query}
+        placeholder="Order no, sub_…, org, user UUID, or email"
+        ariaLabel="Search orders"
+        clearHref={filterHref(status ?? "")}
+        hiddenInputs={status ? [{ name: "status", value: status }] : []}
+        className="items-stretch sm:flex-col sm:items-stretch xl:flex-row xl:items-center"
+      >
+        <AdminFilterNav label="Filter orders by status" className="shrink-0">
+          {STATUS_FILTERS.map((filter) => {
+            const count = filter.value
+              ? (byStatus[filter.value] ?? 0)
+              : allTotal;
 
-          return (
-            <Link
-              key={filter.value || "all"}
-              href={filterHref(filter.value)}
-              className={`rounded border px-3 py-1 ${
-                active
-                  ? "border-foreground bg-foreground text-background"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {filter.label} ({count})
-            </Link>
-          );
-        })}
-      </nav>
+            return (
+              <AdminFilterLink
+                key={filter.value || "all"}
+                href={filterHref(filter.value)}
+                active={(status ?? "") === filter.value}
+                count={count}
+              >
+                {filter.label}
+              </AdminFilterLink>
+            );
+          })}
+        </AdminFilterNav>
+      </AdminSearchToolbar>
 
-      {/* A GET form, so a search is a URL an operator can paste into a ticket. */}
-      <form method="get" className="flex gap-2">
-        {status && <input type="hidden" name="status" value={status} />}
-        <input
-          type="search"
-          name="q"
-          defaultValue={query ?? ""}
-          placeholder="Order no, sub_…, org, user uuid or email"
-          className="w-full max-w-md rounded border bg-background px-3 py-2 text-sm"
-          aria-label="Search orders"
-        />
-        <button type="submit" className="rounded border px-3 py-2 text-sm">
-          Search
-        </button>
-        {query && (
-          <Link
-            href={filterHref(status ?? "")}
-            className="self-center text-sm text-muted-foreground underline"
-          >
-            Clear
-          </Link>
-        )}
-      </form>
+      <AdminTable caption="Orders and credit grants" className="min-w-[76rem]">
+        <AdminTableHeader>
+          <tr>
+            <AdminTableHead>Order</AdminTableHead>
+            <AdminTableHead>Customer and workspace</AdminTableHead>
+            <AdminTableHead>Status</AdminTableHead>
+            <AdminTableHead>Payment</AdminTableHead>
+            <AdminTableHead>Product and credits</AdminTableHead>
+            <AdminTableHead>Fulfillment</AdminTableHead>
+          </tr>
+        </AdminTableHeader>
+        <AdminTableBody>
+          {rows.length === 0 && (
+            <AdminTableEmpty
+              colSpan={6}
+              title={query ? "No matching orders" : "No orders yet"}
+              description={
+                query
+                  ? `Nothing matched “${query}”. Try another identifier.`
+                  : undefined
+              }
+            />
+          )}
+          {rows.map((order) => {
+            const shape = describeOrderNo(order.order_no);
+            const grant = grantsByOrder.get(order.order_no);
+            const paid = order.status === "paid";
+            const owed = order.credits > 0;
+            const missing = paid && owed && !grant;
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="text-left text-muted-foreground">
-            <tr>
-              <th className="py-2 pl-3 pr-4">Order</th>
-              <th className="py-2 pr-4">Status</th>
-              <th className="py-2 pr-4">Organization</th>
-              <th className="py-2 pr-4">User</th>
-              <th className="py-2 pr-4">Amount</th>
-              {/* The two that must agree. They disagree exactly when the money
-                  landed and the ledger did not. */}
-              <th className="py-2 pr-4">Credits promised</th>
-              <th className="py-2 pr-4">Granted</th>
-              <th className="py-2 pr-4">Product</th>
-              <th className="py-2 pr-4">Paid</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr className="border-t">
-                <td className="p-3 text-muted-foreground" colSpan={9}>
-                  No orders{query ? ` matching "${query}"` : ""}.
-                </td>
-              </tr>
-            )}
-            {rows.map((order) => {
-              const shape = describeOrderNo(order.order_no);
-              const grant = grantsByOrder.get(order.order_no);
-              const paid = order.status === "paid";
-              const owed = order.credits > 0;
-              // Only meaningful for a paid order that promised credits: an
-              // unpaid one is *supposed* to have no ledger row.
-              const missing = paid && owed && !grant;
-
-              return (
-                <tr key={order.id} className="border-t align-top">
-                  <td className="py-2 pl-3 pr-4">
-                    <div className="font-mono text-xs break-all select-all">
-                      {order.order_no}
-                    </div>
-                    <div
-                      className="text-[10px] text-muted-foreground"
-                      title={shape.hint}
-                    >
-                      {shape.kind}
-                      {order.sub_id ? ` · ${order.sub_id}` : ""}
-                    </div>
-                  </td>
-                  <td className="py-2 pr-4">{order.status}</td>
-                  <td className="py-2 pr-4">
-                    <Link
-                      href={`/organizations/${order.org_uuid}`}
-                      className="font-mono text-xs underline break-all"
-                    >
-                      {order.org_uuid || "—"}
-                    </Link>
-                  </td>
-                  <td className="py-2 pr-4">
-                    <div className="text-xs">{order.user_email || "—"}</div>
-                    <div className="font-mono text-[10px] text-muted-foreground break-all">
-                      {order.user_uuid || "—"}
-                    </div>
-                  </td>
-                  <td className="py-2 pr-4">
+            return (
+              <AdminTableRow key={order.id}>
+                <AdminTableCell>
+                  <div className="font-mono break-all select-all">
+                    {order.order_no}
+                  </div>
+                  <div
+                    className="mt-1 text-sm text-muted-foreground"
+                    title={shape.hint}
+                  >
+                    {shape.kind}
+                    {order.sub_id ? ` · ${order.sub_id}` : ""}
+                  </div>
+                </AdminTableCell>
+                <AdminTableCell>
+                  <div className="font-medium">{order.user_email || "—"}</div>
+                  <div className="mt-1 font-mono text-sm text-muted-foreground break-all">
+                    {order.user_uuid || "—"}
+                  </div>
+                  <Link
+                    href={`/organizations/${order.org_uuid}`}
+                    className="mt-2 block font-mono text-sm text-primary underline underline-offset-4 break-all"
+                  >
+                    {order.org_uuid || "No workspace"}
+                  </Link>
+                </AdminTableCell>
+                <AdminTableCell>
+                  <AdminStatusBadge
+                    tone={
+                      order.status === "paid"
+                        ? "success"
+                        : order.status === "deleted"
+                          ? "danger"
+                          : "neutral"
+                    }
+                  >
+                    {order.status}
+                  </AdminStatusBadge>
+                </AdminTableCell>
+                <AdminTableCell>
+                  <div className="whitespace-nowrap font-medium tabular-nums">
                     {money(order.amount, order.currency)}
-                  </td>
-                  <td className="py-2 pr-4">{order.credits}</td>
-                  <td className="py-2 pr-4">
-                    {!owed ? (
-                      <span className="text-muted-foreground">n/a</span>
-                    ) : missing ? (
-                      <span className="text-destructive">none</span>
-                    ) : grant ? (
-                      <>
-                        {grant.credits}
-                        {/* One order pays out once. Two rows means two grants
-                            for one payment, which is the opposite defect and
-                            just as worth seeing. */}
-                        {grant.count > 1 && (
-                          <span className="ml-1 text-destructive">
-                            ({grant.count} rows)
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td className="py-2 pr-4">
-                    <div className="text-xs">{order.product_name || "—"}</div>
-                    <div className="text-[10px] text-muted-foreground">
-                      {order.interval || "one-off"}
-                    </div>
-                  </td>
-                  <td className="py-2 pr-4 font-mono text-xs">
-                    {order.paid_at?.toISOString() ?? "—"}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                  </div>
+                  <div className="mt-1 whitespace-nowrap text-sm text-muted-foreground">
+                    {formatAdminDate(order.paid_at)}
+                  </div>
+                </AdminTableCell>
+                <AdminTableCell>
+                  <div className="font-medium">{order.product_name || "—"}</div>
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    {order.interval || "one-off"} · {order.credits} promised
+                  </div>
+                </AdminTableCell>
+                <AdminTableCell className="tabular-nums">
+                  {!owed ? (
+                    <AdminStatusBadge>Not applicable</AdminStatusBadge>
+                  ) : missing ? (
+                    <AdminStatusBadge tone="danger">Missing</AdminStatusBadge>
+                  ) : grant ? (
+                    <span>
+                      {grant.credits}
+                      {grant.count > 1 && (
+                        <AdminStatusBadge tone="danger" className="ml-2">
+                          {grant.count} rows
+                        </AdminStatusBadge>
+                      )}
+                    </span>
+                  ) : (
+                    "—"
+                  )}
+                </AdminTableCell>
+              </AdminTableRow>
+            );
+          })}
+        </AdminTableBody>
+      </AdminTable>
 
       <Pager
         page={page}
@@ -286,16 +290,18 @@ export default async function AdminOrdersPage({
         href={pageHref}
       />
 
-      <p className="text-xs text-muted-foreground">
-        <strong>Granted</strong> compares <code>orders.credits</code> against
-        the ledger rows carrying that order number. A paid order promising
-        credits with <span className="text-destructive">none</span> granted is
-        the defect{" "}
-        <Link href="/reconciliation" className="underline">
-          reconciliation
-        </Link>{" "}
-        reports as <code>order_missing_credits</code>.
-      </p>
+      <AdminPanel contentClassName="text-sm leading-6 text-muted-foreground">
+        <p>
+          <strong className="text-foreground">Granted</strong> compares{" "}
+          <code>orders.credits</code> against ledger rows carrying that order
+          number. A paid order marked{" "}
+          <span className="text-destructive">Missing</span> is the defect{" "}
+          <Link href="/reconciliation" className="underline underline-offset-4">
+            reconciliation
+          </Link>{" "}
+          reports as <code>order_missing_credits</code>.
+        </p>
+      </AdminPanel>
     </div>
   );
 }

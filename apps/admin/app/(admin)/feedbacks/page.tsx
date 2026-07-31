@@ -1,6 +1,17 @@
 import { AdminPageHeader } from "@admin/components/admin-page-header";
+import { AdminStatusBadge } from "@admin/components/admin-status-badge";
+import {
+  AdminTable,
+  AdminTableBody,
+  AdminTableCell,
+  AdminTableEmpty,
+  AdminTableHead,
+  AdminTableHeader,
+  AdminTableRow,
+} from "@admin/components/admin-table";
 import { getAdminContext } from "@admin/lib/authz";
 import { countAdminFeedbacks, listAdminFeedbacks } from "@admin/lib/data";
+import { formatAdminDate } from "@admin/lib/format";
 import { Pager } from "@admin/components/pager";
 
 const PAGE_SIZE = 100;
@@ -24,7 +35,7 @@ export default async function AdminFeedbacksPage({
   ]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <AdminPageHeader
         title="Feedback"
         description="Read customer feedback and spot themes worth acting on."
@@ -33,46 +44,58 @@ export default async function AdminFeedbacksPage({
         }
       />
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="text-left text-muted-foreground">
-            <tr>
-              <th className="py-2 pr-4">ID</th>
-              <th className="py-2 pr-4">User</th>
-              <th className="py-2 pr-4">Rating</th>
-              <th className="py-2 pr-4">Content</th>
-              <th className="py-2 pr-4">Status</th>
-              <th className="py-2 pr-4">Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(rows ?? []).map((f) => (
-              <tr key={f.id} className="border-t align-top">
-                <td className="py-2 pr-4 font-mono text-xs">{f.id}</td>
-                <td className="py-2 pr-4">
-                  <div className="text-xs text-muted-foreground">
-                    {(f as any).user?.email ?? ""}
-                  </div>
-                  <div className="font-mono text-xs">
-                    {f.user_uuid ?? (f as any).user?.uuid ?? "—"}
-                  </div>
-                </td>
-                <td className="py-2 pr-4">{f.rating ?? "—"}</td>
-                <td className="py-2 pr-4 whitespace-pre-wrap max-w-[40rem]">
-                  {f.content ?? ""}
-                </td>
-                <td className="py-2 pr-4 capitalize">{f.status ?? "new"}</td>
-                <td className="py-2 pr-4 font-mono text-xs">
-                  {f.created_at
-                    ? ((f.created_at as any).toISOString?.() ??
-                      String(f.created_at))
-                    : "—"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <AdminTable caption="Customer feedback" className="min-w-[64rem]">
+        <AdminTableHeader>
+          <tr>
+            <AdminTableHead>ID</AdminTableHead>
+            <AdminTableHead>User</AdminTableHead>
+            <AdminTableHead>Rating</AdminTableHead>
+            <AdminTableHead>Content</AdminTableHead>
+            <AdminTableHead>Status</AdminTableHead>
+            <AdminTableHead>Created</AdminTableHead>
+          </tr>
+        </AdminTableHeader>
+        <AdminTableBody>
+          {(rows ?? []).length === 0 && (
+            <AdminTableEmpty
+              colSpan={6}
+              title="No feedback yet"
+              description="Customer submissions will appear here."
+            />
+          )}
+          {(rows ?? []).map((feedback) => (
+            <AdminTableRow key={feedback.id}>
+              <AdminTableCell className="font-mono">
+                {feedback.id}
+              </AdminTableCell>
+              <AdminTableCell>
+                <div className="font-medium">
+                  {(feedback as any).user?.email || "Unknown user"}
+                </div>
+                <div className="font-mono text-sm text-muted-foreground">
+                  {feedback.user_uuid ?? (feedback as any).user?.uuid ?? "—"}
+                </div>
+              </AdminTableCell>
+              <AdminTableCell className="font-medium tabular-nums">
+                {feedback.rating ?? "—"}
+              </AdminTableCell>
+              <AdminTableCell className="max-w-[40rem] whitespace-pre-wrap">
+                {feedback.content || "—"}
+              </AdminTableCell>
+              <AdminTableCell>
+                <AdminStatusBadge
+                  tone={feedback.status === "resolved" ? "success" : "neutral"}
+                >
+                  {feedback.status ?? "new"}
+                </AdminStatusBadge>
+              </AdminTableCell>
+              <AdminTableCell className="whitespace-nowrap text-muted-foreground">
+                {formatAdminDate(feedback.created_at)}
+              </AdminTableCell>
+            </AdminTableRow>
+          ))}
+        </AdminTableBody>
+      </AdminTable>
 
       <Pager
         page={page}

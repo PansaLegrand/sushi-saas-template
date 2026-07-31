@@ -509,6 +509,107 @@ describe("conventions", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("keeps admin operational typography on readable named scales", () => {
+    // Ten-pixel UUIDs and hand-tuned tracking made the console look dense while
+    // making the data operators came to inspect harder to read. Named roles can
+    // evolve as a system; arbitrary values cannot.
+    const ALLOWED = new Set(["apps/admin/app/global-error.tsx"]);
+    const arbitraryTypography = /\b(?:text|leading|tracking)-\[[^\]]+\]/;
+    const offenders = [
+      ...sourceFiles(join(ROOT, "apps/admin/app")),
+      ...sourceFiles(join(ROOT, "apps/admin/components")),
+    ]
+      .map((file) => ({
+        path: relative(ROOT, file),
+        body: readFileSync(file, "utf8"),
+      }))
+      .filter(
+        ({ path, body }) =>
+          !ALLOWED.has(path) && arbitraryTypography.test(stripComments(body)),
+      )
+      .map(({ path }) => path);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("routes ordinary admin controls through shared primitives", () => {
+    // Hidden and checkbox inputs intentionally retain native behavior. Visible
+    // text controls and actions use the shared primitives so sizing, focus,
+    // invalid states, and disabled treatment cannot drift page by page.
+    const ALLOWED = new Set(["apps/admin/app/global-error.tsx"]);
+    const offenders = [
+      ...sourceFiles(join(ROOT, "apps/admin/app")),
+      ...sourceFiles(join(ROOT, "apps/admin/components")),
+    ]
+      .map((file) => ({
+        path: relative(ROOT, file),
+        body: stripComments(readFileSync(file, "utf8")),
+      }))
+      .filter(({ path, body }) => {
+        if (ALLOWED.has(path)) return false;
+        if (/<(?:button|select|textarea)\b/.test(body)) return true;
+
+        return [...body.matchAll(/<input\b[^>]*>/g)].some(
+          ([tag]) => !/\btype\s*=\s*["'](?:hidden|checkbox|file)["']/.test(tag),
+        );
+      })
+      .map(({ path }) => path);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("keeps raw admin tables inside the table pattern", () => {
+    // A raw table lets every page independently choose header size, cell
+    // padding, overflow behavior, and empty-state treatment.
+    const ALLOWED = new Set([
+      "apps/admin/components/admin-table.tsx",
+      "apps/admin/app/global-error.tsx",
+    ]);
+    const offenders = [
+      ...sourceFiles(join(ROOT, "apps/admin/app")),
+      ...sourceFiles(join(ROOT, "apps/admin/components")),
+    ]
+      .map((file) => ({
+        path: relative(ROOT, file),
+        body: readFileSync(file, "utf8"),
+      }))
+      .filter(
+        ({ path, body }) =>
+          !ALLOWED.has(path) && /<table\b/.test(stripComments(body)),
+      )
+      .map(({ path }) => path);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("keeps preset selection out of components and route pages", () => {
+    // Components describe semantic intent. Only the typed config and document
+    // roots select a visual language; branching below that would create five
+    // implementations of every component.
+    const offenders = [
+      ...FILES.filter(
+        ({ path }) =>
+          path.startsWith("src/components/") ||
+          (path.startsWith("src/app/") && path !== "src/app/layout.tsx"),
+      ),
+      ...[
+        ...sourceFiles(join(ROOT, "apps/admin/app")),
+        ...sourceFiles(join(ROOT, "apps/admin/components")),
+      ].map((file) => ({
+        path: relative(ROOT, file),
+        body: readFileSync(file, "utf8"),
+      })),
+    ]
+      .filter(
+        ({ path, body }) =>
+          path !== "apps/admin/app/layout.tsx" &&
+          /\bstylePreset\b|data-style\s*=/.test(stripComments(body)),
+      )
+      .map(({ path }) => path);
+
+    expect(offenders).toEqual([]);
+  });
+
   it("has no src/features directory", () => {
     // The repo settled on horizontal layers. features/reservations was the lone
     // vertical slice and was flattened; this stops a second one from appearing

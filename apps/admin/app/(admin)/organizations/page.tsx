@@ -1,8 +1,21 @@
 import Link from "next/link";
 
 import { AdminPageHeader } from "@admin/components/admin-page-header";
+import { AdminStatusBadge } from "@admin/components/admin-status-badge";
+import {
+  AdminTable,
+  AdminTableBody,
+  AdminTableCell,
+  AdminTableEmpty,
+  AdminTableHead,
+  AdminTableHeader,
+  AdminTableRow,
+} from "@admin/components/admin-table";
+import { AdminSearchToolbar } from "@admin/components/admin-toolbar";
 import { getAdminContext } from "@admin/lib/authz";
+import { formatAdminDate } from "@admin/lib/format";
 import { Pager } from "@admin/components/pager";
+import { Button } from "@/components/ui/button";
 import {
   countOrganizationsForAdmin,
   listOrganizationsForAdmin,
@@ -41,7 +54,7 @@ export default async function AdminOrganizationsPage({
   ]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <AdminPageHeader
         title="Organizations"
         description="Credits, plans, and Stripe customers belong here — not to a user."
@@ -50,77 +63,71 @@ export default async function AdminOrganizationsPage({
         }
       />
 
-      {/* A GET form, so a search is a URL an operator can paste into a ticket. */}
-      <form method="get" className="flex gap-2">
-        <input
-          type="search"
-          name="q"
-          defaultValue={query ?? ""}
-          placeholder="Name, slug, uuid, or cus_… "
-          className="w-full max-w-md rounded border bg-background px-3 py-2 text-sm"
-          aria-label="Search organizations"
-        />
-        <button type="submit" className="rounded border px-3 py-2 text-sm">
-          Search
-        </button>
-        {query && (
-          <Link
-            href="/organizations"
-            className="self-center text-sm text-muted-foreground underline"
-          >
-            Clear
-          </Link>
-        )}
-      </form>
+      {/* GET keeps the result URL shareable in support tickets. */}
+      <AdminSearchToolbar
+        defaultValue={query}
+        placeholder="Name, slug, UUID, or cus_…"
+        ariaLabel="Search organizations"
+        clearHref="/organizations"
+      />
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="text-left text-muted-foreground">
-            <tr>
-              <th className="py-2 pl-3 pr-4">Name</th>
-              <th className="py-2 pr-4">Slug</th>
-              <th className="py-2 pr-4">Kind</th>
-              <th className="py-2 pr-4">Members</th>
-              <th className="py-2 pr-4">Stripe customer</th>
-              <th className="py-2 pr-4">Created</th>
-              <th className="py-2 pr-4"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {orgs.length === 0 && (
-              <tr className="border-t">
-                <td className="p-3 text-muted-foreground" colSpan={7}>
-                  No organizations{query ? ` matching "${query}"` : ""}.
-                </td>
-              </tr>
-            )}
-            {orgs.map((org) => (
-              <tr key={org.uuid} className="border-t">
-                <td className="py-2 pl-3 pr-4">{org.name}</td>
-                <td className="py-2 pr-4 font-mono text-xs">{org.slug}</td>
-                <td className="py-2 pr-4 text-muted-foreground">
-                  {org.is_personal ? "personal" : "team"}
-                </td>
-                <td className="py-2 pr-4">{org.member_count}</td>
-                <td className="py-2 pr-4 font-mono text-xs">
-                  {org.stripe_customer_id ?? "—"}
-                </td>
-                <td className="py-2 pr-4 font-mono text-xs">
-                  {org.created_at?.toISOString() ?? "—"}
-                </td>
-                <td className="py-2 pr-4">
-                  <Link
-                    href={`/organizations/${org.uuid}`}
-                    className="underline"
-                  >
-                    Open
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <AdminTable caption="Organizations" className="min-w-[68rem]">
+        <AdminTableHeader>
+          <tr>
+            <AdminTableHead>Name</AdminTableHead>
+            <AdminTableHead>Slug</AdminTableHead>
+            <AdminTableHead>Kind</AdminTableHead>
+            <AdminTableHead>Members</AdminTableHead>
+            <AdminTableHead>Stripe customer</AdminTableHead>
+            <AdminTableHead>Created</AdminTableHead>
+            <AdminTableHead>
+              <span className="sr-only">Actions</span>
+            </AdminTableHead>
+          </tr>
+        </AdminTableHeader>
+        <AdminTableBody>
+          {orgs.length === 0 && (
+            <AdminTableEmpty
+              colSpan={7}
+              title={
+                query ? "No matching organizations" : "No organizations yet"
+              }
+              description={
+                query
+                  ? `Nothing matched “${query}”. Try another identifier.`
+                  : undefined
+              }
+            />
+          )}
+          {orgs.map((org) => (
+            <AdminTableRow key={org.uuid}>
+              <AdminTableCell className="font-medium">
+                {org.name}
+              </AdminTableCell>
+              <AdminTableCell className="font-mono">{org.slug}</AdminTableCell>
+              <AdminTableCell>
+                <AdminStatusBadge tone={org.is_personal ? "neutral" : "info"}>
+                  {org.is_personal ? "Personal" : "Team"}
+                </AdminStatusBadge>
+              </AdminTableCell>
+              <AdminTableCell className="tabular-nums">
+                {org.member_count}
+              </AdminTableCell>
+              <AdminTableCell className="font-mono">
+                {org.stripe_customer_id ?? "—"}
+              </AdminTableCell>
+              <AdminTableCell className="whitespace-nowrap text-muted-foreground">
+                {formatAdminDate(org.created_at)}
+              </AdminTableCell>
+              <AdminTableCell className="text-right">
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/organizations/${org.uuid}`}>Open</Link>
+                </Button>
+              </AdminTableCell>
+            </AdminTableRow>
+          ))}
+        </AdminTableBody>
+      </AdminTable>
 
       <Pager
         page={page}

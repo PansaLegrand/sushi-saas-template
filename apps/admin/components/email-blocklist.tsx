@@ -7,7 +7,19 @@ import {
   listBlocklist,
   removeBlocklistEntry,
 } from "@admin/lib/api";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { resolveErrorMessage } from "@/lib/errors/client";
 import type { BlocklistEntry, BlocklistScope } from "@/types/moderation";
 
@@ -72,7 +84,7 @@ export default function EmailBlocklistPanel({ canWrite }: Props) {
       setNotice(
         result.created
           ? `Blocked ${result.entry.value}`
-          : `Already blocked as ${result.entry.value}`
+          : `Already blocked as ${result.entry.value}`,
       );
       setValue("");
       setReason("");
@@ -107,57 +119,83 @@ export default function EmailBlocklistPanel({ canWrite }: Props) {
         setLoading(false);
       }
     },
-    [canWrite, load, activeSearch]
+    [canWrite, load, activeSearch],
   );
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-        <select
-          aria-label="Scope"
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-          value={scope}
-          onChange={(e) => setScope(e.currentTarget.value as BlocklistScope)}
-        >
-          <option value="email">Address</option>
-          <option value="domain">Whole domain</option>
-        </select>
-        <Input
-          aria-label="Value"
-          placeholder={scope === "domain" ? "example.com" : "someone@example.com"}
-          value={value}
-          onChange={(e) => setValue(e.currentTarget.value)}
-        />
-        <Input
-          aria-label="Reason"
-          placeholder="Reason (audit log)"
-          value={reason}
-          onChange={(e) => setReason(e.currentTarget.value)}
-        />
-        <Input
-          aria-label="Expires (optional)"
-          type="datetime-local"
-          value={expiresAt}
-          onChange={(e) => setExpiresAt(e.currentTarget.value)}
-        />
+    <div className="space-y-5" aria-busy={loading}>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <Field label="Scope">
+          {(field) => (
+            <Select
+              {...field}
+              aria-label="Scope"
+              value={scope}
+              onChange={(e) =>
+                setScope(e.currentTarget.value as BlocklistScope)
+              }
+            >
+              <option value="email">Email address</option>
+              <option value="domain">Whole domain</option>
+            </Select>
+          )}
+        </Field>
+        <Field label={scope === "domain" ? "Domain" : "Email address"} required>
+          {(field) => (
+            <Input
+              {...field}
+              aria-label="Value"
+              placeholder={
+                scope === "domain" ? "example.com" : "someone@example.com"
+              }
+              value={value}
+              onChange={(e) => setValue(e.currentTarget.value)}
+              required
+            />
+          )}
+        </Field>
+        <Field label="Reason">
+          {(field) => (
+            <Input
+              {...field}
+              aria-label="Reason"
+              placeholder="Why should registration be blocked?"
+              value={reason}
+              onChange={(e) => setReason(e.currentTarget.value)}
+            />
+          )}
+        </Field>
+        <Field label="Expires">
+          {(field) => (
+            <Input
+              {...field}
+              aria-label="Expires (optional)"
+              type="datetime-local"
+              value={expiresAt}
+              onChange={(e) => setExpiresAt(e.currentTarget.value)}
+            />
+          )}
+        </Field>
       </div>
 
       <div className="flex flex-wrap gap-3">
-        <button
-          className="inline-flex items-center rounded bg-destructive px-3 py-2 text-sm text-destructive-foreground disabled:opacity-50"
+        <Button
+          type="button"
+          variant="destructive"
           onClick={() => void add()}
           disabled={loading || !canWrite || !value.trim()}
           title={canWrite ? "Add a signup block" : "Read-only admin"}
         >
           {canWrite ? "Block" : "Block disabled (read-only)"}
-        </button>
-        <button
-          className="inline-flex items-center rounded border px-3 py-2 text-sm disabled:opacity-50"
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
           onClick={() => void load(activeSearch)}
           disabled={loading}
         >
           {loading ? "Loading…" : "Refresh"}
-        </button>
+        </Button>
         <span className="self-center text-sm text-muted-foreground">
           {total} rule{total === 1 ? "" : "s"}
           {activeSearch ? ` matching “${activeSearch}”` : ""}
@@ -170,106 +208,113 @@ export default function EmailBlocklistPanel({ canWrite }: Props) {
           matching, so a rule stored under a different-looking key still comes
           back, and a domain rule covering the address does too. */}
       <form
-        className="flex flex-wrap gap-3"
+        className="flex flex-col gap-3 sm:flex-row sm:items-end"
         onSubmit={(e) => {
           e.preventDefault();
           void load(search);
         }}
       >
-        <Input
-          aria-label="Search rules"
-          placeholder="Is this blocked? Paste an address or domain"
-          value={search}
-          onChange={(e) => setSearch(e.currentTarget.value)}
-        />
-        <button
-          type="submit"
-          className="inline-flex items-center rounded border px-3 py-2 text-sm disabled:opacity-50"
-          disabled={loading}
+        <Field
+          label="Check an address or domain"
+          description="The server checks normalized addresses and matching domain rules."
+          className="min-w-0 flex-1"
         >
+          {(field) => (
+            <Input
+              {...field}
+              aria-label="Search rules"
+              placeholder="Paste an address or domain"
+              value={search}
+              onChange={(e) => setSearch(e.currentTarget.value)}
+            />
+          )}
+        </Field>
+        <Button type="submit" variant="outline" disabled={loading}>
           Search
-        </button>
+        </Button>
         {activeSearch && (
-          <button
+          <Button
             type="button"
-            className="self-center text-sm text-muted-foreground underline"
+            variant="ghost"
             onClick={() => {
               setSearch("");
               void load();
             }}
           >
             Clear
-          </button>
+          </Button>
         )}
       </form>
 
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
+      {error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
 
-      {notice && (
-        <p role="status" className="text-sm text-muted-foreground">
-          {notice}
-        </p>
-      )}
+      {notice ? (
+        <Alert variant="success" role="status">
+          <AlertDescription>{notice}</AlertDescription>
+        </Alert>
+      ) : null}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="text-left text-muted-foreground">
-            <tr>
-              <th className="py-2 pr-4">Scope</th>
-              {/* The match key, not the input. Differing from "As entered" is
-                  normalization working, not a bug. */}
-              <th className="py-2 pr-4">Blocked value</th>
-              <th className="py-2 pr-4">As entered</th>
-              <th className="py-2 pr-4">Reason</th>
-              <th className="py-2 pr-4">Expires</th>
-              <th className="py-2 pr-4">Added</th>
-              <th className="py-2 pr-4"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 && (
-              <tr>
-                {/* An empty result under a search is an answer, not an empty
-                    state — say the thing the operator came to find out. */}
-                <td className="py-3 text-muted-foreground" colSpan={7}>
-                  {activeSearch
-                    ? `No rule blocks “${activeSearch}”. It can register.`
-                    : "Nothing blocked."}
-                </td>
-              </tr>
-            )}
-            {items.map((entry) => (
-              <tr key={entry.uuid} className="border-t align-top">
-                <td className="py-2 pr-4">{entry.scope}</td>
-                <td className="py-2 pr-4 font-mono text-xs">{entry.value}</td>
-                <td className="py-2 pr-4 font-mono text-xs">
-                  {entry.originalValue || "—"}
-                </td>
-                <td className="py-2 pr-4">{entry.reason || "—"}</td>
-                <td className="py-2 pr-4 font-mono text-xs">
-                  {entry.expiresAt ? entry.expiresAt.slice(0, 10) : "never"}
-                </td>
-                <td className="py-2 pr-4 font-mono text-xs">
-                  {entry.createdAt.slice(0, 10)}
-                </td>
-                <td className="py-2 pr-4">
-                  <button
-                    className="rounded border px-2 py-1 text-xs disabled:opacity-50"
-                    onClick={() => void remove(entry.uuid)}
-                    disabled={loading || !canWrite}
-                  >
-                    Unblock
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Table className="min-w-[64rem]">
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead>Scope</TableHead>
+            {/* The match key, not the input. Differing from "As entered" is
+                normalization working, not a bug. */}
+            <TableHead>Blocked value</TableHead>
+            <TableHead>As entered</TableHead>
+            <TableHead>Reason</TableHead>
+            <TableHead>Expires</TableHead>
+            <TableHead>Added</TableHead>
+            <TableHead>
+              <span className="sr-only">Actions</span>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.length === 0 && (
+            <TableRow>
+              {/* An empty result under a search is an answer, not an empty
+                  state — say the thing the operator came to find out. */}
+              <TableCell className="text-muted-foreground" colSpan={7}>
+                {activeSearch
+                  ? `No rule blocks “${activeSearch}”. It can register.`
+                  : "Nothing blocked."}
+              </TableCell>
+            </TableRow>
+          )}
+          {items.map((entry) => (
+            <TableRow key={entry.uuid} className="align-top">
+              <TableCell>{entry.scope}</TableCell>
+              <TableCell className="font-mono">{entry.value}</TableCell>
+              <TableCell className="font-mono">
+                {entry.originalValue || "—"}
+              </TableCell>
+              <TableCell>{entry.reason || "—"}</TableCell>
+              <TableCell className="whitespace-nowrap font-mono">
+                {entry.expiresAt ? entry.expiresAt.slice(0, 10) : "Never"}
+              </TableCell>
+              <TableCell className="whitespace-nowrap font-mono">
+                {entry.createdAt.slice(0, 10)}
+              </TableCell>
+              <TableCell>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void remove(entry.uuid)}
+                  disabled={loading || !canWrite}
+                >
+                  Unblock
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }

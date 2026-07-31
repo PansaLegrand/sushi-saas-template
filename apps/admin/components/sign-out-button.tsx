@@ -1,17 +1,17 @@
 "use client";
 
-import type { ComponentPropsWithoutRef } from "react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 
 import { signOut } from "@admin/lib/auth-client";
+import { Button, type ButtonProps } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function SignOutButton({
   className,
   ...props
-}: Omit<ComponentPropsWithoutRef<"button">, "onClick" | "disabled" | "type">) {
+}: Omit<ButtonProps, "onClick" | "disabled" | "type" | "variant" | "asChild">) {
   const router = useRouter();
   const [isLoading, setLoading] = useState(false);
 
@@ -32,20 +32,16 @@ export function SignOutButton({
   };
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       onClick={handleClick}
-      className={cn(
-        "inline-flex min-h-9 items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium text-muted-foreground transition",
-        "hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        "disabled:cursor-not-allowed disabled:opacity-60",
-        className,
-      )}
+      className={cn("gap-2 text-muted-foreground", className)}
       disabled={isLoading}
       {...props}
     >
       <LogOut aria-hidden className="size-4" />
       {isLoading ? "Signing out..." : "Sign out"}
-    </button>
+    </Button>
   );
 }

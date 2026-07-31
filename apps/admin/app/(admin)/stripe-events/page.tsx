@@ -1,11 +1,25 @@
-import Link from "next/link";
-
+import { AdminPanel } from "@admin/components/admin-panel";
 import { AdminPageHeader } from "@admin/components/admin-page-header";
 import {
   AdminStatusBadge,
   type AdminStatusTone,
 } from "@admin/components/admin-status-badge";
+import {
+  AdminTable,
+  AdminTableBody,
+  AdminTableCell,
+  AdminTableEmpty,
+  AdminTableHead,
+  AdminTableHeader,
+  AdminTableRow,
+} from "@admin/components/admin-table";
+import {
+  AdminFilterLink,
+  AdminFilterNav,
+  AdminToolbar,
+} from "@admin/components/admin-toolbar";
 import { getAdminContext } from "@admin/lib/authz";
+import { formatAdminDate } from "@admin/lib/format";
 import { Pager } from "@admin/components/pager";
 import ResolveStripeEvent from "@admin/components/resolve-stripe-event";
 import {
@@ -95,7 +109,7 @@ export default async function AdminStripeEventsPage({
     value ? `/stripe-events?status=${value}` : "/stripe-events";
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <AdminPageHeader
         title="Stripe events"
         description="Every webhook delivery this deployment recorded."
@@ -105,133 +119,140 @@ export default async function AdminStripeEventsPage({
       />
 
       {needsAction > 0 && (
-        <div className="space-y-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm">
+        <AdminPanel
+          title={`${needsAction} event${needsAction === 1 ? "" : "s"} need a decision`}
+          description="These events do not retry automatically because Stripe already received a successful response."
+          className="border-destructive/30 bg-destructive/[0.04]"
+          contentClassName="space-y-3 text-sm leading-6"
+        >
           <p>
-            <strong>{needsAction}</strong> event
-            {needsAction === 1 ? "" : "s"} need a decision. These do not retry
-            on their own — Stripe was answered 200 so the automatic retries
-            stopped.
+            <strong>To re-run one:</strong> fix the cause, then press Resend in
+            the Stripe dashboard. The redelivery reclaims the row and processes
+            it against Stripe&apos;s current state.
           </p>
           {/* The two exits, and they are not interchangeable. Replay re-runs the
               work; Resolve records that a person did it elsewhere. Saying which
               is which here is the difference between an operator clearing the
               queue and an operator clearing the evidence. */}
-          <p className="text-xs">
-            <strong>To re-run one:</strong> fix the cause, then press Resend in
-            the Stripe dashboard. The redelivery reclaims the row and processes
-            it against Stripe&apos;s current state — every write on that path is
-            keyed on the Stripe object, so a replay cannot double-charge or
-            double-credit.{" "}
+          <p className="text-muted-foreground">
             <strong>If you handled it outside this system</strong> — refunded by
             hand, accepted a dispute — use Resolve to close it with a note.
             Resolving is final: later redeliveries are acknowledged and not
             re-run.
           </p>
-        </div>
+        </AdminPanel>
       )}
 
-      <nav className="flex flex-wrap gap-2 text-sm">
-        {STATUS_FILTERS.map((filter) => {
-          const active = (status ?? "") === filter.value;
-          const count = filter.value ? (byStatus[filter.value] ?? 0) : total;
+      <AdminToolbar>
+        <AdminFilterNav label="Filter Stripe events by status">
+          {STATUS_FILTERS.map((filter) => {
+            const count = filter.value ? (byStatus[filter.value] ?? 0) : total;
 
-          return (
-            <Link
-              key={filter.value || "all"}
-              href={href(filter.value)}
-              className={`rounded border px-3 py-1 ${
-                active
-                  ? "border-foreground bg-foreground text-background"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {filter.label} ({count})
-            </Link>
-          );
-        })}
-      </nav>
+            return (
+              <AdminFilterLink
+                key={filter.value || "all"}
+                href={href(filter.value)}
+                active={(status ?? "") === filter.value}
+                count={count}
+              >
+                {filter.label}
+              </AdminFilterLink>
+            );
+          })}
+        </AdminFilterNav>
+      </AdminToolbar>
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="text-left text-muted-foreground">
-            <tr>
-              <th className="py-2 pl-3 pr-4">Received</th>
-              <th className="py-2 pr-4">Type</th>
-              <th className="py-2 pr-4">Status</th>
-              <th className="py-2 pr-4">Tries</th>
-              {/* Written by `ActionRequiredError.describe()` for a parked event,
-                  and by the error serializer for a failed one. */}
-              <th className="py-2 pr-4">Reason</th>
-              <th className="py-2 pr-4">Customer</th>
-              <th className="py-2 pr-4">Invoice</th>
-              <th className="py-2 pr-4">Subscription</th>
-              <th className="py-2 pr-4">Event</th>
-              <th className="py-2 pr-4"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {events.length === 0 && (
-              <tr className="border-t">
-                <td className="p-3 text-muted-foreground" colSpan={10}>
-                  No events{status ? ` with status "${status}"` : ""}.
-                </td>
-              </tr>
-            )}
-            {events.map((event) => (
-              <tr key={event.event_id} className="border-t align-top">
-                <td className="py-2 pl-3 pr-4 font-mono text-xs">
-                  {event.received_at?.toISOString() ?? "—"}
-                </td>
-                <td className="py-2 pr-4">
-                  {event.event_type}
-                  {/* A test-mode event reaching a production console is worth
-                      seeing at a glance; the webhook rejects them there, so one
-                      showing up means the wrong signing secret is configured. */}
-                  {event.livemode === false && (
-                    <span className="ml-2 rounded border border-border px-1 text-[10px] text-muted-foreground">
-                      test
-                    </span>
-                  )}
-                </td>
-                <td className="py-2 pr-4">
-                  <StatusBadge status={event.status} />
-                </td>
-                <td className="py-2 pr-4">{event.attempts}</td>
-                <td className="py-2 pr-4 max-w-xs whitespace-pre-wrap break-words text-xs">
-                  {event.last_error ?? "—"}
-                  {event.resolution_note && (
-                    <span className="mt-1 block text-muted-foreground">
-                      Resolved: {event.resolution_note}
-                    </span>
-                  )}
-                </td>
-                <td className="py-2 pr-4 font-mono text-xs">
-                  {event.stripe_customer_id ?? "—"}
-                </td>
-                <td className="py-2 pr-4 font-mono text-xs">
-                  {event.stripe_invoice_id ?? "—"}
-                </td>
-                <td className="py-2 pr-4 font-mono text-xs">
-                  {event.stripe_subscription_id ?? "—"}
-                </td>
-                <td className="py-2 pr-4 font-mono text-[10px]">
+      <AdminTable caption="Stripe webhook events" className="min-w-[80rem]">
+        <AdminTableHeader>
+          <tr>
+            <AdminTableHead>Event</AdminTableHead>
+            <AdminTableHead>Status</AdminTableHead>
+            <AdminTableHead>Received</AdminTableHead>
+            <AdminTableHead>Stripe references</AdminTableHead>
+            {/* Written by ActionRequiredError or the error serializer. */}
+            <AdminTableHead>Reason and resolution</AdminTableHead>
+            <AdminTableHead>
+              <span className="sr-only">Actions</span>
+            </AdminTableHead>
+          </tr>
+        </AdminTableHeader>
+        <AdminTableBody>
+          {events.length === 0 && (
+            <AdminTableEmpty
+              colSpan={6}
+              title={status ? "No events in this status" : "No Stripe events"}
+              description={
+                status ? `There are no events marked “${status}”.` : undefined
+              }
+            />
+          )}
+          {events.map((event) => (
+            <AdminTableRow key={event.event_id}>
+              <AdminTableCell>
+                <div className="font-medium">{event.event_type}</div>
+                <div className="mt-1 font-mono text-sm text-muted-foreground break-all">
                   {event.event_id}
-                </td>
-                <td className="py-2 pr-4">
-                  {RESOLVABLE_STATUSES.includes(
-                    event.status as (typeof RESOLVABLE_STATUSES)[number],
-                  ) && (
-                    <ResolveStripeEvent
-                      eventId={event.event_id}
-                      canWrite={canWrite}
-                    />
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                </div>
+                {/* Test mode in production indicates the wrong signing secret. */}
+                {event.livemode === false && (
+                  <AdminStatusBadge className="mt-2">
+                    Test mode
+                  </AdminStatusBadge>
+                )}
+              </AdminTableCell>
+              <AdminTableCell>
+                <StatusBadge status={event.status} />
+                <div className="mt-2 text-sm text-muted-foreground">
+                  {event.attempts} attempt{event.attempts === 1 ? "" : "s"}
+                </div>
+              </AdminTableCell>
+              <AdminTableCell className="whitespace-nowrap text-muted-foreground">
+                {formatAdminDate(event.received_at)}
+              </AdminTableCell>
+              <AdminTableCell>
+                <dl className="space-y-2 font-mono text-sm">
+                  <div>
+                    <dt className="text-muted-foreground">Customer</dt>
+                    <dd className="break-all">
+                      {event.stripe_customer_id ?? "—"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Invoice</dt>
+                    <dd className="break-all">
+                      {event.stripe_invoice_id ?? "—"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Subscription</dt>
+                    <dd className="break-all">
+                      {event.stripe_subscription_id ?? "—"}
+                    </dd>
+                  </div>
+                </dl>
+              </AdminTableCell>
+              <AdminTableCell className="max-w-md whitespace-pre-wrap break-words">
+                {event.last_error ?? "—"}
+                {event.resolution_note && (
+                  <span className="mt-2 block text-sm text-muted-foreground">
+                    Resolution: {event.resolution_note}
+                  </span>
+                )}
+              </AdminTableCell>
+              <AdminTableCell>
+                {RESOLVABLE_STATUSES.includes(
+                  event.status as (typeof RESOLVABLE_STATUSES)[number],
+                ) && (
+                  <ResolveStripeEvent
+                    eventId={event.event_id}
+                    canWrite={canWrite}
+                  />
+                )}
+              </AdminTableCell>
+            </AdminTableRow>
+          ))}
+        </AdminTableBody>
+      </AdminTable>
 
       <Pager
         page={page}

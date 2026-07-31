@@ -1,8 +1,20 @@
 import Link from "next/link";
 
 import { AdminPageHeader } from "@admin/components/admin-page-header";
+import { AdminStatusBadge } from "@admin/components/admin-status-badge";
+import {
+  AdminTable,
+  AdminTableBody,
+  AdminTableCell,
+  AdminTableEmpty,
+  AdminTableHead,
+  AdminTableHeader,
+  AdminTableRow,
+} from "@admin/components/admin-table";
+import { AdminSearchToolbar } from "@admin/components/admin-toolbar";
 import { getAdminContext } from "@admin/lib/authz";
 import { countAdminUsers, listAdminUsers } from "@admin/lib/data";
+import { formatAdminDate } from "@admin/lib/format";
 import { Pager } from "@admin/components/pager";
 
 /**
@@ -45,7 +57,7 @@ export default async function AdminUsersPage({
     `/users?${query ? `q=${encodeURIComponent(query)}&` : ""}page=${target}`;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <AdminPageHeader
         title="Users"
         description={
@@ -64,80 +76,66 @@ export default async function AdminUsersPage({
         }
       />
 
-      {/* A GET form, so a search is a URL an operator can paste into a ticket. */}
-      <form method="get" className="flex gap-2">
-        <input
-          type="search"
-          name="q"
-          defaultValue={query ?? ""}
-          placeholder="Email, uuid, or nickname"
-          className="w-full max-w-md rounded border bg-background px-3 py-2 text-sm"
-          aria-label="Search users"
-        />
-        <button type="submit" className="rounded border px-3 py-2 text-sm">
-          Search
-        </button>
-        {query && (
-          <Link
-            href="/users"
-            className="self-center text-sm text-muted-foreground underline"
-          >
-            Clear
-          </Link>
-        )}
-      </form>
+      {/* GET keeps the result URL shareable in support tickets. */}
+      <AdminSearchToolbar
+        defaultValue={query}
+        placeholder="Email, UUID, or nickname"
+        ariaLabel="Search users"
+        clearHref="/users"
+      />
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="text-left text-muted-foreground">
-            <tr>
-              <th className="py-2 pl-3 pr-4">Email</th>
-              <th className="py-2 pr-4">UUID</th>
-              <th className="py-2 pr-4">Provider</th>
-              <th className="py-2 pr-4">Role</th>
-              <th className="py-2 pr-4">Status</th>
-              <th className="py-2 pr-4">Created</th>
-              <th className="py-2 pr-4">Last sign-in</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr className="border-t">
-                <td className="p-3 text-muted-foreground" colSpan={7}>
-                  No users{query ? ` matching "${query}"` : ""}.
-                </td>
-              </tr>
-            )}
-            {rows.map((user) => (
-              <tr key={user.id} className="border-t">
-                <td className="py-2 pl-3 pr-4">{user.email}</td>
-                {/* The column the operator is here for: every write tool in the
-                    console takes this value, so it stays selectable as one word. */}
-                <td className="py-2 pr-4 font-mono text-xs select-all">
-                  {user.uuid}
-                </td>
-                <td className="py-2 pr-4 text-muted-foreground">
-                  {user.signin_provider || "—"}
-                </td>
-                <td className="py-2 pr-4">{user.role || "user"}</td>
-                <td className="py-2 pr-4">
-                  {user.banned_at ? (
-                    <span className="text-destructive">Suspended</span>
-                  ) : (
-                    "Active"
-                  )}
-                </td>
-                <td className="py-2 pr-4 font-mono text-xs">
-                  {user.created_at?.toISOString() ?? "—"}
-                </td>
-                <td className="py-2 pr-4 font-mono text-xs">
-                  {user.last_signin_at?.toISOString() ?? "—"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <AdminTable caption="User accounts" className="min-w-[72rem]">
+        <AdminTableHeader>
+          <tr>
+            <AdminTableHead>Email</AdminTableHead>
+            <AdminTableHead>UUID</AdminTableHead>
+            <AdminTableHead>Provider</AdminTableHead>
+            <AdminTableHead>Role</AdminTableHead>
+            <AdminTableHead>Status</AdminTableHead>
+            <AdminTableHead>Created</AdminTableHead>
+            <AdminTableHead>Last sign-in</AdminTableHead>
+          </tr>
+        </AdminTableHeader>
+        <AdminTableBody>
+          {rows.length === 0 && (
+            <AdminTableEmpty
+              colSpan={7}
+              title={query ? "No matching users" : "No users yet"}
+              description={
+                query
+                  ? `Nothing matched “${query}”. Try another identifier.`
+                  : undefined
+              }
+            />
+          )}
+          {rows.map((user) => (
+            <AdminTableRow key={user.id}>
+              <AdminTableCell className="font-medium">
+                {user.email}
+              </AdminTableCell>
+              {/* Every write tool takes this value, so keep it selectable. */}
+              <AdminTableCell className="font-mono select-all">
+                {user.uuid}
+              </AdminTableCell>
+              <AdminTableCell className="text-muted-foreground">
+                {user.signin_provider || "—"}
+              </AdminTableCell>
+              <AdminTableCell>{user.role || "user"}</AdminTableCell>
+              <AdminTableCell>
+                <AdminStatusBadge tone={user.banned_at ? "danger" : "success"}>
+                  {user.banned_at ? "Suspended" : "Active"}
+                </AdminStatusBadge>
+              </AdminTableCell>
+              <AdminTableCell className="whitespace-nowrap text-muted-foreground">
+                {formatAdminDate(user.created_at)}
+              </AdminTableCell>
+              <AdminTableCell className="whitespace-nowrap text-muted-foreground">
+                {formatAdminDate(user.last_signin_at)}
+              </AdminTableCell>
+            </AdminTableRow>
+          ))}
+        </AdminTableBody>
+      </AdminTable>
 
       <Pager
         page={page}

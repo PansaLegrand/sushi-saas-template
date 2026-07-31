@@ -21,7 +21,7 @@ export function AdminNotFoundState({
         <span className="mx-auto flex size-12 items-center justify-center rounded-xl bg-muted text-muted-foreground">
           <SearchX aria-hidden className="size-6" />
         </span>
-        <p className="mt-5 text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+        <p className="mt-5 text-sm font-semibold uppercase tracking-wide text-primary">
           Error 404
         </p>
         <h1

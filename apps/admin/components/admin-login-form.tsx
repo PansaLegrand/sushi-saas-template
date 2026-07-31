@@ -10,6 +10,10 @@ import {
   canSubmitWithCaptcha,
   type TurnstileHandle,
 } from "@/components/auth/turnstile";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 
 export function AdminLoginForm() {
   const router = useRouter();
@@ -62,44 +66,58 @@ export function AdminLoginForm() {
   };
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
-      <label className="block space-y-2 text-sm font-medium">
-        <span>Email</span>
-        <input
-          className="w-full rounded-md border px-3 py-2"
-          type="email"
-          autoComplete="email"
-          value={email}
-          onChange={(event) => setEmail(event.currentTarget.value)}
-          required
-        />
-      </label>
-      <label className="block space-y-2 text-sm font-medium">
-        <span>Password</span>
-        <input
-          className="w-full rounded-md border px-3 py-2"
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(event) => setPassword(event.currentTarget.value)}
-          required
-        />
-      </label>
+    <form
+      className="space-y-5"
+      onSubmit={handleSubmit}
+      aria-busy={isSubmitting}
+    >
+      <Field label="Email address" required>
+        {(field) => (
+          <Input
+            {...field}
+            className="h-11 text-base"
+            type="email"
+            autoComplete="email"
+            placeholder="admin@example.com"
+            value={email}
+            onChange={(event) => setEmail(event.currentTarget.value)}
+            required
+          />
+        )}
+      </Field>
+
+      <Field label="Password" required>
+        {(field) => (
+          <Input
+            {...field}
+            className="h-11 text-base"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.currentTarget.value)}
+            required
+          />
+        )}
+      </Field>
+
       <Turnstile
         ref={turnstileRef}
         onToken={setCaptchaToken}
-        onError={() => setErrorMessage("Verification failed. Please try again.")}
+        onError={() =>
+          setErrorMessage("Verification failed. Please try again.")
+        }
         className="flex justify-center"
       />
 
-      {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
-      <button
-        className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-        type="submit"
-        disabled={isSubmitting}
-      >
+      {errorMessage ? (
+        <Alert variant="destructive">
+          <AlertDescription>{errorMessage}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      <Button className="h-11 w-full" type="submit" disabled={isSubmitting}>
         {isSubmitting ? "Signing in..." : "Sign in"}
-      </button>
+      </Button>
     </form>
   );
 }

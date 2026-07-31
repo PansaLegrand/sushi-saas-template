@@ -1,6 +1,17 @@
 import { AdminPageHeader } from "@admin/components/admin-page-header";
+import { AdminStatusBadge } from "@admin/components/admin-status-badge";
+import {
+  AdminTable,
+  AdminTableBody,
+  AdminTableCell,
+  AdminTableEmpty,
+  AdminTableHead,
+  AdminTableHeader,
+  AdminTableRow,
+} from "@admin/components/admin-table";
 import { getAdminContext } from "@admin/lib/authz";
 import { countAdminAffiliates, listAdminAffiliates } from "@admin/lib/data";
+import { formatAdminDate, formatAdminMoney } from "@admin/lib/format";
 import { Pager } from "@admin/components/pager";
 
 const PAGE_SIZE = 100;
@@ -32,67 +43,67 @@ export default async function AdminAffiliatesPage({
         }
       />
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="text-left text-muted-foreground">
-            <tr>
-              <th className="py-2 pr-4">User</th>
-              <th className="py-2 pr-4">Invited By</th>
-              <th className="py-2 pr-4">Status</th>
-              <th className="py-2 pr-4">Order</th>
-              <th className="py-2 pr-4">Paid</th>
-              <th className="py-2 pr-4">Reward</th>
-              <th className="py-2 pr-4">Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr className="border-t">
-                <td className="p-3 text-muted-foreground" colSpan={7}>
-                  No affiliate activity.
-                </td>
-              </tr>
-            )}
-            {rows.map((r) => (
-              <tr key={`${r.id}`} className="border-t">
-                <td className="py-2 pr-4">
-                  <div className="font-mono text-xs">
-                    {(r as any).user?.uuid ?? r.user_uuid}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {(r as any).user?.email ?? ""}
-                  </div>
-                </td>
-                <td className="py-2 pr-4">
-                  <div className="font-mono text-xs">
-                    {(r as any).invited_by_user?.uuid ?? r.invited_by}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {(r as any).invited_by_user?.email ?? ""}
-                  </div>
-                </td>
-                <td className="py-2 pr-4">{r.status}</td>
-                <td className="py-2 pr-4 font-mono text-xs">
-                  {r.paid_order_no || "—"}
-                </td>
-                <td className="py-2 pr-4">
-                  {r.paid_amount > 0
-                    ? `$${(r.paid_amount / 100).toFixed(2)}`
-                    : "—"}
-                </td>
-                <td className="py-2 pr-4">
-                  {r.reward_amount > 0
-                    ? `$${(r.reward_amount / 100).toFixed(2)}`
-                    : "—"}
-                </td>
-                <td className="py-2 pr-4">
-                  {r.created_at ? r.created_at.toISOString() : "—"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <AdminTable caption="Affiliate referrals" className="min-w-[68rem]">
+        <AdminTableHeader>
+          <tr>
+            <AdminTableHead>User</AdminTableHead>
+            <AdminTableHead>Invited by</AdminTableHead>
+            <AdminTableHead>Status</AdminTableHead>
+            <AdminTableHead>Order</AdminTableHead>
+            <AdminTableHead>Paid</AdminTableHead>
+            <AdminTableHead>Reward</AdminTableHead>
+            <AdminTableHead>Created</AdminTableHead>
+          </tr>
+        </AdminTableHeader>
+        <AdminTableBody>
+          {rows.length === 0 && (
+            <AdminTableEmpty
+              colSpan={7}
+              title="No affiliate activity"
+              description="Referral attribution will appear here after the first invitation."
+            />
+          )}
+          {rows.map((r) => (
+            <AdminTableRow key={`${r.id}`}>
+              <AdminTableCell>
+                <div className="font-medium">
+                  {(r as any).user?.email || "Unknown user"}
+                </div>
+                <div className="font-mono text-sm text-muted-foreground">
+                  {(r as any).user?.uuid ?? r.user_uuid}
+                </div>
+              </AdminTableCell>
+              <AdminTableCell>
+                <div className="font-medium">
+                  {(r as any).invited_by_user?.email || "Unknown user"}
+                </div>
+                <div className="font-mono text-sm text-muted-foreground">
+                  {(r as any).invited_by_user?.uuid ?? r.invited_by}
+                </div>
+              </AdminTableCell>
+              <AdminTableCell>
+                <AdminStatusBadge
+                  tone={r.status === "completed" ? "success" : "neutral"}
+                >
+                  {r.status}
+                </AdminStatusBadge>
+              </AdminTableCell>
+              <AdminTableCell className="font-mono">
+                {r.paid_order_no || "—"}
+              </AdminTableCell>
+              <AdminTableCell className="whitespace-nowrap tabular-nums">
+                {r.paid_amount > 0 ? formatAdminMoney(r.paid_amount) : "—"}
+              </AdminTableCell>
+              <AdminTableCell className="whitespace-nowrap tabular-nums">
+                {r.reward_amount > 0 ? formatAdminMoney(r.reward_amount) : "—"}
+              </AdminTableCell>
+              <AdminTableCell className="whitespace-nowrap text-muted-foreground">
+                {formatAdminDate(r.created_at)}
+              </AdminTableCell>
+            </AdminTableRow>
+          ))}
+        </AdminTableBody>
+      </AdminTable>
 
       <Pager
         page={page}

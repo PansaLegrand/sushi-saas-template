@@ -53,7 +53,7 @@ export function AdminErrorState({
           <TriangleAlert aria-hidden className="size-6" />
         </span>
 
-        <p className="mt-5 text-xs font-semibold uppercase tracking-[0.14em] text-destructive">
+        <p className="mt-5 text-sm font-semibold uppercase tracking-wide text-destructive">
           Recovery
         </p>
         <h1

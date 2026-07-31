@@ -35,6 +35,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { countStripeWebhookEventsByStatus } from "@/models/stripe-webhook-event";
 import { countSubscriptionsByStatus } from "@/models/subscription";
 import { describePlans } from "@/services/entitlements";
@@ -382,71 +391,56 @@ export default async function AdminHomePage() {
               </Link>
             </CardHeader>
             <CardContent className="px-0 pb-0">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[42rem] text-sm">
-                  <caption className="sr-only">
-                    The 20 most recently created user accounts
-                  </caption>
-                  <thead className="border-y border-border bg-muted/40 text-left text-xs text-muted-foreground">
-                    <tr>
-                      <th scope="col" className="px-6 py-3 font-medium">
-                        Account
-                      </th>
-                      <th scope="col" className="px-4 py-3 font-medium">
-                        Role
-                      </th>
-                      <th scope="col" className="px-4 py-3 font-medium">
-                        Status
-                      </th>
-                      <th scope="col" className="px-4 py-3 font-medium">
-                        Created
-                      </th>
-                      <th scope="col" className="px-6 py-3 font-medium">
-                        Last sign-in
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={5}
-                          className="px-6 py-8 text-center text-muted-foreground"
-                        >
-                          No users yet.
-                        </td>
-                      </tr>
-                    ) : null}
-                    {users.map((user) => (
-                      <tr
-                        key={user.id}
-                        className="border-b border-border last:border-b-0 hover:bg-muted/25"
+              <Table className="min-w-[42rem]">
+                <TableCaption className="sr-only">
+                  The 20 most recently created user accounts
+                </TableCaption>
+                <TableHeader className="bg-muted/40">
+                  <TableRow>
+                    <TableHead className="pl-6">Account</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead className="pr-6">Last sign-in</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={5}
+                        className="px-6 py-10 text-center text-muted-foreground"
                       >
-                        <td className="px-6 py-3">
-                          <p className="font-medium">{user.email}</p>
-                          <p className="mt-0.5 font-mono text-[0.6875rem] text-muted-foreground">
-                            {user.uuid}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3">{user.role ?? "user"}</td>
-                        <td className="px-4 py-3">
-                          <AdminStatusBadge
-                            tone={user.banned_at ? "danger" : "success"}
-                          >
-                            {user.banned_at ? "Suspended" : "Active"}
-                          </AdminStatusBadge>
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
-                          {formatAdminDate(user.created_at)}
-                        </td>
-                        <td className="whitespace-nowrap px-6 py-3 text-xs text-muted-foreground">
-                          {formatAdminDate(user.last_signin_at)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        No users yet.
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                  {users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="pl-6">
+                        <p className="font-medium">{user.email}</p>
+                        <p className="mt-1 font-mono text-sm text-muted-foreground">
+                          {user.uuid}
+                        </p>
+                      </TableCell>
+                      <TableCell>{user.role ?? "user"}</TableCell>
+                      <TableCell>
+                        <AdminStatusBadge
+                          tone={user.banned_at ? "danger" : "success"}
+                        >
+                          {user.banned_at ? "Suspended" : "Active"}
+                        </AdminStatusBadge>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                        {formatAdminDate(user.created_at)}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap pr-6 text-sm text-muted-foreground">
+                        {formatAdminDate(user.last_signin_at)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
 
@@ -466,72 +460,51 @@ export default async function AdminHomePage() {
               </Link>
             </CardHeader>
             <CardContent className="px-0 pb-0">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[42rem] text-sm">
-                  <caption className="sr-only">
-                    The 20 most recent paid orders
-                  </caption>
-                  <thead className="border-y border-border bg-muted/40 text-left text-xs text-muted-foreground">
-                    <tr>
-                      <th scope="col" className="px-6 py-3 font-medium">
-                        Order
-                      </th>
-                      <th scope="col" className="px-4 py-3 font-medium">
-                        User
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-4 py-3 text-right font-medium"
+              <Table className="min-w-[42rem]">
+                <TableCaption className="sr-only">
+                  The 20 most recent paid orders
+                </TableCaption>
+                <TableHeader className="bg-muted/40">
+                  <TableRow>
+                    <TableHead className="pl-6">Order</TableHead>
+                    <TableHead>User</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="text-right">Credits</TableHead>
+                    <TableHead className="pr-6">Paid</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {orders.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={5}
+                        className="px-6 py-10 text-center text-muted-foreground"
                       >
-                        Amount
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-4 py-3 text-right font-medium"
-                      >
-                        Credits
-                      </th>
-                      <th scope="col" className="px-6 py-3 font-medium">
-                        Paid
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orders.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={5}
-                          className="px-6 py-8 text-center text-muted-foreground"
-                        >
-                          No paid orders yet.
-                        </td>
-                      </tr>
-                    ) : null}
-                    {orders.map((order) => (
-                      <tr
-                        key={order.id}
-                        className="border-b border-border last:border-b-0 hover:bg-muted/25"
-                      >
-                        <td className="px-6 py-3 font-mono text-xs">
-                          {order.order_no}
-                        </td>
-                        <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                          {order.user_uuid}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right font-medium">
-                          {formatAdminMoney(order.amount, order.currency)}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {order.credits}
-                        </td>
-                        <td className="whitespace-nowrap px-6 py-3 text-xs text-muted-foreground">
-                          {formatAdminDate(order.paid_at)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        No paid orders yet.
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                  {orders.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell className="pl-6 font-mono text-sm">
+                        {order.order_no}
+                      </TableCell>
+                      <TableCell className="font-mono text-sm text-muted-foreground">
+                        {order.user_uuid}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-right font-medium">
+                        {formatAdminMoney(order.amount, order.currency)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {order.credits}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap pr-6 text-sm text-muted-foreground">
+                        {formatAdminDate(order.paid_at)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </div>

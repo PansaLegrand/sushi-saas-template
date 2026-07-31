@@ -6,6 +6,9 @@ from `apps/admin/app/globals.css`. Both document roots render the preset as a
 `data-style` attribute, while the existing `.dark` class remains exclusively
 responsible for color mode.
 
+This document covers the visual token layer. Component sizing, composition, and
+page-level rules live in `docs/frontend.md`.
+
 ## Audit result
 
 The July 2026 audit found a strong semantic-token foundation:

@@ -1,7 +1,26 @@
 import Link from "next/link";
 
+import { AdminHelp } from "@admin/components/admin-help";
 import { AdminPageHeader } from "@admin/components/admin-page-header";
+import { AdminStatusBadge } from "@admin/components/admin-status-badge";
 import { getAdminContext } from "@admin/lib/authz";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   reconcileLocalBilling,
   type ReconcileFinding,
@@ -41,19 +60,6 @@ const KIND_COPY: Record<string, { title: string; what: string }> = {
   },
 };
 
-function Severity({ severity }: { severity: ReconcileFinding["severity"] }) {
-  const tone =
-    severity === "error"
-      ? "bg-destructive/10 text-destructive border-destructive/30"
-      : "border-warning/30 bg-warning/10 text-warning";
-
-  return (
-    <span className={`inline-block rounded border px-2 py-0.5 text-xs ${tone}`}>
-      {severity}
-    </span>
-  );
-}
-
 export default async function AdminReconciliationPage({
   searchParams,
 }: {
@@ -80,113 +86,123 @@ export default async function AdminReconciliationPage({
   const errors = report.findings.filter((f) => f.severity === "error").length;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-8">
       <AdminPageHeader
         title="Reconciliation"
-        description={
-          <p>
-            Every billing guarantee is enforced by an index or a transaction.
-            This is the audit that turns those from beliefs into checks.
-          </p>
-        }
+        description="Compare local billing promises with the records that should prove them."
         actions={
           <nav
             aria-label="Reconciliation window"
-            className="flex gap-2 text-sm"
+            className="flex flex-wrap gap-2"
           >
             {WINDOWS.map((window) => (
-              <Link
+              <Button
                 key={window}
-                href={`/reconciliation?days=${window}`}
-                aria-current={days === window ? "page" : undefined}
-                className={`rounded border px-3 py-1 ${
-                  days === window
-                    ? "border-foreground bg-foreground text-background"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
+                asChild
+                size="sm"
+                variant={days === window ? "default" : "outline"}
               >
-                {window}d
-              </Link>
+                <Link
+                  href={`/reconciliation?days=${window}`}
+                  aria-current={days === window ? "page" : undefined}
+                >
+                  {window} days
+                </Link>
+              </Button>
             ))}
           </nav>
         }
       />
 
-      <div
-        className={`rounded-lg border p-3 text-sm ${
-          report.ok ? "" : "border-destructive/30 bg-destructive/10"
-        }`}
-      >
-        {report.ok ? (
-          <>
-            Nothing at <strong>error</strong> severity since{" "}
-            {report.since.slice(0, 10)}.
-            {report.findings.length > 0 &&
-              ` ${report.findings.length} warning(s) below — worth reading, not urgent.`}
-          </>
-        ) : (
-          <>
-            <strong>{errors}</strong> finding{errors === 1 ? "" : "s"} at error
-            severity since {report.since.slice(0, 10)}. Money and entitlement
-            may disagree right now.
-          </>
-        )}
-      </div>
+      <Alert variant={report.ok ? "success" : "destructive"}>
+        <AlertTitle>
+          {report.ok ? "No billing errors found" : "Billing needs attention"}
+        </AlertTitle>
+        <AlertDescription>
+          {report.ok ? (
+            <>
+              No error-severity findings since {report.since.slice(0, 10)}.
+              {report.findings.length > 0
+                ? ` ${report.findings.length} warning(s) remain for review.`
+                : ""}
+            </>
+          ) : (
+            <>
+              {errors} error-severity finding{errors === 1 ? "" : "s"} since{" "}
+              {report.since.slice(0, 10)}. Money and entitlement may disagree
+              right now.
+            </>
+          )}
+        </AlertDescription>
+      </Alert>
 
-      {/* Stated rather than implied. Someone reading a green page should know
-          exactly which half of the check produced it. */}
-      <p className="rounded-lg border p-3 text-xs text-muted-foreground">
+      <AdminHelp summary="Scope and limitations of this report">
         This is the <strong>local</strong> half: it compares this database
         against itself and needs no Stripe key. It cannot detect &ldquo;Stripe
         charged them and we were never told&rdquo; — that requires walking the
         invoice API, which stays in <code>pnpm reconcile:stripe</code>. Findings
         are capped at {FINDING_LIMIT} per check.
-      </p>
+      </AdminHelp>
 
       {report.findings.length === 0 && (
-        <div className="rounded-lg border p-6 text-center text-sm text-muted-foreground">
-          No findings in the last {days} days.
-        </div>
+        <Card>
+          <CardContent className="py-10 text-center text-base text-muted-foreground">
+            No findings in the last {days} days.
+          </CardContent>
+        </Card>
       )}
 
       {[...byKind.entries()].map(([kind, findings]) => {
         const copy = KIND_COPY[kind];
 
         return (
-          <section key={kind} className="rounded-lg border p-4">
-            <div className="mb-1 flex items-center justify-between">
-              <h2 className="text-lg font-medium">{copy?.title ?? kind}</h2>
-              <span className="text-sm text-muted-foreground">
+          <Card key={kind}>
+            <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
+              <div className="space-y-1.5">
+                <CardTitle>{copy?.title ?? kind}</CardTitle>
+                <CardDescription>
+                  {copy?.what ?? "See the detail below."}
+                </CardDescription>
+              </div>
+              <AdminStatusBadge
+                tone={
+                  findings.some((finding) => finding.severity === "error")
+                    ? "danger"
+                    : "warning"
+                }
+              >
                 {findings.length}
-              </span>
-            </div>
-            <p className="mb-3 text-sm text-muted-foreground">
-              {copy?.what ?? "See the detail below."}
-            </p>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-left text-muted-foreground">
-                  <tr>
-                    <th className="py-2 pr-4">Severity</th>
-                    <th className="py-2 pr-4">Detail</th>
-                  </tr>
-                </thead>
-                <tbody>
+              </AdminStatusBadge>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Severity</TableHead>
+                    <TableHead>Detail</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {findings.map((finding, index) => (
-                    <tr key={`${kind}-${index}`} className="border-t align-top">
-                      <td className="py-2 pr-4">
-                        <Severity severity={finding.severity} />
-                      </td>
-                      <td className="py-2 pr-4">
-                        <dl className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
+                    <TableRow key={`${kind}-${index}`} className="align-top">
+                      <TableCell>
+                        <AdminStatusBadge
+                          tone={
+                            finding.severity === "error" ? "danger" : "warning"
+                          }
+                        >
+                          {finding.severity}
+                        </AdminStatusBadge>
+                      </TableCell>
+                      <TableCell>
+                        <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
                           {Object.entries(finding.detail).map(
                             ([key, value]) => (
-                              <div key={key} className="flex gap-2">
-                                <dt className="text-xs text-muted-foreground">
+                              <div key={key} className="space-y-1">
+                                <dt className="text-sm font-medium text-muted-foreground">
                                   {key}
                                 </dt>
-                                <dd className="font-mono text-xs break-all">
+                                <dd className="break-all font-mono text-sm">
                                   {value === null || value === undefined
                                     ? "—"
                                     : String(value)}
@@ -195,55 +211,66 @@ export default async function AdminReconciliationPage({
                             ),
                           )}
                         </dl>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </TableBody>
+              </Table>
 
-            {kind === "order_missing_credits" && (
-              <p className="mt-3 text-xs text-muted-foreground">
-                Each of these is one row in{" "}
-                <Link href="/orders?status=paid" className="underline">
-                  Orders
-                </Link>{" "}
-                showing <span className="text-destructive">none</span> granted.
-              </p>
-            )}
-            {kind === "stuck_event" && (
-              <p className="mt-3 text-xs text-muted-foreground">
-                Act on these from{" "}
-                <Link
-                  href="/stripe-events?status=action_required"
-                  className="underline"
-                >
-                  Stripe Events
-                </Link>
-                .
-              </p>
-            )}
-          </section>
+              {kind === "order_missing_credits" && (
+                <p className="text-sm text-muted-foreground">
+                  Each of these is one row in{" "}
+                  <Link
+                    href="/orders?status=paid"
+                    className="font-medium text-foreground underline underline-offset-4"
+                  >
+                    Orders
+                  </Link>{" "}
+                  showing <span className="text-destructive">none</span>{" "}
+                  granted.
+                </p>
+              )}
+              {kind === "stuck_event" && (
+                <p className="text-sm text-muted-foreground">
+                  Act on these from{" "}
+                  <Link
+                    href="/stripe-events?status=action_required"
+                    className="font-medium text-foreground underline underline-offset-4"
+                  >
+                    Stripe Events
+                  </Link>
+                  .
+                </p>
+              )}
+            </CardContent>
+          </Card>
         );
       })}
 
-      <section className="rounded-lg border p-4">
-        <h2 className="mb-2 text-lg font-medium">Webhook events by status</h2>
-        <div className="flex flex-wrap gap-3 text-sm">
-          {Object.entries(report.eventsByStatus).length === 0 && (
-            <span className="text-muted-foreground">No events recorded.</span>
-          )}
-          {Object.entries(report.eventsByStatus).map(([status, count]) => (
-            <Link
-              key={status}
-              href={`/stripe-events?status=${status}`}
-              className="rounded border px-3 py-1 underline"
-            >
-              {status}: {count}
-            </Link>
-          ))}
-        </div>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>Webhook events by status</CardTitle>
+          <CardDescription>
+            Open the event queue filtered to one processing state.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(report.eventsByStatus).length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No events recorded.
+              </p>
+            )}
+            {Object.entries(report.eventsByStatus).map(([status, count]) => (
+              <Button key={status} asChild variant="outline" size="sm">
+                <Link href={`/stripe-events?status=${status}`}>
+                  {status}: {count}
+                </Link>
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

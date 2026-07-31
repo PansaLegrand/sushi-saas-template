@@ -4,8 +4,20 @@ import { useCallback, useMemo, useState } from "react";
 
 import { ExpirationPicker } from "@admin/components/expiration-picker";
 import { getUserPlan, grantUserPlan, revokeUserPlan } from "@admin/lib/api";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { StatCard } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { resolveErrorMessage } from "@/lib/errors/client";
 import type { PlanSnapshot } from "@/types/plan";
 
@@ -58,7 +70,7 @@ export default function ManagePlanPanel({ canWrite, tiers }: Props) {
           tier,
           expiresAt,
           note: note.trim() || undefined,
-        })
+        }),
       );
       setNote("");
     } catch (e) {
@@ -83,31 +95,39 @@ export default function ManagePlanPanel({ canWrite, tiers }: Props) {
   }, [canWrite, userUuid]);
 
   const subscription = plan?.subscription;
-  const selectedTierName = tiers.find(
-    (option) => option.tier === tier
-  )?.name;
+  const selectedTierName = tiers.find((option) => option.tier === tier)?.name;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5" aria-busy={loading}>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-start">
-        <Input
-          aria-label="User UUID"
-          placeholder="User UUID"
-          value={userUuid}
-          onChange={(e) => setUserUuid(e.currentTarget.value)}
-        />
-        <select
-          aria-label="Tier"
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-          value={tier}
-          onChange={(e) => setTier(e.currentTarget.value)}
-        >
-          {tiers.map((option) => (
-            <option key={option.tier} value={option.tier}>
-              {option.name}
-            </option>
-          ))}
-        </select>
+        <Field label="User UUID" required>
+          {(field) => (
+            <Input
+              {...field}
+              aria-label="User UUID"
+              placeholder="Paste a user UUID"
+              value={userUuid}
+              onChange={(e) => setUserUuid(e.currentTarget.value)}
+              required
+            />
+          )}
+        </Field>
+        <Field label="Plan tier" required>
+          {(field) => (
+            <Select
+              {...field}
+              value={tier}
+              onChange={(e) => setTier(e.currentTarget.value)}
+              required
+            >
+              {tiers.map((option) => (
+                <option key={option.tier} value={option.tier}>
+                  {option.name}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
         <ExpirationPicker
           kind="plan"
           value={expiresAt}
@@ -121,44 +141,53 @@ export default function ManagePlanPanel({ canWrite, tiers }: Props) {
         />
       </div>
 
-      <Input
-        aria-label="Reason"
-        placeholder="Reason (recorded in the audit log)"
-        value={note}
-        onChange={(e) => setNote(e.currentTarget.value)}
-      />
+      <Field
+        label="Reason"
+        description="Required context belongs in the audit log, not in a private note elsewhere."
+      >
+        {(field) => (
+          <Input
+            {...field}
+            placeholder="Why is this access being changed?"
+            value={note}
+            onChange={(e) => setNote(e.currentTarget.value)}
+          />
+        )}
+      </Field>
 
       <div className="flex flex-wrap gap-3">
-        <button
-          className="inline-flex items-center rounded bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-50"
+        <Button
+          type="button"
+          variant="outline"
           onClick={() => void load()}
           disabled={disabled}
         >
           {loading ? "Loading…" : "Load plan"}
-        </button>
-        <button
-          className="inline-flex items-center rounded bg-secondary px-3 py-2 text-sm text-secondary-foreground disabled:opacity-50"
+        </Button>
+        <Button
+          type="button"
           onClick={() => void grant()}
           disabled={disabled || !canWrite}
           title={canWrite ? "Comp this user onto a tier" : "Read-only admin"}
         >
           {canWrite ? "Comp plan" : "Comp disabled (read-only)"}
-        </button>
-        <button
-          className="inline-flex items-center rounded border px-3 py-2 text-sm disabled:opacity-50"
+        </Button>
+        <Button
+          type="button"
+          variant="destructive"
           onClick={() => void revoke()}
           disabled={disabled || !canWrite}
           title="Ends comped access. Paid subscriptions are untouched."
         >
           Revoke comp
-        </button>
+        </Button>
       </div>
 
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
+      {error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
 
       {plan && (
         <div className="space-y-3">
@@ -176,30 +205,28 @@ export default function ManagePlanPanel({ canWrite, tiers }: Props) {
             />
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-left text-muted-foreground">
-                <tr>
-                  <th className="py-2 pr-4">Entitlement</th>
-                  <th className="py-2 pr-4">Value</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(plan.features).map(([key, value]) => (
-                  <tr key={key} className="border-t">
-                    <td className="py-2 pr-4 font-mono text-xs">{key}</td>
-                    <td className="py-2 pr-4">{value ? "yes" : "no"}</td>
-                  </tr>
-                ))}
-                {Object.entries(plan.limits).map(([key, value]) => (
-                  <tr key={key} className="border-t">
-                    <td className="py-2 pr-4 font-mono text-xs">{key}</td>
-                    <td className="py-2 pr-4">{value === null ? "unlimited" : value}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Entitlement</TableHead>
+                <TableHead>Value</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Object.entries(plan.features).map(([key, value]) => (
+                <TableRow key={key}>
+                  <TableCell className="font-mono">{key}</TableCell>
+                  <TableCell>{value ? "Yes" : "No"}</TableCell>
+                </TableRow>
+              ))}
+              {Object.entries(plan.limits).map(([key, value]) => (
+                <TableRow key={key}>
+                  <TableCell className="font-mono">{key}</TableCell>
+                  <TableCell>{value === null ? "Unlimited" : value}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>

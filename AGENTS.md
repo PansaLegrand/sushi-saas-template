@@ -123,10 +123,21 @@ Client Component  ──▶ src/api/**  ──▶  src/lib/api/client.ts  ──
    production is an untranslated "Application error" with no way back.
 5. **Reach for `src/components/ui/` before hand-styling.** `Dialog` (Radix — do
    not hand-roll a modal), `Field`, `Input`, `Textarea`, `Select`, `Alert`,
-   `Card`, `Skeleton`, `EmptyState`. Add a primitive on the third duplicate, not
-   the first.
+   `Card`, `Table`, `Skeleton`, `EmptyState`. Ordinary visible controls use
+   these primitives; raw elements are for hidden, checkbox, file, and
+   provider-owned cases. Add a primitive on the third duplicate, not the first.
+6. **Presets own visual language; primitives own ergonomics.** Components use
+   semantic tokens and never branch on `stylePreset` or `data-style`. Normal
+   controls are comfortable by default; compact density is an explicit local
+   choice, not an admin-wide default.
+7. **Pages compose patterns instead of recreating chrome.** Admin pages reach
+   for `AdminPageHeader`, `AdminToolbar`, `AdminPanel`, `AdminTable`,
+   `AdminTabs`, and `AdminHelp`. Pages own data and broad layout; patterns own
+   repeated spacing, table treatment, and hierarchy. See `docs/frontend.md`.
 
-All five are enforced by `tests/unit/architecture.test.ts`.
+The mechanically detectable parts are enforced by
+`tests/unit/architecture.test.ts`; interaction behavior belongs in component
+tests and visual hierarchy still requires browser review.
 
 ### Tasks & Credits (Usage‑based features)
 - Schema: `tasks` table in `src/db/schema.ts` holds generic task records (type, status, credits_used, user_input, output_url/json, error_message). Indexes by `user_uuid` and `status`.

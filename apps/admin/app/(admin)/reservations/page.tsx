@@ -1,9 +1,21 @@
 import { AdminPageHeader } from "@admin/components/admin-page-header";
+import { AdminPanel } from "@admin/components/admin-panel";
+import { AdminStatusBadge } from "@admin/components/admin-status-badge";
+import {
+  AdminTable,
+  AdminTableBody,
+  AdminTableCell,
+  AdminTableEmpty,
+  AdminTableHead,
+  AdminTableHeader,
+  AdminTableRow,
+} from "@admin/components/admin-table";
 import { getAdminContext } from "@admin/lib/authz";
 import {
   countAdminReservations,
   listAdminReservationsWithService,
 } from "@admin/lib/data";
+import { formatAdminDate } from "@admin/lib/format";
 import { Pager } from "@admin/components/pager";
 import { ReservationsConfig } from "@/config/reservations";
 
@@ -26,9 +38,11 @@ export default async function AdminReservationsPage({
           title="Reservations"
           description="Review upcoming and past customer appointments."
         />
-        <section className="rounded-lg border p-4">
-          <p className="text-sm text-muted-foreground">Feature disabled.</p>
-        </section>
+        <AdminPanel>
+          <p className="text-sm text-muted-foreground">
+            Reservations are disabled in the product configuration.
+          </p>
+        </AdminPanel>
       </div>
     );
   }
@@ -51,73 +65,67 @@ export default async function AdminReservationsPage({
         }
       />
 
-      <section className="rounded-lg border p-4">
-        {/* Ordered by start time, so paging walks the calendar forward rather
-            than reading a "latest 50" that silently ended. */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <caption className="sr-only">Customer reservations</caption>
-            <thead className="text-left text-muted-foreground">
-              <tr>
-                <th scope="col" className="py-2 pr-4">
-                  Reservation #
-                </th>
-                <th scope="col" className="py-2 pr-4">
-                  Service
-                </th>
-                <th scope="col" className="py-2 pr-4">
-                  User UUID
-                </th>
-                <th scope="col" className="py-2 pr-4">
-                  When
-                </th>
-                <th scope="col" className="py-2 pr-4">
-                  TZ
-                </th>
-                <th scope="col" className="py-2 pr-4">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {reservations.length === 0 && (
-                <tr className="border-t">
-                  <td className="p-3 text-muted-foreground" colSpan={6}>
-                    No reservations.
-                  </td>
-                </tr>
-              )}
-              {reservations.map((r) => {
-                const when = new Date(r.start_at as any).toISOString();
-                return (
-                  <tr key={r.id} className="border-t">
-                    <td className="py-2 pr-4 font-mono text-xs">
-                      {r.reservation_no}
-                    </td>
-                    <td className="py-2 pr-4">
-                      {r.service?.title ?? `#${r.service_id}`}
-                    </td>
-                    <td className="py-2 pr-4 font-mono text-xs">
-                      {r.user_uuid}
-                    </td>
-                    <td className="py-2 pr-4 font-mono text-xs">{when}</td>
-                    <td className="py-2 pr-4">{r.timezone}</td>
-                    <td className="py-2 pr-4 capitalize">{r.status}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+      {/* Ordered by start time, so paging walks the calendar forward. */}
+      <AdminTable caption="Customer reservations" className="min-w-[64rem]">
+        <AdminTableHeader>
+          <tr>
+            <AdminTableHead>Reservation #</AdminTableHead>
+            <AdminTableHead>Service</AdminTableHead>
+            <AdminTableHead>User UUID</AdminTableHead>
+            <AdminTableHead>When</AdminTableHead>
+            <AdminTableHead>Timezone</AdminTableHead>
+            <AdminTableHead>Status</AdminTableHead>
+          </tr>
+        </AdminTableHeader>
+        <AdminTableBody>
+          {reservations.length === 0 && (
+            <AdminTableEmpty
+              colSpan={6}
+              title="No reservations"
+              description="Customer appointments will appear here."
+            />
+          )}
+          {reservations.map((reservation) => (
+            <AdminTableRow key={reservation.id}>
+              <AdminTableCell className="font-mono">
+                {reservation.reservation_no}
+              </AdminTableCell>
+              <AdminTableCell className="font-medium">
+                {reservation.service?.title ?? `#${reservation.service_id}`}
+              </AdminTableCell>
+              <AdminTableCell className="font-mono">
+                {reservation.user_uuid}
+              </AdminTableCell>
+              <AdminTableCell className="whitespace-nowrap text-muted-foreground">
+                {formatAdminDate(reservation.start_at)}
+              </AdminTableCell>
+              <AdminTableCell>{reservation.timezone}</AdminTableCell>
+              <AdminTableCell>
+                <AdminStatusBadge
+                  tone={
+                    reservation.status === "confirmed"
+                      ? "success"
+                      : reservation.status === "canceled" ||
+                          reservation.status === "expired"
+                        ? "danger"
+                        : "info"
+                  }
+                >
+                  {reservation.status}
+                </AdminStatusBadge>
+              </AdminTableCell>
+            </AdminTableRow>
+          ))}
+        </AdminTableBody>
+      </AdminTable>
 
-        <Pager
-          page={page}
-          pageSize={PAGE_SIZE}
-          total={total}
-          unit="reservations"
-          href={(target) => `/reservations?page=${target}`}
-        />
-      </section>
+      <Pager
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={total}
+        unit="reservations"
+        href={(target) => `/reservations?page=${target}`}
+      />
     </div>
   );
 }

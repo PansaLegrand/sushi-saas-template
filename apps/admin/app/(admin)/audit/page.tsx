@@ -1,6 +1,17 @@
 import { AdminPageHeader } from "@admin/components/admin-page-header";
+import { AdminStatusBadge } from "@admin/components/admin-status-badge";
+import {
+  AdminTable,
+  AdminTableBody,
+  AdminTableCell,
+  AdminTableEmpty,
+  AdminTableHead,
+  AdminTableHeader,
+  AdminTableRow,
+} from "@admin/components/admin-table";
 import { getAdminContext } from "@admin/lib/authz";
 import { countAdminAuditLogs, listAdminAuditLogs } from "@admin/lib/audit";
+import { formatAdminDate } from "@admin/lib/format";
 import { Pager } from "@admin/components/pager";
 
 const PAGE_SIZE = 100;
@@ -32,7 +43,7 @@ export default async function AdminAuditPage({
   ]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <AdminPageHeader
         title="Audit log"
         description="Trace administrative changes, their target, and the operator responsible."
@@ -41,58 +52,66 @@ export default async function AdminAuditPage({
         }
       />
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="text-left text-muted-foreground">
-            <tr>
-              <th className="py-2 pr-4">When</th>
-              <th className="py-2 pr-4">Actor</th>
-              <th className="py-2 pr-4">Action</th>
-              <th className="py-2 pr-4">Target</th>
-              <th className="py-2 pr-4">Status</th>
-              <th className="py-2 pr-4">Reason</th>
-              <th className="py-2 pr-4">Details</th>
-              <th className="py-2 pr-4">IP</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(rows ?? []).map((row) => (
-              <tr key={row.uuid} className="border-t align-top">
-                <td className="py-2 pr-4 font-mono text-xs">
-                  {row.created_at ? row.created_at.toISOString() : "—"}
-                </td>
-                <td className="py-2 pr-4">
-                  <div className="text-xs">{row.actor_email || "—"}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {row.actor_role}
-                  </div>
-                </td>
-                <td className="py-2 pr-4">{row.action}</td>
-                <td className="py-2 pr-4">
-                  <div className="text-xs text-muted-foreground">
-                    {row.target_type || "—"}
-                  </div>
-                  <div className="font-mono text-xs">
-                    {row.target_uuid || "—"}
-                  </div>
-                </td>
-                <td className="py-2 pr-4 capitalize">{row.status}</td>
-                <td className="py-2 pr-4 max-w-[20rem] whitespace-pre-wrap">
-                  {row.note || "—"}
-                </td>
-                <td className="py-2 pr-4 max-w-[24rem]">
-                  <code className="block whitespace-pre-wrap break-all text-[10px]">
-                    {row.error_message || row.metadata_json || "—"}
-                  </code>
-                </td>
-                <td className="py-2 pr-4 font-mono text-xs">
-                  {row.ip_address || "—"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <AdminTable caption="Administrative audit log" className="min-w-[72rem]">
+        <AdminTableHeader>
+          <tr>
+            <AdminTableHead>When</AdminTableHead>
+            <AdminTableHead>Actor</AdminTableHead>
+            <AdminTableHead>Action and target</AdminTableHead>
+            <AdminTableHead>Status</AdminTableHead>
+            <AdminTableHead>Context</AdminTableHead>
+          </tr>
+        </AdminTableHeader>
+        <AdminTableBody>
+          {(rows ?? []).length === 0 && (
+            <AdminTableEmpty
+              colSpan={5}
+              title="No audit entries"
+              description="Administrative changes will be recorded here."
+            />
+          )}
+          {(rows ?? []).map((row) => (
+            <AdminTableRow key={row.uuid}>
+              <AdminTableCell className="whitespace-nowrap text-muted-foreground">
+                {formatAdminDate(row.created_at)}
+              </AdminTableCell>
+              <AdminTableCell>
+                <div className="font-medium">{row.actor_email || "—"}</div>
+                <div className="text-sm text-muted-foreground">
+                  {row.actor_role}
+                </div>
+                <div className="mt-1 font-mono text-sm text-muted-foreground">
+                  {row.ip_address || "No IP"}
+                </div>
+              </AdminTableCell>
+              <AdminTableCell>
+                <div className="font-medium">{row.action}</div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  {row.target_type || "—"}
+                </div>
+                <div className="font-mono text-sm">
+                  {row.target_uuid || "—"}
+                </div>
+              </AdminTableCell>
+              <AdminTableCell>
+                <AdminStatusBadge
+                  tone={row.status === "succeeded" ? "success" : "danger"}
+                >
+                  {row.status}
+                </AdminStatusBadge>
+              </AdminTableCell>
+              <AdminTableCell className="max-w-[36rem]">
+                {row.note ? (
+                  <p className="mb-2 whitespace-pre-wrap">{row.note}</p>
+                ) : null}
+                <code className="block whitespace-pre-wrap break-all text-sm leading-5 text-muted-foreground">
+                  {row.error_message || row.metadata_json || "—"}
+                </code>
+              </AdminTableCell>
+            </AdminTableRow>
+          ))}
+        </AdminTableBody>
+      </AdminTable>
 
       <Pager
         page={page}
