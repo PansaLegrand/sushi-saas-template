@@ -1,0 +1,3 @@
+ALTER TABLE "organizations" ADD COLUMN "member_limit_override" integer;--> statement-breakpoint
+ALTER TABLE "organizations" ADD COLUMN "member_limit_override_expires_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "organizations" ADD CONSTRAINT "organizations_member_limit_override_positive" CHECK ("organizations"."member_limit_override" is null or "organizations"."member_limit_override" >= 1);

@@ -74,6 +74,7 @@
   "SERVER_ERROR": "服务器出错了，请稍后重试。",
   "NETWORK_UNAVAILABLE": "无法连接服务器，请检查网络后重试。",
   "ORG_CONTEXT_REQUIRED": "请先选择工作区。刷新页面后重试。",
+  "ORG_NOT_FOUND": "未找到该组织。",
   "ORG_MEMBER_NOT_FOUND": "该成员不属于此团队。",
   "ORG_LAST_OWNER": "这是唯一的所有者。请先将其他人设为所有者。",
   "ORG_ALREADY_MEMBER": "该用户已在此团队中。",

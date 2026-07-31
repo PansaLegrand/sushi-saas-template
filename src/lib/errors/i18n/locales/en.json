@@ -74,6 +74,7 @@
   "SERVER_ERROR": "Something went wrong on our end. Please try again.",
   "NETWORK_UNAVAILABLE": "Could not reach the server. Check your connection and try again.",
   "ORG_CONTEXT_REQUIRED": "Choose a workspace before continuing. Refresh the page and try again.",
+  "ORG_NOT_FOUND": "That organization was not found.",
   "ORG_MEMBER_NOT_FOUND": "That member is not part of this team.",
   "ORG_LAST_OWNER": "This is the only owner. Make someone else an owner first.",
   "ORG_ALREADY_MEMBER": "That person is already on this team.",

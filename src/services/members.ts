@@ -13,6 +13,7 @@ import {
 import type { TeamView } from "@/types/team";
 
 import { can, type OrgContext } from "./authz";
+import { getOrganizationSeatSummary } from "./organization-seats";
 
 /**
  * Team membership, and the rules the organization plugin does not know about.
@@ -46,9 +47,10 @@ export type { InvitationView, MemberView, TeamView } from "@/types/team";
 export async function getTeam(ctx: OrgContext): Promise<TeamView> {
   const canManage = can(ctx, "member:manage");
 
-  const [members, invitations] = await Promise.all([
+  const [members, invitations, seats] = await Promise.all([
     listMembersWithUsers(ctx.orgId),
     canManage ? listPendingInvitations(ctx.orgId) : Promise.resolve([]),
+    getOrganizationSeatSummary(ctx.orgId, ctx.orgUuid),
   ]);
 
   return {
@@ -59,6 +61,7 @@ export async function getTeam(ctx: OrgContext): Promise<TeamView> {
       isPersonal: ctx.orgIsPersonal,
     },
     viewer: { role: ctx.role, canManage },
+    seats,
     members: members.map((row) => ({
       memberId: row.member.id,
       userUuid: row.user.uuid,

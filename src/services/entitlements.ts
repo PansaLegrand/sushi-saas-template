@@ -1,4 +1,8 @@
-import type { OrgUuid } from "@/models/organization";
+import {
+  findOrganizationMemberLimitOverride,
+  type OrganizationMemberLimitOverride,
+  type OrgUuid,
+} from "@/models/organization";
 import { cache } from "react";
 
 import {
@@ -53,11 +57,21 @@ import type {
 
 export type ResolvedPlan = {
   tier: Tier;
+  /** Catalog definition before an organization-specific support override. */
+  catalogPlan: PlanDefinition;
+  /** Effective definition after active organization-specific overrides. */
   plan: PlanDefinition;
+  limitOverrides: Partial<Record<PlanLimit, ResolvedLimitOverride>>;
   /** The row that granted this tier, or null when the user is on the default. */
   subscription: SubscriptionRow | null;
   /** Every current candidate row; billing must not hide stacked subscriptions. */
   subscriptions: SubscriptionRow[];
+};
+
+export type ResolvedLimitOverride = {
+  value: number;
+  expiresAt: Date | null;
+  active: boolean;
 };
 
 /**
@@ -128,9 +142,12 @@ export const resolvePlan = cache(async function resolvePlan(
 ): Promise<ResolvedPlan> {
   if (!orgUuid) return freePlan();
 
-  const rows = await listSubscriptionsByOrg(orgUuid, {
-    statuses: CANDIDATE_STATUSES,
-  });
+  const [rows, memberLimitOverride] = await Promise.all([
+    listSubscriptionsByOrg(orgUuid, {
+      statuses: CANDIDATE_STATUSES,
+    }),
+    findOrganizationMemberLimitOverride(orgUuid),
+  ]);
 
   const now = new Date();
   let best: { row: SubscriptionRow; tier: Tier } | null = null;
@@ -147,21 +164,68 @@ export const resolvePlan = cache(async function resolvePlan(
     }
   }
 
-  if (!best) return freePlan(rows);
+  if (!best) return freePlan(rows, memberLimitOverride, now);
 
-  return {
-    tier: best.tier,
-    plan: planFor(best.tier),
-    subscription: best.row,
-    subscriptions: rows,
-  };
+  return resolvedPlan(
+    best.tier,
+    best.row,
+    rows,
+    memberLimitOverride,
+    now,
+  );
 });
 
-function freePlan(subscriptions: SubscriptionRow[] = []): ResolvedPlan {
+function freePlan(
+  subscriptions: SubscriptionRow[] = [],
+  memberLimitOverride: OrganizationMemberLimitOverride | null = null,
+  now: Date = new Date(),
+): ResolvedPlan {
+  return resolvedPlan(
+    DEFAULT_TIER,
+    null,
+    subscriptions,
+    memberLimitOverride,
+    now,
+  );
+}
+
+function resolvedPlan(
+  tier: Tier,
+  subscription: SubscriptionRow | null,
+  subscriptions: SubscriptionRow[],
+  memberLimitOverride: OrganizationMemberLimitOverride | null,
+  now: Date,
+): ResolvedPlan {
+  const catalogPlan = planFor(tier);
+  const active = Boolean(
+    memberLimitOverride &&
+      (!memberLimitOverride.expiresAt ||
+        memberLimitOverride.expiresAt.getTime() > now.getTime()),
+  );
+  const limitOverrides: ResolvedPlan["limitOverrides"] = memberLimitOverride
+    ? {
+        "organization.members": {
+          value: memberLimitOverride.value,
+          expiresAt: memberLimitOverride.expiresAt,
+          active,
+        },
+      }
+    : {};
+
   return {
-    tier: DEFAULT_TIER,
-    plan: planFor(DEFAULT_TIER),
-    subscription: null,
+    tier,
+    catalogPlan,
+    plan: active
+      ? {
+          ...catalogPlan,
+          limits: {
+            ...catalogPlan.limits,
+            "organization.members": memberLimitOverride!.value,
+          },
+        }
+      : catalogPlan,
+    limitOverrides,
+    subscription,
     subscriptions,
   };
 }
@@ -221,6 +285,26 @@ export async function limitOf(
 ): Promise<LimitValue> {
   const { plan } = await resolvePlan(orgUuid);
   return plan.limits[limit];
+}
+
+/** Plan default, configured exception, and effective cap for admin/support UI. */
+export async function resolveLimit(
+  orgUuid: OrgUuid | null | undefined,
+  limit: PlanLimit,
+): Promise<{
+  tier: Tier;
+  defaultValue: LimitValue;
+  effectiveValue: LimitValue;
+  override: ResolvedLimitOverride | null;
+}> {
+  const resolved = await resolvePlan(orgUuid);
+
+  return {
+    tier: resolved.tier,
+    defaultValue: resolved.catalogPlan.limits[limit],
+    effectiveValue: resolved.plan.limits[limit],
+    override: resolved.limitOverrides[limit] ?? null,
+  };
 }
 
 export type LimitUsage = {

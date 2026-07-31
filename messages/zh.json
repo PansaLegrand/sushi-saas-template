@@ -255,6 +255,8 @@
         "ownerOnly": "只有工作区所有者可以新增订阅或更改付款信息。"
       },
       "limits": {
+        "members": "组织成员",
+        "seats": "{value} 个席位",
         "largestFile": "最大文件",
         "totalStorage": "总存储空间",
         "videoGenerations": "视频生成",
@@ -342,6 +344,9 @@
     "inviteSubmit": "发送邀请",
     "inviteSending": "发送中…",
     "inviteSent": "邀请已发送至 {email}。",
+    "seatUsage": "已预留 {occupied}/{limit} 个席位，其中包含 {pending} 个待处理邀请。",
+    "seatUsageUnlimited": "已预留 {occupied} 个席位，其中包含 {pending} 个待处理邀请。席位数不限。",
+    "seatLimitReached": "没有可用席位。请升级方案或联系管理员调整上限。",
     "noInvitations": "没有待处理的邀请。",
     "cancelInvitation": "撤回",
     "invitationCanceled": "邀请已撤回。",

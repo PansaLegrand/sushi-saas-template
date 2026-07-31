@@ -69,6 +69,8 @@ export const PLANS = {
       "tasks.text_to_video": false,
     },
     limits: {
+      // The owner consumes the one Free seat, so Free cannot invite.
+      "organization.members": 1,
       "storage.maxFileMb": 5,
       "storage.totalMb": 100,
       "tasks.perMonth": 0,
@@ -86,6 +88,7 @@ export const PLANS = {
       "tasks.text_to_video": true,
     },
     limits: {
+      "organization.members": 5,
       "storage.maxFileMb": 25,
       "storage.totalMb": 5_000,
       "tasks.perMonth": 50,
@@ -102,6 +105,7 @@ export const PLANS = {
       "tasks.text_to_video": true,
     },
     limits: {
+      "organization.members": 20,
       "storage.maxFileMb": 200,
       "storage.totalMb": 50_000,
       "tasks.perMonth": UNLIMITED,

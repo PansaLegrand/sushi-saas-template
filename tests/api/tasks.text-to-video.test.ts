@@ -59,6 +59,16 @@ vi.mock("@/models/subscription", async () => {
   };
 });
 
+vi.mock("@/models/organization", async () => {
+  const actual = await vi.importActual<typeof import("@/models/organization")>(
+    "@/models/organization",
+  );
+  return {
+    ...actual,
+    findOrganizationMemberLimitOverride: vi.fn().mockResolvedValue(null),
+  };
+});
+
 vi.mock("@/models/task", () => ({
   countTasksByOrgSince: (...args: unknown[]) => countTasksByOrgSince(...args),
 }));

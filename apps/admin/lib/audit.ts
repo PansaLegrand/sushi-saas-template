@@ -10,6 +10,8 @@ export type AdminAuditAction =
   | "credits.grant"
   | "plan.comp.grant"
   | "plan.comp.revoke"
+  | "organization.seat_limit.override"
+  | "organization.seat_limit.reset"
   | "user.ban"
   | "user.unban"
   | "blocklist.add"

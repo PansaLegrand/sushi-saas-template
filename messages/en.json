@@ -255,6 +255,8 @@
         "ownerOnly": "Only a workspace owner can add subscriptions or change payment details."
       },
       "limits": {
+        "members": "Organization members",
+        "seats": "{value} seats",
         "largestFile": "Largest file",
         "totalStorage": "Total storage",
         "videoGenerations": "Video generations",
@@ -342,6 +344,9 @@
     "inviteSubmit": "Send invitation",
     "inviteSending": "Sending…",
     "inviteSent": "Invitation sent to {email}.",
+    "seatUsage": "{occupied} of {limit} seats reserved, including {pending} pending invitations.",
+    "seatUsageUnlimited": "{occupied} seats reserved, including {pending} pending invitations. There is no seat limit.",
+    "seatLimitReached": "No seats are available. Upgrade the plan or ask an administrator to adjust the limit.",
     "noInvitations": "No pending invitations.",
     "cancelInvitation": "Cancel",
     "invitationCanceled": "Invitation withdrawn.",

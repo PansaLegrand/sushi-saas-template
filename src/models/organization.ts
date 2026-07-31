@@ -228,6 +228,54 @@ export async function setOrganizationStripeCustomerId(
     .where(eq(organizations.uuid, orgUuid));
 }
 
+export type OrganizationMemberLimitOverride = {
+  value: number;
+  expiresAt: Date | null;
+};
+
+/**
+ * The configured organization-specific member cap, including an expired one.
+ *
+ * Entitlement resolution decides whether the expiry is still active. Returning
+ * the configured value here also lets the admin console explain that an old
+ * exception has fallen back to the plan rather than pretending it never
+ * existed.
+ */
+export async function findOrganizationMemberLimitOverride(
+  orgUuid: string,
+): Promise<OrganizationMemberLimitOverride | null> {
+  const [row] = await db()
+    .select({
+      value: organizations.member_limit_override,
+      expiresAt: organizations.member_limit_override_expires_at,
+    })
+    .from(organizations)
+    .where(eq(organizations.uuid, orgUuid))
+    .limit(1);
+
+  if (!row || row.value === null) return null;
+  return { value: row.value, expiresAt: row.expiresAt };
+}
+
+/** Set or clear the support/VIP exception without changing the paid tier. */
+export async function setOrganizationMemberLimitOverride(
+  orgUuid: string,
+  value: number | null,
+  expiresAt: Date | null,
+): Promise<OrganizationRow | undefined> {
+  const [updated] = await db()
+    .update(organizations)
+    .set({
+      member_limit_override: value,
+      member_limit_override_expires_at: value === null ? null : expiresAt,
+      updated_at: new Date(),
+    })
+    .where(eq(organizations.uuid, orgUuid))
+    .returning();
+
+  return updated;
+}
+
 export async function findOrganizationById(
   id: string
 ): Promise<OrganizationRow | undefined> {
@@ -294,6 +342,9 @@ export async function listOrganizationsForAdmin({
       is_personal: organizations.is_personal,
       lifecycle_status: organizations.lifecycle_status,
       deleted_at: organizations.deleted_at,
+      member_limit_override: organizations.member_limit_override,
+      member_limit_override_expires_at:
+        organizations.member_limit_override_expires_at,
       created_at: organizations.created_at,
       updated_at: organizations.updated_at,
       // A join and GROUP BY rather than a correlated subquery, and not for
@@ -366,6 +417,39 @@ export async function listPendingInvitations(
 }
 
 /**
+ * Seats already committed by an organization.
+ *
+ * A live invitation reserves a seat so an organization cannot send twenty
+ * links for its final slot and let acceptance order decide who gets it.
+ * Expired, canceled, rejected, and accepted invitations no longer reserve one.
+ */
+export async function countOrganizationSeatUsage(
+  orgId: string,
+  options: { excludePendingEmail?: string } = {},
+): Promise<{
+  members: number;
+  pendingInvitations: number;
+}> {
+  const pendingWhere = [
+    eq(orgInvitations.organization_id, orgId),
+    eq(orgInvitations.status, "pending"),
+    gt(orgInvitations.expires_at, new Date()),
+  ];
+  if (options.excludePendingEmail) {
+    pendingWhere.push(
+      sql`lower(${orgInvitations.email}) <> ${options.excludePendingEmail.toLowerCase()}`,
+    );
+  }
+
+  const [members, pendingInvitations] = await Promise.all([
+    db().$count(orgMembers, eq(orgMembers.organization_id, orgId)),
+    db().$count(orgInvitations, and(...pendingWhere)),
+  ]);
+
+  return { members, pendingInvitations };
+}
+
+/**
  * One invitation by its id, with the organization it grants access to.
  *
  * Necessarily unscoped: the recipient is not yet a member of that organization,
@@ -434,6 +518,29 @@ type MembershipMutationOutcome =
 
 /** An open transaction, as handed to the callback of `db().transaction()`. */
 type Tx = Parameters<Parameters<ReturnType<typeof db>["transaction"]>[0]>[0];
+
+/**
+ * Hold the organization seat lock while a caller performs a Better Auth
+ * membership write on another pooled connection.
+ *
+ * Better Auth owns invitation rows and cannot join a Drizzle transaction
+ * supplied by this application. A transaction-scoped advisory lock still
+ * spans the callback globally, so two supported invitation/acceptance routes
+ * cannot both observe and consume the final seat.
+ */
+export async function withOrganizationSeatLock<T>(
+  orgId: string,
+  work: () => Promise<T>,
+): Promise<T> {
+  return db().transaction(async (tx) => {
+    await tx.execute(sql`
+      select pg_advisory_xact_lock(
+        hashtextextended(${`organization-seats:${orgId}`}, 0::bigint)
+      )
+    `);
+    return work();
+  });
+}
 
 async function lockMembershipMutation(
   tx: Tx,

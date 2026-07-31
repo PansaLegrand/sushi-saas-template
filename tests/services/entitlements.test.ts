@@ -11,7 +11,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PAST_DUE_GRACE_DAYS } from "@/config/plans";
 
-const listSubscriptionsByOrg = vi.fn();
+const mocks = vi.hoisted(() => ({
+  listSubscriptionsByOrg: vi.fn(),
+  findOrganizationMemberLimitOverride: vi.fn(),
+}));
+const listSubscriptionsByOrg = mocks.listSubscriptionsByOrg;
+const findOrganizationMemberLimitOverride =
+  mocks.findOrganizationMemberLimitOverride;
 
 vi.mock("@/models/subscription", async () => {
   const actual = await vi.importActual<typeof import("@/models/subscription")>(
@@ -23,7 +29,18 @@ vi.mock("@/models/subscription", async () => {
     // Only the read path is mocked: the status constants stay real, so a typo
     // in a status string fails here rather than passing against a fake.
     listSubscriptionsByOrg: (...args: unknown[]) =>
-      listSubscriptionsByOrg(...args),
+      mocks.listSubscriptionsByOrg(...args),
+  };
+});
+
+vi.mock("@/models/organization", async () => {
+  const actual = await vi.importActual<typeof import("@/models/organization")>(
+    "@/models/organization",
+  );
+  return {
+    ...actual,
+    findOrganizationMemberLimitOverride:
+      mocks.findOrganizationMemberLimitOverride,
   };
 });
 
@@ -36,6 +53,7 @@ import {
   limitOf,
   lowestTierWith,
   requireEntitlement,
+  resolveLimit,
   resolvePlan,
   tierForPriceIds,
 } from "@/services/entitlements";
@@ -81,6 +99,7 @@ function row(overrides: Partial<SubscriptionRow> = {}): SubscriptionRow {
 beforeEach(() => {
   vi.clearAllMocks();
   listSubscriptionsByOrg.mockResolvedValue([]);
+  findOrganizationMemberLimitOverride.mockResolvedValue(null);
 });
 
 describe("resolvePlan", () => {
@@ -263,6 +282,56 @@ describe("limits", () => {
 
     listSubscriptionsByOrg.mockResolvedValue([row({ tier: "max" })]);
     expect(await limitOf(ORG, "tasks.perMonth")).toBeNull();
+  });
+
+  it("uses one, five, and twenty total seats for Free, Plus, and Max", async () => {
+    expect(await limitOf(ORG, "organization.members")).toBe(1);
+
+    listSubscriptionsByOrg.mockResolvedValue([row({ tier: "plus" })]);
+    expect(await limitOf(ORG, "organization.members")).toBe(5);
+
+    listSubscriptionsByOrg.mockResolvedValue([row({ tier: "max" })]);
+    expect(await limitOf(ORG, "organization.members")).toBe(20);
+  });
+
+  it("keeps an active VIP override through plan upgrades and downgrades", async () => {
+    findOrganizationMemberLimitOverride.mockResolvedValue({
+      value: 35,
+      expiresAt: null,
+    });
+
+    listSubscriptionsByOrg.mockResolvedValue([row({ tier: "max" })]);
+    expect(await resolveLimit(ORG, "organization.members")).toMatchObject({
+      tier: "max",
+      defaultValue: 20,
+      effectiveValue: 35,
+      override: { value: 35, active: true },
+    });
+
+    // A billing downgrade changes the catalog default, not the explicit
+    // support agreement. Removing/expiring the exception is a separate action.
+    listSubscriptionsByOrg.mockResolvedValue([]);
+    expect(await resolveLimit(ORG, "organization.members")).toMatchObject({
+      tier: "free",
+      defaultValue: 1,
+      effectiveValue: 35,
+      override: { value: 35, active: true },
+    });
+  });
+
+  it("falls back to the downgraded plan after an override expires", async () => {
+    findOrganizationMemberLimitOverride.mockResolvedValue({
+      value: 35,
+      expiresAt: new Date(Date.now() - 1_000),
+    });
+    listSubscriptionsByOrg.mockResolvedValue([]);
+
+    expect(await resolveLimit(ORG, "organization.members")).toMatchObject({
+      tier: "free",
+      defaultValue: 1,
+      effectiveValue: 1,
+      override: { value: 35, active: false },
+    });
   });
 
   it("throws with the numbers needed to explain itself", async () => {

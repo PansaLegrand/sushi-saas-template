@@ -255,6 +255,8 @@
         "ownerOnly": "Solo un propietario puede añadir suscripciones o cambiar los datos de pago."
       },
       "limits": {
+        "members": "Miembros de la organización",
+        "seats": "{value} plazas",
         "largestFile": "Archivo más grande",
         "totalStorage": "Almacenamiento total",
         "videoGenerations": "Generaciones de vídeo",
@@ -342,6 +344,9 @@
     "inviteSubmit": "Enviar invitación",
     "inviteSending": "Enviando…",
     "inviteSent": "Invitación enviada a {email}.",
+    "seatUsage": "{occupied} de {limit} plazas reservadas, incluidas {pending} invitaciones pendientes.",
+    "seatUsageUnlimited": "{occupied} plazas reservadas, incluidas {pending} invitaciones pendientes. No hay límite de plazas.",
+    "seatLimitReached": "No hay plazas disponibles. Mejora el plan o pide a un administrador que ajuste el límite.",
     "noInvitations": "No hay invitaciones pendientes.",
     "cancelInvitation": "Cancelar",
     "invitationCanceled": "Invitación retirada.",

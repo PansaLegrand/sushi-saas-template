@@ -3,7 +3,11 @@ import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { respData, respNoAuth } from "@/lib/resp";
 import { respCode, respError } from "@/lib/errors/response";
-import { findInvitationById } from "@/models/organization";
+import { asOrgUuid, findInvitationById } from "@/models/organization";
+import {
+  assertOrganizationCanAcceptInvitation,
+  serializeOrganizationSeatMutation,
+} from "@/services/organization-seats";
 
 /**
  * Accept or decline an invitation.
@@ -45,10 +49,22 @@ export async function POST(
       return respCode("ORG_INVITATION_WRONG_ACCOUNT");
     }
 
-    const accepted = await auth.api.acceptInvitation({
-      headers: req.headers,
-      body: { invitationId: id },
-    });
+    // The plan or an admin exception may have changed since the link was sent.
+    // Existing members survive a downgrade; this new membership does not.
+    const accepted = await serializeOrganizationSeatMutation(
+      invitation.organization.id,
+      async () => {
+        await assertOrganizationCanAcceptInvitation(
+          invitation.organization.id,
+          asOrgUuid(invitation.organization.uuid),
+        );
+
+        return auth.api.acceptInvitation({
+          headers: req.headers,
+          body: { invitationId: id },
+        });
+      },
+    );
 
     return respData({ organizationId: accepted?.invitation?.organizationId ?? null });
   } catch (error) {

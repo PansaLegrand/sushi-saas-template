@@ -74,6 +74,7 @@
   "SERVER_ERROR": "Une erreur est survenue de notre côté. Veuillez réessayer.",
   "NETWORK_UNAVAILABLE": "Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.",
   "ORG_CONTEXT_REQUIRED": "Choisissez un espace de travail avant de continuer. Actualisez la page et réessayez.",
+  "ORG_NOT_FOUND": "Cette organisation est introuvable.",
   "ORG_MEMBER_NOT_FOUND": "Cette personne ne fait pas partie de cette équipe.",
   "ORG_LAST_OWNER": "C'est le seul propriétaire. Désignez d'abord un autre propriétaire.",
   "ORG_ALREADY_MEMBER": "Cette personne fait déjà partie de l'équipe.",

@@ -32,6 +32,7 @@ export type PlanFeature =
 
 /** A capability every tier has, but in a bounded amount. */
 export type PlanLimit =
+  | "organization.members"
   | "storage.maxFileMb"
   | "storage.totalMb"
   | "tasks.perMonth";

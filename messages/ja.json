@@ -255,6 +255,8 @@
         "ownerOnly": "サブスクリプションの追加や支払い情報の変更はワークスペースのオーナーのみ行えます。"
       },
       "limits": {
+        "members": "組織メンバー",
+        "seats": "{value} 席",
         "largestFile": "最大ファイル",
         "totalStorage": "総ストレージ",
         "videoGenerations": "動画生成",
@@ -342,6 +344,9 @@
     "inviteSubmit": "招待を送信",
     "inviteSending": "送信中…",
     "inviteSent": "{email} に招待を送信しました。",
+    "seatUsage": "{limit} 席中 {occupied} 席を予約済みです（保留中の招待 {pending} 件を含む）。",
+    "seatUsageUnlimited": "{occupied} 席を予約済みです（保留中の招待 {pending} 件を含む）。席数の上限はありません。",
+    "seatLimitReached": "利用可能な席がありません。プランをアップグレードするか、管理者に上限の変更を依頼してください。",
     "noInvitations": "保留中の招待はありません。",
     "cancelInvitation": "取り消す",
     "invitationCanceled": "招待を取り消しました。",

@@ -47,6 +47,7 @@ export async function generateMetadata({
 }
 
 const LIMIT_KEYS = [
+  "organization.members",
   "storage.maxFileMb",
   "storage.totalMb",
   "tasks.perMonth",
@@ -59,6 +60,8 @@ type Translate = (
 
 function limitLabelKey(limit: PlanLimit): string {
   switch (limit) {
+    case "organization.members":
+      return "limits.members";
     case "storage.maxFileMb":
       return "limits.largestFile";
     case "storage.totalMb":
@@ -76,6 +79,8 @@ function formatLimit(
   if (value === null) return t("limits.unlimited");
 
   switch (limit) {
+    case "organization.members":
+      return t("limits.seats", { value });
     case "storage.maxFileMb":
       return t("limits.megabytes", { value });
     case "storage.totalMb":

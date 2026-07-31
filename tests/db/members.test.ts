@@ -15,8 +15,15 @@ import { eq } from "drizzle-orm";
 import { describeDb, useCleanDatabase } from "./setup";
 
 import { db } from "@/db";
-import { orgMembers, users } from "@/db/schema";
-import { asOrgUuid, countOwners } from "@/models/organization";
+import { orgInvitations, orgMembers, organizations, users } from "@/db/schema";
+import {
+  asOrgUuid,
+  countOrganizationSeatUsage,
+  countOwners,
+  findOrganizationMemberLimitOverride,
+  setOrganizationMemberLimitOverride,
+  withOrganizationSeatLock,
+} from "@/models/organization";
 import {
   assertCanAssign,
   assertNotLastOrganization,
@@ -220,5 +227,97 @@ describeDb("team view (real database)", () => {
     const team = await getTeam(contextFor(owner, "owner"));
 
     expect(team.members[0].name).not.toContain("@");
+  });
+});
+
+describeDb("organization seats (real database)", () => {
+  it("counts only live pending invitations as reserved seats", async () => {
+    await db().insert(orgInvitations).values([
+      {
+        id: randomUUID(),
+        organization_id: orgId,
+        email: "live-invite@test.dev",
+        role: "member",
+        status: "pending",
+        expires_at: new Date(Date.now() + 60_000),
+        inviter_id: owner.id,
+      },
+      {
+        id: randomUUID(),
+        organization_id: orgId,
+        email: "expired-invite@test.dev",
+        role: "member",
+        status: "pending",
+        expires_at: new Date(Date.now() - 60_000),
+        inviter_id: owner.id,
+      },
+      {
+        id: randomUUID(),
+        organization_id: orgId,
+        email: "canceled-invite@test.dev",
+        role: "member",
+        status: "canceled",
+        expires_at: new Date(Date.now() + 60_000),
+        inviter_id: owner.id,
+      },
+    ]);
+
+    await expect(countOrganizationSeatUsage(orgId)).resolves.toEqual({
+      members: 1,
+      pendingInvitations: 1,
+    });
+    await expect(
+      countOrganizationSeatUsage(orgId, {
+        excludePendingEmail: "LIVE-INVITE@test.dev",
+      }),
+    ).resolves.toEqual({ members: 1, pendingInvitations: 0 });
+  });
+
+  it("stores and clears a timed admin exception", async () => {
+    const expiresAt = new Date(Date.now() + 86_400_000);
+
+    await setOrganizationMemberLimitOverride(
+      asOrgUuid(orgUuid),
+      35,
+      expiresAt,
+    );
+    await expect(
+      findOrganizationMemberLimitOverride(asOrgUuid(orgUuid)),
+    ).resolves.toEqual({ value: 35, expiresAt });
+
+    await setOrganizationMemberLimitOverride(
+      asOrgUuid(orgUuid),
+      null,
+      null,
+    );
+    await expect(
+      findOrganizationMemberLimitOverride(asOrgUuid(orgUuid)),
+    ).resolves.toBeNull();
+  });
+
+  it("rejects a non-positive exception at the database boundary", async () => {
+    await expect(
+      db()
+        .update(organizations)
+        .set({ member_limit_override: 0 })
+        .where(eq(organizations.id, orgId)),
+    ).rejects.toBeDefined();
+  });
+
+  it("serializes two attempts to consume the final seat", async () => {
+    let active = 0;
+    let maximumActive = 0;
+
+    const consume = () =>
+      withOrganizationSeatLock(orgId, async () => {
+        active += 1;
+        maximumActive = Math.max(maximumActive, active);
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        active -= 1;
+      });
+
+    await Promise.all([consume(), consume()]);
+
+    expect(maximumActive).toBe(1);
   });
 });

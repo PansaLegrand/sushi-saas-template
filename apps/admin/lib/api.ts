@@ -16,6 +16,7 @@ import type {
   UnbanResult,
 } from "@/types/moderation";
 import type { PlanSnapshot } from "@/types/plan";
+import type { OrganizationSeatSummary } from "@/types/team";
 
 export function getUserCredits(userUuid: string) {
   return api.get<CreditSummary>(
@@ -62,6 +63,30 @@ export function grantUserPlan(input: {
 export function revokeUserPlan(userUuid: string) {
   return api.delete<{ revoked: number; plan: PlanSnapshot }>(
     `/api/admin/users/${encodeURIComponent(userUuid)}/plan`
+  );
+}
+
+export function setOrganizationSeatLimit(input: {
+  orgUuid: string;
+  limit: number;
+  expiresAt?: string | null;
+  note: string;
+}) {
+  const { orgUuid, ...body } = input;
+  return api.post<OrganizationSeatSummary>(
+    `/api/admin/organizations/${encodeURIComponent(orgUuid)}/seat-limit`,
+    { body },
+  );
+}
+
+export function resetOrganizationSeatLimit(input: {
+  orgUuid: string;
+  note: string;
+}) {
+  const { orgUuid, ...body } = input;
+  return api.delete<OrganizationSeatSummary>(
+    `/api/admin/organizations/${encodeURIComponent(orgUuid)}/seat-limit`,
+    { body },
   );
 }
 

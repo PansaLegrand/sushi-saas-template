@@ -157,11 +157,40 @@ await revokeManualSubscriptions(userUuid); // paid rows are untouched
 
 This is also how you try a gated feature locally without a Stripe account.
 
+## Organization seats and admin exceptions
+
+`organization.members` is a normal plan limit: Free has one total seat (the
+owner, so it cannot invite), Plus has five, and Max has twenty. Owners, admins,
+and members all consume one seat. A live pending invitation reserves one too,
+so an organization cannot issue many links for its final seat and let
+acceptance order decide who receives it.
+
+Support can set `organizations.member_limit_override` from the organization
+detail page in the admin console. An active override wins over the plan without
+changing the Stripe subscription; clearing it or reaching
+`member_limit_override_expires_at` falls back to the plan immediately. Every
+set/reset requires a reason and is written to `admin_audit_logs`.
+
+The precedence is deliberately small and explicit:
+
+```
+active organization override -> resolved plan limit -> catalog default
+```
+
+Do not model a VIP exception by changing the subscription tier. Billing truth
+and a support exception answer different questions and have different audit
+trails.
+
 ## Downgrades
 
 A user who drops to a smaller plan while over its limits **keeps everything
 they have**. Limits are checked at creation time only: new uploads and new
 generations wait until they are back under, and nothing is deleted.
+
+Seats follow the same contract. Existing members retain access after a plan or
+override downgrade. New invitations stop when `members + live pending
+invitations` reaches the new cap, and invitation acceptance rechecks the live
+member count because the limit may have changed since the email was sent.
 
 This is a deliberate product decision, not an oversight. Background deletion on
 downgrade is what a naive implementation produces, and it destroys customer
@@ -213,8 +242,10 @@ optional and appear in the UI only when their Price ID is configured.
   may cancel, update payment methods, inspect invoices, or purchase another
   independent subscription from the app. Add a tested proration/credit policy
   before enabling portal plan changes.
-- **Seat-based pricing.** Billing is per organization, but the catalog does not
-  multiply prices or limits by member count. See the roadmap.
+- **Seat-quantity Stripe billing.** Plans cap organization membership, but the
+  Stripe price is still a flat organization price. Charging per added seat
+  needs a tested quantity/proration policy before subscription updates can be
+  enabled.
 
 Production requires `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` (`bpc_...`). The
 app retrieves that exact configuration on every portal open and fails closed if

@@ -11,6 +11,7 @@ import { CAPTCHA_PROTECTED_ENDPOINTS } from "@/lib/captcha";
 import { absoluteWithLocale } from "@/config/auth";
 import { getAppEnv, isProductionRuntime } from "@/lib/env";
 import { findUserByEmail, findUserById } from "@/models/user";
+import { asOrgUuid } from "@/models/organization";
 import {
   describeAuthRequest,
   recordAuthEvent,
@@ -20,6 +21,11 @@ import { CreditsAmount } from "@/services/credit";
 import { enqueueJobSafe } from "@/services/jobs";
 import { checkSignupAllowed } from "@/services/moderation";
 import { ensurePersonalOrganization } from "@/services/organizations";
+import {
+  assertOrganizationCanAcceptInvitation,
+  assertOrganizationCanInvite,
+} from "@/services/organization-seats";
+import { limitOf } from "@/services/entitlements";
 import { sendResetPasswordEmail, sendVerifyEmail } from "@/services/email/send";
 import { sendAuthEmailOrLogDevLink } from "@/services/email/dev-auth-links";
 import * as schema from "@/db/schema";
@@ -89,6 +95,24 @@ const captchaPlugins = (() => {
 
 /** 72 hours. Referenced by both the plugin and the email that quotes it. */
 const INVITATION_EXPIRES_IN_SECONDS = 72 * 60 * 60;
+
+async function membershipLimitForOrganization(organization: {
+  id: string;
+  uuid?: unknown;
+}): Promise<number> {
+  if (typeof organization.uuid !== "string" || !organization.uuid) {
+    throw new APIError("CONFLICT", {
+      code: "ORG_CONTEXT_REQUIRED",
+      message: "ORG_CONTEXT_REQUIRED",
+    });
+  }
+
+  const limit = await limitOf(
+    asOrgUuid(organization.uuid),
+    "organization.members",
+  );
+  return limit ?? Number.MAX_SAFE_INTEGER;
+}
 
 /**
  * Tenancy.
@@ -160,6 +184,18 @@ const organizationPlugin = organization({
           input: false,
           fieldName: "deleted_at",
         },
+        member_limit_override: {
+          type: "number",
+          required: false,
+          input: false,
+          fieldName: "member_limit_override",
+        },
+        member_limit_override_expires_at: {
+          type: "date",
+          required: false,
+          input: false,
+          fieldName: "member_limit_override_expires_at",
+        },
       },
     },
     member: {
@@ -188,6 +224,18 @@ const organizationPlugin = organization({
   // Whoever creates an org owns it. Ownership transfer is an explicit action,
   // never an implicit consequence of someone else being promoted to admin.
   creatorRole: "owner",
+
+  // Better Auth applies this again when an invitation is accepted and when a
+  // member is added through its own API. The application route also checks
+  // member + pending invitation usage before it sends mail.
+  membershipLimit: async (_user, organization) =>
+    membershipLimitForOrganization(organization),
+
+  // This is a pending-invitation ceiling only. The creation hook below applies
+  // the real seat rule (members + pending), while matching the effective member
+  // limit here removes Better Auth's unrelated implicit default of 100.
+  invitationLimit: async ({ organization }) =>
+    membershipLimitForOrganization(organization),
 
   /** Long enough to survive a weekend, short enough that a leaked link expires. */
   invitationExpiresIn: INVITATION_EXPIRES_IN_SECONDS,
@@ -223,6 +271,27 @@ const organizationPlugin = organization({
       // references. Generating it here rather than in a database default keeps
       // one rule: Better Auth owns `id`, the app owns `uuid`.
       return { data: { ...org, uuid: randomUUID() } };
+    },
+    beforeCreateInvitation: async ({ organization: org }) => {
+      if (typeof org.uuid !== "string" || !org.uuid) {
+        throw new APIError("CONFLICT", {
+          code: "ORG_CONTEXT_REQUIRED",
+          message: "ORG_CONTEXT_REQUIRED",
+        });
+      }
+      await assertOrganizationCanInvite(org.id, asOrgUuid(org.uuid));
+    },
+    beforeAcceptInvitation: async ({ organization: org }) => {
+      if (typeof org.uuid !== "string" || !org.uuid) {
+        throw new APIError("CONFLICT", {
+          code: "ORG_CONTEXT_REQUIRED",
+          message: "ORG_CONTEXT_REQUIRED",
+        });
+      }
+      await assertOrganizationCanAcceptInvitation(
+        org.id,
+        asOrgUuid(org.uuid),
+      );
     },
     // Member removals and role changes carry application invariants that Better
     // Auth cannot enforce atomically with its own mutation. The app endpoints

@@ -2,9 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AdminPageHeader } from "@admin/components/admin-page-header";
+import { ManageOrganizationSeats } from "@admin/components/manage-organization-seats";
 import { AdminStatusBadge } from "@admin/components/admin-status-badge";
 import { AdminTabs } from "@admin/components/admin-tabs";
-import { getAdminContext } from "@admin/lib/authz";
+import { ADMIN_RW, getAdminContext } from "@admin/lib/authz";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Card,
@@ -30,6 +31,7 @@ import { getOrdersByOrg } from "@/models/order";
 import { listSubscriptionsByOrg } from "@/models/subscription";
 import { getOrgCreditSummary } from "@/services/credit";
 import { getPlanSnapshot } from "@/services/entitlements";
+import { getOrganizationSeatSummary } from "@/services/organization-seats";
 
 const SECTIONS = ["overview", "members", "credits", "orders"] as const;
 type OrganizationSection = (typeof SECTIONS)[number];
@@ -85,7 +87,7 @@ export default async function AdminOrganizationPage({
   const org = await findOrganizationByUuid(uuid);
   if (!org) notFound();
 
-  const [members, credits, plan, subscriptions, orders] = await Promise.all([
+  const [members, credits, plan, subscriptions, orders, seats] = await Promise.all([
     listMembersWithUsers(org.id),
     getOrgCreditSummary(org.uuid, {
       includeLedger: true,
@@ -95,6 +97,7 @@ export default async function AdminOrganizationPage({
     getPlanSnapshot(asOrgUuid(org.uuid)),
     listSubscriptionsByOrg(org.uuid),
     getOrdersByOrg(org.uuid),
+    getOrganizationSeatSummary(org.id, asOrgUuid(org.uuid)),
   ]);
 
   const sectionHref = (target: OrganizationSection) =>
@@ -220,6 +223,12 @@ export default async function AdminOrganizationPage({
               </CardContent>
             </Card>
           </div>
+
+          <ManageOrganizationSeats
+            orgUuid={org.uuid}
+            canWrite={admin.role === ADMIN_RW}
+            initial={seats}
+          />
 
           <Card>
             <CardHeader>

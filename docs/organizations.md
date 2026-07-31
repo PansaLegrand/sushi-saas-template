@@ -234,6 +234,20 @@ Emails queue through the job table rather than sending inline: an invite should
 not fail because Resend is briefly down, and a serverless instance can freeze
 before an un-awaited send completes.
 
+Every plan also has an `organization.members` cap: Free 1, Plus 5, Max 20. The
+owner counts, and live pending invitations reserve seats. Capacity is checked
+before sending and again when accepting because the organization may upgrade,
+downgrade, or receive an admin exception while the link is outstanding.
+The check and Better Auth write run while holding the same per-organization
+PostgreSQL advisory lock, so two concurrent requests cannot both consume the
+last seat.
+
+An admin can set a temporary or indefinite per-organization exception without
+changing billing. The override wins while active; clearing or expiring it
+returns to the plan limit. A downgrade never removes an existing member. It
+blocks new invitations and, once the accepted-member count reaches the new cap,
+further acceptances.
+
 ## What is deliberately not built
 
 Not oversights. Each is additive on top of what is here:
@@ -244,7 +258,7 @@ Not oversights. Each is additive on top of what is here:
 | **`/[locale]/[org]/` routes** | `getOrgContext(req, orgSlug)` already accepts a slug; nothing passes one. Path scoping beats session-only — two tabs on two orgs otherwise fight over one value — but it moves every page and link. |
 | **Teams within an org** | The plugin supports them behind a flag. Off, so three tables stay out of a fresh install. |
 | **Custom roles** | Same: the plugin's dynamic access control is off. |
-| **Seat billing** | Wrong model for a credits product, where usage pools and seats are billed separately if at all. |
+| **Per-seat Stripe billing** | Membership is capped, but Stripe still charges a flat organization price. Quantity changes need an explicit proration and credit policy. |
 | **"Request upgrade" flow** | A member hitting checkout gets `BILLING_OWNER_ONLY` with a clear message, but nothing notifies the owner. |
 
 ## Adding a tenant-scoped table

@@ -200,11 +200,20 @@ export const organizations = pgTable(
     // unexplained tenant identifier.
     lifecycle_status: varchar({ length: 32 }).notNull().default("active"),
     deleted_at: timestamp({ withTimezone: true }),
+    // Optional support/VIP exception to the plan's organization.members cap.
+    // Null means "inherit the plan"; expiry lets a temporary exception fall
+    // back automatically without a scheduled cleanup job.
+    member_limit_override: integer(),
+    member_limit_override_expires_at: timestamp({ withTimezone: true }),
     created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index("organizations_stripe_customer_idx").on(table.stripe_customer_id),
+    check(
+      "organizations_member_limit_override_positive",
+      sql`${table.member_limit_override} is null or ${table.member_limit_override} >= 1`,
+    ),
   ],
 );
 

@@ -46,6 +46,8 @@ export default function TeamManager({ initial }: { initial: TeamView }) {
   const [team, setTeam] = useState(initial);
   const [busy, setBusy] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const hasAvailableSeat =
+    team.seats.available === null || team.seats.available > 0;
 
   const formatDate = useCallback(
     (iso: string | null) =>
@@ -80,20 +82,42 @@ export default function TeamManager({ initial }: { initial: TeamView }) {
       {/* Derived from the actual membership, not the stored `is_personal`
           flag: a workspace someone has been invited into keeps that flag but
           is plainly no longer personal. */}
-      {team.members.length === 1 && team.invitations.length === 0 ? (
+      {team.members.length === 1 &&
+      team.invitations.length === 0 &&
+      hasAvailableSeat ? (
         <p className="rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
           {t("personalNotice")}
         </p>
       ) : null}
 
       {team.viewer.canManage ? (
-        <InviteForm
-          busy={busy === "invite"}
-          canAssignOwner={team.viewer.role === "owner"}
-          onInvite={(email, role) =>
-            run("invite", () => inviteMember(email, role), t("inviteSent", { email }))
-          }
-        />
+        <div className="space-y-3">
+          <p className="rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+            {team.seats.effectiveLimit === null
+              ? t("seatUsageUnlimited", {
+                  occupied: team.seats.occupied,
+                  pending: team.seats.pendingInvitations,
+                })
+              : t("seatUsage", {
+                  occupied: team.seats.occupied,
+                  limit: team.seats.effectiveLimit,
+                  pending: team.seats.pendingInvitations,
+                })}
+            {!hasAvailableSeat ? ` ${t("seatLimitReached")}` : ""}
+          </p>
+          <InviteForm
+            busy={busy === "invite"}
+            disabled={!hasAvailableSeat}
+            canAssignOwner={team.viewer.role === "owner"}
+            onInvite={(email, role) =>
+              run(
+                "invite",
+                () => inviteMember(email, role),
+                t("inviteSent", { email }),
+              )
+            }
+          />
+        </div>
       ) : null}
 
       <section className="space-y-3">
@@ -186,10 +210,12 @@ export default function TeamManager({ initial }: { initial: TeamView }) {
 
 function InviteForm({
   busy,
+  disabled,
   canAssignOwner,
   onInvite,
 }: {
   busy: boolean;
+  disabled: boolean;
   canAssignOwner: boolean;
   onInvite: (email: string, role: string) => void;
 }) {
@@ -221,6 +247,7 @@ function InviteForm({
             autoComplete="off"
             value={email}
             onChange={(event) => setEmail(event.currentTarget.value)}
+            disabled={disabled}
             required
           />
         )}
@@ -232,6 +259,7 @@ function InviteForm({
           id="invite-role"
           className="h-10 rounded-md border border-border bg-background px-3 text-sm"
           value={role}
+          disabled={disabled}
           onChange={(event) => setRole(event.currentTarget.value as OrgRoleName)}
         >
           {roles.map((value) => (
@@ -242,7 +270,7 @@ function InviteForm({
         </select>
       </div>
 
-      <Button type="submit" disabled={busy}>
+      <Button type="submit" disabled={busy || disabled}>
         {busy ? t("inviteSending") : t("inviteSubmit")}
       </Button>
     </form>

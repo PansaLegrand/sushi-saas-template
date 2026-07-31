@@ -74,6 +74,7 @@
   "SERVER_ERROR": "Algo salió mal por nuestra parte. Inténtalo de nuevo.",
   "NETWORK_UNAVAILABLE": "No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.",
   "ORG_CONTEXT_REQUIRED": "Elige un espacio de trabajo antes de continuar. Actualiza la página e inténtalo de nuevo.",
+  "ORG_NOT_FOUND": "No se encontró esa organización.",
   "ORG_MEMBER_NOT_FOUND": "Esa persona no forma parte de este equipo.",
   "ORG_LAST_OWNER": "Es el único propietario. Nombra antes a otro propietario.",
   "ORG_ALREADY_MEMBER": "Esa persona ya está en el equipo.",

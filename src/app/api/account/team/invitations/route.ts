@@ -8,6 +8,10 @@ import { respData, respForbidden, respNoAuth } from "@/lib/resp";
 import { respCode, respError } from "@/lib/errors/response";
 import { can, getOrgContext } from "@/services/authz";
 import { assertCanAssign, getTeam } from "@/services/members";
+import {
+  assertOrganizationCanInvite,
+  serializeOrganizationSeatMutation,
+} from "@/services/organization-seats";
 
 const InviteSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
@@ -46,13 +50,22 @@ export async function POST(req: Request) {
       return respCode("ORG_ALREADY_MEMBER");
     }
 
-    await auth.api.createInvitation({
-      headers: req.headers,
-      body: {
-        email: payload.email,
-        role: payload.role,
-        organizationId: ctx.orgId,
-      },
+    // Count both members and live pending invitations. The plugin's own
+    // membershipLimit protects acceptance, but pending links reserve seats so
+    // reaching the cap must stop before another email is queued.
+    await serializeOrganizationSeatMutation(ctx.orgId, async () => {
+      await assertOrganizationCanInvite(ctx.orgId, ctx.orgUuid, {
+        replacingEmail: payload.email,
+      });
+
+      await auth.api.createInvitation({
+        headers: req.headers,
+        body: {
+          email: payload.email,
+          role: payload.role,
+          organizationId: ctx.orgId,
+        },
+      });
     });
 
     // Return the refreshed team so the client re-renders from server truth

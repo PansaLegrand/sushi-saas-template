@@ -27,6 +27,23 @@ export interface InvitationView {
   expiresAt: string | null;
 }
 
+export interface OrganizationSeatSummary {
+  /** Catalog value for the currently resolved plan, before an admin exception. */
+  planLimit: number | null;
+  /** Active admin exception, or the plan limit when there is none. */
+  effectiveLimit: number | null;
+  override: {
+    limit: number;
+    expiresAt: string | null;
+    active: boolean;
+  } | null;
+  members: number;
+  pendingInvitations: number;
+  occupied: number;
+  available: number | null;
+  overLimit: boolean;
+};
+
 export interface TeamView {
   organization: {
     uuid: string;
@@ -36,6 +53,7 @@ export interface TeamView {
     isPersonal: boolean;
   };
   viewer: { role: OrgRoleName; canManage: boolean };
+  seats: OrganizationSeatSummary;
   members: MemberView[];
   /** Empty for members who cannot manage them, not merely hidden by the UI. */
   invitations: InvitationView[];

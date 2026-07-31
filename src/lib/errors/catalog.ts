@@ -436,6 +436,10 @@ export const ERROR_CATALOG = {
     defaultMessage:
       "Choose a workspace before continuing. Refresh the page and try again.",
   },
+  ORG_NOT_FOUND: {
+    statusCode: 404,
+    defaultMessage: "That organization was not found.",
+  },
   BILLING_OWNER_ONLY: {
     statusCode: 403,
     defaultMessage:

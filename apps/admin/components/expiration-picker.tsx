@@ -13,7 +13,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-type ExpirationKind = "plan" | "credits";
+type ExpirationKind = "plan" | "credits" | "seats";
 
 interface ExpirationPickerProps {
   kind: ExpirationKind;
@@ -78,15 +78,23 @@ function consequence(
   expiresAt: Date | undefined,
 ): string {
   if (!expiresAt) {
-    return kind === "plan"
-      ? `${subject} stays active until an admin revokes it.`
-      : "Unused credits from this grant remain available until they are spent.";
+    if (kind === "plan") {
+      return `${subject} stays active until an admin revokes it.`;
+    }
+    if (kind === "seats") {
+      return `${subject} stays active until an admin resets it to the plan default.`;
+    }
+    return "Unused credits from this grant remain available until they are spent.";
   }
 
   const exact = exactDateTime(expiresAt);
-  return kind === "plan"
-    ? `${subject} ends automatically on ${exact}. The user's next eligible subscription, or Free plan, then takes over.`
-    : `Unused credits from this grant stop being spendable on ${exact}. Credits already spent are unaffected.`;
+  if (kind === "plan") {
+    return `${subject} ends automatically on ${exact}. The user's next eligible subscription, or Free plan, then takes over.`;
+  }
+  if (kind === "seats") {
+    return `${subject} ends automatically on ${exact}. The current plan limit then takes over without removing existing members.`;
+  }
+  return `Unused credits from this grant stop being spendable on ${exact}. Credits already spent are unaffected.`;
 }
 
 export function ExpirationPicker({

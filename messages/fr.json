@@ -255,6 +255,8 @@
         "ownerOnly": "Seul un propriétaire peut ajouter des abonnements ou modifier les informations de paiement."
       },
       "limits": {
+        "members": "Membres de l’organisation",
+        "seats": "{value} sièges",
         "largestFile": "Fichier le plus volumineux",
         "totalStorage": "Stockage total",
         "videoGenerations": "Générations vidéo",
@@ -342,6 +344,9 @@
     "inviteSubmit": "Envoyer l'invitation",
     "inviteSending": "Envoi…",
     "inviteSent": "Invitation envoyée à {email}.",
+    "seatUsage": "{occupied} sièges réservés sur {limit}, dont {pending} invitations en attente.",
+    "seatUsageUnlimited": "{occupied} sièges réservés, dont {pending} invitations en attente. Il n’y a aucune limite.",
+    "seatLimitReached": "Aucun siège n’est disponible. Mettez à niveau la formule ou demandez à un administrateur d’ajuster la limite.",
     "noInvitations": "Aucune invitation en attente.",
     "cancelInvitation": "Annuler",
     "invitationCanceled": "Invitation retirée.",
