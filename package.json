@@ -80,7 +80,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@next/bundle-analyzer": "^15.5.22",
+    "@next/bundle-analyzer": "^16.2.12",
     "@tailwindcss/postcss": "^4.1.4",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",
