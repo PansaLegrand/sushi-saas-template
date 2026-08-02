@@ -34,6 +34,7 @@
     "db:migrate:prod": "node scripts/migrate.mjs",
     "db:check:prod": "node scripts/migrate.mjs --check",
     "test": "vitest",
+    "test:fast": "vitest run --project mocked --project components",
     "test:run": "vitest run",
     "test:cov": "vitest run --coverage",
     "test:db": "vitest run tests/db",

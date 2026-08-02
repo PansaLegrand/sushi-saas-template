@@ -190,6 +190,7 @@ were deleted. If you cannot write that sentence, you may not need the test.
 
 ```bash
 pnpm test          # watch mode
+pnpm test:fast     # hermetic mocked and component tiers
 pnpm test:run      # single pass; real-service tests skip when URLs are absent
 pnpm test:cov      # with coverage; fails below the thresholds
 pnpm test:db       # infrastructure tier (TEST_DATABASE_URL / TEST_REDIS_URL)
@@ -233,7 +234,7 @@ never calls `FLUSHDB`.
 
 ## Where it runs
 
-- **pre-commit** (`.husky/pre-commit`): `pnpm lint && pnpm test:run` — ~10s.
+- **pre-commit** (`.husky/pre-commit`): `pnpm lint && pnpm test:fast` — ~10s.
   Fast enough that nobody reaches for `--no-verify`.
 - **prebuild**: `pnpm test:run` runs before every build, local or otherwise.
 - **CI** (`.github/workflows/ci.yml`): lint → migrate test DB → `pnpm test:cov`

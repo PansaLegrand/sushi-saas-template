@@ -2,4 +2,4 @@
 # Fast gate: lint + the mocked test tiers, ~10s. A full `pnpm build` here took
 # long enough that it invited --no-verify, which skipped the tests riding on it.
 # CI still runs lint, tests, and both builds on every push.
-pnpm lint && pnpm test:run
+pnpm lint && pnpm test:fast
