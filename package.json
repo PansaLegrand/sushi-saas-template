@@ -52,7 +52,7 @@
     "@radix-ui/react-radio-group": "^1.2.2",
     "@radix-ui/react-slot": "^1.1.1",
     "@react-email/render": "^1.1.2",
-    "@stripe/stripe-js": "^5.4.0",
+    "@stripe/stripe-js": "^9.12.1",
     "@tabler/icons-react": "^3.31.0",
     "aws4fetch": "^1.0.20",
     "better-auth": "^1.6.25",
