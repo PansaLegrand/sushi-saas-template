@@ -5,9 +5,15 @@ products. It connects authentication, organizations, Stripe billing, pooled
 credits, private storage, durable jobs, internationalization, and a separately
 deployed admin console behind one enforced architecture.
 
+[Website](https://www.sushisaas.com) ·
+[Documentation](https://www.sushisaas.com/docs) ·
+[Quick start](https://www.sushisaas.com/docs/quick-start)
+
 This repository is the application starter. Public marketing, guides, and blog
-content intentionally live in a separate documentation-site repository, so
-content releases never require an application deployment.
+content live on the [Sushi SaaS website](https://www.sushisaas.com), whose
+source is maintained in
+[PansaLegrand/sushi-saas-site](https://github.com/PansaLegrand/sushi-saas-site),
+so content releases never require an application deployment.
 
 ## What is included
 
@@ -91,8 +97,9 @@ validation fails closed when required credentials or anti-abuse controls are
 missing.
 
 The application renders an external documentation link only when
-`NEXT_PUBLIC_DOCS_URL` is set. The docs website is not a submodule and is not
-built by this repository.
+`NEXT_PUBLIC_DOCS_URL` is set. Point it to the adopting product's own
+documentation site; it intentionally has no upstream default. The docs website
+is not a submodule and is not built by this repository.
 
 ## Essential commands
 
