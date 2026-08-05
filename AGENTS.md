@@ -76,9 +76,16 @@ The admin app keeps its own data layer at `apps/admin/lib/data.ts` by design —
 see `apps/admin/README.md`. Its browser-side calls live in `apps/admin/lib/api.ts`
 for the same reason: nothing in `src/` should be able to reach an admin endpoint.
 
+`apps/content-studio/` is the separately deployable Payload authoring app. It is
+code shipped by this starter, but it has its own `CONTENT_DATABASE_URL`, editor
+authentication, migrations, and API. It may call the SaaS only through signed
+gateway endpoints. It must never use the SaaS `DATABASE_URL` or copy customer
+and subscriber records into Payload.
+
 ### The application and public website have independent release trains
 
-This repository builds only the SaaS application and its admin console. The
+This repository builds the SaaS application, its admin console, and the optional
+Content Studio. The
 public marketing/documentation website is a detached Git repository—never a
 branch, build mode, or submodule of this one.
 
@@ -164,7 +171,7 @@ Notes:
 - Consider async task processing and refunds-on-failure for production.
 
 ## Build, Test, and Development Commands
-- `pnpm install && pnpm setup`: First-clone bootstrap — writes `.env` with generated secrets, starts local Postgres via `docker-compose.yml`, applies migrations to the dev and test databases. Idempotent; never overwrites an existing `.env`.
+- `pnpm install && pnpm run setup`: First-clone bootstrap — writes missing SaaS and Content Studio env files with generated secrets, starts local Postgres and Redis, creates three isolated databases, and applies Drizzle and Payload migrations. Idempotent; never overwrites an existing env file.
 - `pnpm db:generate` / `pnpm db:migrate` / `pnpm db:studio`: Drizzle workflow against the local database.
 - `pnpm db:check:prod` / `pnpm db:migrate:prod`: Deployed-database migration runner (advisory-locked, non-interactive). Migrations are **never** automatic on deploy — see `DEPLOYMENT.md`.
 - `pnpm dev` / `pnpm dev:webpack`: Start the application dev server (Turbopack or Webpack).

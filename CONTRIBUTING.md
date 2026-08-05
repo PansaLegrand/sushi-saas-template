@@ -27,12 +27,12 @@ Bootstrap a fresh checkout:
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm setup
+pnpm run setup
 pnpm dev
 ```
 
-`pnpm setup` creates local-only secrets, starts the development services, and
-applies migrations. It never overwrites an existing `.env`.
+`pnpm run setup` creates local-only secrets, starts the development services,
+and applies migrations. It never overwrites an existing env file.
 
 ## Making a change
 

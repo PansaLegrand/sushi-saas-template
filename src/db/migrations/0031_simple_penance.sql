@@ -1,0 +1,1 @@
+ALTER TABLE "marketing_campaign_dispatches" ADD COLUMN "message_json" text NOT NULL;

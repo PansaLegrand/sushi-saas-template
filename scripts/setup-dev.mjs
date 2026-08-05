@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * One-command local bootstrap: `pnpm setup`
+ * One-command local bootstrap: `pnpm run setup`
  *
- *   1. writes .env from .env.example, with real secrets generated
+ *   1. writes missing app and Content Studio env files, with real secrets
  *   2. starts the Postgres and Redis containers
- *   3. applies migrations to the dev and test databases
+ *   3. applies migrations to the app, test, and Content Studio databases
  *
  * Safe to re-run. An existing .env is never overwritten — the whole point of
  * this script is that it cannot cost you a working local config.
@@ -18,9 +18,12 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const envPath = resolve(root, ".env");
 const examplePath = resolve(root, ".env.example");
+const contentEnvPath = resolve(root, "apps/content-studio/.env.local");
+const contentExamplePath = resolve(root, "apps/content-studio/.env.example");
 
 const DEV_DATABASE_URL = "postgresql://sushi:sushi@localhost:5432/sushi_dev";
 const TEST_DATABASE_URL = "postgresql://sushi:sushi@localhost:5432/sushi_test";
+const CONTENT_DATABASE_URL = "postgresql://sushi:sushi@localhost:5432/sushi_content";
 const DEV_REDIS_URL = "redis://localhost:6379";
 
 // Cloudflare's documented always-passes Turnstile keys. Local only — the app
@@ -53,12 +56,34 @@ function fill(contents, key, value) {
   return contents.replace(pattern, `${key}=${quoted}`);
 }
 
+function readValue(contents, key) {
+  const match = contents.match(new RegExp(`^${key}=(.*)$`, "m"));
+  if (!match) return "";
+  const value = match[1].trim();
+  if (value.startsWith('"') && value.endsWith('"')) {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return "";
+    }
+  }
+  return value;
+}
+
 // ---------------------------------------------------------------- 1. env file
 
 step("Environment file");
 
+let marketingSecret = randomBytes(32).toString("hex");
+let rootHasMarketingSecret = false;
+
 if (existsSync(envPath)) {
   ok(".env already exists — leaving it untouched");
+  const existingSecret = readValue(readFileSync(envPath, "utf8"), "CONTENT_MARKETING_SECRET");
+  if (existingSecret) {
+    marketingSecret = existingSecret;
+    rootHasMarketingSecret = true;
+  }
 } else {
   if (!existsSync(examplePath)) {
     console.error("  .env.example is missing; cannot bootstrap.");
@@ -72,12 +97,41 @@ if (existsSync(envPath)) {
   contents = fill(contents, "TEST_REDIS_URL", DEV_REDIS_URL);
   contents = fill(contents, "BETTER_AUTH_SECRET", randomBytes(32).toString("base64"));
   contents = fill(contents, "CRON_SECRET", randomBytes(32).toString("hex"));
+  contents = fill(contents, "CONTENT_MARKETING_SECRET", marketingSecret);
+  contents = fill(contents, "MARKETING_UNSUBSCRIBE_SECRET", randomBytes(32).toString("hex"));
   contents = fill(contents, "NEXT_PUBLIC_TURNSTILE_SITE_KEY", TURNSTILE_TEST_SITE_KEY);
   contents = fill(contents, "TURNSTILE_SECRET_KEY", TURNSTILE_TEST_SECRET_KEY);
 
   writeFileSync(envPath, contents, { mode: 0o600 });
-  ok("wrote .env with generated BETTER_AUTH_SECRET and CRON_SECRET");
+  rootHasMarketingSecret = true;
+  ok("wrote .env with generated application and marketing secrets");
   warn("Stripe, Resend, and storage keys are still blank — fill them when you need those features");
+}
+
+let payloadSecret = randomBytes(32).toString("hex");
+if (existsSync(contentEnvPath)) {
+  ok("apps/content-studio/.env.local already exists — leaving it untouched");
+  const existingPayloadSecret = readValue(
+    readFileSync(contentEnvPath, "utf8"),
+    "PAYLOAD_SECRET",
+  );
+  if (existingPayloadSecret) payloadSecret = existingPayloadSecret;
+} else {
+  if (!existsSync(contentExamplePath)) {
+    console.error("  apps/content-studio/.env.example is missing; cannot bootstrap.");
+    process.exit(1);
+  }
+
+  let contents = readFileSync(contentExamplePath, "utf8");
+  contents = fill(contents, "CONTENT_DATABASE_URL", CONTENT_DATABASE_URL);
+  contents = fill(contents, "PAYLOAD_SECRET", payloadSecret);
+  contents = fill(contents, "CONTENT_MARKETING_SECRET", marketingSecret);
+  writeFileSync(contentEnvPath, contents, { mode: 0o600 });
+  ok("wrote apps/content-studio/.env.local with generated Payload credentials");
+
+  if (!rootHasMarketingSecret) {
+    warn("set the root .env CONTENT_MARKETING_SECRET to the matching value in apps/content-studio/.env.local before using marketing delivery");
+  }
 }
 
 // ------------------------------------------------------ 2. local infrastructure
@@ -113,24 +167,26 @@ if (portInUse(5432) && !postgresComposeRunning) {
   console.log(`
   \x1b[33mPort 5432 is already in use\x1b[0m — you appear to have Postgres running already.
 
-  That is fine, and probably better than starting a second one. Create two
+  That is fine, and probably better than starting a second one. Create three
   databases on it and point .env at them:
 
-    createdb sushi_dev && createdb sushi_test
+    createdb sushi_dev && createdb sushi_test && createdb sushi_content
     # or, if it runs in a container named <name>:
-    docker exec <name> psql -U postgres -c "create database sushi_dev;" -c "create database sushi_test;"
+    docker exec <name> psql -U postgres -c "create database sushi_dev;" -c "create database sushi_test;" -c "create database sushi_content;"
 
-  Then set both URLs in .env to match that server's user, password, and port:
+  Then set the SaaS/test URLs in .env and the Content Studio URL in
+  apps/content-studio/.env.local to match that server's credentials:
 
     DATABASE_URL=postgresql://<user>:<pass>@localhost:5432/sushi_dev
     TEST_DATABASE_URL=postgresql://<user>:<pass>@localhost:5432/sushi_test
+    CONTENT_DATABASE_URL=postgresql://<user>:<pass>@localhost:5432/sushi_content
 
   Finally:
 
-    pnpm db:migrate && pnpm test:db:setup
+    pnpm db:migrate && pnpm test:db:setup && pnpm studio:migrate
 
   To use this repo's container instead, stop the other Postgres first and
-  re-run \x1b[1mpnpm setup\x1b[0m.
+  re-run \x1b[1mpnpm run setup\x1b[0m.
 `);
   process.exit(0);
 }
@@ -176,7 +232,40 @@ if (!ready) {
   console.error("  Postgres did not become ready. Check `docker compose logs postgres`.");
   process.exit(1);
 }
-ok("Postgres is up on localhost:5432 (sushi_dev, sushi_test)");
+const contentDatabase = spawnSync(
+  "docker",
+  [
+    "compose",
+    "exec",
+    "-T",
+    "postgres",
+    "psql",
+    "-U",
+    "sushi",
+    "-d",
+    "postgres",
+    "-tAc",
+    "SELECT 1 FROM pg_database WHERE datname = 'sushi_content'",
+  ],
+  { cwd: root, encoding: "utf8" },
+);
+
+if (contentDatabase.status !== 0) {
+  console.error("  could not check the Content Studio database");
+  process.exit(1);
+}
+if (contentDatabase.stdout.trim() !== "1") {
+  const created = spawnSync(
+    "docker",
+    ["compose", "exec", "-T", "postgres", "createdb", "-U", "sushi", "-O", "sushi", "sushi_content"],
+    { cwd: root, stdio: "inherit" },
+  );
+  if (created.status !== 0) {
+    console.error("  could not create the Content Studio database");
+    process.exit(1);
+  }
+}
+ok("Postgres is up on localhost:5432 (sushi_dev, sushi_test, sushi_content)");
 
 if (!externalRedisRunning) {
   process.stdout.write("  waiting for Redis");
@@ -221,11 +310,24 @@ if (run("pnpm", migrateArgs, { DATABASE_URL: TEST_DATABASE_URL }).status !== 0) 
 }
 ok("sushi_test migrated");
 
+if (
+  run(
+    "pnpm",
+    ["--dir", "apps/content-studio", "migrate"],
+    { CONTENT_DATABASE_URL, PAYLOAD_SECRET: payloadSecret },
+  ).status !== 0
+) {
+  console.error("  Content Studio migration failed against sushi_content");
+  process.exit(1);
+}
+ok("sushi_content migrated");
+
 console.log(`
 \x1b[1mReady.\x1b[0m
 
   pnpm dev        → http://localhost:3000
   pnpm dev:admin  → http://localhost:3001
+  pnpm dev:studio → http://localhost:3002
   pnpm test:db    → database tier now runs instead of skipping
 
 To promote yourself to admin after signing up:

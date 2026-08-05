@@ -1,6 +1,6 @@
 # Database Reference
 
-The schema in [src/db/schema.ts](../src/db/schema.ts) is the single source of truth — 24 tables, no
+The schema in [src/db/schema.ts](../src/db/schema.ts) is the single source of truth — 28 tables, no
 hand-written SQL. This document explains what each table is for, the rules that
 hold across all of them, and what to do when you change one.
 
@@ -11,14 +11,15 @@ database test tier that pins the invariants below.
 
 ## Setting up from a fresh clone
 
-You need **two databases**: one for the app, one for the tests. They must be
-separate — the test tier runs `TRUNCATE` before every test, so if it shared your
-dev database it would erase your data on every `pnpm test:db`.
+You need **three databases**: SaaS, tests, and Content Studio. They stay separate
+because the test tier truncates its schema and Payload owns a different release
+and migration lifecycle from the SaaS.
 
-| Database     | Env var             | Purpose                                        |
-| ------------ | ------------------- | ---------------------------------------------- |
-| `sushi_dev`  | `DATABASE_URL`      | What `pnpm dev` reads and writes               |
-| `sushi_test` | `TEST_DATABASE_URL` | Wiped constantly. Holds nothing you care about |
+| Database        | Env var                | Purpose                                        |
+| --------------- | ---------------------- | ---------------------------------------------- |
+| `sushi_dev`     | `DATABASE_URL`         | What `pnpm dev` reads and writes               |
+| `sushi_test`    | `TEST_DATABASE_URL`    | Wiped constantly. Holds nothing you care about |
+| `sushi_content` | `CONTENT_DATABASE_URL` | Payload documents and Content Studio users     |
 
 Both live on the **same** Postgres server — same host, same port, same
 credentials. Only the database name at the end of the URL differs.
@@ -26,37 +27,40 @@ credentials. Only the database name at the end of the URL differs.
 ### If you have no Postgres yet
 
 ```bash
-pnpm install && pnpm setup
+pnpm install && pnpm run setup
 ```
 
 That writes `.env` with generated secrets, starts Postgres 16 in Docker, creates
-both databases, and migrates them. Then `pnpm dev`.
+all three databases, and migrates them. Then `pnpm dev`.
 
 ### If you already have Postgres running
 
-Very common — and `pnpm setup` detects it and stops rather than fighting for port 5432. Create the two databases on the server you already have:
+Very common — and `pnpm run setup` detects it and stops rather than fighting
+for port 5432. Create the three databases on the server you already have:
 
 ```bash
-createdb sushi_dev && createdb sushi_test
+createdb sushi_dev && createdb sushi_test && createdb sushi_content
 ```
 
 If it runs in a container, go through it instead:
 
 ```bash
-docker exec <container-name> psql -U postgres -c "create database sushi_dev;" -c "create database sushi_test;"
+docker exec <container-name> psql -U postgres -c "create database sushi_dev;" -c "create database sushi_test;" -c "create database sushi_content;"
 ```
 
-Put both URLs in `.env`, matching your server's user, password, and port:
+Put the SaaS/test URLs in `.env` and the Payload URL in
+`apps/content-studio/.env.local`, matching your server credentials:
 
 ```bash
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/sushi_dev
 TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/sushi_test
+CONTENT_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/sushi_content
 ```
 
 Then apply the schema to each:
 
 ```bash
-pnpm db:migrate && pnpm test:db:setup
+pnpm db:migrate && pnpm test:db:setup && pnpm studio:migrate
 ```
 
 ### Confirm it worked
@@ -356,6 +360,10 @@ graph LR
 | ------------------ | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `jobs`             | Durable queue drained by `/api/cron/jobs` | Claimed with `FOR UPDATE SKIP LOCKED`. `locked_at` allows reclaiming a job whose runner died. Backoff via `run_at`. `dedupe_key` is nullable and NULLs stay distinct, so un-deduped jobs are unaffected. |
 | `admin_audit_logs` | Append-only admin action trail            | `actor_email` is denormalized so the trail survives user edits. Every admin write must call `writeAdminAuditLog()`.                                                                                      |
+| `marketing_subscriptions` | Topic-scoped email consent | The exact delivery address and lowercased lookup key stay in the SaaS, never Payload. A new opt-in overwrites consent evidence for that address/topic; unsubscribe changes status immediately. Account export includes matching preferences and erasure deletes them. |
+| `marketing_campaign_dispatches` | Immutable campaign launch snapshot | Unique on `campaign_key`. Stores one validated content snapshot plus audience/schedule metadata, so recipient jobs do not duplicate large bodies. `requested_at` freezes who was eligible when launch began. |
+| `marketing_email_deliveries` | Per-recipient delivery audit | Unique on `(campaign_key, subscription_uuid)`. Carries no address; the worker resolves the live subscription and checks consent immediately before sending. |
+| `marketing_provider_events` | Idempotent Resend webhook receipts | Unique on provider event ID and stores only event/delivery identifiers, outcome, and timestamps. Raw payloads and recipient addresses are intentionally not retained; cron prunes receipts after 30 days while delivery audit remains. |
 
 ### Product & growth
 
@@ -369,9 +377,10 @@ graph LR
 
 ### Retired scaffolding
 
-Migration `0026` removes the unfinished `posts` and `apikeys` tables. Neither
-had an application route or service, and public editorial content now belongs
-to the detached documentation-site repository. A future API-key feature must be
+Migration `0026` removes the unfinished SaaS-database `posts` and `apikeys`
+tables. Neither had an application route or service. Editorial documents now
+use Payload's separate `CONTENT_DATABASE_URL` in `apps/content-studio`; public
+guides still live in the detached documentation-site repository. A future API-key feature must be
 designed as a complete security boundary—hashed credentials, scopes, rotation,
 revocation, and audit logging—rather than reviving the raw-key scaffold.
 

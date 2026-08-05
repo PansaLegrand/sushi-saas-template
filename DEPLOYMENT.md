@@ -11,18 +11,18 @@ The short answer on migrations: **they are not automatic, on purpose.** See
 ## Local development
 
 ```bash
-pnpm install && pnpm setup
+pnpm install && pnpm run setup
 ```
 
-`pnpm setup` ([scripts/setup-dev.mjs](scripts/setup-dev.mjs)) is idempotent and does three things:
+`pnpm run setup` ([scripts/setup-dev.mjs](scripts/setup-dev.mjs)) is idempotent and does three things:
 
-1. Writes `.env` from `.env.example`, generating a real `BETTER_AUTH_SECRET` and
-   `CRON_SECRET`, pointing `DATABASE_URL` and `TEST_DATABASE_URL` at the local
-   container, and filling in Cloudflare's always-passes Turnstile test keys.
-   **An existing `.env` is never overwritten.**
+1. Writes missing root and Content Studio env files with generated secrets,
+   local database URLs, and Cloudflare's always-passes Turnstile test keys.
+   **An existing env file is never overwritten.**
 2. Starts Postgres 16 via [docker-compose.yml](docker-compose.yml) and waits for it to accept
    connections.
-3. Applies migrations to both `sushi_dev` and `sushi_test`.
+3. Applies Drizzle migrations to `sushi_dev` and `sushi_test`, and Payload
+   migrations to the isolated `sushi_content` database.
 
 Then:
 
@@ -30,8 +30,9 @@ Then:
 pnpm dev
 ```
 
-Two databases on one server, deliberately: the `tests/db` tier truncates tables
-on every test, so it gets `sushi_test` and never touches your dev data.
+Three databases share one server deliberately. The `tests/db` tier truncates
+`sushi_test`, while the SaaS and Content Studio keep independent schemas in
+`sushi_dev` and `sushi_content`.
 
 | Command                       | Purpose                                                 |
 | ----------------------------- | ------------------------------------------------------- |
@@ -40,16 +41,16 @@ on every test, so it gets `sushi_test` and never touches your dev data.
 | `pnpm db:migrate`             | Apply migrations locally                                |
 | `pnpm db:studio`              | Drizzle Studio, a browser UI over the data              |
 
-To wipe local data entirely: `docker compose down -v`, then `pnpm setup`.
+To wipe local data entirely: `docker compose down -v`, then `pnpm run setup`.
 
-**Already running Postgres on 5432?** Very common, and `pnpm setup` detects it
-and stops rather than colliding. Create the two databases on the server you
-already have, point both URLs in `.env` at it, then
-`pnpm db:migrate && pnpm test:db:setup`. Full walkthrough in
+**Already running Postgres on 5432?** Very common, and `pnpm run setup` detects
+it and stops rather than colliding. Create all three databases on the server
+you already have, point the three URLs at it, then run
+`pnpm db:migrate && pnpm test:db:setup && pnpm studio:migrate`. Full walkthrough in
 [docs/database.md](docs/database.md#setting-up-from-a-fresh-clone).
 
 No Docker at all? Same thing — install Postgres however you like, create
-`sushi_dev` and `sushi_test`, and follow the steps above.
+`sushi_dev`, `sushi_test`, and `sushi_content`, and follow the steps above.
 
 ### Making yourself an admin
 
@@ -90,9 +91,14 @@ Production validation rejects auth and cron secrets shorter than 32 UTF-8 bytes
 or recognizable setup placeholders. Generate both independently; never reuse a
 secret across environments or between authentication and cron.
 
-**Required for the features that use them**: `RESEND_API_KEY` + `EMAIL_FROM`
-(password reset, welcome, payment, reservation mail), `STRIPE_PRIVATE_KEY` +
-`STRIPE_WEBHOOK_SECRET`, and the `STORAGE_*` block.
+**Required for the features that use them**:
+
+- `RESEND_API_KEY` + `EMAIL_FROM` for password reset, welcome, payment, and
+  reservation mail.
+- `CONTENT_MARKETING_SECRET`, `MARKETING_UNSUBSCRIBE_SECRET`, and the Resend
+  endpoint's `RESEND_WEBHOOK_SECRET` for marketing campaigns.
+- `STRIPE_PRIVATE_KEY` + `STRIPE_WEBHOOK_SECRET` for billing.
+- The `STORAGE_*` block for private uploads.
 
 Local development may omit `RATE_LIMIT_REDIS_URL` and use the in-memory
 fallback, but production app mode rejects that configuration because an

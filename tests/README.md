@@ -198,7 +198,7 @@ pnpm test:db       # infrastructure tier (TEST_DATABASE_URL / TEST_REDIS_URL)
 
 ### Running the infrastructure tier locally
 
-The simplest path is `pnpm setup`, which starts both services and writes both
+The simplest path is `pnpm run setup`, which starts both services and writes both
 test URLs. For a manual setup:
 
 ```bash

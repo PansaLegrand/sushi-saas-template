@@ -16,6 +16,7 @@ import {
   credits,
   files,
   jobs,
+  marketingSubscriptions,
   orders,
   orgMembers,
   organizations,
@@ -252,6 +253,16 @@ describeDb("account lifecycle transactions", () => {
       status: "active",
       org_uuid: organization.uuid,
     });
+    await db().insert(marketingSubscriptions).values({
+      uuid: randomUUID(),
+      email: user.email,
+      email_key: user.email.toLowerCase(),
+      topic: "product-updates",
+      locale: "en",
+      consent_source: "account-preferences",
+      consent_version: "2026-08",
+      consented_at: new Date(),
+    });
     await db()
       .insert(affiliateDeduplicationArchive)
       .values({
@@ -274,6 +285,13 @@ describeDb("account lifecycle transactions", () => {
     const publicDocument = JSON.stringify(exported?.snapshot);
 
     expect(exported?.snapshot.profile).toMatchObject({ email: user.email });
+    expect(exported?.snapshot.marketingSubscriptions).toContainEqual(
+      expect.objectContaining({
+        topic: "product-updates",
+        status: "subscribed",
+        consentSource: "account-preferences",
+      }),
+    );
     expect(exported?.snapshot.affiliateDeduplicationArchive).toHaveLength(1);
     for (const secret of Object.values(secrets)) {
       expect(publicDocument).not.toContain(secret);
@@ -427,6 +445,16 @@ describeDb("account lifecycle transactions", () => {
           paid_order_no: "",
         }),
       });
+    await db().insert(marketingSubscriptions).values({
+      uuid: randomUUID(),
+      email: user.email,
+      email_key: user.email.toLowerCase(),
+      topic: "product-updates",
+      locale: "en",
+      consent_source: "account-preferences",
+      consent_version: "2026-08",
+      consented_at: new Date(),
+    });
 
     await expect(
       finalizeAccountErasure({
@@ -476,12 +504,17 @@ describeDb("account lifecycle transactions", () => {
       .select({ id: verifications.id })
       .from(verifications)
       .where(eq(verifications.identifier, user.email));
+    const marketingRows = await db()
+      .select({ id: marketingSubscriptions.id })
+      .from(marketingSubscriptions)
+      .where(eq(marketingSubscriptions.email_key, user.email.toLowerCase()));
 
     expect(deletedUser).toBeUndefined();
     expect(credentialRows).toHaveLength(0);
     expect(sessionRows).toHaveLength(0);
     expect(twoFactorRows).toHaveLength(0);
     expect(verificationRows).toHaveLength(0);
+    expect(marketingRows).toHaveLength(0);
     expect(retainedOrder).toMatchObject({
       user_uuid: erased,
       user_email: "",

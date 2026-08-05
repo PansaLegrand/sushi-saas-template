@@ -1,8 +1,9 @@
 # Local Postgres and Redis for development and the real-infrastructure tests.
 #
-# Two databases on one server: sushi_dev for the app, sushi_test for the
-# database tests. They are separate because the test tier truncates tables on
-# every test — sharing one database would wipe your dev data on `pnpm test:db`.
+# Three databases on one server: sushi_dev for the app, sushi_test for the
+# database tests, and sushi_content for Payload. They are separate because the
+# test tier truncates tables and Content Studio has an independent schema and
+# release lifecycle.
 #
 #   docker compose up -d      (or: pnpm db:up)
 #

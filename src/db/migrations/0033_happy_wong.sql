@@ -1,0 +1,1 @@
+ALTER TABLE "marketing_subscriptions" ADD COLUMN "suppression_event_at" timestamp with time zone;

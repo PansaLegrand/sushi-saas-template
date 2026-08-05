@@ -128,6 +128,30 @@ export const ACCOUNT_DATA_POLICY = {
     rationale:
       "Optional abuse-prevention retention; controlled by account lifecycle policy.",
   },
+  marketing_subscriptions: {
+    disposition: "delete",
+    includedInExport: true,
+    rationale:
+      "Consent evidence and preferences contain an email address; matching records are exported and removed with the account.",
+  },
+  marketing_campaign_dispatches: {
+    disposition: "not-personal",
+    includedInExport: false,
+    rationale:
+      "Immutable campaign copy and aggregate queue counts contain no recipient data.",
+  },
+  marketing_email_deliveries: {
+    disposition: "pseudonymize",
+    includedInExport: false,
+    rationale:
+      "Provider delivery receipts retain only an opaque subscription identifier after its consent row is removed.",
+  },
+  marketing_provider_events: {
+    disposition: "not-personal",
+    includedInExport: false,
+    rationale:
+      "Minimized webhook replay receipts contain provider and opaque delivery identifiers, never recipient addresses or payloads.",
+  },
   jobs: {
     disposition: "pseudonymize",
     includedInExport: false,

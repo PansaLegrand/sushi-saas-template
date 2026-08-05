@@ -784,6 +784,137 @@ export const emailBlocklist = pgTable(
   ],
 );
 
+// Marketing consent and delivery records.
+//
+// Content Studio owns campaign copy, but it must never become a shadow CRM.
+// Recipient addresses and consent therefore remain in the SaaS database, and
+// the worker checks this table again immediately before every provider call.
+export const marketingSubscriptions = pgTable(
+  "marketing_subscriptions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    uuid: varchar({ length: 255 }).notNull().unique(),
+    email: varchar({ length: 320 }).notNull(),
+    email_key: varchar({ length: 320 }).notNull(),
+    topic: varchar({ length: 64 }).notNull().default("product-updates"),
+    locale: varchar({ length: 16 }).notNull().default("en"),
+    // subscribed | unsubscribed | suppressed
+    status: varchar({ length: 32 }).notNull().default("subscribed"),
+    consent_source: varchar({ length: 128 }).notNull(),
+    consent_version: varchar({ length: 64 }).notNull(),
+    consented_at: timestamp({ withTimezone: true }).notNull(),
+    unsubscribed_at: timestamp({ withTimezone: true }),
+    suppressed_at: timestamp({ withTimezone: true }),
+    suppression_reason: varchar({ length: 64 }),
+    // Orders suppression add/remove events that may arrive out of order.
+    suppression_event_at: timestamp({ withTimezone: true }),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("marketing_subscriptions_email_topic_unique_idx").on(
+      table.email_key,
+      table.topic,
+    ),
+    index("marketing_subscriptions_audience_idx").on(
+      table.status,
+      table.topic,
+      table.locale,
+    ),
+  ],
+);
+
+export const marketingCampaignDispatches = pgTable(
+  "marketing_campaign_dispatches",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    uuid: varchar({ length: 255 }).notNull().unique(),
+    campaign_key: varchar({ length: 128 }).notNull().unique(),
+    content_hash: varchar({ length: 64 }).notNull(),
+    // One immutable, validated campaign snapshot. Per-recipient jobs carry only
+    // its key instead of duplicating a large body thousands of times.
+    message_json: text().notNull(),
+    audience_topic: varchar({ length: 64 }).notNull(),
+    audience_locale: varchar({ length: 16 }),
+    // queueing | queued | completed | failed | canceled
+    status: varchar({ length: 32 }).notNull().default("queueing"),
+    recipient_count: integer().notNull().default(0),
+    queued_count: integer().notNull().default(0),
+    scheduled_for: timestamp({ withTimezone: true }),
+    requested_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    completed_at: timestamp({ withTimezone: true }),
+    canceled_at: timestamp({ withTimezone: true }),
+    updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("marketing_campaign_dispatches_status_idx").on(
+      table.status,
+      table.requested_at,
+    ),
+  ],
+);
+
+export const marketingEmailDeliveries = pgTable(
+  "marketing_email_deliveries",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    uuid: varchar({ length: 255 }).notNull().unique(),
+    campaign_key: varchar({ length: 128 }).notNull(),
+    subscription_uuid: varchar({ length: 255 }).notNull(),
+    // queued | sent | delayed | delivered | bounced | complained | suppressed
+    // | skipped | failed
+    status: varchar({ length: 32 }).notNull().default("queued"),
+    provider_message_id: varchar({ length: 255 }),
+    sent_at: timestamp({ withTimezone: true }),
+    delivered_at: timestamp({ withTimezone: true }),
+    bounced_at: timestamp({ withTimezone: true }),
+    complained_at: timestamp({ withTimezone: true }),
+    suppressed_at: timestamp({ withTimezone: true }),
+    skipped_at: timestamp({ withTimezone: true }),
+    provider_event_at: timestamp({ withTimezone: true }),
+    last_error: text(),
+    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("marketing_email_deliveries_campaign_subscription_unique_idx").on(
+      table.campaign_key,
+      table.subscription_uuid,
+    ),
+    index("marketing_email_deliveries_campaign_status_idx").on(
+      table.campaign_key,
+      table.status,
+    ),
+    index("marketing_email_deliveries_subscription_idx").on(
+      table.subscription_uuid,
+    ),
+  ],
+);
+
+// Minimal, idempotent receipts for Resend's at-least-once webhook delivery.
+// Raw payloads and recipient addresses are intentionally not retained.
+export const marketingProviderEvents = pgTable(
+  "marketing_provider_events",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    event_id: varchar({ length: 255 }).notNull().unique(),
+    event_type: varchar({ length: 64 }).notNull(),
+    provider_message_id: varchar({ length: 255 }),
+    delivery_uuid: varchar({ length: 255 }),
+    outcome: varchar({ length: 32 }).notNull().default("processed"),
+    occurred_at: timestamp({ withTimezone: true }).notNull(),
+    received_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("marketing_provider_events_message_idx").on(
+      table.provider_message_id,
+    ),
+    index("marketing_provider_events_delivery_idx").on(table.delivery_uuid),
+    index("marketing_provider_events_occurred_idx").on(table.occurred_at),
+    index("marketing_provider_events_received_idx").on(table.received_at),
+  ],
+);
+
 // Background jobs (durable queue drained by the Vercel cron endpoint)
 //
 // Work scheduled with queueMicrotask/setTimeout is not guaranteed to run on
@@ -798,7 +929,7 @@ export const jobs = pgTable(
     type: varchar({ length: 64 }).notNull(),
     payload_json: text(),
 
-    // pending | running | succeeded | failed
+    // pending | running | succeeded | failed | canceled
     status: varchar({ length: 32 }).notNull().default("pending"),
     attempts: integer().notNull().default(0),
     max_attempts: integer().notNull().default(5),

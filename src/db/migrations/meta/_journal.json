@@ -209,6 +209,41 @@
       "when": 1785491120973,
       "tag": "0029_even_shriek",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1785721583771,
+      "tag": "0030_remarkable_ultimates",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1785721701441,
+      "tag": "0031_simple_penance",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1785729207074,
+      "tag": "0032_graceful_wraith",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1785729985062,
+      "tag": "0033_happy_wong",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1785730134742,
+      "tag": "0034_many_dragon_man",
+      "breakpoints": true
     }
   ]
 }

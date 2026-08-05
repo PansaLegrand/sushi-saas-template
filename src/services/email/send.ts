@@ -14,6 +14,9 @@ export type MailInput = {
   html: string;
   text?: string;
   from?: string;
+  replyTo?: string;
+  headers?: Record<string, string>;
+  tags?: Array<{ name: string; value: string }>;
   attachments?: Attachment[];
   /**
    * Stable across retries of one durable job. Never include an attempt number:
@@ -34,6 +37,9 @@ export async function sendMail({
   html,
   text,
   from,
+  replyTo,
+  headers,
+  tags,
   attachments,
   idempotencyKey,
   signal,
@@ -48,15 +54,17 @@ export async function sendMail({
     subject,
     html,
     text,
+    replyTo,
+    headers,
+    tags,
     attachments: attachments?.map((a) => ({
       filename: a.filename,
       content: typeof a.content === "string" ? a.content : a.content.toString("base64"),
       type: a.type,
     })),
   };
-  // Resend 4.8 types expose `idempotencyKey` but not the underlying fetch
-  // signal. Its request implementation spreads these options into RequestInit,
-  // so the signal reaches fetch while the key becomes Idempotency-Key.
+  // The signal reaches the provider fetch while the key becomes the provider's
+  // idempotency header. The key deliberately remains stable across retries.
   const requestOptions = { idempotencyKey, signal };
   const res =
     idempotencyKey || signal

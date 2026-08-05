@@ -68,7 +68,12 @@ jobs:
       STORAGE_ACCESS_KEY: ci-placeholder
       STORAGE_SECRET_KEY: ci-placeholder
       RESEND_API_KEY: re_ci_placeholder
+      RESEND_WEBHOOK_SECRET: ci-only-resend-webhook-secret-at-least-32-characters
       EMAIL_FROM: CI <ci@example.com>
+      CONTENT_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sushi_content_ci
+      PAYLOAD_SECRET: ci-only-content-studio-secret-at-least-32-characters
+      CONTENT_MARKETING_SECRET: ci-only-content-marketing-secret-at-least-32-characters
+      MARKETING_UNSUBSCRIBE_SECRET: ci-only-unsubscribe-secret-at-least-32-characters
 
     steps:
       - name: Checkout
@@ -87,6 +92,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Generate Content Studio types
+        run: pnpm studio:generate
 
       - name: Lint
         run: pnpm lint

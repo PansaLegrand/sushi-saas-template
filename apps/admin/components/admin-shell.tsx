@@ -5,6 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BookOpenText,
   Building2,
   CalendarDays,
   ChartNoAxesCombined,
@@ -19,6 +20,7 @@ import {
   ShieldCheck,
   Users,
   Webhook,
+  ExternalLink,
 } from "lucide-react";
 
 import { SignOutButton } from "@admin/components/sign-out-button";
@@ -37,6 +39,7 @@ interface AdminNavItem {
   href: string;
   label: string;
   icon: NavIcon;
+  external?: boolean;
 }
 
 interface AdminNavGroup {
@@ -84,53 +87,101 @@ function isActivePath(pathname: string, href: string): boolean {
 }
 
 function AdminNavigation({
+  contentStudioUrl,
   pathname,
   onNavigate,
 }: {
+  contentStudioUrl?: string;
   pathname: string;
   onNavigate?: () => void;
 }) {
+  const navGroups: AdminNavGroup[] = contentStudioUrl
+    ? [
+        ...NAV_GROUPS,
+        {
+          label: "Publishing",
+          items: [
+            {
+              href: contentStudioUrl,
+              label: "Content Studio",
+              icon: BookOpenText,
+              external: true,
+            },
+          ],
+        },
+      ]
+    : NAV_GROUPS;
+
   return (
     <nav
       aria-label="Admin navigation"
       className="flex-1 overflow-y-auto px-3 py-5"
     >
       <div className="space-y-6">
-        {NAV_GROUPS.map((group) => (
+        {navGroups.map((group) => (
           <div key={group.label}>
             <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {group.label}
             </p>
             <ul className="space-y-1">
               {group.items.map((item) => {
-                const active = isActivePath(pathname, item.href);
+                const active =
+                  !item.external && isActivePath(pathname, item.href);
                 const Icon = item.icon;
+
+                const content = (
+                  <>
+                    <Icon
+                      aria-hidden
+                      className={cn(
+                        "size-4 shrink-0",
+                        active
+                          ? "text-sidebar-primary"
+                          : "text-muted-foreground group-hover:text-foreground",
+                      )}
+                    />
+                    <span>{item.label}</span>
+                    {item.external ? (
+                      <ExternalLink
+                        aria-hidden
+                        className="ml-auto size-3.5 text-muted-foreground"
+                      />
+                    ) : null}
+                  </>
+                );
+
+                const className = cn(
+                  "group flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  active
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground",
+                );
 
                 return (
                   <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      aria-current={active ? "page" : undefined}
-                      onClick={onNavigate}
-                      className={cn(
-                        "group flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                        active
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                          : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground",
-                      )}
-                    >
-                      <Icon
-                        aria-hidden
-                        className={cn(
-                          "size-4 shrink-0",
-                          active
-                            ? "text-sidebar-primary"
-                            : "text-muted-foreground group-hover:text-foreground",
-                        )}
-                      />
-                      <span>{item.label}</span>
-                    </Link>
+                    {item.external ? (
+                      <a
+                        href={item.href}
+                        aria-label={`${item.label} (opens in a new tab)`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={onNavigate}
+                        className={className}
+                      >
+                        {content}
+                        <span className="sr-only">(opens in a new tab)</span>
+                      </a>
+                    ) : (
+                      <Link
+                        href={item.href}
+                        aria-current={active ? "page" : undefined}
+                        onClick={onNavigate}
+                        className={className}
+                      >
+                        {content}
+                      </Link>
+                    )}
                   </li>
                 );
               })}
@@ -193,11 +244,13 @@ function ConsoleBrand({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 function SidebarContent({
+  contentStudioUrl,
   email,
   role,
   pathname,
   onNavigate,
 }: {
+  contentStudioUrl?: string;
   email: string;
   role: "admin_ro" | "admin_rw";
   pathname: string;
@@ -206,7 +259,11 @@ function SidebarContent({
   return (
     <div className="flex h-full min-h-0 flex-col bg-sidebar text-sidebar-foreground">
       <ConsoleBrand onNavigate={onNavigate} />
-      <AdminNavigation pathname={pathname} onNavigate={onNavigate} />
+      <AdminNavigation
+        contentStudioUrl={contentStudioUrl}
+        pathname={pathname}
+        onNavigate={onNavigate}
+      />
       <ConsoleIdentity email={email} role={role} />
     </div>
   );
@@ -214,10 +271,12 @@ function SidebarContent({
 
 export function AdminShell({
   children,
+  contentStudioUrl,
   email,
   role,
 }: {
   children: ReactNode;
+  contentStudioUrl?: string;
   email: string;
   role: "admin_ro" | "admin_rw";
 }) {
@@ -234,7 +293,12 @@ export function AdminShell({
       </a>
 
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-sidebar-border lg:block">
-        <SidebarContent email={email} role={role} pathname={pathname} />
+        <SidebarContent
+          contentStudioUrl={contentStudioUrl}
+          email={email}
+          role={role}
+          pathname={pathname}
+        />
       </aside>
 
       <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur lg:hidden">
@@ -272,6 +336,7 @@ export function AdminShell({
             Navigate between admin console sections.
           </DialogDescription>
           <SidebarContent
+            contentStudioUrl={contentStudioUrl}
             email={email}
             role={role}
             pathname={pathname}

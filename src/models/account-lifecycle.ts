@@ -23,6 +23,7 @@ import {
   feedbacks,
   files,
   jobs,
+  marketingSubscriptions,
   orders,
   organizations,
   orgInvitations,
@@ -648,6 +649,7 @@ export type AccountExportSnapshot = {
   tasks: unknown[];
   authenticationHistory: unknown[];
   subscriptions: unknown[];
+  marketingSubscriptions: unknown[];
   auditHistory: unknown[];
   privacyRequests: unknown[];
 };
@@ -879,6 +881,26 @@ export async function getAccountExportData(input: {
         .from(subscriptions)
         .where(eq(subscriptions.user_uuid, input.userUuid));
 
+      const marketingSubscriptionRows = await tx
+        .select({
+          topic: marketingSubscriptions.topic,
+          locale: marketingSubscriptions.locale,
+          status: marketingSubscriptions.status,
+          consentSource: marketingSubscriptions.consent_source,
+          consentVersion: marketingSubscriptions.consent_version,
+          consentedAt: marketingSubscriptions.consented_at,
+          unsubscribedAt: marketingSubscriptions.unsubscribed_at,
+          suppressedAt: marketingSubscriptions.suppressed_at,
+          suppressionReason: marketingSubscriptions.suppression_reason,
+          suppressionEventAt: marketingSubscriptions.suppression_event_at,
+          createdAt: marketingSubscriptions.created_at,
+          updatedAt: marketingSubscriptions.updated_at,
+        })
+        .from(marketingSubscriptions)
+        .where(
+          eq(marketingSubscriptions.email_key, user.email.toLowerCase()),
+        );
+
       const auditRows = await tx
         .select({
           action: adminAuditLogs.action,
@@ -935,6 +957,7 @@ export async function getAccountExportData(input: {
           tasks: taskRows,
           authenticationHistory: eventRows,
           subscriptions: subscriptionRows,
+          marketingSubscriptions: marketingSubscriptionRows,
           auditHistory: auditRows,
           privacyRequests: requestRows,
         },
@@ -1513,6 +1536,11 @@ export async function finalizeAccountErasure(input: {
     `);
 
     await tx.delete(feedbacks).where(eq(feedbacks.user_uuid, user.uuid));
+    await tx
+      .delete(marketingSubscriptions)
+      .where(
+        eq(marketingSubscriptions.email_key, user.email.toLowerCase()),
+      );
     await tx
       .update(reservations)
       .set({

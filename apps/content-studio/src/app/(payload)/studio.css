@@ -1,0 +1,114 @@
+:root {
+  --theme-elevation-0: #fbfbf8;
+  --theme-elevation-50: #f4f3ee;
+  --theme-elevation-100: #ebe9e1;
+  --theme-success-500: #15856f;
+  --theme-warning-500: #c47b18;
+  --style-radius-s: 8px;
+  --style-radius-m: 12px;
+  --style-radius-l: 18px;
+}
+
+.template-default {
+  --nav-width: 280px;
+}
+
+.nav__brand {
+  font-weight: 750;
+  letter-spacing: -0.03em;
+}
+
+.dashboard__wrap {
+  max-width: 1320px;
+}
+
+.studio-welcome {
+  margin: 0 0 2rem;
+  padding: clamp(1.4rem, 3vw, 2.4rem);
+  border: 1px solid var(--theme-elevation-150);
+  border-radius: 18px;
+  background: linear-gradient(135deg, #fff 0%, #eefaf6 100%);
+}
+
+.studio-welcome h1 {
+  margin: 0 0 0.65rem;
+  font-size: clamp(1.8rem, 3vw, 2.8rem);
+  letter-spacing: -0.045em;
+}
+
+.studio-welcome p {
+  max-width: 66ch;
+  margin: 0;
+  color: var(--theme-elevation-700);
+  line-height: 1.65;
+}
+
+.campaign-actions {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1.25rem;
+  border: 1px solid var(--theme-elevation-150);
+  border-radius: 14px;
+  background: var(--theme-elevation-50);
+}
+
+.campaign-actions h3,
+.campaign-actions p {
+  margin: 0;
+}
+
+.campaign-actions p,
+.campaign-actions small {
+  color: var(--theme-elevation-700);
+  line-height: 1.5;
+}
+
+.campaign-actions__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.campaign-actions__test {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.campaign-actions__metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 0.65rem;
+}
+
+.campaign-actions__metrics span {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.75rem;
+  border: 1px solid var(--theme-elevation-150);
+  border-radius: 10px;
+  background: var(--theme-elevation-0);
+  text-transform: capitalize;
+}
+
+.campaign-actions__metrics strong {
+  color: var(--theme-elevation-700);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.campaign-actions__test label {
+  font-weight: 600;
+}
+
+.campaign-actions__test input {
+  min-width: min(100%, 320px);
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--theme-elevation-250);
+  border-radius: 8px;
+  background: var(--theme-input-bg);
+  color: var(--theme-text);
+}

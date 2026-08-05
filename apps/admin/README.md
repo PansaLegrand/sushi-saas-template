@@ -12,10 +12,17 @@ The admin console is a separate Next.js app so public web routes and admin-only 
 
 Set `NEXT_PUBLIC_ADMIN_WEB_URL` to the admin origin for local and production admin deployments.
 
+Set `CONTENT_STUDIO_URL` when this repository's `apps/content-studio` deployment
+is available. The console then shows a **Content Studio** link in its Publishing
+section. This is intentionally a server-only variable: the validated URL is
+passed to the navigation, while Studio credentials and configuration remain in
+the content deployment.
+
 For local development:
 
 ```bash
 NEXT_PUBLIC_ADMIN_WEB_URL=http://localhost:3001
+CONTENT_STUDIO_URL=http://localhost:3002
 ```
 
 When that value exists, this app points Better Auth at the admin origin unless `BETTER_AUTH_URL` or `NEXT_PUBLIC_AUTH_BASE_URL` are explicitly provided by the shell/deployment environment.
@@ -210,6 +217,10 @@ Admin-specific code should stay in this app:
 - Admin APIs: `apps/admin/app/api/admin`
 
 Shared auth, database schema, product models, and service integrations stay in `src/`.
+
+The Content Studio is also a separate boundary. This app links to it but does
+not import its code, query its content database, or imply that an operational
+admin session authorizes publishing. Editors authenticate with the CMS itself.
 
 ## Current Surfaces
 

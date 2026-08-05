@@ -6,6 +6,15 @@
  * fields, do not repurpose existing ones.
  */
 export interface JobPayloads {
+  marketing_campaign_email: {
+    deliveryUuid: string;
+    subscriptionUuid: string;
+    campaignKey: string;
+  };
+  marketing_test_email: {
+    recipient: string;
+    message: import("@/services/marketing/contracts").MarketingMessage;
+  };
   welcome_email: {
     email: string;
     name?: string;

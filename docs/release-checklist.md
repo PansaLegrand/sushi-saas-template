@@ -76,6 +76,12 @@ application is promoted.
   from fixture amounts.
 - Email changes: confirm the email in the provider dashboard or development
   auth-link logs, and verify no raw provider error reaches the UI.
+- Marketing email changes: create an explicit test subscription, preview and
+  test-send from Content Studio, launch a one-recipient campaign, drain the job
+  queue, verify the postal footer and one-click headers, unsubscribe, then prove
+  a later scheduled job is skipped while transactional email still sends.
+  Refresh delivery status in Studio, cancel a scheduled campaign, and send
+  signed Resend bounce/complaint fixtures to confirm idempotent suppression.
 - Storage changes: run the provider smoke test in
   [docs/storage-providers.md](storage-providers.md) against the target provider
   and verify objects remain private except through signed URLs. Confirm a

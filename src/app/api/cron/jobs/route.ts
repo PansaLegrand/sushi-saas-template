@@ -5,6 +5,7 @@ import { countJobsByStatus } from "@/models/job";
 import { pruneFinishedJobs, runDueJobs } from "@/services/jobs";
 import { cleanupStaleUploads } from "@/services/storage/cleanup";
 import { sweepStripeWebhookEvents } from "@/services/stripe/sweep";
+import { pruneMarketingProviderEvents } from "@/services/marketing/operations";
 import { logger } from "@/lib/logger/server";
 
 // Always run on demand; never cached.
@@ -27,6 +28,8 @@ export async function GET(req: Request) {
   try {
     const result = await runDueJobs(25);
     await pruneFinishedJobs();
+    const marketingProviderEventsPruned =
+      await pruneMarketingProviderEvents();
     const staleUploadsFailed = await cleanupStaleUploads();
     // Runs after the drain, so an alert it enqueues is not picked up until the
     // next tick — which is what keeps a sweep that alerts on every run from
@@ -40,6 +43,7 @@ export async function GET(req: Request) {
         ...result,
         stale_uploads_failed: staleUploadsFailed,
         stripe_stuck_events: stripe.stuck,
+        marketing_provider_events_pruned: marketingProviderEventsPruned,
         duration_ms: Date.now() - startedAt,
       },
       "cron jobs drained"
@@ -49,6 +53,7 @@ export async function GET(req: Request) {
       ...result,
       storage: { staleUploadsFailed },
       stripe,
+      marketing: { providerEventsPruned: marketingProviderEventsPruned },
       queue: pending,
       durationMs: Date.now() - startedAt,
     });

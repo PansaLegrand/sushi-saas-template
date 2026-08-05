@@ -271,7 +271,11 @@ export async function deleteFinishedJobsBefore(cutoff: Date): Promise<void> {
     .delete(jobs)
     .where(
       and(
-        or(eq(jobs.status, "succeeded"), eq(jobs.status, "failed")),
+        or(
+          eq(jobs.status, "succeeded"),
+          eq(jobs.status, "failed"),
+          eq(jobs.status, "canceled"),
+        ),
         isNotNull(jobs.completed_at),
         lt(jobs.completed_at, cutoff),
       ),

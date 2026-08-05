@@ -14,6 +14,7 @@ type RateLimitBucket =
   | "auth-sensitive"
   | "checkout"
   | "feedback"
+  | "marketing"
   | "credits"
   | "uploads"
   | "tasks"
@@ -56,6 +57,7 @@ const RATE_LIMIT_RULES: Record<RateLimitBucket, RateLimitRule> = {
   "auth-sensitive": { limit: 10, windowMs: 5 * 60 * 1000 },
   checkout: { limit: 10, windowMs: 60 * 1000 },
   feedback: { limit: 5, windowMs: 60 * 1000 },
+  marketing: { limit: 5, windowMs: 15 * 60 * 1000 },
   credits: { limit: 30, windowMs: 60 * 1000 },
   uploads: { limit: 20, windowMs: 60 * 1000 },
   tasks: { limit: 10, windowMs: 60 * 1000 },

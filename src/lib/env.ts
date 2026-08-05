@@ -142,7 +142,13 @@ const RawEnvSchema = z.object({
   TURNSTILE_SECRET_KEY: envString,
 
   RESEND_API_KEY: envString,
+  // Resend/Svix signing secret for delivery-status webhooks.
+  RESEND_WEBHOOK_SECRET: envString,
   EMAIL_FROM: envString,
+  // Signed Content Studio -> SaaS marketing delivery gateway.
+  CONTENT_MARKETING_SECRET: envString,
+  // Signs durable unsubscribe links. Keep stable when rotating gateway keys.
+  MARKETING_UNSUBSCRIBE_SECRET: envString,
 
   /**
    * Print password-reset and verification links to the server log instead of
@@ -438,6 +444,13 @@ function getMissingProductionEnv(raw: RawEnv, env: AppEnv): string[] {
   );
   requireRaw(raw.RESEND_API_KEY, "RESEND_API_KEY");
   requireRaw(raw.EMAIL_FROM, "EMAIL_FROM");
+  if (raw.CONTENT_MARKETING_SECRET) {
+    requireRaw(
+      raw.MARKETING_UNSUBSCRIBE_SECRET,
+      "MARKETING_UNSUBSCRIBE_SECRET",
+    );
+    requireRaw(raw.RESEND_WEBHOOK_SECRET, "RESEND_WEBHOOK_SECRET");
+  }
   // The in-memory fallback is correct for one local process but is not a
   // production rate limiter: every serverless instance would keep a different
   // counter. A production app must therefore have one shared Redis store.
@@ -489,6 +502,33 @@ function getInvalidProductionEnv(raw: RawEnv, env: AppEnv): string[] {
   if (raw.CRON_SECRET && !isStrongProductionSecret(raw.CRON_SECRET)) {
     invalid.push(
       "CRON_SECRET (use at least 32 random bytes, not a placeholder)",
+    );
+  }
+
+  if (
+    raw.CONTENT_MARKETING_SECRET &&
+    !isStrongProductionSecret(raw.CONTENT_MARKETING_SECRET)
+  ) {
+    invalid.push(
+      "CONTENT_MARKETING_SECRET (use at least 32 random bytes, not a placeholder)",
+    );
+  }
+
+  if (
+    raw.MARKETING_UNSUBSCRIBE_SECRET &&
+    !isStrongProductionSecret(raw.MARKETING_UNSUBSCRIBE_SECRET)
+  ) {
+    invalid.push(
+      "MARKETING_UNSUBSCRIBE_SECRET (use at least 32 random bytes, not a placeholder)",
+    );
+  }
+
+  if (
+    raw.RESEND_WEBHOOK_SECRET &&
+    !isStrongProductionSecret(raw.RESEND_WEBHOOK_SECRET)
+  ) {
+    invalid.push(
+      "RESEND_WEBHOOK_SECRET (use the Resend signing secret, not a placeholder)",
     );
   }
 

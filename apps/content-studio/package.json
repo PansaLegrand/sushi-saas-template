@@ -1,0 +1,52 @@
+{
+  "name": "@sushi-saas/content-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.19.0 <23",
+    "pnpm": "10.22.0"
+  },
+  "scripts": {
+    "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev --webpack --port 3002",
+    "build": "cross-env NODE_OPTIONS=\"--no-deprecation --max-old-space-size=4096\" next build --webpack",
+    "start": "cross-env NODE_OPTIONS=--no-deprecation next start -p 3002",
+    "lint": "cross-env NODE_OPTIONS=--no-deprecation eslint . --max-warnings 0",
+    "typecheck": "cross-env NODE_OPTIONS=--no-deprecation tsc --noEmit",
+    "test": "cross-env NODE_OPTIONS=--no-deprecation vitest run",
+    "generate:importmap": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap",
+    "generate:types": "cross-env NODE_OPTIONS=--no-deprecation payload generate:types",
+    "generate": "pnpm generate:importmap && pnpm generate:types",
+    "migrate:create": "cross-env NODE_OPTIONS=--no-deprecation payload migrate:create",
+    "migrate": "cross-env NODE_OPTIONS=--no-deprecation payload migrate",
+    "jobs:run": "cross-env NODE_OPTIONS=--no-deprecation payload jobs:run",
+    "check": "pnpm generate && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+  },
+  "dependencies": {
+    "@payloadcms/db-postgres": "3.87.0",
+    "@payloadcms/live-preview-react": "3.87.0",
+    "@payloadcms/next": "3.87.0",
+    "@payloadcms/richtext-lexical": "3.87.0",
+    "@payloadcms/storage-s3": "3.87.0",
+    "@payloadcms/ui": "3.87.0",
+    "cross-env": "10.1.0",
+    "dotenv": "16.4.7",
+    "graphql": "^16.8.1",
+    "next": "16.2.6",
+    "payload": "3.87.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "sharp": "0.34.2",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.17",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "eslint": "9.36.0",
+    "eslint-config-next": "16.2.6",
+    "esbuild": "^0.27.0",
+    "typescript": "^5.7.2",
+    "vitest": "4.1.10"
+  }
+}

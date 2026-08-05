@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { AdminShell } from "@admin/components/admin-shell";
 import { getAdminContext, getAdminIdentity } from "@admin/lib/authz";
+import { getContentStudioUrl } from "@admin/lib/content-studio";
 
 export default async function AdminLayout({
   children,
@@ -19,7 +20,11 @@ export default async function AdminLayout({
   }
 
   return (
-    <AdminShell email={admin.email} role={admin.role}>
+    <AdminShell
+      contentStudioUrl={getContentStudioUrl()}
+      email={admin.email}
+      role={admin.role}
+    >
       {children}
     </AdminShell>
   );

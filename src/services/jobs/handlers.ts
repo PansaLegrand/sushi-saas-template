@@ -14,6 +14,10 @@ import {
 import { findPersonalOrganizationByUserUuid } from "@/models/organization";
 import { deleteStoredObject } from "@/services/storage/delete-worker";
 import type { JobHandlerContext, JobHandlerMap } from "./types";
+import {
+  sendMarketingCampaignDelivery,
+  sendMarketingTestDelivery,
+} from "@/services/marketing/delivery";
 
 function queuedMailDelivery(context: JobHandlerContext) {
   return {
@@ -29,6 +33,26 @@ function queuedMailDelivery(context: JobHandlerContext) {
  * re-run if a runner died mid-flight without releasing its lock.
  */
 export const jobHandlers: JobHandlerMap = {
+  marketing_campaign_email: async (
+    { deliveryUuid, subscriptionUuid, campaignKey },
+    context,
+  ) => {
+    await sendMarketingCampaignDelivery(
+      { deliveryUuid, subscriptionUuid, campaignKey },
+      {
+        ...queuedMailDelivery(context),
+        finalAttempt: context.attempt >= context.maxAttempts,
+      },
+    );
+  },
+
+  marketing_test_email: async ({ recipient, message }, context) => {
+    await sendMarketingTestDelivery(
+      { recipient, message },
+      queuedMailDelivery(context),
+    );
+  },
+
   welcome_email: async ({ email, name }, context) => {
     await sendWelcomeEmail(email, name, queuedMailDelivery(context));
   },
