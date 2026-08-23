@@ -153,6 +153,7 @@ public website:
 
 - [Database and ledger invariants](docs/database.md)
 - [Local development workflow](docs/development.md)
+- [Observability and SLOs](docs/observability.md)
 - [Plans and entitlements](docs/plans.md)
 - [Organizations and authorization](docs/organizations.md)
 - [Error handling contract](docs/errors.md)

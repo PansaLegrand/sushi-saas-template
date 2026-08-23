@@ -35,9 +35,11 @@ describe("getReadinessReport", () => {
     mocks.checkRateLimitStoreReady.mockResolvedValue({ distributed: true });
     mocks.getJobQueueReadiness.mockResolvedValue({
       pending: 0,
+      duePending: 0,
       running: 0,
       failed: 0,
       staleRunning: 0,
+      oldestDueAgeMs: null,
     });
   });
 
@@ -59,7 +61,7 @@ describe("getReadinessReport", () => {
 
   it("fails readiness without exposing dependency errors", async () => {
     mocks.checkRateLimitStoreReady.mockRejectedValueOnce(
-      new Error("redis://user:secret@internal")
+      new Error("redis://user:secret@internal"),
     );
 
     const report = await getReadinessReport();
@@ -72,14 +74,33 @@ describe("getReadinessReport", () => {
   it("surfaces failed jobs as degradation without taking web traffic down", async () => {
     mocks.getJobQueueReadiness.mockResolvedValueOnce({
       pending: 2,
+      duePending: 2,
       running: 0,
       failed: 1,
       staleRunning: 0,
+      oldestDueAgeMs: 1_000,
     });
 
     const report = await getReadinessReport();
 
     expect(report.ready).toBe(true);
     expect(report.checks.queue).toBe("degraded");
+  });
+
+  it("degrades a queue whose oldest due job is no longer timely", async () => {
+    mocks.getJobQueueReadiness.mockResolvedValueOnce({
+      pending: 4,
+      duePending: 2,
+      running: 0,
+      failed: 0,
+      staleRunning: 0,
+      oldestDueAgeMs: 11 * 60 * 1000,
+    });
+
+    const report = await getReadinessReport();
+
+    expect(report.ready).toBe(true);
+    expect(report.checks.queue).toBe("degraded");
+    expect(report.details.queue?.duePending).toBe(2);
   });
 });

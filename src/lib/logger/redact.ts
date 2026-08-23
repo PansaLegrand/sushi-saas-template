@@ -17,6 +17,7 @@ const SENSITIVE_KEY_PARTS = [
   "credential",
   "databaseurl",
   "connectionstring",
+  "otlpheaders",
 ];
 
 function normalizedKey(key: string): string {
@@ -32,7 +33,10 @@ function configuredSecrets(): string[] {
   if (typeof process === "undefined" || !process.env) return [];
 
   return Object.entries(process.env)
-    .filter(([key, value]) => isSensitiveKey(key) && Boolean(value) && value!.length >= 6)
+    .filter(
+      ([key, value]) =>
+        isSensitiveKey(key) && Boolean(value) && value!.length >= 6,
+    )
     .map(([, value]) => value as string);
 }
 
@@ -45,21 +49,18 @@ function configuredSecrets(): string[] {
  */
 export function redactLogString(
   value: string,
-  secrets: readonly string[] = configuredSecrets()
+  secrets: readonly string[] = configuredSecrets(),
 ): string {
   let redacted = value
     .replace(
       /\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi,
-      (_match, scheme: string) => `${scheme} ${REDACTED}`
+      (_match, scheme: string) => `${scheme} ${REDACTED}`,
     )
-    .replace(
-      /\b(?:sk|pk)_(?:live|test)_[A-Za-z0-9_-]+\b/g,
-      REDACTED
-    )
+    .replace(/\b(?:sk|pk)_(?:live|test)_[A-Za-z0-9_-]+\b/g, REDACTED)
     .replace(/\bwhsec_[A-Za-z0-9_-]+\b/g, REDACTED)
     .replace(
       /([a-z][a-z0-9+.-]*:\/\/)([^/\s:@]+):([^/\s@]+)@/gi,
-      `$1${REDACTED}@`
+      `$1${REDACTED}@`,
     );
 
   for (const secret of secrets) {
@@ -73,7 +74,7 @@ function redactValue(
   value: unknown,
   secrets: readonly string[],
   seen: WeakSet<object>,
-  depth: number
+  depth: number,
 ): unknown {
   if (typeof value === "string") return redactLogString(value, secrets);
   if (
@@ -109,9 +110,7 @@ function redactValue(
   }
 
   if (Array.isArray(value)) {
-    return value.map((item) =>
-      redactValue(item, secrets, seen, depth + 1)
-    );
+    return value.map((item) => redactValue(item, secrets, seen, depth + 1));
   }
 
   const output: Record<string, unknown> = {};
@@ -126,7 +125,7 @@ function redactValue(
 /** Recursively sanitize fields before either logger implementation sees them. */
 export function redactLogFields(
   fields: LogFields,
-  secrets: readonly string[] = configuredSecrets()
+  secrets: readonly string[] = configuredSecrets(),
 ): LogFields {
   return redactValue(fields, secrets, new WeakSet(), 0) as LogFields;
 }

@@ -4,6 +4,7 @@ import { checkDatabaseReadiness } from "@/models/readiness";
 import { getJobQueueReadiness } from "@/models/job";
 
 const STALE_JOB_MS = 5 * 60 * 1000;
+const DEGRADED_QUEUE_AGE_MS = 10 * 60 * 1000;
 
 export type ReadinessReport = {
   ready: boolean;
@@ -42,8 +43,10 @@ export async function getReadinessReport(): Promise<ReadinessReport> {
   let queue: Awaited<ReturnType<typeof getJobQueueReadiness>> | undefined;
   if (database.status === "fulfilled") {
     try {
+      const now = new Date();
       queue = await getJobQueueReadiness(
-        new Date(Date.now() - STALE_JOB_MS)
+        new Date(now.getTime() - STALE_JOB_MS),
+        now,
       );
     } catch {
       // The database probe succeeded but this operational query did not. It is
@@ -54,7 +57,9 @@ export async function getReadinessReport(): Promise<ReadinessReport> {
   const queueStatus =
     queue === undefined
       ? "unknown"
-      : queue.staleRunning > 0 || queue.failed > 0
+      : queue.staleRunning > 0 ||
+          queue.failed > 0 ||
+          (queue.oldestDueAgeMs ?? 0) > DEGRADED_QUEUE_AGE_MS
         ? "degraded"
         : "ok";
 

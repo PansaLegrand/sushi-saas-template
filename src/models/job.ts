@@ -305,33 +305,63 @@ export async function listPendingJobs(limit: number = 50): Promise<JobRow[]> {
 
 export type JobQueueReadiness = {
   pending: number;
+  duePending: number;
   running: number;
   failed: number;
   staleRunning: number;
+  oldestDueAgeMs: number | null;
 };
 
 /** Operational queue signals shown by readiness without exposing job payloads. */
 export async function getJobQueueReadiness(
   staleBefore: Date,
+  now: Date = new Date(),
 ): Promise<JobQueueReadiness> {
+  // Date values inside a raw `sql` fragment bypass Drizzle's timestamp mapper
+  // and postgres.js rejects the object. Use explicit ISO casts, the same rule
+  // as the queue claim statement above.
+  const nowIso = now.toISOString();
+  const staleBeforeIso = staleBefore.toISOString();
   const [row] = await db()
     .select({
       pending: sql<number>`count(*) filter (where ${jobs.status} = 'pending')::int`,
+      duePending: sql<number>`
+        count(*) filter (
+          where ${jobs.status} = 'pending'
+            and ${jobs.run_at} <= ${nowIso}::timestamptz
+        )::int
+      `,
       running: sql<number>`count(*) filter (where ${jobs.status} = 'running')::int`,
       failed: sql<number>`count(*) filter (where ${jobs.status} = 'failed')::int`,
       staleRunning: sql<number>`
         count(*) filter (
           where ${jobs.status} = 'running'
-            and ${jobs.locked_at} < ${staleBefore}
+            and ${jobs.locked_at} < ${staleBeforeIso}::timestamptz
         )::int
+      `,
+      oldestDueAt: sql<Date | null>`
+        min(${jobs.run_at}) filter (
+          where ${jobs.status} = 'pending'
+            and ${jobs.run_at} <= ${nowIso}::timestamptz
+        )
       `,
     })
     .from(jobs);
 
+  const oldestDueAt = row?.oldestDueAt
+    ? row.oldestDueAt instanceof Date
+      ? row.oldestDueAt
+      : new Date(row.oldestDueAt)
+    : null;
+
   return {
     pending: row?.pending ?? 0,
+    duePending: row?.duePending ?? 0,
     running: row?.running ?? 0,
     failed: row?.failed ?? 0,
     staleRunning: row?.staleRunning ?? 0,
+    oldestDueAgeMs: oldestDueAt
+      ? Math.max(0, now.getTime() - oldestDueAt.getTime())
+      : null,
   };
 }

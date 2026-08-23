@@ -136,6 +136,8 @@ secret across environments or between authentication and cron.
   endpoint's `RESEND_WEBHOOK_SECRET` for marketing campaigns.
 - `STRIPE_PRIVATE_KEY` + `STRIPE_WEBHOOK_SECRET` for billing.
 - The `STORAGE_*` block for private uploads.
+- `OTEL_ENABLED=true`, `OTEL_SERVICE_NAME`, and the standard
+  `OTEL_EXPORTER_OTLP_*` variables for vendor-neutral tracing.
 
 Local development may omit `RATE_LIMIT_REDIS_URL` and use the in-memory
 fallback, but production app mode rejects that configuration because an

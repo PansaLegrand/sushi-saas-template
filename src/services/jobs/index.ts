@@ -7,13 +7,11 @@ import {
   type JobRow,
 } from "@/models/job";
 import { jobHandlers } from "./handlers";
-import type {
-  JobHandlerContext,
-  JobPayloads,
-  JobType,
-} from "./types";
+import type { JobHandlerContext, JobPayloads, JobType } from "./types";
 import { logger } from "@/lib/logger/server";
 import { AppError } from "@/lib/errors";
+import { withSpan } from "@/lib/observability";
+import { SpanStatusCode } from "@opentelemetry/api";
 
 export type { JobPayloads, JobType } from "./types";
 
@@ -55,18 +53,29 @@ export async function enqueueJob<T extends JobType>(
   payload: JobPayloads[T],
   options: EnqueueOptions = {},
 ): Promise<boolean> {
-  const row = await insertJob({
-    type,
-    payload,
-    runAt: options.runAt,
-    maxAttempts: options.maxAttempts,
-    dedupeKey: options.dedupeKey,
-    subjectUserUuid: options.subjectUserUuid,
-    subjectOrgUuid: options.subjectOrgUuid,
-    retryFailed: options.retryFailed,
-  });
+  return withSpan(
+    "jobs.enqueue",
+    {
+      "job.type": type,
+      "job.has_dedupe_key": Boolean(options.dedupeKey),
+      "job.retry_failed": Boolean(options.retryFailed),
+    },
+    async (span) => {
+      const row = await insertJob({
+        type,
+        payload,
+        runAt: options.runAt,
+        maxAttempts: options.maxAttempts,
+        dedupeKey: options.dedupeKey,
+        subjectUserUuid: options.subjectUserUuid,
+        subjectOrgUuid: options.subjectOrgUuid,
+        retryFailed: options.retryFailed,
+      });
 
-  return Boolean(row);
+      span.setAttribute("job.created", Boolean(row));
+      return Boolean(row);
+    },
+  );
 }
 
 /**
@@ -139,47 +148,72 @@ async function runOne(
   job: JobRow,
   timeoutMs: number,
 ): Promise<RunJobsResult["results"][number]> {
-  const handler = jobHandlers[job.type as JobType];
+  return withSpan(
+    "jobs.run",
+    {
+      "job.uuid": job.uuid,
+      "job.type": job.type,
+      "job.attempt": job.attempts,
+      "job.max_attempts": job.max_attempts,
+    },
+    async (span) => {
+      const handler = jobHandlers[job.type as JobType];
 
-  if (!handler) {
-    // An unknown type means a job outlived the deploy that understood it.
-    // Bury it rather than retrying forever.
-    const outcome = await markJobFailed(
-      { ...job, attempts: job.max_attempts },
-      `unknown job type: ${job.type}`,
-      BACKOFF_BASE_MS,
-    );
-    if (outcome === "lease_lost") {
-      return { uuid: job.uuid, type: job.type, outcome };
-    }
-    return { uuid: job.uuid, type: job.type, outcome: "unknown_type" };
-  }
+      if (!handler) {
+        // An unknown type means a job outlived the deploy that understood it.
+        // Bury it rather than retrying forever.
+        const outcome = await markJobFailed(
+          { ...job, attempts: job.max_attempts },
+          `unknown job type: ${job.type}`,
+          BACKOFF_BASE_MS,
+        );
+        if (outcome === "lease_lost") {
+          span.setAttribute("job.outcome", outcome);
+          span.setStatus({ code: SpanStatusCode.ERROR, message: outcome });
+          return { uuid: job.uuid, type: job.type, outcome };
+        }
+        span.setAttribute("job.outcome", "unknown_type");
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: "unknown job type",
+        });
+        return { uuid: job.uuid, type: job.type, outcome: "unknown_type" };
+      }
 
-  try {
-    const payload = job.payload_json ? JSON.parse(job.payload_json) : {};
-    const controller = new AbortController();
-    const context: JobHandlerContext = {
-      jobUuid: job.uuid,
-      attempt: job.attempts,
-      maxAttempts: job.max_attempts,
-      signal: controller.signal,
-    };
-    await runWithTimeout(
-      () => handler(payload, context),
-      timeoutMs,
-      controller,
-    );
-    const completed = await markJobSucceeded(job);
-    return {
-      uuid: job.uuid,
-      type: job.type,
-      outcome: completed ? "succeeded" : "lease_lost",
-    };
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    const outcome = await markJobFailed(job, message, BACKOFF_BASE_MS);
-    return { uuid: job.uuid, type: job.type, outcome, error: message };
-  }
+      try {
+        const payload = job.payload_json ? JSON.parse(job.payload_json) : {};
+        const controller = new AbortController();
+        const context: JobHandlerContext = {
+          jobUuid: job.uuid,
+          attempt: job.attempts,
+          maxAttempts: job.max_attempts,
+          signal: controller.signal,
+        };
+        await runWithTimeout(
+          () => handler(payload, context),
+          timeoutMs,
+          controller,
+        );
+        const completed = await markJobSucceeded(job);
+        const outcome = completed ? "succeeded" : "lease_lost";
+        span.setAttribute("job.outcome", outcome);
+        if (!completed) {
+          span.setStatus({ code: SpanStatusCode.ERROR, message: outcome });
+        }
+        return {
+          uuid: job.uuid,
+          type: job.type,
+          outcome,
+        };
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        const outcome = await markJobFailed(job, message, BACKOFF_BASE_MS);
+        span.setAttribute("job.outcome", outcome);
+        span.setStatus({ code: SpanStatusCode.ERROR, message });
+        return { uuid: job.uuid, type: job.type, outcome, error: message };
+      }
+    },
+  );
 }
 
 /**
@@ -228,9 +262,7 @@ export async function runDueJobs(
       break;
     }
 
-    results.push(
-      await runOne(job, Math.min(handlerTimeoutMs, remainingMs)),
-    );
+    results.push(await runOne(job, Math.min(handlerTimeoutMs, remainingMs)));
   }
 
   return {

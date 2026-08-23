@@ -113,6 +113,8 @@ a deploy.
       deliberate "stdout is enough for now".
 - [ ] Point-in-time restore confirmed available, and the restore procedure run
       once against a scratch database.
+- [ ] `/api/ready` monitored; queue degradation and request errors reach the
+      configured log/OTLP backend with trace correlation.
 
 ## PR Notes
 

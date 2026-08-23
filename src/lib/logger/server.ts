@@ -3,10 +3,12 @@ import type { Logger, LoggerOptions, LogFields } from "./types";
 import pino from "pino";
 import { redactLogFields, redactLogString } from "./redact";
 import { normalizeRequestId } from "./request-id";
+import { activeTraceFields } from "@/lib/observability";
 
 function getLevel(): "debug" | "info" | "warn" | "error" {
   const env = (process.env.LOG_LEVEL || "").toLowerCase();
-  if (env === "debug" || env === "info" || env === "warn" || env === "error") return env;
+  if (env === "debug" || env === "info" || env === "warn" || env === "error")
+    return env;
   return process.env.NODE_ENV === "production" ? "info" : "debug";
 }
 
@@ -35,6 +37,7 @@ const redactPaths = [
   "STORAGE_ACCESS_KEY",
   "S3_SECRET_ACCESS_KEY",
   "S3_ACCESS_KEY_ID",
+  "OTEL_EXPORTER_OTLP_HEADERS",
 ];
 
 export function createLogger(options?: LoggerOptions): Logger {
@@ -55,11 +58,15 @@ export function createLogger(options?: LoggerOptions): Logger {
     const write = (
       method: "debug" | "info" | "warn" | "error",
       obj?: LogFields,
-      msg?: string
+      msg?: string,
     ) => {
       const safeMessage = msg ? redactLogString(msg) : msg;
-      if (obj) {
-        child[method](redactLogFields(obj), safeMessage);
+      const traceFields = activeTraceFields();
+      if (obj || Object.keys(traceFields).length > 0) {
+        child[method](
+          redactLogFields({ ...(obj ?? {}), ...traceFields }),
+          safeMessage,
+        );
       } else {
         child[method](safeMessage);
       }
@@ -84,38 +91,51 @@ export function createLogger(options?: LoggerOptions): Logger {
 export const logger = createLogger();
 
 // Helper to extract a request_id consistently
-export function requestIdFromHeaders(h: Headers | Record<string, string | null | undefined>): string {
+export function requestIdFromHeaders(
+  h: Headers | Record<string, string | null | undefined>,
+): string {
   const get = (k: string) => {
     if (h instanceof Headers) return h.get(k);
     const v = (h as any)[k];
     return typeof v === "string" ? v : null;
   };
   return normalizeRequestId(
-    get("x-request-id") || get("x-amzn-trace-id") || get("cf-ray")
+    get("x-request-id") || get("x-amzn-trace-id") || get("cf-ray"),
   );
 }
 
-export function withApiLogging<T extends (...args: any[]) => Promise<Response> | Response>(
-  handler: T,
-  opts?: { route?: string; event?: string }
-) {
+export function withApiLogging<
+  T extends (...args: any[]) => Promise<Response> | Response,
+>(handler: T, opts?: { route?: string; event?: string }) {
   return (async (...args: Parameters<T>): Promise<Response> => {
     const req: Request = args[0] as any;
     const start = Date.now();
     const rid = requestIdFromHeaders(req.headers);
     const log = logger.child({ request_id: rid, route: opts?.route });
     try {
-      log.info({ event: opts?.event ? `${opts.event}.start` : "request.start", method: (req as any).method, url: (req as any).url });
+      log.info({
+        event: opts?.event ? `${opts.event}.start` : "request.start",
+        method: (req as any).method,
+        url: (req as any).url,
+      });
       const res = await handler(...args);
       const dur = Date.now() - start;
       const status = (res as any).status || 200;
       res.headers.set("x-request-id", rid);
-      log.info({ event: opts?.event ? `${opts?.event}.ok` : "request.ok", status, duration_ms: dur });
+      log.info({
+        event: opts?.event ? `${opts?.event}.ok` : "request.ok",
+        status,
+        duration_ms: dur,
+      });
       return res;
     } catch (e: any) {
       const dur = Date.now() - start;
       const errObj = { name: e?.name, message: e?.message, code: e?.code };
-      log.error({ event: opts?.event ? `${opts?.event}.error` : "request.error", ...errObj, duration_ms: dur });
+      log.error({
+        event: opts?.event ? `${opts?.event}.error` : "request.error",
+        ...errObj,
+        duration_ms: dur,
+      });
       throw e;
     }
   }) as T;

@@ -5,10 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import {
-  redactLogFields,
-  redactLogString,
-} from "@/lib/logger/redact";
+import { redactLogFields, redactLogString } from "@/lib/logger/redact";
 
 describe("logger redaction", () => {
   it("redacts sensitive keys at any nesting depth", () => {
@@ -22,7 +19,7 @@ describe("logger redaction", () => {
             },
           },
         },
-      })
+      }),
     ).toEqual({
       request: {
         provider: {
@@ -36,13 +33,21 @@ describe("logger redaction", () => {
     const secret = "database-password";
     const result = redactLogString(
       `failed postgresql://app:${secret}@db.internal/x with Bearer abc.def and sk_live_123456`,
-      [secret]
+      [secret],
     );
 
     expect(result).not.toContain(secret);
     expect(result).not.toContain("abc.def");
     expect(result).not.toContain("sk_live_123456");
     expect(result).toContain("[REDACTED]");
+  });
+
+  it("redacts OTLP authentication headers", () => {
+    expect(
+      redactLogFields({
+        OTEL_EXPORTER_OTLP_HEADERS: "authorization=Bearer collector-key",
+      }),
+    ).toEqual({ OTEL_EXPORTER_OTLP_HEADERS: "[REDACTED]" });
   });
 
   it("serializes errors safely and tolerates circular diagnostic objects", () => {

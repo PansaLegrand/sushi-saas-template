@@ -23,6 +23,7 @@ import {
   countJobsByStatus,
   deleteFinishedJobsBefore,
   findJobByDedupeKey,
+  getJobQueueReadiness,
   insertJob,
   listPendingJobs,
   markJobFailed,
@@ -300,5 +301,50 @@ describeDb("job queue (real database)", () => {
 
     expect(await rowByUuid(done!.uuid)).toBeUndefined();
     expect(await rowByUuid(pending!.uuid)).toBeDefined();
+  });
+
+  it("reports due age, failures, and stale leases without exposing payloads", async () => {
+    const now = new Date();
+    await insertJob({
+      type: "welcome_email",
+      payload: { email: "private@example.test" },
+      runAt: new Date(now.getTime() - 12 * 60 * 1000),
+    });
+    await insertJob({
+      type: "welcome_email",
+      payload: {},
+      runAt: new Date(now.getTime() + 20 * 60 * 1000),
+    });
+
+    const failed = await insertJob({ type: "welcome_email", payload: {} });
+    await db()
+      .update(jobsTable)
+      .set({ status: "failed", completed_at: now })
+      .where(eq(jobsTable.uuid, failed!.uuid));
+
+    const running = await insertJob({ type: "welcome_email", payload: {} });
+    await db()
+      .update(jobsTable)
+      .set({
+        status: "running",
+        attempts: 1,
+        locked_at: new Date(now.getTime() - 6 * 60 * 1000),
+      })
+      .where(eq(jobsTable.uuid, running!.uuid));
+
+    const report = await getJobQueueReadiness(
+      new Date(now.getTime() - 5 * 60 * 1000),
+      now,
+    );
+
+    expect(report).toMatchObject({
+      pending: 2,
+      duePending: 1,
+      running: 1,
+      failed: 1,
+      staleRunning: 1,
+    });
+    expect(report.oldestDueAgeMs).toBeGreaterThanOrEqual(12 * 60 * 1000);
+    expect(JSON.stringify(report)).not.toContain("private@example.test");
   });
 });

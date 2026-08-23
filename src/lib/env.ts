@@ -233,6 +233,10 @@ const RawEnvSchema = z.object({
 
   NEXT_PUBLIC_GOOGLE_ANALYTICS_ID: envString,
   NEXT_PUBLIC_GOOGLE_ADCODE: envString,
+  OTEL_ENABLED: envBoolean(false),
+  OTEL_SERVICE_NAME: envString,
+  OTEL_EXPORTER_OTLP_ENDPOINT: envUrl,
+  OTEL_EXPORTER_OTLP_HEADERS: envString,
   LOG_LEVEL: z
     .preprocess(
       emptyToUndefined,
