@@ -29,8 +29,16 @@ import { config } from "dotenv";
 // checks below have run.
 import type { InvoiceSummary } from "../src/services/stripe/reconcile";
 
-config({ path: ".env" });
-config({ path: ".env.local", override: true });
+const initialEnv = new Map(Object.entries(process.env));
+for (const path of [
+  ".env",
+  ".env.development",
+  ".env.local",
+  ".env.development.local",
+]) {
+  config({ path, override: true });
+}
+for (const [key, value] of initialEnv) process.env[key] = value;
 
 function flagValue(name: string): string | undefined {
   const index = process.argv.indexOf(`--${name}`);

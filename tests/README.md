@@ -199,7 +199,7 @@ pnpm test:db       # infrastructure tier (TEST_DATABASE_URL / TEST_REDIS_URL)
 ### Running the infrastructure tier locally
 
 The simplest path is `pnpm run setup`, which starts both services and writes both
-test URLs. For a manual setup:
+test URLs to `.env.development.local`. For a manual setup:
 
 ```bash
 createdb sushi_test
@@ -284,4 +284,4 @@ stripe trigger checkout_session_completed
 ```
 
 Requires `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `NEXT_PUBLIC_WEB_URL`
-in `.env.local`.
+in `.env.development.local`.

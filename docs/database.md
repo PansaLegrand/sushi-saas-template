@@ -27,11 +27,11 @@ credentials. Only the database name at the end of the URL differs.
 ### If you have no Postgres yet
 
 ```bash
-pnpm install && pnpm run setup
+./scripts/setup.sh development
 ```
 
-That writes `.env` with generated secrets, starts Postgres 16 in Docker, creates
-all three databases, and migrates them. Then `pnpm dev`.
+That writes `.env.development.local` with generated secrets, starts Postgres 16
+in Docker, creates all three databases, and migrates them. Then `pnpm dev`.
 
 ### If you already have Postgres running
 
@@ -48,8 +48,8 @@ If it runs in a container, go through it instead:
 docker exec <container-name> psql -U postgres -c "create database sushi_dev;" -c "create database sushi_test;" -c "create database sushi_content;"
 ```
 
-Put the SaaS/test URLs in `.env` and the Payload URL in
-`apps/content-studio/.env.local`, matching your server credentials:
+Put the SaaS/test URLs in `.env.development.local` and the Payload URL in
+`apps/content-studio/.env.development.local`, matching your server credentials:
 
 ```bash
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/sushi_dev
@@ -70,8 +70,8 @@ pnpm test:db
 ```
 
 23 tests should pass. If they **skip** instead, `TEST_DATABASE_URL` is not being
-picked up — check it is in `.env` and that its database name contains `test`,
-which the harness requires before it will truncate anything.
+picked up — check it is in `.env.development.local` and that its database name
+contains `test`, which the harness requires before it will truncate anything.
 
 ### Production
 

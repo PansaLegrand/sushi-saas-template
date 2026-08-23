@@ -64,8 +64,7 @@ Requirements:
 - Docker for the default local PostgreSQL and Redis services
 
 ```bash
-pnpm install
-pnpm run setup
+./scripts/setup.sh development
 pnpm dev
 ```
 
@@ -81,14 +80,30 @@ The admin app runs on `http://localhost:3001`.
 Start the optional authoring workspace with `pnpm dev:studio`; it runs on
 `http://localhost:3002` and uses its own database and editor accounts.
 
-`pnpm run setup` is idempotent: it creates missing root and Content Studio env
-files, starts the development services, provisions three isolated databases,
-and applies both Drizzle and Payload migrations. Existing env files are never
-overwritten.
+The guided script installs dependencies, writes ignored development profiles,
+generates internal secrets, optionally collects provider credentials, starts
+the development services, provisions three isolated databases, and applies
+both Drizzle and Payload migrations. It is idempotent and never replaces an
+existing value.
+
+For CI or a no-prompts bootstrap, use `pnpm install && pnpm run setup`. Existing
+clones using `.env` remain supported; fresh clones use
+`.env.development.local` and
+`apps/content-studio/.env.development.local`.
 
 ## Configuration
 
-Copy `.env.example` and configure at minimum:
+Configuration has one tracked inventory and separate ignored runtime profiles:
+
+| Command                   | File                     | Purpose                                      |
+| ------------------------- | ------------------------ | -------------------------------------------- |
+| `pnpm env:setup:dev`      | `.env.development.local` | Local defaults and generated local secrets   |
+| `pnpm env:setup:prod`     | `.env.production.local`  | Production values, isolated from development |
+| `pnpm env:check:dev`      | development profile      | Validate types without printing values       |
+| `pnpm env:check:prod`     | production profile       | Enforce the full production contract         |
+| `./scripts/setup.sh prod` | production profile       | Guided setup plus validation; never deploys  |
+
+`.env.example` remains the canonical list. Configure at minimum:
 
 - `DATABASE_URL`
 - `BETTER_AUTH_SECRET`
@@ -113,6 +128,8 @@ is not a submodule and is not built by this repository.
 
 | Command                | Purpose                                                          |
 | ---------------------- | ---------------------------------------------------------------- |
+| `pnpm setup:guided`    | Guided first-clone development setup                              |
+| `pnpm env:check:prod`  | Validate production configuration without exposing secret values |
 | `pnpm dev`             | Start the SaaS application                                       |
 | `pnpm dev:admin`       | Start the separate admin console                                 |
 | `pnpm dev:studio`      | Start Content Studio on port 3002                                |

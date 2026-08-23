@@ -22,13 +22,13 @@ consent, and delivery records remain in the SaaS database.
 ## Local development
 
 ```bash
-pnpm install
-pnpm run setup
+./scripts/setup.sh development
 pnpm dev:studio
 ```
 
-The setup command creates `sushi_content`, writes the missing Studio env file,
-and applies its Payload migrations. Existing environment files are preserved.
+The setup command creates `sushi_content`, writes the missing
+`apps/content-studio/.env.development.local` profile, and applies its Payload
+migrations. Existing environment values are preserved.
 
 Open `http://localhost:3002/admin`. The first Payload user becomes the Content
 Studio administrator. Run the SaaS and operational admin separately with

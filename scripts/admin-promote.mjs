@@ -7,9 +7,22 @@
  *   pnpm admin:promote founder@example.com admin_ro
  *   pnpm admin:promote founder@example.com --role admin_rw --provider google
  */
-import "dotenv/config";
-
+import { config } from "dotenv";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import postgres from "postgres";
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const initialEnv = new Map(Object.entries(process.env));
+for (const file of [
+  ".env",
+  ".env.development",
+  ".env.local",
+  ".env.development.local",
+]) {
+  config({ path: resolve(root, file), override: true });
+}
+for (const [key, value] of initialEnv) process.env[key] = value;
 
 const ADMIN_ROLES = new Set(["admin_ro", "admin_rw"]);
 
@@ -135,7 +148,9 @@ try {
 
 const url = process.env.DATABASE_URL?.trim();
 if (!url) {
-  console.error("DATABASE_URL is required. Set it in .env or in the shell.");
+  console.error(
+    "DATABASE_URL is required. Set it in .env.development.local or in the shell.",
+  );
   process.exit(1);
 }
 

@@ -21,11 +21,19 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 // config, so `pnpm test:db:setup` works without exporting anything by hand.
 // An explicit shell value wins.
 if (!process.env.TEST_DATABASE_URL?.trim()) {
-  for (const file of [".env", ".env.local"]) {
+  for (const file of [
+    ".env.development.local",
+    ".env.local",
+    ".env.development",
+    ".env",
+  ]) {
     const filePath = resolve(root, file);
     if (!existsSync(filePath)) continue;
     const value = parse(readFileSync(filePath)).TEST_DATABASE_URL?.trim();
-    if (value) process.env.TEST_DATABASE_URL = value;
+    if (value) {
+      process.env.TEST_DATABASE_URL = value;
+      break;
+    }
   }
 }
 
@@ -65,7 +73,7 @@ const result = spawnSync(
   {
     stdio: "inherit",
     // dotenv does not override variables that are already set, so this wins
-    // over whatever DATABASE_URL sits in .env.local.
+    // over whatever DATABASE_URL sits in the selected development profile.
     env: { ...process.env, DATABASE_URL: url },
   }
 );

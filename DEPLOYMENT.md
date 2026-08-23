@@ -11,14 +11,20 @@ The short answer on migrations: **they are not automatic, on purpose.** See
 ## Local development
 
 ```bash
-pnpm install && pnpm run setup
+./scripts/setup.sh development
 ```
 
-`pnpm run setup` ([scripts/setup-dev.mjs](scripts/setup-dev.mjs)) is idempotent and does three things:
+The guided entry point ([scripts/setup.sh](scripts/setup.sh)) installs
+dependencies, collects initial product/provider values, then delegates local
+infrastructure to [scripts/setup-dev.mjs](scripts/setup-dev.mjs). Use
+`pnpm install && pnpm run setup` for the same bootstrap without prompts.
 
-1. Writes missing root and Content Studio env files with generated secrets,
-   local database URLs, and Cloudflare's always-passes Turnstile test keys.
-   **An existing env file is never overwritten.**
+Setup is idempotent and does three things:
+
+1. Writes `.env.development.local` and the matching Content Studio profile with
+   generated secrets, local database URLs, and Cloudflare's always-passes
+   Turnstile test keys. **Existing values are never overwritten.** Legacy
+   `.env`/`.env.local` values are preserved when first creating the profile.
 2. Starts Postgres 16 via [docker-compose.yml](docker-compose.yml) and waits for it to accept
    connections.
 3. Applies Drizzle migrations to `sushi_dev` and `sushi_test`, and Payload
@@ -66,6 +72,28 @@ admin_ro` for read-only admin access.
 ---
 
 ## Environment variables
+
+### Profiles
+
+`.env.example` is the tracked inventory; it never holds credentials. Runtime
+values live in ignored, environment-specific profiles:
+
+```bash
+pnpm env:setup:dev    # .env.development.local
+pnpm env:check:dev
+
+pnpm env:setup:prod   # .env.production.local
+pnpm env:check:prod
+```
+
+For a guided production pass, run `./scripts/setup.sh production`. It generates
+independent auth/cron secrets, prompts for the required managed services, and
+runs the production validator. It intentionally does **not** connect to the
+database, migrate, deploy, or upload the file. Copy the values into the hosting
+provider's secret manager and keep the local file ignored.
+
+In CI or a hosting shell, validate the exported environment directly with
+`pnpm env:check:prod -- --process`; this does not read a local profile.
 
 `.env.example` is the full list with inline notes. What matters structurally:
 

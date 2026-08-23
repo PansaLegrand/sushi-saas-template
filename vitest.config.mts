@@ -13,14 +13,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * test see the developer's personal environment, and a test that happens to
  * read an env var it did not stub would then pass on one machine and fail on
  * another. The mocked tiers must stay hermetic — TEST_DATABASE_URL and
- * TEST_REDIS_URL are the only values a test file may learn from `.env`, and
- * only the real-infrastructure tier reads them. Explicit shell/CI values
- * always win.
+ * TEST_REDIS_URL are the only values a test file may learn from a development
+ * profile, and only the real-infrastructure tier reads them. Explicit shell/CI
+ * values always win.
  */
 function loadTestInfrastructureUrls(): void {
   const keys = ["TEST_DATABASE_URL", "TEST_REDIS_URL"] as const;
 
-  for (const file of [".env", ".env.local"]) {
+  for (const file of [
+    ".env.development.local",
+    ".env.local",
+    ".env.development",
+    ".env",
+  ]) {
     const filePath = path.resolve(__dirname, file);
     if (!fs.existsSync(filePath)) continue;
     const values = parse(fs.readFileSync(filePath));
