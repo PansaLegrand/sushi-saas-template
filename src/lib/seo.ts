@@ -19,10 +19,11 @@ const normalizeKeywords = (
 
 import { absoluteLocaleUrl, locales } from "@/i18n/locale";
 import type { Metadata } from "next";
+import { runtimeProductName } from "@/config/product";
 import { getAppEnv } from "@/lib/env";
 
 const FALLBACK_BASE_URL = getAppEnv().NEXT_PUBLIC_WEB_URL;
-const APP_NAME = getAppEnv().NEXT_PUBLIC_APP_NAME;
+const APP_NAME = runtimeProductName();
 export const appName = APP_NAME;
 export const baseUrlFallback = normalizeBaseUrl(FALLBACK_BASE_URL);
 

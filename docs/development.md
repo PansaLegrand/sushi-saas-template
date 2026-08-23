@@ -13,6 +13,11 @@ infrastructure, creates the app, test, Content Studio, and restore-drill
 databases, migrates the first three, provisions a private S3-compatible bucket,
 and leaves existing credentials untouched.
 
+On an interactive run, setup first opens `pnpm customize`. Its tracked
+`saas.config.json` output becomes the default for product name/slug, style,
+locales, support/docs links, and legal identity; environment setup then handles
+deployment URLs and secrets. See [customization.md](customization.md).
+
 ## Doctor
 
 `pnpm dev:doctor` is read-only. It checks:

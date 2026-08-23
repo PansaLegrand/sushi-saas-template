@@ -26,7 +26,8 @@ Two rules make this real:
 | Directory | Holds | Rule |
 | --- | --- | --- |
 | `api/` | Browser-side calls to this app's own API, one module per domain | Client-only. Never imports `services/`, `models/`, `db/`, or `app/` |
-| `config/site.ts` | Product runtime identity — brand, external docs URL, support contact | Defaults must be neutral; public website content does not belong in this repo |
+| `config/product.ts` + root `saas.config.json` | Validated product identity, appearance, locales, and legal identity | Use `pnpm customize`; defaults stay neutral and public website content does not belong here |
+| `config/site.ts` | Runtime projection of product brand, external docs URL, and support contact | Reads validated product config plus deployment overrides |
 | `app/` | App Router routes, `[locale]` pages, `api/` handlers | No business logic; call a service |
 | `components/` | Shared React components, grouped by domain (`auth/`, `storage/`, `blocks/`, `ui/`) | Presentational; no `db()`, no model imports, no raw `fetch` |
 | `config/` | Product configuration: the plan catalog, pricing, billing amounts, auth route map, reservation settings | Constants and env-derived flags only — no I/O, and never imports a service or model. `config/plans.ts` is further confined: only `services/entitlements.ts` may import it |
@@ -91,8 +92,9 @@ branch, build mode, or submodule of this one.
 
 Three rules keep the boundary honest:
 
-1. `src/config/site.ts` may hold only the product runtime's neutral identity,
-   optional external docs URL, and optional support address.
+1. Root `saas.config.json` and `src/config/site.ts` may hold only product runtime
+   identity, appearance/locales/legal identity, optional external docs URL, and
+   optional support address.
 2. Root `docs/` is for engineering contracts that must be reviewed with code.
    Tutorials, SEO pages, and articles go to the documentation-site repository.
 3. A change that affects public guidance is implemented in both repositories
@@ -172,6 +174,7 @@ Notes:
 
 ## Build, Test, and Development Commands
 - `pnpm install && pnpm run setup`: First-clone bootstrap — writes missing SaaS and Content Studio env files with generated secrets, starts local Postgres, Redis, and S3-compatible Garage storage, creates isolated app, test, Content Studio, and restore-drill databases plus a private bucket, and applies Drizzle and Payload migrations. Idempotent; never overwrites an existing env file.
+- `pnpm customize` / `pnpm config:check:prod`: Write the tracked product config and enforce non-placeholder, environment-consistent launch identity.
 - `pnpm db:generate` / `pnpm db:migrate` / `pnpm db:studio`: Drizzle workflow against the local database.
 - `pnpm db:lint` / `pnpm db:integrity`: Static migration-safety policy and read-only orphan sweep. Both must pass for schema work.
 - `pnpm db:check:prod` / `pnpm db:migrate:prod`: Deployed-database migration runner (advisory-locked, non-interactive). Migrations are **never** automatic on deploy — see `DEPLOYMENT.md`.

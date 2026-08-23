@@ -337,6 +337,12 @@ credits, reservations, upload, localized homepage, and teammate invitation.
 `pnpm build` runs `pnpm test:run` first via `prebuild`, so a broken test blocks a
 deploy without any extra CI wiring.
 
+`pnpm config:check:prod` is a launch gate, not a build default: the upstream
+starter deliberately ships neutral identity and incomplete legal data. Run it
+against `.env.production.local` before copying values to the hosting provider;
+it rejects placeholders and public environment values that disagree with
+`saas.config.json`.
+
 Before a database change is promoted, `pnpm db:lint` must pass in the release
 artifact and `pnpm db:integrity -- --production` must report no orphans against
 the target database. The first is static and safe anywhere; the second is

@@ -9,6 +9,7 @@ import { randomUUID } from "node:crypto";
 import { db } from "@/db";
 import { CAPTCHA_PROTECTED_ENDPOINTS } from "@/lib/captcha";
 import { absoluteWithLocale } from "@/config/auth";
+import { runtimeProductName } from "@/config/product";
 import { getAppEnv, isProductionRuntime } from "@/lib/env";
 import { findUserByEmail, findUserById } from "@/models/user";
 import { asOrgUuid } from "@/models/organization";
@@ -288,10 +289,7 @@ const organizationPlugin = organization({
           message: "ORG_CONTEXT_REQUIRED",
         });
       }
-      await assertOrganizationCanAcceptInvitation(
-        org.id,
-        asOrgUuid(org.uuid),
-      );
+      await assertOrganizationCanAcceptInvitation(org.id, asOrgUuid(org.uuid));
     },
     // Member removals and role changes carry application invariants that Better
     // Auth cannot enforce atomically with its own mutation. The app endpoints
@@ -314,7 +312,7 @@ const organizationPlugin = organization({
 });
 
 const twoFactorPlugin = twoFactor({
-  issuer: getAppEnv().NEXT_PUBLIC_APP_NAME,
+  issuer: runtimeProductName(),
   schema: {
     user: {
       fields: {
@@ -355,7 +353,7 @@ const duplicateEmailSignupGuard = {
 } satisfies BetterAuthPlugin;
 
 export const auth = betterAuth({
-  appName: getAppEnv().NEXT_PUBLIC_APP_NAME,
+  appName: runtimeProductName(),
   baseURL: getAppEnv().BETTER_AUTH_URL,
   secret: getAuthSecret(),
   database: drizzleAdapter(database, {

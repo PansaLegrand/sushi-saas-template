@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "product": {
+    "name": "Your SaaS",
+    "slug": "your-saas",
+    "supportEmail": null,
+    "docsUrl": null
+  },
+  "appearance": {
+    "preset": "studio"
+  },
+  "internationalization": {
+    "defaultLocale": "en",
+    "locales": [
+      "en",
+      "zh",
+      "es",
+      "fr",
+      "ja"
+    ]
+  },
+  "legal": {
+    "entityName": null,
+    "entityAddress": null,
+    "privacyContactEmail": null,
+    "legalContactEmail": null,
+    "governingLaw": null,
+    "effectiveDate": "2026-01-01"
+  }
+}

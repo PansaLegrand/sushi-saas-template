@@ -1,5 +1,6 @@
 import type { Instrumentation } from "next";
 
+import { runtimeProductSlug } from "@/config/product";
 import { validateAppEnv } from "@/lib/env";
 import { logger } from "@/lib/logger/server";
 
@@ -30,9 +31,7 @@ export async function register() {
       const { registerOTel } = await import("@vercel/otel");
       registerOTel({
         serviceName:
-          process.env.OTEL_SERVICE_NAME?.trim() ||
-          process.env.NEXT_PUBLIC_PROJECT_NAME?.trim() ||
-          "saas-app",
+          process.env.OTEL_SERVICE_NAME?.trim() || runtimeProductSlug(),
       });
       logger.info(
         { event: "observability.registered", exporter: "otlp" },

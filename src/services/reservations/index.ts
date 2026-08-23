@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type Stripe from "stripe";
 
+import { runtimeProductSlug } from "@/config/product";
 import { ReservationsConfig } from "@/config/reservations";
 import { absoluteLocaleUrl, normalizeLocale } from "@/i18n/locale";
 import { newStripeClient } from "@/integrations/stripe";
@@ -252,7 +253,7 @@ function buildStripeOptions(input: {
   }
 
   const metadata = {
-    project: getAppEnv().NEXT_PUBLIC_PROJECT_NAME,
+    project: runtimeProductSlug(),
     type: "reservation",
     reservation_no: reservation.reservation_no,
     order_no: order.order_no,

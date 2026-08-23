@@ -103,9 +103,11 @@ application is promoted.
 One-time gates, not per-release. Each one blocks going live rather than blocking
 a deploy.
 
-- [ ] `src/config/legal.ts` filled in, so no page renders the unreviewed-draft
-      notice, and both documents reviewed by a lawyer. See
+- [ ] `saas.config.json` legal identity filled in, so no page renders the
+      unreviewed-draft notice, and both documents reviewed by a lawyer. See
       [docs/legal.md](legal.md).
+- [ ] `pnpm config:check:prod` passes with the production profile; product name,
+      slug, support, locales, and legal identity agree.
 - [ ] Privacy policy retention section reconciled with what deletion actually
       does.
 - [ ] `RATE_LIMIT_REDIS_URL` set to the managed service's `rediss://` URL. The

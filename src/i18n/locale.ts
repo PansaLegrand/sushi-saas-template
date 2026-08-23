@@ -1,4 +1,6 @@
-export const availableLocales = ["en", "zh", "es", "fr", "ja"] as const;
+import { productConfig, productLocales } from "@/config/product";
+
+export const availableLocales = productLocales;
 
 export type AppLocale = (typeof availableLocales)[number];
 
@@ -23,7 +25,8 @@ const localeAliases: Record<string, AppLocale> = {
   ja: "ja",
 };
 
-const fallbackLocale: AppLocale = "en";
+const fallbackLocale: AppLocale =
+  productConfig.internationalization.defaultLocale;
 
 function resolveAvailableLocale(locale?: string | null): AppLocale | null {
   const value = (locale ?? "").toString().trim().toLowerCase();
@@ -31,11 +34,15 @@ function resolveAvailableLocale(locale?: string | null): AppLocale | null {
 }
 
 export const defaultLocale =
-  resolveAvailableLocale(process.env.NEXT_PUBLIC_DEFAULT_LOCALE) ?? fallbackLocale;
+  resolveAvailableLocale(process.env.NEXT_PUBLIC_DEFAULT_LOCALE) ??
+  fallbackLocale;
 
 function parseEnabledLocales(value?: string | null): AppLocale[] {
   const raw = (value ?? "").trim();
-  if (!raw || raw.toLowerCase() === "all") {
+  if (!raw) {
+    return [...productConfig.internationalization.locales];
+  }
+  if (raw.toLowerCase() === "all") {
     return [...availableLocales];
   }
 
@@ -94,7 +101,7 @@ export function localePath(locale?: string | null, path: string = "/") {
 export function absoluteLocaleUrl(
   base: string,
   locale?: string | null,
-  path: string = "/"
+  path: string = "/",
 ) {
   const url = new URL(localePath(locale, path), base);
   if (url.pathname !== "/") {

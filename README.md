@@ -78,9 +78,13 @@ application.
 
 The guided script installs dependencies, writes ignored development profiles,
 generates internal secrets, optionally collects provider credentials, starts
-PostgreSQL, Redis, and local S3 storage, provisions three isolated databases,
-and applies both Drizzle and Payload migrations. It is idempotent and never
-replaces an existing value.
+PostgreSQL, Redis, and local S3 storage, provisions isolated app, test, Content
+Studio, and restore-drill databases, and applies both Drizzle and Payload
+migrations. It is idempotent and never replaces an existing value.
+
+The interactive flow begins with `pnpm customize`, which writes the tracked
+product identity, style, locale, support/docs, and legal-identity configuration.
+Use `--dry-run` for an automation preview.
 
 For CI or a no-prompts bootstrap, use `pnpm install && pnpm run setup`. Existing
 clones using `.env` remain supported; fresh clones use
@@ -122,36 +126,38 @@ is not a submodule and is not built by this repository.
 
 ## Essential commands
 
-| Command                 | Purpose                                                           |
-| ----------------------- | ----------------------------------------------------------------- |
-| `pnpm setup:guided`     | Guided first-clone development setup                              |
-| `pnpm dev:doctor`       | Diagnose toolchain, configuration, infrastructure, and migrations |
-| `pnpm dev:all`          | Run web, worker, admin, and Content Studio with one supervisor    |
-| `pnpm dev:seed`         | Create idempotent local demo account, credits, and catalog data   |
-| `pnpm dev:reset`        | Guard, rebuild, migrate, and reseed the bundled local stack       |
-| `pnpm env:check:prod`   | Validate production configuration without exposing secret values  |
-| `pnpm dev`              | Start the SaaS application                                        |
-| `pnpm dev:admin`        | Start the separate admin console                                  |
-| `pnpm dev:studio`       | Start Content Studio on port 3002                                 |
-| `pnpm jobs:work`        | Continuously drain durable jobs in a portable worker process      |
-| `pnpm jobs:run`         | Run one bounded queue drain for a scheduler                       |
-| `pnpm lint`             | Lint the SaaS, admin, and Content Studio                          |
-| `pnpm test:run`         | Run all test tiers; infrastructure tests skip without their URLs  |
-| `pnpm test:cov`         | Enforce coverage thresholds                                       |
-| `pnpm test:db`          | Run real PostgreSQL and Redis invariant tests                     |
-| `pnpm test:e2e`         | Run Playwright against the disposable full local stack            |
-| `pnpm build`            | Test, then build the SaaS, admin, and Content Studio              |
-| `pnpm studio:generate`  | Regenerate Payload admin imports and TypeScript types             |
-| `pnpm studio:migrate`   | Apply Content Studio's separate Payload migrations                |
-| `pnpm db:generate`      | Generate a Drizzle migration                                      |
-| `pnpm db:migrate`       | Apply local migrations                                            |
-| `pnpm db:check:prod`    | Fail on pending, drifted, or unexpected production migrations     |
-| `pnpm db:migrate:prod`  | Apply production migrations under an advisory lock                |
-| `pnpm db:lint`          | Validate snapshots and flag risky migration SQL                   |
-| `pnpm db:integrity`     | Run a read-only orphan sweep over critical relationships          |
-| `pnpm db:backup`        | Create a private custom dump and SHA-256 manifest                 |
-| `pnpm db:restore:drill` | Restore only into a confirmed scratch database                    |
-| `pnpm retention:report` | Preview operational rows eligible for retention                   |
+| Command                  | Purpose                                                           |
+| ------------------------ | ----------------------------------------------------------------- |
+| `pnpm setup:guided`      | Guided first-clone development setup                              |
+| `pnpm customize`         | Configure product identity, style, locales, and legal data        |
+| `pnpm config:check:prod` | Enforce environment-consistent, non-placeholder launch identity   |
+| `pnpm dev:doctor`        | Diagnose toolchain, configuration, infrastructure, and migrations |
+| `pnpm dev:all`           | Run web, worker, admin, and Content Studio with one supervisor    |
+| `pnpm dev:seed`          | Create idempotent local demo account, credits, and catalog data   |
+| `pnpm dev:reset`         | Guard, rebuild, migrate, and reseed the bundled local stack       |
+| `pnpm env:check:prod`    | Validate production configuration without exposing secret values  |
+| `pnpm dev`               | Start the SaaS application                                        |
+| `pnpm dev:admin`         | Start the separate admin console                                  |
+| `pnpm dev:studio`        | Start Content Studio on port 3002                                 |
+| `pnpm jobs:work`         | Continuously drain durable jobs in a portable worker process      |
+| `pnpm jobs:run`          | Run one bounded queue drain for a scheduler                       |
+| `pnpm lint`              | Validate config/migrations and lint every application              |
+| `pnpm test:run`          | Run all test tiers; infrastructure tests skip without their URLs  |
+| `pnpm test:cov`          | Enforce coverage thresholds                                       |
+| `pnpm test:db`           | Run real PostgreSQL and Redis invariant tests                     |
+| `pnpm test:e2e`          | Run Playwright against the disposable full local stack            |
+| `pnpm build`             | Test, then build the SaaS, admin, and Content Studio              |
+| `pnpm studio:generate`   | Regenerate Payload admin imports and TypeScript types             |
+| `pnpm studio:migrate`    | Apply Content Studio's separate Payload migrations                |
+| `pnpm db:generate`       | Generate a Drizzle migration                                      |
+| `pnpm db:migrate`        | Apply local migrations                                            |
+| `pnpm db:check:prod`     | Fail on pending, drifted, or unexpected production migrations     |
+| `pnpm db:migrate:prod`   | Apply production migrations under an advisory lock                |
+| `pnpm db:lint`           | Validate snapshots and flag risky migration SQL                   |
+| `pnpm db:integrity`      | Run a read-only orphan sweep over critical relationships          |
+| `pnpm db:backup`         | Create a private custom dump and SHA-256 manifest                 |
+| `pnpm db:restore:drill`  | Restore only into a confirmed scratch database                    |
+| `pnpm retention:report`  | Preview operational rows eligible for retention                   |
 
 ## Engineering documentation
 
@@ -160,6 +166,7 @@ public website:
 
 - [Database and ledger invariants](docs/database.md)
 - [Local development workflow](docs/development.md)
+- [Product customization](docs/customization.md)
 - [Observability and SLOs](docs/observability.md)
 - [Background jobs](docs/background-jobs.md)
 - [Backups, restore drills, and retention](docs/backups-and-retention.md)

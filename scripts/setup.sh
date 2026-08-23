@@ -16,6 +16,9 @@ Profiles:
   production   Prepare and validate a gitignored production profile only.
                It never deploys or migrates a database.
 
+Interactive runs begin with the tracked product customizer. Non-interactive
+runs preserve the current saas.config.json.
+
 Options:
   --non-interactive  Accept defaults and leave external provider keys blank;
                      production validation still fails until they are set.
@@ -79,6 +82,11 @@ if [[ "$skip_install" == false ]]; then
   pnpm install
 fi
 
+if [[ "$non_interactive" == false && -t 0 ]]; then
+  printf '\n\033[1m▸ Product configuration\033[0m\n'
+  pnpm customize
+fi
+
 configure_args=("$profile")
 if [[ "$non_interactive" == true ]]; then
   configure_args+=("--non-interactive")
@@ -90,6 +98,7 @@ if [[ "$profile" == "development" ]]; then
   node scripts/setup-dev.mjs
   pnpm env:check:dev
 else
+  pnpm config:check:prod
   pnpm env:check:prod
   printf '\nProduction values are valid. Copy them into the hosting provider secret manager; do not commit the profile.\n'
 fi

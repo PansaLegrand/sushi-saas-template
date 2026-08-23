@@ -10,10 +10,16 @@
  * identity or domain.
  */
 
+import {
+  productConfig,
+  runtimeDocsUrl,
+  runtimeProductName,
+} from "@/config/product";
+
 export const SiteConfig = {
-  brand: process.env.NEXT_PUBLIC_APP_NAME || "Your SaaS",
+  brand: runtimeProductName(),
 
-  docsUrl: process.env.NEXT_PUBLIC_DOCS_URL || null,
+  docsUrl: runtimeDocsUrl(),
 
-  contactEmail: null as string | null,
+  contactEmail: productConfig.product.supportEmail,
 } as const;

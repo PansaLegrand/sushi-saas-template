@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type Stripe from "stripe";
 
+import { runtimeProductSlug } from "@/config/product";
 import { absoluteLocaleUrl, normalizeLocale } from "@/i18n/locale";
 import { newStripeClient } from "@/integrations/stripe";
 import { AppError } from "@/lib/errors/app-error";
@@ -217,7 +218,7 @@ function buildStripeOptions(input: {
   const isSubscription =
     order.interval === "month" || order.interval === "year";
   const metadata = {
-    project: getAppEnv().NEXT_PUBLIC_PROJECT_NAME,
+    project: runtimeProductSlug(),
     product_name: order.product_name || "",
     order_no: order.order_no,
     user_email: order.user_email,

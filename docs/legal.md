@@ -6,21 +6,23 @@ and not a finished policy.** They exist so you have the right structure and the
 right sections, populated from what this codebase actually does — not so you can
 launch without reading them.
 
-Two things are needed before launch: fill in `src/config/legal.ts`, and have a
-lawyer review both documents.
+Two things are needed before launch: fill in the legal identity in
+`saas.config.json`, review the document text and processor list in
+`src/config/legal.ts`, and have a lawyer review both documents.
 
 ## What ships
 
-| Surface | Where |
-| --- | --- |
-| Privacy policy | `/[locale]/privacy` |
-| Terms of service | `/[locale]/terms` |
-| Document text and entity details | `src/config/legal.ts` |
-| Consent rules | `src/lib/consent.ts` |
-| Consent state for the UI | `src/providers/consent.tsx` |
-| Banner | `src/components/legal/cookie-banner.tsx` |
-| Footer links and cookie settings | `src/components/site-footer.tsx` |
-| Which vendors are configured | `src/config/analytics.ts` |
+| Surface                          | Where                                    |
+| -------------------------------- | ---------------------------------------- |
+| Privacy policy                   | `/[locale]/privacy`                      |
+| Terms of service                 | `/[locale]/terms`                        |
+| Entity/contact details           | `saas.config.json` (`legal`)             |
+| Document text and processor list | `src/config/legal.ts`                    |
+| Consent rules                    | `src/lib/consent.ts`                     |
+| Consent state for the UI         | `src/providers/consent.tsx`              |
+| Banner                           | `src/components/legal/cookie-banner.tsx` |
+| Footer links and cookie settings | `src/components/site-footer.tsx`         |
+| Which vendors are configured     | `src/config/analytics.ts`                |
 
 Both pages remain public in the SaaS application because payment processors and
 customers expect to find the governing policy beside signup and checkout. The
@@ -28,7 +30,7 @@ detached marketing site may link to the same reviewed policy.
 
 ## Before you launch
 
-1. **Fill in `src/config/legal.ts`.** Registered entity name, registered
+1. **Fill in `saas.config.json`.** Registered entity name, registered
    address, a privacy contact address, a legal contact address, and governing
    law. Until all five are set, `LegalConfig.isConfigured` is false and every
    legal page renders a visible unreviewed-draft notice. That notice is not

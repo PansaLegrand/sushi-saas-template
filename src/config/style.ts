@@ -1,17 +1,13 @@
 /**
  * One build-time visual language for both the customer app and admin console.
  *
- * Keep this as a static value for now. A future starter/configurator can write
- * the selected value without changing the CSS contract or either root layout.
+ * The customizer writes the selected value to the tracked product config
+ * without changing the CSS contract or either root layout.
  */
-export const stylePresets = [
-  "studio",
-  "glass",
-  "soft",
-  "editorial",
-  "brutalist",
-] as const;
+import { productConfig, productStylePresets } from "@/config/product";
+
+export const stylePresets = productStylePresets;
 
 export type StylePreset = (typeof stylePresets)[number];
 
-export const stylePreset: StylePreset = "studio";
+export const stylePreset: StylePreset = productConfig.appearance.preset;

@@ -184,6 +184,32 @@ if (profile === "production" && app.created) {
 }
 app.contents = prepareAppProfile(app.contents, profile, secret);
 
+// The tracked product config is the reviewable default; environment values may
+// override it only when a profile already made that choice explicitly.
+const productConfig = JSON.parse(
+  readFileSync(resolve(root, "saas.config.json"), "utf8"),
+);
+for (const [key, value, starterPlaceholder] of [
+  ["NEXT_PUBLIC_APP_NAME", productConfig.product.name, "Your SaaS"],
+  ["NEXT_PUBLIC_PROJECT_NAME", productConfig.product.slug, "your-saas"],
+  ["NEXT_PUBLIC_DOCS_URL", productConfig.product.docsUrl ?? "", ""],
+  [
+    "NEXT_PUBLIC_DEFAULT_LOCALE",
+    productConfig.internationalization.defaultLocale,
+    "en",
+  ],
+  [
+    "NEXT_PUBLIC_LOCALES",
+    productConfig.internationalization.locales.join(","),
+    "en,zh,es,fr,ja",
+  ],
+]) {
+  const current = readEnvValue(app.contents, key);
+  if (!current || current === starterPlaceholder) {
+    app.contents = setEnvValue(app.contents, key, value);
+  }
+}
+
 let studio = profile === "development" ? loadStudioProfile() : null;
 if (studio) {
   studio.contents = prepareStudioProfile(studio.contents, profile, secret);

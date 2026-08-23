@@ -1,9 +1,10 @@
 import "./globals.css";
 
 import type { Metadata } from "next";
+import { runtimeProductName } from "@/config/product";
 import { stylePreset } from "@/config/style";
 
-const appName = process.env.NEXT_PUBLIC_APP_NAME || "Your SaaS";
+const appName = runtimeProductName();
 
 export const metadata: Metadata = {
   title: `Admin | ${appName}`,

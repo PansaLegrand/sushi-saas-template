@@ -15,12 +15,14 @@
  * and every page renders a visible unreviewed-draft notice while it is.
  * ────────────────────────────────────────────────────────────────────────────
  *
- * Like `src/config/site.ts`, this is a file you edit rather than code you
- * change. Keeping the text here rather than in `messages/*.json` is deliberate:
+ * Identity fields come from `saas.config.json`; the reviewed document text and
+ * processor list stay here. Keeping the text out of `messages/*.json` is deliberate:
  * a machine-translated policy is a policy nobody has read, and a translated
  * legal document can carry different legal effect from its source. Localise
  * these only with counsel who works in that language.
  */
+
+import { productConfig } from "@/config/product";
 
 export interface LegalSection {
   heading: string;
@@ -40,29 +42,29 @@ export const LegalData = {
    * The entity that is party to the terms and the controller of personal data.
    * A trading name is not enough — this needs to be the registered name.
    */
-  entityName: null as string | null,
+  entityName: productConfig.legal.entityName,
 
   /** Registered address. Required in the EU/UK; shown in both documents. */
-  entityAddress: null as string | null,
+  entityAddress: productConfig.legal.entityAddress,
 
   /** Where privacy requests go. May be the same as the support address. */
-  privacyContactEmail: null as string | null,
+  privacyContactEmail: productConfig.legal.privacyContactEmail,
 
   /** Where legal notices go. */
-  legalContactEmail: null as string | null,
+  legalContactEmail: productConfig.legal.legalContactEmail,
 
   /**
    * Governing law and forum, e.g. "the laws of England and Wales". Get this
    * one from a lawyer: guessing it is how a dispute ends up somewhere you did
    * not expect to litigate.
    */
-  governingLaw: null as string | null,
+  governingLaw: productConfig.legal.governingLaw,
 
   /**
    * Bumped whenever either document changes materially. Existing users should
    * be told before a new version takes effect.
    */
-  effectiveDate: "2026-01-01",
+  effectiveDate: productConfig.legal.effectiveDate,
 
   /**
    * Sub-processors that receive personal data. Edit to match what you actually
@@ -316,7 +318,7 @@ export const LegalConfig = {
         LegalData.entityAddress &&
         LegalData.privacyContactEmail &&
         LegalData.legalContactEmail &&
-        LegalData.governingLaw
+        LegalData.governingLaw,
     );
   },
 } as const;
