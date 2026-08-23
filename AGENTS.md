@@ -171,10 +171,11 @@ Notes:
 - Consider async task processing and refunds-on-failure for production.
 
 ## Build, Test, and Development Commands
-- `pnpm install && pnpm run setup`: First-clone bootstrap — writes missing SaaS and Content Studio env files with generated secrets, starts local Postgres and Redis, creates three isolated databases, and applies Drizzle and Payload migrations. Idempotent; never overwrites an existing env file.
+- `pnpm install && pnpm run setup`: First-clone bootstrap — writes missing SaaS and Content Studio env files with generated secrets, starts local Postgres, Redis, and S3-compatible Garage storage, creates three isolated databases and a private bucket, and applies Drizzle and Payload migrations. Idempotent; never overwrites an existing env file.
 - `pnpm db:generate` / `pnpm db:migrate` / `pnpm db:studio`: Drizzle workflow against the local database.
 - `pnpm db:check:prod` / `pnpm db:migrate:prod`: Deployed-database migration runner (advisory-locked, non-interactive). Migrations are **never** automatic on deploy — see `DEPLOYMENT.md`.
-- `pnpm dev` / `pnpm dev:webpack`: Start the application dev server (Turbopack or Webpack).
+- `pnpm dev:doctor` / `pnpm dev:all`: Diagnose the complete local stack, then run the web, admin, and Content Studio processes together.
+- `pnpm dev` / `pnpm dev:webpack`: Start only the application dev server (Turbopack or Webpack).
 - `pnpm build` then `pnpm start`: Production build and runtime smoke test; both must succeed before opening a PR.
 - `pnpm lint`: Execute `next lint`; warnings are treated as blockers.
 - `pnpm test:fast` / `pnpm test:run` / `pnpm test:cov` / `pnpm test:db`: Vitest tiers; see `tests/README.md`. `test:fast` runs only the hermetic mocked and component projects; `test:db` additionally needs `TEST_DATABASE_URL` and a one-time `pnpm test:db:setup`.

@@ -3,7 +3,7 @@ import type {
   StorageUploadVisibility,
 } from "@/config/storage";
 
-export type StorageProvider = "s3" | "r2" | "minio";
+export type StorageProvider = "s3" | "r2" | "minio" | "garage";
 
 export interface FileObject {
   id: number;

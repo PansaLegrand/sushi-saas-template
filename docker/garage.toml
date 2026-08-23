@@ -1,0 +1,26 @@
+# Local development only. The API is bound to 127.0.0.1 by Docker Compose and
+# uses repository-known credentials. Production storage must use independent
+# credentials and a managed/private endpoint.
+replication_factor = 1
+consistency_mode = "consistent"
+
+metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+db_engine = "sqlite"
+metadata_fsync = true
+data_fsync = false
+
+rpc_secret = "c1e1b2d47dbef50ab08cb15d87345ead246eb771eed629afb047cb358f2794fb"
+rpc_bind_addr = "[::]:3901"
+rpc_public_addr = "garage:3901"
+allow_world_readable_secrets = true
+
+[s3_api]
+api_bind_addr = "[::]:3900"
+s3_region = "garage"
+root_domain = ".s3.garage.localhost"
+
+[admin]
+api_bind_addr = "[::]:3903"
+admin_token = "local-garage-admin-token-not-for-production"
+metrics_token = "local-garage-metrics-token-not-for-production"

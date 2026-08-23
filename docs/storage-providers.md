@@ -1,13 +1,13 @@
 # Storage Providers
 
-Uploads use one S3-compatible adapter. AWS S3, Cloudflare R2, and MinIO all go
-through the same code path in `src/services/storage/s3.ts`; the provider choice
-is environment configuration, not route logic.
+Uploads use one S3-compatible adapter. AWS S3, Cloudflare R2, Garage, and MinIO
+all go through the same code path in `src/services/storage/s3.ts`; the provider
+choice is environment configuration, not route logic.
 
 Use `STORAGE_PROVIDER` to document intent:
 
 ```bash
-STORAGE_PROVIDER=r2      # s3 | r2 | minio
+STORAGE_PROVIDER=r2      # s3 | r2 | garage | minio
 ```
 
 The adapter currently supports the storage operations this starter needs:
@@ -56,6 +56,31 @@ Unfinished presign reservations are marked `failed` after one hour. The presign
 route cleans the current organization before quota checks, and the cron job
 sweeps globally.
 
+## Local Garage (default)
+
+`pnpm setup` starts Garage on the loopback interface, creates a private bucket,
+and applies CORS for `http://localhost:3000`:
+
+```bash
+STORAGE_PROVIDER=garage
+STORAGE_ENDPOINT=http://localhost:3900
+STORAGE_REGION=garage
+STORAGE_BUCKET=sushi-dev
+STORAGE_ACCESS_KEY=GK0123456789abcdef01234567
+STORAGE_SECRET_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+S3_FORCE_PATH_STYLE=true
+S3_USE_ACL=false
+```
+
+These are public, development-only credentials. Docker publishes the API only
+on `127.0.0.1`; do not reuse them or expose that listener on a LAN. Run
+`pnpm dev:doctor` to verify the bucket and credentials without displaying them.
+
+Garage replaces MinIO Community only as the bundled local default. The
+[MinIO Community repository](https://github.com/minio/minio) is archived and
+the maintained AIStor distribution requires a separate license, which is not a
+reasonable hidden prerequisite for a starter's first run.
+
 ## R2 Quick Start
 
 Cloudflare R2 is the easiest default for many starter-kit users because it uses
@@ -94,9 +119,10 @@ S3_USE_ACL=false
 Only set `S3_USE_ACL=true` for buckets that explicitly require object ACLs.
 Modern private buckets usually do not.
 
-## MinIO
+## Externally managed MinIO
 
-MinIO is useful for local S3-compatible testing.
+The adapter still supports a MinIO endpoint that your team operates. It is not
+started by this repository.
 
 ```bash
 STORAGE_PROVIDER=minio
@@ -138,8 +164,8 @@ Run this after configuring any provider:
 4. Confirm the upload reaches `active` status in the files list.
 5. Download the file through the UI and confirm the downloaded bytes match.
 6. Delete the file and confirm it disappears from the list.
-7. In the provider console, confirm the object is not public and cannot be read
-   without a signed URL.
+7. With the provider's console or CLI, confirm the object is not public and
+   cannot be read without a signed URL.
 
 For a lower-level API smoke test:
 

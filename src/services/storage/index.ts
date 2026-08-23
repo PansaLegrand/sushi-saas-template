@@ -11,6 +11,7 @@ export function getStorageAdapter(): StorageAdapter {
     case "s3":
     case "r2":
     case "minio":
+    case "garage":
       adapter = createS3Adapter();
       return adapter;
   }

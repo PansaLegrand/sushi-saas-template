@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const TRUE_VALUES = new Set(["1", "true", "yes", "on"]);
 const FALSE_VALUES = new Set(["0", "false", "no", "off"]);
-const STORAGE_PROVIDERS = ["s3", "r2", "minio"] as const;
+const STORAGE_PROVIDERS = ["s3", "r2", "minio", "garage"] as const;
 type StorageProvider = (typeof STORAGE_PROVIDERS)[number];
 const RATE_LIMIT_IP_SOURCES = [
   "x-forwarded-for",

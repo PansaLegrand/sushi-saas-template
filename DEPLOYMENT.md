@@ -19,35 +19,42 @@ dependencies, collects initial product/provider values, then delegates local
 infrastructure to [scripts/setup-dev.mjs](scripts/setup-dev.mjs). Use
 `pnpm install && pnpm run setup` for the same bootstrap without prompts.
 
-Setup is idempotent and does three things:
+Setup is idempotent and does four things:
 
 1. Writes `.env.development.local` and the matching Content Studio profile with
    generated secrets, local database URLs, and Cloudflare's always-passes
    Turnstile test keys. **Existing values are never overwritten.** Legacy
    `.env`/`.env.local` values are preserved when first creating the profile.
-2. Starts Postgres 16 via [docker-compose.yml](docker-compose.yml) and waits for it to accept
-   connections.
-3. Applies Drizzle migrations to `sushi_dev` and `sushi_test`, and Payload
+2. Starts Postgres 16, Redis 7, and loopback-only S3-compatible storage via
+   [docker-compose.yml](docker-compose.yml), then waits for each health check.
+3. Creates the private `sushi-dev` bucket and applies the browser upload CORS
+   policy.
+4. Applies Drizzle migrations to `sushi_dev` and `sushi_test`, and Payload
    migrations to the isolated `sushi_content` database.
 
 Then:
 
 ```bash
-pnpm dev
+pnpm dev:doctor
+pnpm dev:all
 ```
 
 Three databases share one server deliberately. The `tests/db` tier truncates
 `sushi_test`, while the SaaS and Content Studio keep independent schemas in
 `sushi_dev` and `sushi_content`.
 
-| Command                       | Purpose                                                 |
-| ----------------------------- | ------------------------------------------------------- |
-| `pnpm db:up` / `pnpm db:down` | Start / stop the container (data survives `down`)       |
-| `pnpm db:generate`            | Generate migration SQL after editing `src/db/schema.ts` |
-| `pnpm db:migrate`             | Apply migrations locally                                |
-| `pnpm db:studio`              | Drizzle Studio, a browser UI over the data              |
+| Command                             | Purpose                                                 |
+| ----------------------------------- | ------------------------------------------------------- |
+| `pnpm infra:up` / `pnpm infra:down` | Start / stop local services (data survives `down`)      |
+| `pnpm dev:doctor`                   | Diagnose profiles, services, buckets, and migrations   |
+| `pnpm dev:reset -- --dry-run`       | Prove the safe reset target without changing anything  |
+| `pnpm db:generate`                  | Generate migration SQL after editing `src/db/schema.ts` |
+| `pnpm db:migrate`                   | Apply migrations locally                                |
+| `pnpm db:studio`                    | Drizzle Studio, a browser UI over the data              |
 
-To wipe local data entirely: `docker compose down -v`, then `pnpm run setup`.
+To rebuild local data, use `pnpm dev:reset`. It validates every target, requires
+confirmation, removes only the Compose volumes, reruns migrations, and seeds the
+demo fixtures. Do not replace it with an unguarded recursive cleanup command.
 
 **Already running Postgres on 5432?** Very common, and `pnpm run setup` detects
 it and stops rather than colliding. Create all three databases on the server
@@ -55,8 +62,10 @@ you already have, point the three URLs at it, then run
 `pnpm db:migrate && pnpm test:db:setup && pnpm studio:migrate`. Full walkthrough in
 [docs/database.md](docs/database.md#setting-up-from-a-fresh-clone).
 
-No Docker at all? Same thing — install Postgres however you like, create
-`sushi_dev`, `sushi_test`, and `sushi_content`, and follow the steps above.
+No Docker at all? Provide PostgreSQL, Redis, and S3-compatible storage yourself,
+put their URLs in the development profiles, create `sushi_dev`, `sushi_test`,
+and `sushi_content`, and follow the migration steps above. `pnpm dev:doctor` names
+each unavailable dependency without exposing its credentials.
 
 ### Making yourself an admin
 

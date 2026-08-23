@@ -1,14 +1,15 @@
-# Local Postgres and Redis for development and the real-infrastructure tests.
+# Local Postgres, Redis, and S3-compatible object storage for development and
+# the real-infrastructure tests.
 #
 # Three databases on one server: sushi_dev for the app, sushi_test for the
 # database tests, and sushi_content for Payload. They are separate because the
 # test tier truncates tables and Content Studio has an independent schema and
 # release lifecycle.
 #
-#   docker compose up -d      (or: pnpm db:up)
+#   docker compose up -d      (or: pnpm infra:up)
 #
-# Data lives in a named volume, so `docker compose down` keeps it and
-# `docker compose down -v` throws it away.
+# Data lives in named volumes, so `docker compose down` keeps it. Use the
+# guarded `pnpm dev:reset` workflow when the volumes must be destroyed.
 
 services:
   postgres:
@@ -45,6 +46,39 @@ services:
       timeout: 3s
       retries: 12
 
+  # Garage replaces the archived MinIO Community image as the bundled local
+  # S3 service. It supports the exact adapter surface used here: private
+  # buckets, presigned PUT/GET, HEAD, DELETE, and bucket CORS.
+  garage:
+    image: dxflrs/garage:v2.3.0
+    container_name: sushi-garage
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    command:
+      - /garage
+      - server
+      - --single-node
+      - --default-bucket
+    environment:
+      GARAGE_CONFIG_FILE: /etc/garage.toml
+      GARAGE_DEFAULT_ACCESS_KEY: GK0123456789abcdef01234567
+      GARAGE_DEFAULT_SECRET_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      GARAGE_DEFAULT_BUCKET: sushi-dev
+    ports:
+      # Loopback only. The credentials above are deliberately public local
+      # defaults and must never expose a listener to the LAN.
+      - "127.0.0.1:3900:3900"
+    volumes:
+      - sushi-garage-data:/var/lib/garage
+      - ./docker/garage.toml:/etc/garage.toml:ro
+    healthcheck:
+      test: ["CMD", "/garage", "status"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
 volumes:
   sushi-pgdata:
   sushi-redisdata:
+  sushi-garage-data:

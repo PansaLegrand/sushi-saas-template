@@ -61,30 +61,26 @@ Requirements:
 
 - Node.js `>=20.19.0 <23`
 - pnpm `10.22.0`
-- Docker for the default local PostgreSQL and Redis services
+- Docker for the default local PostgreSQL, Redis, and S3-compatible services
 
 ```bash
 ./scripts/setup.sh development
-pnpm dev
+pnpm dev:doctor
+pnpm dev:all
 ```
 
-The application runs on `http://localhost:3000`. Start the admin console in a
-second terminal:
+The application runs on `http://localhost:3000`, the admin console on `:3001`,
+and Content Studio on `:3002`. `pnpm dev:all` prefixes their logs and stops the
+complete group on `Ctrl-C`.
 
-```bash
-pnpm dev:admin
-```
-
-The admin app runs on `http://localhost:3001`.
-
-Start the optional authoring workspace with `pnpm dev:studio`; it runs on
-`http://localhost:3002` and uses its own database and editor accounts.
+Use `pnpm dev`, `pnpm dev:admin`, or `pnpm dev:studio` when working on only one
+application.
 
 The guided script installs dependencies, writes ignored development profiles,
 generates internal secrets, optionally collects provider credentials, starts
-the development services, provisions three isolated databases, and applies
-both Drizzle and Payload migrations. It is idempotent and never replaces an
-existing value.
+PostgreSQL, Redis, and local S3 storage, provisions three isolated databases,
+and applies both Drizzle and Payload migrations. It is idempotent and never
+replaces an existing value.
 
 For CI or a no-prompts bootstrap, use `pnpm install && pnpm run setup`. Existing
 clones using `.env` remain supported; fresh clones use
@@ -129,6 +125,10 @@ is not a submodule and is not built by this repository.
 | Command                | Purpose                                                          |
 | ---------------------- | ---------------------------------------------------------------- |
 | `pnpm setup:guided`    | Guided first-clone development setup                              |
+| `pnpm dev:doctor`      | Diagnose toolchain, configuration, infrastructure, and migrations |
+| `pnpm dev:all`         | Run web, admin, and Content Studio with one process supervisor     |
+| `pnpm dev:seed`        | Create idempotent local demo account, credits, and catalog data    |
+| `pnpm dev:reset`       | Guard, rebuild, migrate, and reseed the bundled local stack        |
 | `pnpm env:check:prod`  | Validate production configuration without exposing secret values |
 | `pnpm dev`             | Start the SaaS application                                       |
 | `pnpm dev:admin`       | Start the separate admin console                                 |
@@ -151,6 +151,7 @@ The root `docs/` directory contains co-versioned operational runbooks—not the
 public website:
 
 - [Database and ledger invariants](docs/database.md)
+- [Local development workflow](docs/development.md)
 - [Plans and entitlements](docs/plans.md)
 - [Organizations and authorization](docs/organizations.md)
 - [Error handling contract](docs/errors.md)

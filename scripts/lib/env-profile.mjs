@@ -111,6 +111,27 @@ export function prepareAppProfile(contents, profile, secret) {
       },
       { overwrite: false },
     );
+
+    const hasMaterialStorageConfig = [
+      "STORAGE_ENDPOINT",
+      "STORAGE_ACCESS_KEY",
+      "STORAGE_SECRET_KEY",
+      "STORAGE_BUCKET",
+    ].some((key) => readEnvValue(result, key) !== "");
+
+    if (!hasMaterialStorageConfig) {
+      result = applyEnvValues(result, {
+        STORAGE_PROVIDER: "garage",
+        STORAGE_ENDPOINT: "http://localhost:3900",
+        STORAGE_REGION: "garage",
+        STORAGE_ACCESS_KEY: "GK0123456789abcdef01234567",
+        STORAGE_SECRET_KEY:
+          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        STORAGE_BUCKET: "sushi-dev",
+        S3_FORCE_PATH_STYLE: "true",
+        S3_USE_ACL: "false",
+      });
+    }
   } else {
     // These values are never valid in a production profile. Clear them even on
     // a re-run so a copied development file cannot aim destructive tests at a

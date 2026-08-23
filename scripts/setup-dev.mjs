@@ -3,7 +3,7 @@
  * One-command local bootstrap: `pnpm run setup`
  *
  *   1. writes missing development profiles, with real secrets
- *   2. starts the Postgres and Redis containers
+ *   2. starts the Postgres, Redis, and local S3 containers
  *   3. applies migrations to the app, test, and Content Studio databases
  *
  * Safe to re-run. Existing environment files are never overwritten — the
@@ -14,6 +14,12 @@ import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import {
+  HeadBucketCommand,
+  PutBucketCorsCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const developmentEnvPath = resolve(root, ".env.development.local");
@@ -43,6 +49,12 @@ const TEST_DATABASE_URL = "postgresql://sushi:sushi@localhost:5432/sushi_test";
 const CONTENT_DATABASE_URL =
   "postgresql://sushi:sushi@localhost:5432/sushi_content";
 const DEV_REDIS_URL = "redis://localhost:6379";
+const DEV_STORAGE_ENDPOINT = "http://localhost:3900";
+const DEV_STORAGE_REGION = "garage";
+const DEV_STORAGE_BUCKET = "sushi-dev";
+const DEV_STORAGE_ACCESS_KEY = "GK0123456789abcdef01234567";
+const DEV_STORAGE_SECRET_KEY =
+  "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
 // Cloudflare's documented always-passes Turnstile keys. Local only — the app
 // refuses to start in production unless real keys are set or captcha is
@@ -134,6 +146,12 @@ if (existsSync(envPath)) {
     TURNSTILE_TEST_SITE_KEY,
   );
   contents = fill(contents, "TURNSTILE_SECRET_KEY", TURNSTILE_TEST_SECRET_KEY);
+  contents = fill(contents, "STORAGE_PROVIDER", "garage");
+  contents = fill(contents, "STORAGE_ENDPOINT", DEV_STORAGE_ENDPOINT);
+  contents = fill(contents, "STORAGE_REGION", DEV_STORAGE_REGION);
+  contents = fill(contents, "STORAGE_ACCESS_KEY", DEV_STORAGE_ACCESS_KEY);
+  contents = fill(contents, "STORAGE_SECRET_KEY", DEV_STORAGE_SECRET_KEY);
+  contents = fill(contents, "STORAGE_BUCKET", DEV_STORAGE_BUCKET);
 
   writeFileSync(envPath, contents, { mode: 0o600 });
   rootHasMarketingSecret = true;
@@ -141,9 +159,12 @@ if (existsSync(envPath)) {
     `wrote ${displayPath(envPath)} with generated application and marketing secrets`,
   );
   warn(
-    "Stripe, Resend, and storage keys are still blank — fill them when you need those features",
+    "Stripe and Resend keys are still blank — fill them when you need those features",
   );
 }
+
+const useBundledStorage =
+  readValue(readFileSync(envPath, "utf8"), "STORAGE_PROVIDER") === "garage";
 
 let payloadSecret = randomBytes(32).toString("hex");
 if (existsSync(contentEnvPath)) {
@@ -183,10 +204,11 @@ const dockerAvailable = has("docker");
 
 if (!dockerAvailable) {
   warn(
-    "docker not found — start Postgres and Redis yourself, then re-run this script",
+    "docker not found — provide Postgres, Redis, and S3-compatible storage yourself, then re-run this script",
   );
   warn(`expected: ${DEV_DATABASE_URL}`);
   warn(`expected: ${DEV_REDIS_URL}`);
+  if (useBundledStorage) warn(`expected: ${DEV_STORAGE_ENDPOINT}`);
   process.exit(0);
 }
 
@@ -242,9 +264,26 @@ const redisComposeRunning =
     encoding: "utf8",
   }).stdout?.trim().length > 0;
 const externalRedisRunning = portInUse(6379) && !redisComposeRunning;
-const composeServices = externalRedisRunning
-  ? ["postgres"]
-  : ["postgres", "redis"];
+
+const garageComposeRunning =
+  spawnSync("docker", ["compose", "ps", "-q", "garage"], {
+    cwd: root,
+    encoding: "utf8",
+  }).stdout?.trim().length > 0;
+
+if (useBundledStorage && portInUse(3900) && !garageComposeRunning) {
+  console.error(`
+  \x1b[31mPort 3900 is already in use\x1b[0m and is required by the bundled local S3 service.
+
+  Stop the process using that port, or configure a different external storage
+  provider in ${displayPath(envPath)} and start only the services you need.
+`);
+  process.exit(1);
+}
+
+const composeServices = ["postgres"];
+if (!externalRedisRunning) composeServices.push("redis");
+if (useBundledStorage) composeServices.push("garage");
 
 if (externalRedisRunning) {
   warn("port 6379 is already in use — using the existing local Redis service");
@@ -362,6 +401,60 @@ if (!externalRedisRunning) {
 }
 ok("Redis is available on localhost:6379");
 
+if (useBundledStorage) {
+  process.stdout.write("  waiting for local S3 storage");
+  const storageClient = new S3Client({
+    region: DEV_STORAGE_REGION,
+    endpoint: DEV_STORAGE_ENDPOINT,
+    forcePathStyle: true,
+    credentials: {
+      accessKeyId: DEV_STORAGE_ACCESS_KEY,
+      secretAccessKey: DEV_STORAGE_SECRET_KEY,
+    },
+  });
+  let storageReady = false;
+  for (let i = 0; i < 30; i += 1) {
+    try {
+      await storageClient.send(
+        new HeadBucketCommand({ Bucket: DEV_STORAGE_BUCKET }),
+      );
+      storageReady = true;
+      break;
+    } catch {
+      process.stdout.write(".");
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1000);
+    }
+  }
+  console.log("");
+
+  if (!storageReady) {
+    console.error(
+      "  local S3 storage did not become ready. Check `docker compose logs garage`.",
+    );
+    process.exit(1);
+  }
+
+  await storageClient.send(
+    new PutBucketCorsCommand({
+      Bucket: DEV_STORAGE_BUCKET,
+      CORSConfiguration: {
+        CORSRules: [
+          {
+            AllowedOrigins: ["http://localhost:3000"],
+            AllowedMethods: ["GET", "PUT", "HEAD"],
+            AllowedHeaders: ["*"],
+            ExposeHeaders: ["ETag"],
+            MaxAgeSeconds: 3000,
+          },
+        ],
+      },
+    }),
+  );
+  ok("private local S3 bucket is ready on localhost:3900 (sushi-dev)");
+} else {
+  ok("external object storage configuration preserved");
+}
+
 // -------------------------------------------------------------- 3. migrations
 
 step("Migrations");
@@ -402,9 +495,9 @@ ok("sushi_content migrated");
 console.log(`
 \x1b[1mReady.\x1b[0m
 
-  pnpm dev        → http://localhost:3000
-  pnpm dev:admin  → http://localhost:3001
-  pnpm dev:studio → http://localhost:3002
+  pnpm dev:doctor → verify the complete local stack
+  pnpm dev:all    → web :3000, admin :3001, studio :3002
+  pnpm dev:seed   → idempotent demo login, credits, and catalog
   pnpm test:db    → database tier now runs instead of skipping
 
 To promote yourself to admin after signing up:

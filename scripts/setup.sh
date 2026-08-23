@@ -12,7 +12,7 @@ Usage: ./scripts/setup.sh [development|production] [options]
 
 Profiles:
   development  Install dependencies, configure local values, start Docker
-               services, and apply development/test/Content Studio migrations.
+               database/cache/storage services, and apply all local migrations.
   production   Prepare and validate a gitignored production profile only.
                It never deploys or migrates a database.
 

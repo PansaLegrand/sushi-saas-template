@@ -69,6 +69,29 @@ describe("environment profile setup", () => {
       "redis://localhost:6379",
     );
     expect(readEnvValue(result, "BETTER_AUTH_SECRET")).toMatch(/^generated-/);
+    expect(readEnvValue(result, "STORAGE_PROVIDER")).toBe("garage");
+    expect(readEnvValue(result, "STORAGE_ENDPOINT")).toBe(
+      "http://localhost:3900",
+    );
+    expect(readEnvValue(result, "STORAGE_BUCKET")).toBe("sushi-dev");
+  });
+
+  it("preserves an explicitly configured external storage provider as one block", () => {
+    const result = prepareAppProfile(
+      [
+        "STORAGE_PROVIDER=r2",
+        "STORAGE_ENDPOINT=https://account.r2.cloudflarestorage.com",
+        "STORAGE_REGION=auto",
+        "STORAGE_ACCESS_KEY=external-access",
+        "STORAGE_SECRET_KEY=external-secret",
+        "STORAGE_BUCKET=external-bucket",
+      ].join("\n"),
+      "development",
+      deterministicSecret,
+    );
+
+    expect(readEnvValue(result, "STORAGE_PROVIDER")).toBe("r2");
+    expect(readEnvValue(result, "STORAGE_BUCKET")).toBe("external-bucket");
   });
 
   it("removes test and demo switches from production on every run", () => {

@@ -31,7 +31,8 @@ credentials. Only the database name at the end of the URL differs.
 ```
 
 That writes `.env.development.local` with generated secrets, starts Postgres 16
-in Docker, creates all three databases, and migrates them. Then `pnpm dev`.
+in Docker alongside Redis and local S3 storage, creates all three databases,
+and migrates them. Then run `pnpm dev:doctor && pnpm dev:all`.
 
 ### If you already have Postgres running
 

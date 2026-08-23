@@ -22,6 +22,38 @@ export async function findUserByEmail(
   return user;
 }
 
+/** Exact identity lookup for tooling that must never guess across providers. */
+export async function findUserByEmailAndProvider(
+  email: string,
+  provider: string,
+): Promise<typeof users.$inferSelect | undefined> {
+  const [user] = await db()
+    .select()
+    .from(users)
+    .where(
+      and(
+        eq(users.email, email.trim().toLowerCase()),
+        eq(users.signin_provider, provider),
+      ),
+    )
+    .limit(1);
+
+  return user;
+}
+
+/** Development fixture verification; normal users verify through Better Auth. */
+export async function markUserEmailVerified(
+  id: string,
+): Promise<typeof users.$inferSelect | undefined> {
+  const [user] = await db()
+    .update(users)
+    .set({ email_verified: true, updated_at: new Date() })
+    .where(eq(users.id, id))
+    .returning();
+
+  return user;
+}
+
 export async function updateUserLastSignin(
   uuid: string,
   when: Date

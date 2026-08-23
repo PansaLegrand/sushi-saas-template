@@ -368,12 +368,22 @@ describe("typed environment validation", () => {
       validateAppEnv();
     } catch (error) {
       expect((error as Error).message).toContain(
-        "Expected one of: s3, r2, minio",
+        "Expected one of: s3, r2, minio, garage",
       );
       expect((error as any).issues).toEqual(
         expect.arrayContaining([expect.stringContaining("STORAGE_PROVIDER")]),
       );
     }
+  });
+
+  it("accepts Garage as the bundled S3-compatible development provider", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("STORAGE_PROVIDER", "GARAGE");
+    vi.stubEnv("STORAGE_ENDPOINT", "http://localhost:3900");
+
+    const { validateAppEnv } = await loadEnvModule();
+
+    expect(validateAppEnv().STORAGE_PROVIDER).toBe("garage");
   });
 
   it("requires turnstile keys in production by default", async () => {
