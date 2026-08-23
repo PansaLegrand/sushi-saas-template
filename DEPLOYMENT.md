@@ -317,12 +317,19 @@ elapsed recovery time. See
 
 ## Deploying
 
-Two apps deploy independently from one repository:
+Four runtime processes can deploy independently from one repository:
 
-| App   | Build                                      | Serves                                |
-| ----- | ------------------------------------------ | ------------------------------------- |
-| Web   | `pnpm build:web`                           | SaaS application, auth, checkout, API |
-| Admin | `pnpm build:admin` (root dir `apps/admin`) | Admin console, `/api/admin/*`         |
+| Process | Build/artifact | Serves |
+| --- | --- | --- |
+| Web | `pnpm build:web` / `Dockerfile.web` | SaaS application, auth, checkout, API |
+| Admin | `pnpm build:admin` / `Dockerfile.admin` | Admin console, `/api/admin/*` |
+| Worker | `Dockerfile.worker` | Durable jobs and recurring maintenance; no HTTP port |
+| Content Studio | `pnpm build:studio` / `Dockerfile.studio` | Optional authoring app and content API |
+
+For a container/VM release, the repository also ships standalone, non-root
+images for web, admin, the durable worker, and optional Content Studio plus a
+managed-services-oriented Compose topology. See
+[docs/containers.md](docs/containers.md). Containers never migrate on startup.
 
 On Vercel that is two projects on the same repo. The admin project needs the same
 `DATABASE_URL`, `BETTER_AUTH_SECRET`, and Turnstile keys — admin sign-in goes

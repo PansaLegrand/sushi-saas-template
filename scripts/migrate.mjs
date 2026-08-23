@@ -28,7 +28,9 @@ import { readMigrationFiles } from "drizzle-orm/migrator";
 
 import { inspectMigrationState } from "./migration-state.mjs";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const root = process.env.APP_ROOT
+  ? resolve(process.env.APP_ROOT)
+  : resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const migrationsFolder = resolve(root, "src/db/migrations");
 
 /**

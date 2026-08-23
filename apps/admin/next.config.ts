@@ -16,7 +16,7 @@ const rootDir = path.resolve(adminDir, "../..");
  * Same reason the dotenv paths above are absolute.
  */
 const { securityHeadersRoute } = createRequire(import.meta.url)(
-  path.join(rootDir, "src/config/security-headers.js")
+  path.join(rootDir, "src/config/security-headers.js"),
 ) as typeof import("../../src/config/security-headers.js");
 const initialEnv = new Map(Object.entries(process.env));
 const nodeEnv = process.env.NODE_ENV ?? "development";
@@ -48,6 +48,8 @@ if (adminWebUrl) {
 }
 
 const nextConfig: NextConfig = {
+  output: "standalone",
+  outputFileTracingRoot: rootDir,
   experimental: {
     optimizePackageImports: ["sonner"],
   },

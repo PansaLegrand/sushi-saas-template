@@ -1,0 +1,129 @@
+name: saas-production
+
+x-app-runtime: &app-runtime
+  restart: unless-stopped
+  init: true
+  env_file:
+    - ${APP_ENV_FILE:-.env.example}
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  networks:
+    - app
+
+x-public-build-args: &public-build-args
+  NEXT_PUBLIC_WEB_URL: ${NEXT_PUBLIC_WEB_URL:-http://localhost:3000}
+  NEXT_PUBLIC_ADMIN_WEB_URL: ${NEXT_PUBLIC_ADMIN_WEB_URL:-http://localhost:3001}
+  NEXT_PUBLIC_AUTH_BASE_URL: ${NEXT_PUBLIC_AUTH_BASE_URL:-http://localhost:3000}
+  NEXT_PUBLIC_CAPTCHA_ENABLED: ${NEXT_PUBLIC_CAPTCHA_ENABLED:-false}
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
+  NEXT_PUBLIC_DEFAULT_LOCALE: ${NEXT_PUBLIC_DEFAULT_LOCALE:-en}
+  NEXT_PUBLIC_LOCALES: ${NEXT_PUBLIC_LOCALES:-en}
+  NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-}
+  NEXT_PUBLIC_PROJECT_NAME: ${NEXT_PUBLIC_PROJECT_NAME:-}
+  NEXT_PUBLIC_DOCS_URL: ${NEXT_PUBLIC_DOCS_URL:-}
+  NEXT_PUBLIC_AUTH_ENABLED: ${NEXT_PUBLIC_AUTH_ENABLED:-true}
+  NEXT_PUBLIC_DEFAULT_THEME: ${NEXT_PUBLIC_DEFAULT_THEME:-system}
+  NEXT_PUBLIC_LOCALE_DETECTION: ${NEXT_PUBLIC_LOCALE_DETECTION:-false}
+  NEXT_PUBLIC_PAY_SUCCESS_URL: ${NEXT_PUBLIC_PAY_SUCCESS_URL:-}
+  NEXT_PUBLIC_PAY_FAIL_URL: ${NEXT_PUBLIC_PAY_FAIL_URL:-}
+  NEXT_PUBLIC_PAY_CANCEL_URL: ${NEXT_PUBLIC_PAY_CANCEL_URL:-}
+  NEXT_PUBLIC_UPLOAD_MAX_MB: ${NEXT_PUBLIC_UPLOAD_MAX_MB:-25}
+  NEXT_PUBLIC_GOOGLE_ANALYTICS_ID: ${NEXT_PUBLIC_GOOGLE_ANALYTICS_ID:-}
+  NEXT_PUBLIC_GOOGLE_ADCODE: ${NEXT_PUBLIC_GOOGLE_ADCODE:-}
+  NEXT_PUBLIC_FEATURE_RESERVATIONS_ENABLED: ${NEXT_PUBLIC_FEATURE_RESERVATIONS_ENABLED:-false}
+  NEXT_PUBLIC_RESERVATIONS_AUTO_SEED_DEMO: ${NEXT_PUBLIC_RESERVATIONS_AUTO_SEED_DEMO:-false}
+
+services:
+  web:
+    <<: *app-runtime
+    image: ${WEB_IMAGE:-saas-web:local}
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args: *public-build-args
+    ports:
+      - ${WEB_BIND:-127.0.0.1:3000}:3000
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /app/.next/cache:size=128m,uid=1001,gid=1001
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+  admin:
+    <<: *app-runtime
+    image: ${ADMIN_IMAGE:-saas-admin:local}
+    build:
+      context: .
+      dockerfile: Dockerfile.admin
+      args:
+        <<: *public-build-args
+        NEXT_PUBLIC_AUTH_BASE_URL: ${NEXT_PUBLIC_ADMIN_WEB_URL:-http://localhost:3001}
+    ports:
+      - ${ADMIN_BIND:-127.0.0.1:3001}:3001
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /app/apps/admin/.next/cache:size=128m,uid=1001,gid=1001
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/login').then(r=>{if(r.status>=500)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+  worker:
+    <<: *app-runtime
+    image: ${WORKER_IMAGE:-saas-worker:local}
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    stop_grace_period: 60s
+
+  studio:
+    profiles: ["studio"]
+    restart: unless-stopped
+    init: true
+    image: ${STUDIO_IMAGE:-saas-studio:local}
+    build:
+      context: .
+      dockerfile: Dockerfile.studio
+    env_file:
+      - ${CONTENT_ENV_FILE:-apps/content-studio/.env.example}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - app
+    ports:
+      - ${STUDIO_BIND:-127.0.0.1:3002}:3002
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /app/apps/content-studio/.next/cache:size=128m,uid=1001,gid=1001
+
+networks:
+  app:
+    driver: bridge

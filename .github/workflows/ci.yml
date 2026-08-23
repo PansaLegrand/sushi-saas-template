@@ -99,6 +99,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Validate container bundle
+        run: pnpm containers:check
+
       - name: Migrate test database
         run: pnpm test:db:setup
 

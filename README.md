@@ -141,7 +141,7 @@ is not a submodule and is not built by this repository.
 | `pnpm dev:studio`        | Start Content Studio on port 3002                                 |
 | `pnpm jobs:work`         | Continuously drain durable jobs in a portable worker process      |
 | `pnpm jobs:run`          | Run one bounded queue drain for a scheduler                       |
-| `pnpm lint`              | Validate config/migrations and lint every application              |
+| `pnpm lint`              | Validate config/migrations and lint every application             |
 | `pnpm test:run`          | Run all test tiers; infrastructure tests skip without their URLs  |
 | `pnpm test:cov`          | Enforce coverage thresholds                                       |
 | `pnpm test:db`           | Run real PostgreSQL and Redis invariant tests                     |
@@ -158,6 +158,7 @@ is not a submodule and is not built by this repository.
 | `pnpm db:backup`         | Create a private custom dump and SHA-256 manifest                 |
 | `pnpm db:restore:drill`  | Restore only into a confirmed scratch database                    |
 | `pnpm retention:report`  | Preview operational rows eligible for retention                   |
+| `pnpm containers:check`  | Validate hardened production Docker/Compose bundles               |
 
 ## Engineering documentation
 
@@ -170,6 +171,7 @@ public website:
 - [Observability and SLOs](docs/observability.md)
 - [Background jobs](docs/background-jobs.md)
 - [Backups, restore drills, and retention](docs/backups-and-retention.md)
+- [Production containers](docs/containers.md)
 - [Plans and entitlements](docs/plans.md)
 - [Organizations and authorization](docs/organizations.md)
 - [Error handling contract](docs/errors.md)

@@ -4,13 +4,16 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(dirname, "../..");
 
 const nextConfig: NextConfig = {
+  output: "standalone",
+  outputFileTracingRoot: rootDir,
   images: {
     localPatterns: [{ pathname: "/api/media/file/**" }]
   },
   turbopack: {
-    root: dirname
+    root: rootDir
   },
   webpack(config) {
     config.resolve.extensionAlias = {

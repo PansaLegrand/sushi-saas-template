@@ -1,0 +1,16 @@
+.git
+.github
+**/.next
+**/node_modules
+.env*
+!.env.example
+apps/content-studio/.env*
+!apps/content-studio/.env.example
+.data
+.playwright
+coverage
+playwright-report
+test-results
+tmp
+*.log
+.DS_Store

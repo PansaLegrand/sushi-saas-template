@@ -10,6 +10,7 @@ Run these from the repository root:
 ```bash
 pnpm lint
 pnpm db:lint
+pnpm containers:check
 pnpm test:run
 pnpm build
 ```

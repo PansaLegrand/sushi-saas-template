@@ -1,0 +1,23 @@
+# syntax=docker/dockerfile:1.7
+FROM node:20.19.5-alpine@sha256:6178e78b972f79c335df281f4b7674a2d85071aae2af020ffa39f0a770265435 AS builder
+ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH NEXT_TELEMETRY_DISABLED=1
+RUN corepack enable
+WORKDIR /workspace
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY scripts/prepare.mjs scripts/prepare.mjs
+COPY apps/content-studio/package.json apps/content-studio/package.json
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+    pnpm install --frozen-lockfile --filter sushi-saas-starter
+COPY . .
+RUN pnpm bundle:runtime -- --out-dir /out/scripts
+
+FROM node:20.19.5-alpine@sha256:6178e78b972f79c335df281f4b7674a2d85071aae2af020ffa39f0a770265435 AS runner
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 APP_ROOT=/app
+RUN addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 --ingroup nodejs worker
+WORKDIR /app
+COPY --from=builder --chown=worker:nodejs /out/scripts ./scripts
+COPY --from=builder --chown=worker:nodejs /workspace/src/db/migrations ./src/db/migrations
+USER worker
+STOPSIGNAL SIGTERM
+CMD ["node", "scripts/jobs-worker.mjs", "--production"]
