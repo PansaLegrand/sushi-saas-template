@@ -368,6 +368,20 @@ describe("tenancy", () => {
     path.startsWith("src/models/"),
   );
 
+  it("never revives the legacy files.org_id authorization path", () => {
+    // The column remains for one mixed-deployment release, but application
+    // code has completed the expand/contract first half: every file decision
+    // keys on org_uuid. Keeping that true makes a later DROP a mechanical
+    // contract migration instead of another authorization rewrite.
+    const offenders = FILES.filter(
+      ({ path, body }) =>
+        path !== "src/db/schema.ts" &&
+        /\b(?:file|files)\.org_id\b/.test(stripComments(body)),
+    ).map(({ path }) => path);
+
+    expect(offenders).toEqual([]);
+  });
+
   /** `.from(files)`, `.update(tasks)`, `.delete(credits)` — a query root. */
   function queryRoots(body: string, table: string): boolean {
     return new RegExp(`\\.(?:from|update|delete)\\(\\s*${table}\\s*[,)]`).test(

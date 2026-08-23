@@ -267,7 +267,7 @@ export const orders = pgTable(
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     order_no: varchar({ length: 255 }).notNull().unique(),
-    created_at: timestamp({ withTimezone: true }),
+    created_at: timestamp({ withTimezone: true }).defaultNow(),
     user_uuid: varchar({ length: 255 }).notNull().default(""),
     user_email: varchar({ length: 255 }).notNull().default(""),
     amount: integer().notNull(),
@@ -418,7 +418,7 @@ export const credits = pgTable(
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     trans_no: varchar({ length: 255 }).notNull().unique(),
-    created_at: timestamp({ withTimezone: true }),
+    created_at: timestamp({ withTimezone: true }).defaultNow(),
     // Which member spent or earned this. Kept deliberately alongside `org_uuid`,
     // because the balance is pooled at the org but per-member quotas and usage
     // reporting are impossible to build later if nobody recorded who.
@@ -470,7 +470,7 @@ export const affiliates = pgTable(
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     user_uuid: varchar({ length: 255 }).notNull(),
-    created_at: timestamp({ withTimezone: true }),
+    created_at: timestamp({ withTimezone: true }).defaultNow(),
     status: varchar({ length: 50 }).notNull().default(""),
     invited_by: varchar({ length: 255 }).notNull(),
     paid_order_no: varchar({ length: 255 }).notNull().default(""),
@@ -522,7 +522,7 @@ export const affiliateDeduplicationArchive = pgTable(
 // Feedbacks table
 export const feedbacks = pgTable("feedbacks", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  created_at: timestamp({ withTimezone: true }),
+  created_at: timestamp({ withTimezone: true }).defaultNow(),
   status: varchar({ length: 50 }),
   user_uuid: varchar({ length: 255 }),
   content: text(),
@@ -653,6 +653,15 @@ export const files = pgTable(
     index("files_user_idx").on(table.user_uuid),
     index("files_org_idx").on(table.org_uuid),
     uniqueIndex("files_bucket_key_unique_idx").on(table.bucket, table.key),
+    check(
+      "files_status_check",
+      sql`${table.status} in ('uploading', 'active', 'deleting', 'deleted', 'failed')`,
+    ),
+    check(
+      "files_visibility_check",
+      sql`${table.visibility} in ('private', 'public', 'org')`,
+    ),
+    check("files_size_check", sql`${table.size} >= 0`),
   ],
 );
 

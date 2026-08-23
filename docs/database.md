@@ -479,16 +479,19 @@ Ordered by how much they will hurt.
    It exits non-zero on any orphan and runs against the migrated test database
    in CI. Run it against production before and after relationship migrations.
 
-2. **`created_at` nullability is inconsistent.** Newer tables use
-   `.notNull().defaultNow()`; older ones (`orders`, `credits`, `affiliates`,
-   `feedbacks`) are nullable and set from application
-   code. That means a forgotten field yields a null timestamp and breaks
-   ordering. Backfill and tighten. **Do not copy the old pattern into new
-   tables.**
+2. **Historical `created_at` nullability remains.** Newer tables use
+   `.notNull().defaultNow()`; older `orders`, `credits`, `affiliates`, and
+   `feedbacks` columns are still nullable for compatibility. Migration `0036`
+   adds database defaults, so an omitted value can no longer create a new null.
+   Before a later contract migration marks them NOT NULL, report and backfill
+   historical nulls in bounded batches. **Do not copy the old nullable pattern
+   into new tables.**
 
 3. **`files.org_id` is legacy.** Tenancy now uses `org_uuid` across application
-   tables. `files.org_id` remains as an older placeholder column and should be
-   dropped in a contract migration once no deployed code can reference it.
+   tables. The architecture test now rejects any application read of the old
+   path, but the physical column remains for mixed-deployment compatibility.
+   Drop it in a later contract migration only after every older app artifact is
+   retired; removing it now would make those artifacts' generated SELECTs fail.
 
 4. ~~**No committed retention period for the audit tables.**~~ **Fixed.** The
    operational policy defaults to 14 days for finished jobs, 30 days for
@@ -512,11 +515,11 @@ Ordered by how much they will hurt.
    before the change. Expect both shapes side by side, plus the
    `renewal:<sub>:<period>` form that migration-era Stripe renewals write.
 
-6. **Some status columns have no CHECK constraints.** Reservations and privacy
-   requests are constrained in PostgreSQL, but several older tables still rely
-   on TypeScript validation. A bad direct `UPDATE` can write an unsupported
-   state. Add constraints through expand/contract migrations as those tables
-   change.
+6. **Some status columns have no CHECK constraints.** Reservations, privacy
+   requests, tasks, jobs, and files are constrained in PostgreSQL, but several
+   older tables still rely on TypeScript validation. A bad direct `UPDATE` can
+   write an unsupported state. Add constraints through expand/contract
+   migrations as those tables change.
 
 ---
 

@@ -251,6 +251,13 @@
       "when": 1787505958989,
       "tag": "0035_salty_silver_fox",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1787507924293,
+      "tag": "0036_pretty_leopardon",
+      "breakpoints": true
     }
   ]
 }

@@ -28,6 +28,21 @@ function candidate(uuid: string) {
   };
 }
 
+async function expectCheck(
+  values: ReturnType<typeof candidate> & Record<string, unknown>,
+  constraintName: string,
+) {
+  try {
+    await db().insert(files).values(values as never);
+    throw new Error(`expected ${constraintName} to reject the file`);
+  } catch (error) {
+    const cause = (error as { cause?: { code?: string; constraint_name?: string } })
+      .cause;
+    expect(cause?.code).toBe("23514");
+    expect(cause?.constraint_name).toBe(constraintName);
+  }
+}
+
 describeDb("storage quota reservation (real database)", () => {
   useCleanDatabase();
 
@@ -49,6 +64,21 @@ describeDb("storage quota reservation (real database)", () => {
     await expect(
       reserveFileWithinQuota(candidate("file-2"), 100),
     ).resolves.toMatchObject({ ok: true, usedBytes: 0 });
+  });
+
+  it("rejects unsupported file states, visibility, and negative sizes", async () => {
+    await expectCheck(
+      { ...candidate("invalid-status"), status: "ready" },
+      "files_status_check",
+    );
+    await expectCheck(
+      { ...candidate("invalid-visibility"), visibility: "internet" },
+      "files_visibility_check",
+    );
+    await expectCheck(
+      { ...candidate("invalid-size"), size: -1 },
+      "files_size_check",
+    );
   });
 
   it("revives an exhausted object-deletion job without duplicating it", async () => {
