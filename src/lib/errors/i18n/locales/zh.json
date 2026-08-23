@@ -64,6 +64,7 @@
   "TASK_NOT_FOUND": "未找到该任务。",
   "TASK_PROMPT_REQUIRED": "请输入提示词。",
   "TASK_CREATE_FAILED": "任务创建失败，请重试。",
+  "TASK_IDEMPOTENCY_CONFLICT": "该任务键已用于其他请求，请创建新任务后重试。",
   "TASK_PROVIDER_FAILED": "生成服务调用失败，请重试。",
   "RESERVATION_NOT_FOUND": "未找到该预约。",
   "RESERVATION_SLOT_UNAVAILABLE": "该时间段已被占用。",

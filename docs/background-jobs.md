@@ -39,6 +39,35 @@ The worker configuration defaults are:
 Keep the handler timeout below the five-minute lease. A handler that exceeds its
 timeout is aborted and retried through the normal exponential-backoff path.
 
+## Reference Paid Workflow: Image Generation
+
+Image generation is the minimal end-to-end example for a paid asynchronous
+feature. One accepted task costs exactly five pooled organization credits and
+uses stable identities at every boundary:
+
+- `(user_uuid, type, idempotency_key)` identifies the task and a request
+  fingerprint rejects reuse with different input;
+- `task_image:<task uuid>` identifies the ledger spend, so a concurrent replay
+  returns the original debit;
+- `task_image_generation:<task uuid>` deduplicates durable dispatch;
+- the task UUID also identifies its private file row and deterministic object
+  key, so a retry after object upload repairs the database link instead of
+  generating a second artifact.
+
+The state machine is `pending_payment → queued → running → succeeded`. Provider
+failures return to `queued` for the first four attempts. On the fifth failure,
+the worker moves the task to `refunding`, applies the ledger's deterministic
+compensation, and only then records `failed`. The job has eight attempts, leaving
+three attempts exclusively for compensation if the database is temporarily
+unavailable. Replaying a `refunding` task never calls the provider again.
+
+Locally, enable `ENABLE_DEMO_FEATURES=true` and
+`ENABLE_IMAGE_GENERATION_MOCK=true`. `IMAGE_GENERATION_MOCK_FAILURES=N` makes
+the first N provider attempts fail so retry and refund behavior can be tested
+without an external account. Production ignores the mock flag; replace only
+`src/services/ai/image.ts` with a provider adapter that honors the supplied
+idempotency key and abort signal.
+
 ## Operator Workflow
 
 The admin console's `/jobs` page exposes operational metadata but never payload

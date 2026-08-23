@@ -12,6 +12,7 @@ describe("demo feature flags", () => {
     delete process.env.ENABLE_DEMO_FEATURES;
     delete process.env.ENABLE_CREDITS_PLAYGROUND;
     delete process.env.ENABLE_TEXT2VIDEO_MOCK;
+    delete process.env.ENABLE_IMAGE_GENERATION_MOCK;
     delete process.env.ENABLE_ACCOUNT_CREDIT_GRANT;
     delete process.env.RESERVATIONS_AUTO_SEED_DEMO;
     delete process.env.NEXT_PUBLIC_RESERVATIONS_AUTO_SEED_DEMO;
@@ -29,6 +30,7 @@ describe("demo feature flags", () => {
     expect(flags.areDemoFeaturesEnabled()).toBe(false);
     expect(flags.isCreditsPlaygroundEnabled()).toBe(false);
     expect(flags.isTextToVideoMockEnabled()).toBe(false);
+    expect(flags.isImageGenerationMockEnabled()).toBe(false);
     expect(flags.isAccountCreditGrantEnabled()).toBe(false);
     expect(flags.isReservationDemoAutoSeedEnabled()).toBe(false);
   });
@@ -37,6 +39,7 @@ describe("demo feature flags", () => {
     process.env.ENABLE_DEMO_FEATURES = "true";
     process.env.ENABLE_CREDITS_PLAYGROUND = "true";
     process.env.ENABLE_TEXT2VIDEO_MOCK = "true";
+    process.env.ENABLE_IMAGE_GENERATION_MOCK = "true";
     process.env.ENABLE_ACCOUNT_CREDIT_GRANT = "true";
     process.env.RESERVATIONS_AUTO_SEED_DEMO = "true";
 
@@ -45,6 +48,7 @@ describe("demo feature flags", () => {
     expect(flags.areDemoFeaturesEnabled()).toBe(true);
     expect(flags.isCreditsPlaygroundEnabled()).toBe(true);
     expect(flags.isTextToVideoMockEnabled()).toBe(true);
+    expect(flags.isImageGenerationMockEnabled()).toBe(true);
     expect(flags.isAccountCreditGrantEnabled()).toBe(true);
     expect(flags.isReservationDemoAutoSeedEnabled()).toBe(true);
   });
@@ -54,6 +58,7 @@ describe("demo feature flags", () => {
     process.env.ENABLE_DEMO_FEATURES = "true";
     process.env.ENABLE_CREDITS_PLAYGROUND = "true";
     process.env.ENABLE_TEXT2VIDEO_MOCK = "true";
+    process.env.ENABLE_IMAGE_GENERATION_MOCK = "true";
     process.env.ENABLE_ACCOUNT_CREDIT_GRANT = "true";
     process.env.RESERVATIONS_AUTO_SEED_DEMO = "true";
 
@@ -62,6 +67,7 @@ describe("demo feature flags", () => {
     expect(flags.areDemoFeaturesEnabled()).toBe(false);
     expect(flags.isCreditsPlaygroundEnabled()).toBe(false);
     expect(flags.isTextToVideoMockEnabled()).toBe(false);
+    expect(flags.isImageGenerationMockEnabled()).toBe(false);
     expect(flags.isAccountCreditGrantEnabled()).toBe(false);
     expect(flags.isReservationDemoAutoSeedEnabled()).toBe(false);
   });

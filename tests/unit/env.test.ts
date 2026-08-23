@@ -56,6 +56,8 @@ const ENV_KEYS = [
   "ENABLE_DEMO_FEATURES",
   "ENABLE_CREDITS_PLAYGROUND",
   "ENABLE_TEXT2VIDEO_MOCK",
+  "ENABLE_IMAGE_GENERATION_MOCK",
+  "IMAGE_GENERATION_MOCK_FAILURES",
   "STORAGE_MAX_UPLOAD_MB",
   "NEXT_PUBLIC_UPLOAD_MAX_MB",
   "STORAGE_ENDPOINT",
@@ -147,6 +149,8 @@ describe("typed environment validation", () => {
     expect(env.RETENTION_AUTH_EVENTS_DAYS).toBe(90);
     expect(env.RETENTION_ADMIN_AUDIT_DAYS).toBe(365);
     expect(env.ENABLE_DEMO_FEATURES).toBe(false);
+    expect(env.ENABLE_IMAGE_GENERATION_MOCK).toBe(false);
+    expect(env.IMAGE_GENERATION_MOCK_FAILURES).toBe(0);
   });
 
   it("fails clearly when production secrets are missing", async () => {
@@ -195,6 +199,8 @@ describe("typed environment validation", () => {
     vi.stubEnv("NEXT_PUBLIC_DOCS_URL", "https://docs.example.com");
     vi.stubEnv("ENABLE_DEMO_FEATURES", "yes");
     vi.stubEnv("ENABLE_TEXT2VIDEO_MOCK", "on");
+    vi.stubEnv("ENABLE_IMAGE_GENERATION_MOCK", "true");
+    vi.stubEnv("IMAGE_GENERATION_MOCK_FAILURES", "2");
     vi.stubEnv("STORAGE_PROVIDER", "R2");
     vi.stubEnv("STORAGE_MAX_UPLOAD_MB", "50");
 
@@ -207,6 +213,8 @@ describe("typed environment validation", () => {
     expect(env.STORAGE_MAX_UPLOAD_MB).toBe(50);
     expect(env.ENABLE_DEMO_FEATURES).toBe(true);
     expect(env.ENABLE_TEXT2VIDEO_MOCK).toBe(true);
+    expect(env.ENABLE_IMAGE_GENERATION_MOCK).toBe(true);
+    expect(env.IMAGE_GENERATION_MOCK_FAILURES).toBe(2);
   });
 
   it("rejects short production auth and cron secrets", async () => {

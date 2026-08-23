@@ -18,6 +18,10 @@ export function isTextToVideoMockEnabled(): boolean {
   return areDemoFeaturesEnabled() && getAppEnv().ENABLE_TEXT2VIDEO_MOCK;
 }
 
+export function isImageGenerationMockEnabled(): boolean {
+  return areDemoFeaturesEnabled() && getAppEnv().ENABLE_IMAGE_GENERATION_MOCK;
+}
+
 export function isReservationDemoAutoSeedEnabled(): boolean {
   return (
     areDemoFeaturesEnabled() &&

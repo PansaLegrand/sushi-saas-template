@@ -64,6 +64,7 @@
   "TASK_NOT_FOUND": "No se encontró esa tarea.",
   "TASK_PROMPT_REQUIRED": "Introduce una instrucción.",
   "TASK_CREATE_FAILED": "No se pudo crear la tarea. Inténtalo de nuevo.",
+  "TASK_IDEMPOTENCY_CONFLICT": "Esta clave de tarea ya se usó con otra solicitud. Inicia una tarea nueva e inténtalo de nuevo.",
   "TASK_PROVIDER_FAILED": "El servicio de generación falló. Inténtalo de nuevo.",
   "RESERVATION_NOT_FOUND": "No se encontró esa reserva.",
   "RESERVATION_SLOT_UNAVAILABLE": "Ese horario ya no está disponible.",

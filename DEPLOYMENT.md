@@ -151,7 +151,7 @@ in-memory counter is private to each serverless instance.
 
 **Must not be set in production**: the `ENABLE_DEMO_FEATURES`,
 `ENABLE_CREDITS_PLAYGROUND`, `ENABLE_TEXT2VIDEO_MOCK`, and
-`ENABLE_ACCOUNT_CREDIT_GRANT` flags. They default off and are ignored in
+`ENABLE_IMAGE_GENERATION_MOCK`, and `ENABLE_ACCOUNT_CREDIT_GRANT` flags. They default off and are ignored in
 production, but leaving them set is a confusing signal to the next person.
 
 **Never set `TEST_DATABASE_URL` or `TEST_REDIS_URL` in a production

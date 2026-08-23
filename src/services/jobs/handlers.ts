@@ -112,6 +112,15 @@ export const jobHandlers: JobHandlerMap = {
     await deleteStoredObject({ fileUuid, orgUuid });
   },
 
+  image_generation: async (payload, context) => {
+    // Dynamic import keeps provider/storage initialization out of workers that
+    // are only delivering mail or pruning objects.
+    const { runImageGenerationTask } = await import(
+      "@/services/tasks/image-generation"
+    );
+    await runImageGenerationTask(payload, context);
+  },
+
   account_data_export: async ({ requestUuid }) => {
     // Dynamic import avoids making the auth configuration and the job registry
     // initialize each other. Lifecycle route helpers use `auth`; workers do not

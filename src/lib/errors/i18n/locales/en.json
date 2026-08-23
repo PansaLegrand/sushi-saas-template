@@ -64,6 +64,7 @@
   "TASK_NOT_FOUND": "That task was not found.",
   "TASK_PROMPT_REQUIRED": "Please enter a prompt.",
   "TASK_CREATE_FAILED": "The task could not be created. Please try again.",
+  "TASK_IDEMPOTENCY_CONFLICT": "This task key was already used with a different request. Start a new task and try again.",
   "TASK_PROVIDER_FAILED": "The generation service failed. Please try again.",
   "RESERVATION_NOT_FOUND": "That reservation was not found.",
   "RESERVATION_SLOT_UNAVAILABLE": "That time slot is no longer available.",

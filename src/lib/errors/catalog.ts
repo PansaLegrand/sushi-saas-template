@@ -406,6 +406,11 @@ export const ERROR_CATALOG = {
     defaultMessage: "The task could not be created. Please try again.",
     legacyCodes: ["create task failed"],
   },
+  TASK_IDEMPOTENCY_CONFLICT: {
+    statusCode: 409,
+    defaultMessage:
+      "This task key was already used with a different request. Start a new task and try again.",
+  },
   TASK_PROVIDER_FAILED: {
     statusCode: 502,
     defaultMessage: "The generation service failed. Please try again.",

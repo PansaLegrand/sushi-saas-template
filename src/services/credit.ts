@@ -26,6 +26,7 @@ export enum CreditsTransType {
   Ping = "ping",
   MockUsage = "mock_usage",
   TaskTextToVideo = "task_text_to_video",
+  TaskImageGeneration = "task_image_generation",
   TaskAdjust = "task_adjust",
 }
 
@@ -73,6 +74,11 @@ interface DecreaseCreditsParams extends CreditAuditParams {
   user_uuid: string;
   trans_type: CreditsTransType;
   credits: number;
+  /**
+   * Stable ledger identity for a replayable spend. The caller must derive this
+   * from the logical operation, never from an individual HTTP attempt.
+   */
+  trans_no?: string;
 }
 
 interface IncreaseCreditsParams extends CreditAuditParams {
@@ -243,11 +249,44 @@ export async function getOrgCredits(orgUuid: string): Promise<UserCredits> {
   return status;
 }
 
+function isUniqueViolation(error: unknown): boolean {
+  const candidate = error as
+    | { code?: string; cause?: { code?: string } }
+    | null
+    | undefined;
+  return candidate?.code === "23505" || candidate?.cause?.code === "23505";
+}
+
+function assertMatchingSpendReplay(params: {
+  row: CreditRow;
+  orgUuid: string;
+  userUuid: string;
+  transType: CreditsTransType;
+  credits: number;
+  actor: CreditActor;
+}): string {
+  const { row, orgUuid, userUuid, transType, credits, actor } = params;
+  if (
+    row.org_uuid !== orgUuid ||
+    row.user_uuid !== userUuid ||
+    row.trans_type !== transType ||
+    row.credits !== -credits ||
+    row.actor !== actor
+  ) {
+    throw new AppError("CREDITS_GRANT_FAILED", {
+      message: `credit transaction ${row.trans_no} was replayed with different spend parameters`,
+    });
+  }
+
+  return row.trans_no;
+}
+
 export async function decreaseCredits({
   org_uuid,
   user_uuid,
   trans_type,
   credits,
+  trans_no,
   actor,
   metadata,
 }: DecreaseCreditsParams): Promise<string> {
@@ -257,9 +296,25 @@ export async function decreaseCredits({
     });
   }
 
+  const transactionNo = trans_no ?? newId();
+
   try {
+    if (trans_no) {
+      const existing = await findCreditByTransNo(trans_no);
+      if (existing) {
+        return assertMatchingSpendReplay({
+          row: existing,
+          orgUuid: org_uuid,
+          userUuid: user_uuid,
+          transType: trans_type,
+          credits,
+          actor,
+        });
+      }
+    }
+
     const outcome = await insertSpendCreditIfSufficient({
-      trans_no: newId(),
+      trans_no: transactionNo,
       created_at: new Date(getIsoTimestr()),
       org_uuid,
       user_uuid,
@@ -285,8 +340,33 @@ export async function decreaseCredits({
 
     return outcome.row.trans_no;
   } catch (error) {
+    // Two concurrent retries can both observe no row before the model's
+    // organization lock serializes their inserts. The unique ledger identity
+    // is the final arbiter; load and validate the winner instead of reporting
+    // an internal error or spending twice.
+    if (trans_no && isUniqueViolation(error)) {
+      const createdByRace = await findCreditByTransNo(trans_no);
+      if (createdByRace) {
+        return assertMatchingSpendReplay({
+          row: createdByRace,
+          orgUuid: org_uuid,
+          userUuid: user_uuid,
+          transType: trans_type,
+          credits,
+          actor,
+        });
+      }
+    }
+
     logger.error(
-      { err: error, org_uuid, user_uuid, trans_type, credits },
+      {
+        err: error,
+        org_uuid,
+        user_uuid,
+        trans_type,
+        credits,
+        trans_no: transactionNo,
+      },
       "decrease credits failed",
     );
     throw error;

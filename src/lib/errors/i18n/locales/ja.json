@@ -64,6 +64,7 @@
   "TASK_NOT_FOUND": "タスクが見つかりません。",
   "TASK_PROMPT_REQUIRED": "プロンプトを入力してください。",
   "TASK_CREATE_FAILED": "タスクを作成できませんでした。もう一度お試しください。",
+  "TASK_IDEMPOTENCY_CONFLICT": "このタスクキーは別のリクエストですでに使用されています。新しいタスクを開始してください。",
   "TASK_PROVIDER_FAILED": "生成サービスの呼び出しに失敗しました。もう一度お試しください。",
   "RESERVATION_NOT_FOUND": "予約が見つかりません。",
   "RESERVATION_SLOT_UNAVAILABLE": "その時間帯はすでに埋まっています。",

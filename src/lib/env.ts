@@ -228,11 +228,15 @@ const RawEnvSchema = z.object({
   ENABLE_DEMO_FEATURES: envBoolean(false),
   ENABLE_CREDITS_PLAYGROUND: envBoolean(false),
   ENABLE_TEXT2VIDEO_MOCK: envBoolean(false),
+  ENABLE_IMAGE_GENERATION_MOCK: envBoolean(false),
   ENABLE_ACCOUNT_CREDIT_GRANT: envBoolean(false),
   RESERVATIONS_AUTO_SEED_DEMO: envBoolean(false),
   NEXT_PUBLIC_RESERVATIONS_AUTO_SEED_DEMO: envBoolean(false),
   NEXT_PUBLIC_FEATURE_RESERVATIONS_ENABLED: envBoolean(false),
   TEXT2VIDEO_MOCK_URL: envString,
+  IMAGE_GENERATION_MOCK_FAILURES: z
+    .preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional())
+    .transform((value) => value ?? 0),
 
   NEXT_PUBLIC_GOOGLE_ANALYTICS_ID: envString,
   NEXT_PUBLIC_GOOGLE_ADCODE: envString,

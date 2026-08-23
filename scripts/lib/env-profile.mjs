@@ -146,6 +146,7 @@ export function prepareAppProfile(contents, profile, secret) {
       ENABLE_DEMO_FEATURES: "false",
       ENABLE_CREDITS_PLAYGROUND: "false",
       ENABLE_TEXT2VIDEO_MOCK: "false",
+      ENABLE_IMAGE_GENERATION_MOCK: "false",
       ENABLE_ACCOUNT_CREDIT_GRANT: "false",
       RESERVATIONS_AUTO_SEED_DEMO: "false",
       NEXT_PUBLIC_RESERVATIONS_AUTO_SEED_DEMO: "false",

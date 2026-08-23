@@ -1,10 +1,22 @@
 import { tasks } from "@/db/schema";
 import { db } from "@/db";
-import { and, desc, eq, gte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, ne } from "drizzle-orm";
 
 import { scopedToOrg } from "./organization";
 
-export type TaskStatus = "queued" | "running" | "succeeded" | "failed";
+export type TaskStatus =
+  | "pending_payment"
+  | "queued"
+  | "running"
+  | "refunding"
+  | "succeeded"
+  | "failed";
+
+export type TaskRow = typeof tasks.$inferSelect;
+export type TaskPatch = Omit<
+  Partial<typeof tasks.$inferInsert>,
+  "uuid" | "org_uuid" | "status"
+>;
 
 /** `org_uuid` is required: an unscoped task is invisible to every read below. */
 export type TaskInsert = typeof tasks.$inferInsert & { org_uuid: string };
@@ -120,7 +132,13 @@ export async function countTasksByOrgSince(
 ): Promise<number> {
   return db().$count(
     tasks,
-    and(scopedToOrg(tasks.org_uuid, orgUuid), gte(tasks.created_at, since))
+    and(
+      scopedToOrg(tasks.org_uuid, orgUuid),
+      gte(tasks.created_at, since),
+      // A request that could not reserve credits never reached a provider and
+      // must not consume the provider-backed monthly allowance.
+      ne(tasks.status, "pending_payment"),
+    ),
   );
 }
 
@@ -128,16 +146,62 @@ export async function updateTaskStatus(
   uuid: string,
   orgUuid: string,
   status: TaskStatus,
-  fields: Partial<typeof tasks.$inferInsert> = {}
+  fields: TaskPatch = {},
 ): Promise<typeof tasks.$inferSelect | undefined> {
   const [row] = await db()
     .update(tasks)
     .set({
+      ...fields,
       status,
       updated_at: new Date(),
-      ...fields,
     })
     .where(and(eq(tasks.uuid, uuid), scopedToOrg(tasks.org_uuid, orgUuid)))
     .returning();
+  return row;
+}
+
+/** Patch diagnostic links without risking a lifecycle regression. */
+export async function updateTaskFields(
+  uuid: string,
+  orgUuid: string,
+  fields: TaskPatch,
+): Promise<TaskRow | undefined> {
+  const [row] = await db()
+    .update(tasks)
+    .set({ ...fields, updated_at: new Date() })
+    .where(and(eq(tasks.uuid, uuid), scopedToOrg(tasks.org_uuid, orgUuid)))
+    .returning();
+
+  return row;
+}
+
+/**
+ * Compare-and-set a task lifecycle transition.
+ *
+ * A timed-out worker can continue after its lease is reclaimed. Constraining
+ * the source state prevents that stale attempt from turning a success back
+ * into queued/refunding after the newer lease has already completed it.
+ */
+export async function transitionTaskStatus(
+  uuid: string,
+  orgUuid: string,
+  expectedStatuses: readonly TaskStatus[],
+  status: TaskStatus,
+  fields: TaskPatch = {},
+): Promise<TaskRow | undefined> {
+  if (expectedStatuses.length === 0) return undefined;
+
+  const [row] = await db()
+    .update(tasks)
+    .set({ ...fields, status, updated_at: new Date() })
+    .where(
+      and(
+        eq(tasks.uuid, uuid),
+        scopedToOrg(tasks.org_uuid, orgUuid),
+        inArray(tasks.status, [...expectedStatuses]),
+      ),
+    )
+    .returning();
+
   return row;
 }

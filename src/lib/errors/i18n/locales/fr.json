@@ -64,6 +64,7 @@
   "TASK_NOT_FOUND": "Cette tâche est introuvable.",
   "TASK_PROMPT_REQUIRED": "Veuillez saisir une instruction.",
   "TASK_CREATE_FAILED": "La tâche n'a pas pu être créée. Veuillez réessayer.",
+  "TASK_IDEMPOTENCY_CONFLICT": "Cette clé de tâche a déjà été utilisée pour une autre demande. Lancez une nouvelle tâche et réessayez.",
   "TASK_PROVIDER_FAILED": "Le service de génération a échoué. Veuillez réessayer.",
   "RESERVATION_NOT_FOUND": "Cette réservation est introuvable.",
   "RESERVATION_SLOT_UNAVAILABLE": "Ce créneau n'est plus disponible.",

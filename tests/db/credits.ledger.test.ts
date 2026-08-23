@@ -229,6 +229,39 @@ describeDb("credit ledger (real database)", () => {
     expect((await getOrgCreditSummary(ORG)).balance).toBe(0);
   });
 
+  it("spends exactly once when the same deterministic transaction races", async () => {
+    await increaseCredits({
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.SystemAdd,
+      credits: 10,
+      actor: "system:test",
+    });
+    const input = {
+      org_uuid: ORG,
+      user_uuid: USER,
+      trans_type: CreditsTransType.TaskImageGeneration,
+      credits: 5,
+      trans_no: `task_image:${randomUUID()}`,
+      actor: `user:${USER}` as const,
+      metadata: { task_uuid: "task-1" },
+    };
+
+    const [first, replay] = await Promise.all([
+      decreaseCredits(input),
+      decreaseCredits(input),
+    ]);
+
+    expect(first).toBe(input.trans_no);
+    expect(replay).toBe(input.trans_no);
+    expect(await countRows()).toBe(2);
+    expect((await getOrgCreditSummary(ORG)).balance).toBe(5);
+
+    await expect(
+      decreaseCredits({ ...input, credits: 6 }),
+    ).rejects.toMatchObject({ code: "CREDITS_GRANT_FAILED" });
+  });
+
   it("rejects a replayed trans_no with a unique violation", async () => {
     const transNo = "fixed-trans-no";
 

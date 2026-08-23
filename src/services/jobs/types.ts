@@ -28,6 +28,10 @@ export interface JobPayloads {
     fileUuid: string;
     orgUuid: string;
   };
+  image_generation: {
+    taskUuid: string;
+    orgUuid: string;
+  };
   account_data_export: {
     requestUuid: string;
   };
