@@ -52,6 +52,8 @@ application is promoted.
 
 - Admin changes: sign in to `apps/admin`, complete MFA if required, and verify
   read/write guards on the affected admin surface.
+- Job changes: run `pnpm jobs:run`, verify `/jobs` shows the expected terminal
+  state, and prove a read-only admin cannot retry or cancel work.
 - Billing changes: open the named billing portal configuration, verify plan and
   quantity updates are disabled, cancel a subscription in Stripe test mode, and
   verify the webhook result. A `subscription_update`, multi-item renewal, or

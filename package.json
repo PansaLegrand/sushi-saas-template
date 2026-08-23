@@ -39,6 +39,8 @@
     "env:check:dev": "tsx scripts/check-env.ts development",
     "env:check:prod": "tsx scripts/check-env.ts production",
     "admin:promote": "node scripts/admin-promote.mjs",
+    "jobs:work": "cross-env NODE_OPTIONS=--conditions=react-server tsx scripts/jobs-worker.ts",
+    "jobs:run": "pnpm jobs:work --once",
     "reconcile:stripe": "tsx scripts/reconcile-stripe-billing.ts",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",

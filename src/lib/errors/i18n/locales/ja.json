@@ -36,6 +36,8 @@
   "REQUEST_ORIGIN_REJECTED": "認識できない送信元からのリクエストです。",
   "REQUEST_RATE_LIMITED": "リクエストが多すぎます。しばらくしてからお試しください。",
   "RESOURCE_NOT_FOUND": "見つかりませんでした。",
+  "JOB_STATE_CONFLICT": "このジョブの状態が変更されました。キューを更新して、もう一度お試しください。",
+  "JOB_CANCELLATION_FORBIDDEN": "このジョブを作成したワークフローからキャンセルしてください。",
   "CREDITS_INSUFFICIENT": "クレジットが不足しています。",
   "CREDITS_INVALID_AMOUNT": "クレジット数が不正です。",
   "CREDITS_GRANT_LIMIT_EXCEEDED": "1 回の付与上限を超えています。",

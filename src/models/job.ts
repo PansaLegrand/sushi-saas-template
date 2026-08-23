@@ -294,6 +294,63 @@ export async function findJobByDedupeKey(
   return row;
 }
 
+export async function findJobByUuid(uuid: string): Promise<JobRow | undefined> {
+  const [row] = await db()
+    .select()
+    .from(jobs)
+    .where(eq(jobs.uuid, uuid))
+    .limit(1);
+
+  return row;
+}
+
+/**
+ * Put a buried job back at the front of the queue.
+ *
+ * The status guard is part of the update rather than a preceding read. An
+ * operator can be looking at a stale page while another runner changes the row;
+ * only one of those actors may win the transition.
+ */
+export async function retryFailedJobByUuid(
+  uuid: string,
+  now: Date = new Date(),
+): Promise<JobRow | undefined> {
+  const [row] = await db()
+    .update(jobs)
+    .set({
+      status: "pending",
+      attempts: 0,
+      run_at: now,
+      locked_at: null,
+      last_error: null,
+      completed_at: null,
+      updated_at: now,
+    })
+    .where(and(eq(jobs.uuid, uuid), eq(jobs.status, "failed")))
+    .returning();
+
+  return row;
+}
+
+/** Cancel work only while no runner owns it. Running jobs cannot be recalled. */
+export async function cancelPendingJobByUuid(
+  uuid: string,
+  now: Date = new Date(),
+): Promise<JobRow | undefined> {
+  const [row] = await db()
+    .update(jobs)
+    .set({
+      status: "canceled",
+      locked_at: null,
+      completed_at: now,
+      updated_at: now,
+    })
+    .where(and(eq(jobs.uuid, uuid), eq(jobs.status, "pending")))
+    .returning();
+
+  return row;
+}
+
 export async function listPendingJobs(limit: number = 50): Promise<JobRow[]> {
   return db()
     .select()

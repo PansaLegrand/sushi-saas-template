@@ -36,6 +36,8 @@
   "REQUEST_ORIGIN_REJECTED": "请求来自未被识别的来源。",
   "REQUEST_RATE_LIMITED": "请求过于频繁，请稍后再试。",
   "RESOURCE_NOT_FOUND": "未找到。",
+  "JOB_STATE_CONFLICT": "此任务的状态已更改。请刷新队列后重试。",
+  "JOB_CANCELLATION_FORBIDDEN": "请从创建此任务的工作流中取消它。",
   "CREDITS_INSUFFICIENT": "积分不足，无法完成此操作。",
   "CREDITS_INVALID_AMOUNT": "积分数量无效。",
   "CREDITS_GRANT_LIMIT_EXCEEDED": "超出单次发放的上限。",

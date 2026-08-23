@@ -55,7 +55,7 @@ is no password to get right".
 
 The account page now detects this and offers **Set a password** in place of the
 confirm-password prompt, backed by `POST /api/account/password`. That endpoint
-only ever sets a *first* password — changing a known one goes through Better
+only ever sets a _first_ password — changing a known one goes through Better
 Auth's `changePassword`, which re-authenticates — so a stolen session cannot use
 it to overwrite a real password. Signing in with Google keeps working
 afterwards; the password exists to satisfy the MFA prompt.
@@ -120,7 +120,7 @@ account-deletion item in [roadmap.md](../../roadmap.md).
 `signin_provider`, so one address can hold several accounts, and a fresh OAuth
 signup would create an unbanned row. Two things close that:
 
-- the ban applies to *every* account sharing the address, not just the uuid
+- the ban applies to _every_ account sharing the address, not just the uuid
   given;
 - it adds an `email_blocklist` entry by default, which is what stops a new
   registration. Turning that off leaves the address free to sign up again.
@@ -180,10 +180,27 @@ than implying a green result is the whole check.
   re-run, because undoing a person's decision with a Resend button is the wrong
   default. `claimStripeWebhookEvent` treats `resolved` like `completed`.
 
-A console button replaying the *stored* payload was considered and left out: it
+A console button replaying the _stored_ payload was considered and left out: it
 would run a snapshot of the past through the money path, and needs the webhook's
 600-line switch lifted out of its route first. See item 16 in
 [roadmap.md](../../roadmap.md).
+
+## Background Jobs
+
+`/jobs` is the operational view of the durable queue. It shows queue age,
+failed and stale-running counts, schedule and lease timestamps, subject
+references, and the last failure. It deliberately never selects `payload_json`
+or `dedupe_key`; job payloads commonly contain addresses and provider inputs,
+and neither is needed to decide whether the queue is moving.
+
+A read/write admin can retry only a `failed` job. Pending standalone
+notifications can also be canceled; credits, storage cleanup, account lifecycle,
+and campaign jobs must be canceled from their owning workflow so the related
+domain record changes with them. Both generic transitions are atomic
+status-guarded updates, require an operator note, and append to the admin audit
+trail. Running work cannot be canceled because the handler may already have
+produced an external effect. A stale page therefore gets a status conflict
+instead of a false success.
 
 ## Lists and the Overview
 
@@ -227,6 +244,7 @@ admin session authorizes publishing. Editors authenticate with the CMS itself.
 - `/` overview with latest users, paid orders, and credit tools.
 - `/users`
 - `/orders`
+- `/jobs`
 - `/feedbacks`
 - `/reservations`
 - `/affiliates`
@@ -239,6 +257,7 @@ admin session authorizes publishing. Editors authenticate with the CMS itself.
 - `/two-factor`
 - `/api/admin/users`
 - `/api/admin/orders`
+- `/api/admin/jobs/[uuid]`
 - `/api/admin/users/[uuid]/credits`
 - `/api/admin/users/[uuid]/plan`
 - `/api/admin/users/[uuid]/ban`

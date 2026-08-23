@@ -46,8 +46,8 @@ Three databases share one server deliberately. The `tests/db` tier truncates
 | Command                             | Purpose                                                 |
 | ----------------------------------- | ------------------------------------------------------- |
 | `pnpm infra:up` / `pnpm infra:down` | Start / stop local services (data survives `down`)      |
-| `pnpm dev:doctor`                   | Diagnose profiles, services, buckets, and migrations   |
-| `pnpm dev:reset -- --dry-run`       | Prove the safe reset target without changing anything  |
+| `pnpm dev:doctor`                   | Diagnose profiles, services, buckets, and migrations    |
+| `pnpm dev:reset -- --dry-run`       | Prove the safe reset target without changing anything   |
 | `pnpm db:generate`                  | Generate migration SQL after editing `src/db/schema.ts` |
 | `pnpm db:migrate`                   | Apply migrations locally                                |
 | `pnpm db:studio`                    | Drizzle Studio, a browser UI over the data              |
@@ -304,15 +304,31 @@ deploy without any extra CI wiring.
 
 ### Background jobs
 
-[vercel.json](vercel.json) registers a cron hitting `/api/cron/jobs` every 5 minutes, which is
-what drains the `jobs` table (welcome emails, signup credits). Vercel sends
-`CRON_SECRET` as an `Authorization` header automatically once it is set on the
-project. **Off Vercel, you must schedule this yourself** — otherwise queued jobs
-sit forever and users silently stop receiving welcome mail. Any scheduler works:
+[vercel.json](vercel.json) registers a cron hitting `/api/cron/jobs` every 5
+minutes, which drains the `jobs` table (welcome emails, signup credits). Vercel
+sends `CRON_SECRET` as an `Authorization` header automatically once it is set on
+the project.
+
+For a VM, container platform, or Kubernetes deployment, run a dedicated worker
+instead. It uses the same database leases as HTTP cron, shuts down gracefully,
+and can be scaled horizontally:
+
+```bash
+pnpm jobs:work --production
+```
+
+For a platform scheduler, either invoke the HTTP endpoint or run one bounded
+drain. **Choose at least one** — otherwise queued jobs sit forever and users
+silently stop receiving mail:
 
 ```bash
 curl -H "Authorization: Bearer $CRON_SECRET" https://your-domain.com/api/cron/jobs
+pnpm jobs:run --production
 ```
+
+Do not schedule both unless the extra throughput is intentional. Concurrent
+runners are safe, but duplicate runner fleets make capacity and alerts harder
+to reason about. See [docs/background-jobs.md](docs/background-jobs.md).
 
 ### Stripe webhook
 
@@ -348,7 +364,7 @@ verify the auth/email smoke checks in `docs/release-checklist.md`.
 - [ ] Billing Portal configuration created, subscription updates disabled, and its `bpc_...` id copied to `STRIPE_BILLING_PORTAL_CONFIGURATION_ID`
 - [ ] Plus/Max monthly/yearly Stripe Price IDs configured and copied into the matching `STRIPE_PRICE_*` variables
 - [ ] `NEXT_PUBLIC_WEB_URL`, `BETTER_AUTH_URL`, `NEXT_PUBLIC_ADMIN_WEB_URL` set to real origins
-- [ ] Cron scheduled against `/api/cron/jobs`
+- [ ] One queue runner configured: `/api/cron/jobs`, `pnpm jobs:run`, or a dedicated `pnpm jobs:work` process
 - [ ] Demo flags absent
 - [ ] First admin promoted with `pnpm admin:promote you@example.com`
 - [ ] Point-in-time restore confirmed available

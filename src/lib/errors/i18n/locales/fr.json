@@ -36,6 +36,8 @@
   "REQUEST_ORIGIN_REJECTED": "Cette requête provient d'une origine non reconnue.",
   "REQUEST_RATE_LIMITED": "Trop de requêtes. Veuillez patienter avant de réessayer.",
   "RESOURCE_NOT_FOUND": "Introuvable.",
+  "JOB_STATE_CONFLICT": "L’état de cette tâche a changé. Actualisez la file d’attente et réessayez.",
+  "JOB_CANCELLATION_FORBIDDEN": "Annulez cette tâche depuis le flux de travail qui l’a créée.",
   "CREDITS_INSUFFICIENT": "Vous n'avez pas assez de crédits pour cette action.",
   "CREDITS_INVALID_AMOUNT": "Le nombre de crédits n'est pas valide.",
   "CREDITS_GRANT_LIMIT_EXCEEDED": "Cela dépasse le maximum autorisé pour une seule attribution.",

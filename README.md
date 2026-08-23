@@ -28,7 +28,7 @@ so content releases never require an application deployment.
 | Storage        | Private S3/R2/MinIO uploads, atomic quota reservation, signed downloads, durable object deletion                                             |
 | Operations     | PostgreSQL migrations, Redis rate limits, durable job queue, liveness/readiness endpoints, structured redacted logs                          |
 | Admin          | Separate Next.js app with read/write roles, mandatory MFA, audit trail, reconciliation, moderation, and responsive navigation                |
-| Content Studio | Separate Payload app for pages, posts, SEO workflows, previews, automation APIs, and reviewed marketing campaigns                         |
+| Content Studio | Separate Payload app for pages, posts, SEO workflows, previews, automation APIs, and reviewed marketing campaigns                            |
 | Quality        | Layer-boundary tests, route/service/component/infrastructure tiers, real Postgres and Redis CI, CodeQL, dependency review, OpenSSF Scorecard |
 
 ## Architecture
@@ -70,8 +70,8 @@ pnpm dev:all
 ```
 
 The application runs on `http://localhost:3000`, the admin console on `:3001`,
-and Content Studio on `:3002`. `pnpm dev:all` prefixes their logs and stops the
-complete group on `Ctrl-C`.
+and Content Studio on `:3002`. `pnpm dev:all` also drains durable jobs, prefixes
+every process's logs, and stops the complete group on `Ctrl-C`.
 
 Use `pnpm dev`, `pnpm dev:admin`, or `pnpm dev:studio` when working on only one
 application.
@@ -122,29 +122,31 @@ is not a submodule and is not built by this repository.
 
 ## Essential commands
 
-| Command                | Purpose                                                          |
-| ---------------------- | ---------------------------------------------------------------- |
+| Command                | Purpose                                                           |
+| ---------------------- | ----------------------------------------------------------------- |
 | `pnpm setup:guided`    | Guided first-clone development setup                              |
 | `pnpm dev:doctor`      | Diagnose toolchain, configuration, infrastructure, and migrations |
-| `pnpm dev:all`         | Run web, admin, and Content Studio with one process supervisor     |
-| `pnpm dev:seed`        | Create idempotent local demo account, credits, and catalog data    |
-| `pnpm dev:reset`       | Guard, rebuild, migrate, and reseed the bundled local stack        |
-| `pnpm env:check:prod`  | Validate production configuration without exposing secret values |
-| `pnpm dev`             | Start the SaaS application                                       |
-| `pnpm dev:admin`       | Start the separate admin console                                 |
-| `pnpm dev:studio`      | Start Content Studio on port 3002                                |
+| `pnpm dev:all`         | Run web, worker, admin, and Content Studio with one supervisor    |
+| `pnpm dev:seed`        | Create idempotent local demo account, credits, and catalog data   |
+| `pnpm dev:reset`       | Guard, rebuild, migrate, and reseed the bundled local stack       |
+| `pnpm env:check:prod`  | Validate production configuration without exposing secret values  |
+| `pnpm dev`             | Start the SaaS application                                        |
+| `pnpm dev:admin`       | Start the separate admin console                                  |
+| `pnpm dev:studio`      | Start Content Studio on port 3002                                 |
+| `pnpm jobs:work`       | Continuously drain durable jobs in a portable worker process      |
+| `pnpm jobs:run`        | Run one bounded queue drain for a scheduler                       |
 | `pnpm lint`            | Lint the SaaS, admin, and Content Studio                          |
-| `pnpm test:run`        | Run all test tiers; infrastructure tests skip without their URLs |
-| `pnpm test:cov`        | Enforce coverage thresholds                                      |
-| `pnpm test:db`         | Run real PostgreSQL and Redis invariant tests                    |
-| `pnpm test:e2e`        | Run Playwright against the disposable full local stack           |
+| `pnpm test:run`        | Run all test tiers; infrastructure tests skip without their URLs  |
+| `pnpm test:cov`        | Enforce coverage thresholds                                       |
+| `pnpm test:db`         | Run real PostgreSQL and Redis invariant tests                     |
+| `pnpm test:e2e`        | Run Playwright against the disposable full local stack            |
 | `pnpm build`           | Test, then build the SaaS, admin, and Content Studio              |
 | `pnpm studio:generate` | Regenerate Payload admin imports and TypeScript types             |
 | `pnpm studio:migrate`  | Apply Content Studio's separate Payload migrations                |
-| `pnpm db:generate`     | Generate a Drizzle migration                                     |
-| `pnpm db:migrate`      | Apply local migrations                                           |
-| `pnpm db:check:prod`   | Fail on pending, drifted, or unexpected production migrations    |
-| `pnpm db:migrate:prod` | Apply production migrations under an advisory lock               |
+| `pnpm db:generate`     | Generate a Drizzle migration                                      |
+| `pnpm db:migrate`      | Apply local migrations                                            |
+| `pnpm db:check:prod`   | Fail on pending, drifted, or unexpected production migrations     |
+| `pnpm db:migrate:prod` | Apply production migrations under an advisory lock                |
 
 ## Engineering documentation
 
@@ -154,6 +156,7 @@ public website:
 - [Database and ledger invariants](docs/database.md)
 - [Local development workflow](docs/development.md)
 - [Observability and SLOs](docs/observability.md)
+- [Background jobs](docs/background-jobs.md)
 - [Plans and entitlements](docs/plans.md)
 - [Organizations and authorization](docs/organizations.md)
 - [Error handling contract](docs/errors.md)

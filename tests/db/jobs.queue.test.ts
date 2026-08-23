@@ -20,6 +20,7 @@ import { db } from "@/db";
 import { jobs as jobsTable } from "@/db/schema";
 import {
   claimDueJobs,
+  cancelPendingJobByUuid,
   countJobsByStatus,
   deleteFinishedJobsBefore,
   findJobByDedupeKey,
@@ -28,8 +29,10 @@ import {
   listPendingJobs,
   markJobFailed,
   markJobSucceeded,
+  retryFailedJobByUuid,
 } from "@/models/job";
 import { runDueJobs } from "@/services/jobs";
+import { listAdminJobs } from "@admin/lib/data";
 
 const STALE_LOCK_MS = 5 * 60 * 1000;
 const BACKOFF_BASE_MS = 30 * 1000;
@@ -267,6 +270,59 @@ describeDb("job queue (real database)", () => {
 
     expect(secondOutcome).toBe("failed");
     expect((await rowByUuid(job!.uuid))?.status).toBe("failed");
+  });
+
+  it("guards operator retry and cancel transitions in the database", async () => {
+    const failed = await insertJob({
+      type: "welcome_email",
+      payload: {},
+    });
+    await db()
+      .update(jobsTable)
+      .set({
+        status: "failed",
+        attempts: 5,
+        last_error: "smtp unavailable",
+        completed_at: new Date(),
+      })
+      .where(eq(jobsTable.uuid, failed!.uuid));
+
+    const retried = await retryFailedJobByUuid(failed!.uuid);
+    expect(retried).toMatchObject({
+      status: "pending",
+      attempts: 0,
+      last_error: null,
+      completed_at: null,
+    });
+    expect(await retryFailedJobByUuid(failed!.uuid)).toBeUndefined();
+
+    const canceled = await cancelPendingJobByUuid(failed!.uuid);
+    expect(canceled).toMatchObject({ status: "canceled" });
+    expect(canceled?.completed_at).toBeInstanceOf(Date);
+    expect(await cancelPendingJobByUuid(failed!.uuid)).toBeUndefined();
+  });
+
+  it("keeps payloads and credentials out of the admin job list", async () => {
+    const queued = await insertJob({
+      type: "welcome_email",
+      payload: { email: "private@example.test" },
+      dedupeKey: "private-dedupe-key",
+    });
+    await db()
+      .update(jobsTable)
+      .set({
+        status: "failed",
+        last_error: "provider rejected Bearer abcdefghijklmnop",
+        completed_at: new Date(),
+      })
+      .where(eq(jobsTable.uuid, queued!.uuid));
+
+    const [visible] = await listAdminJobs();
+    expect(visible.last_error).toBe("provider rejected Bearer [REDACTED]");
+    expect(visible).not.toHaveProperty("payload_json");
+    expect(visible).not.toHaveProperty("dedupe_key");
+    expect(JSON.stringify(visible)).not.toContain("private@example.test");
+    expect(JSON.stringify(visible)).not.toContain("private-dedupe-key");
   });
 
   it("buries a job whose type no longer exists in this deploy", async () => {

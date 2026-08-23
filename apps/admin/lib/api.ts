@@ -20,7 +20,7 @@ import type { OrganizationSeatSummary } from "@/types/team";
 
 export function getUserCredits(userUuid: string) {
   return api.get<CreditSummary>(
-    `/api/admin/users/${encodeURIComponent(userUuid)}/credits`
+    `/api/admin/users/${encodeURIComponent(userUuid)}/credits`,
   );
 }
 
@@ -42,7 +42,7 @@ export function grantCredits(input: {
 
 export function getUserPlan(userUuid: string) {
   return api.get<PlanSnapshot>(
-    `/api/admin/users/${encodeURIComponent(userUuid)}/plan`
+    `/api/admin/users/${encodeURIComponent(userUuid)}/plan`,
   );
 }
 
@@ -56,13 +56,13 @@ export function grantUserPlan(input: {
   const { userUuid, ...body } = input;
   return api.post<PlanSnapshot>(
     `/api/admin/users/${encodeURIComponent(userUuid)}/plan`,
-    { body }
+    { body },
   );
 }
 
 export function revokeUserPlan(userUuid: string) {
   return api.delete<{ revoked: number; plan: PlanSnapshot }>(
-    `/api/admin/users/${encodeURIComponent(userUuid)}/plan`
+    `/api/admin/users/${encodeURIComponent(userUuid)}/plan`,
   );
 }
 
@@ -93,7 +93,7 @@ export function resetOrganizationSeatLimit(input: {
 /** Suspension state, plus any blocklist rule covering the account's address. */
 export function getUserBanState(userUuid: string) {
   return api.get<BanState & { blocklistEntries: BlocklistEntry[] }>(
-    `/api/admin/users/${encodeURIComponent(userUuid)}/ban`
+    `/api/admin/users/${encodeURIComponent(userUuid)}/ban`,
   );
 }
 
@@ -106,7 +106,7 @@ export function banUser(input: {
   const { userUuid, ...body } = input;
   return api.post<BanResult>(
     `/api/admin/users/${encodeURIComponent(userUuid)}/ban`,
-    { body }
+    { body },
   );
 }
 
@@ -117,7 +117,7 @@ export function unbanUser(input: {
   const { userUuid, ...body } = input;
   return api.delete<UnbanResult>(
     `/api/admin/users/${encodeURIComponent(userUuid)}/ban`,
-    { body }
+    { body },
   );
 }
 
@@ -145,7 +145,7 @@ export function addBlocklistEntry(input: {
 }) {
   return api.post<{ entry: BlocklistEntry; created: boolean }>(
     "/api/admin/blocklist",
-    { body: input }
+    { body: input },
   );
 }
 
@@ -163,8 +163,20 @@ export function resolveStripeEvent(input: { eventId: string; note: string }) {
   });
 }
 
+export function updateJob(input: {
+  uuid: string;
+  action: "retry" | "cancel";
+  note: string;
+}) {
+  const { uuid, ...body } = input;
+  return api.post<{ uuid: string; status: string }>(
+    `/api/admin/jobs/${encodeURIComponent(uuid)}`,
+    { body },
+  );
+}
+
 export function removeBlocklistEntry(uuid: string) {
   return api.delete<{ removed: BlocklistEntry }>(
-    `/api/admin/blocklist/${encodeURIComponent(uuid)}`
+    `/api/admin/blocklist/${encodeURIComponent(uuid)}`,
   );
 }

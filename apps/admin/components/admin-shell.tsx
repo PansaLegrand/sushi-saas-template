@@ -12,6 +12,7 @@ import {
   ClipboardList,
   CreditCard,
   LayoutDashboard,
+  ListChecks,
   Menu,
   MessageSquareText,
   Scale,
@@ -67,6 +68,7 @@ const NAV_GROUPS: AdminNavGroup[] = [
   {
     label: "Operations",
     items: [
+      { href: "/jobs", label: "Background jobs", icon: ListChecks },
       { href: "/reservations", label: "Reservations", icon: CalendarDays },
       { href: "/feedbacks", label: "Feedback", icon: MessageSquareText },
       { href: "/affiliates", label: "Affiliates", icon: ChartNoAxesCombined },

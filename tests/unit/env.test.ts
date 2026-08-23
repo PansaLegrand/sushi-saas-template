@@ -69,6 +69,10 @@ const ENV_KEYS = [
   "OTEL_SERVICE_NAME",
   "OTEL_EXPORTER_OTLP_ENDPOINT",
   "OTEL_EXPORTER_OTLP_HEADERS",
+  "JOB_WORKER_POLL_MS",
+  "JOB_WORKER_BATCH_SIZE",
+  "JOB_WORKER_HANDLER_TIMEOUT_MS",
+  "JOB_WORKER_DRAIN_DEADLINE_MS",
 ];
 
 async function loadEnvModule() {
@@ -129,6 +133,8 @@ describe("typed environment validation", () => {
     expect(env.NEXT_PUBLIC_AUTH_BASE_URL).toBe("http://localhost:3000");
     expect(env.NEXT_PUBLIC_AUTH_ENABLED).toBe(true);
     expect(env.STORAGE_MAX_UPLOAD_MB).toBe(25);
+    expect(env.JOB_WORKER_POLL_MS).toBe(2000);
+    expect(env.JOB_WORKER_BATCH_SIZE).toBe(25);
     expect(env.ENABLE_DEMO_FEATURES).toBe(false);
   });
 

@@ -262,6 +262,14 @@ export const ERROR_CATALOG = {
     defaultMessage: "Not found.",
     legacyCodes: ["NOT_FOUND", "not found"],
   },
+  JOB_STATE_CONFLICT: {
+    statusCode: 409,
+    defaultMessage: "This job changed state. Refresh the queue and try again.",
+  },
+  JOB_CANCELLATION_FORBIDDEN: {
+    statusCode: 409,
+    defaultMessage: "Cancel this job from the workflow that created it.",
+  },
 
   // ------------------------------------------------------------- credits
   CREDITS_INSUFFICIENT: {

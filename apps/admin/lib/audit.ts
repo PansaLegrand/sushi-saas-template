@@ -16,7 +16,9 @@ export type AdminAuditAction =
   | "user.unban"
   | "blocklist.add"
   | "blocklist.remove"
-  | "stripe_event.resolve";
+  | "stripe_event.resolve"
+  | "job.retry"
+  | "job.cancel";
 
 interface WriteAuditLogParams {
   actor: AdminContext;
@@ -78,8 +80,7 @@ export async function writeAdminAuditLog({
         target_uuid: targetUuid,
         status,
         note: truncate(note ?? null, 2000),
-        metadata_json:
-          metadata === undefined ? null : JSON.stringify(metadata),
+        metadata_json: metadata === undefined ? null : JSON.stringify(metadata),
         error_message: truncate(errorMessage ?? null, 2000),
         ip_address: truncate(getRequestIp(request), 255),
         user_agent: truncate(request?.headers.get("user-agent") ?? null, 1024),
@@ -93,7 +94,7 @@ export async function writeAdminAuditLog({
         target_type: targetType,
         target_uuid: targetUuid,
       },
-      "failed to write admin audit log"
+      "failed to write admin audit log",
     );
   }
 }

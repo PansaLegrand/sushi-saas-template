@@ -36,6 +36,8 @@
   "REQUEST_ORIGIN_REJECTED": "This request came from an unrecognized origin.",
   "REQUEST_RATE_LIMITED": "Too many requests. Please wait a moment and try again.",
   "RESOURCE_NOT_FOUND": "Not found.",
+  "JOB_STATE_CONFLICT": "This job changed state. Refresh the queue and try again.",
+  "JOB_CANCELLATION_FORBIDDEN": "Cancel this job from the workflow that created it.",
   "CREDITS_INSUFFICIENT": "You do not have enough credits for this.",
   "CREDITS_INVALID_AMOUNT": "The credit amount is invalid.",
   "CREDITS_GRANT_LIMIT_EXCEEDED": "That exceeds the maximum a single grant may issue.",

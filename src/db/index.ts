@@ -41,3 +41,11 @@ export function db() {
 
   return dbInstance;
 }
+
+/** Release the singleton pool owned by a standalone Node.js process. */
+export async function closeDb(): Promise<void> {
+  if (!dbInstance) return;
+  const instance = dbInstance;
+  dbInstance = null;
+  await instance.$client.end({ timeout: 5 });
+}

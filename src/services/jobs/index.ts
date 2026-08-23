@@ -118,6 +118,8 @@ export interface RunJobsResult {
 export interface RunJobsOptions {
   handlerTimeoutMs?: number;
   drainDeadlineMs?: number;
+  /** Stop claiming after the current handler finishes. */
+  signal?: AbortSignal;
 }
 
 async function runWithTimeout(
@@ -241,7 +243,11 @@ export async function runDueJobs(
   const results: RunJobsResult["results"] = [];
   let claimed = 0;
 
-  while (claimed < maxJobs && Date.now() < deadlineAt) {
+  while (
+    claimed < maxJobs &&
+    Date.now() < deadlineAt &&
+    !options.signal?.aborted
+  ) {
     const [job] = await claimDueJobs(1, STALE_LOCK_MS);
     if (!job) break;
     claimed += 1;

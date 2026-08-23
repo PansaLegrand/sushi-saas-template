@@ -12,6 +12,7 @@ if (args.has("--help") || args.has("-h")) {
 
 Options:
   --web-only     Start only the SaaS web application
+  --no-worker    Do not start the durable job worker
   --no-admin     Do not start the admin console
   --no-studio    Do not start Content Studio
   --with-stripe  Also forward Stripe webhooks with the Stripe CLI
@@ -22,6 +23,7 @@ Options:
 
 const knownArgs = new Set([
   "--web-only",
+  "--no-worker",
   "--no-admin",
   "--no-studio",
   "--with-stripe",
@@ -49,6 +51,9 @@ if (!args.has("--skip-doctor")) {
 }
 
 const commands = [{ name: "web", command: "pnpm", args: ["dev:web"] }];
+if (!args.has("--web-only") && !args.has("--no-worker")) {
+  commands.push({ name: "worker", command: "pnpm", args: ["jobs:work"] });
+}
 if (!args.has("--web-only") && !args.has("--no-admin")) {
   commands.push({ name: "admin", command: "pnpm", args: ["dev:admin"] });
 }
@@ -69,7 +74,7 @@ if (args.has("--with-stripe")) {
   });
 }
 
-const colors = [36, 35, 33, 32];
+const colors = [36, 34, 35, 33, 32];
 const children = new Map();
 let shuttingDown = false;
 let exitCode = 0;

@@ -10,9 +10,11 @@ import {
   type SQL,
 } from "drizzle-orm";
 import { db } from "@/db";
+import { redactLogString } from "@/lib/logger/redact";
 import {
   affiliates,
   feedbacks,
+  jobs,
   orders,
   reservationServices,
   reservations,
@@ -68,7 +70,7 @@ function adminUserFilter(query?: string): SQL | undefined {
   return or(
     ilike(users.email, like),
     ilike(users.uuid, like),
-    ilike(users.nickname, like)
+    ilike(users.nickname, like),
   );
 }
 
@@ -112,7 +114,7 @@ export async function countAdminUsers(query?: string): Promise<number> {
 /** Suspended accounts, most recent first. Backs the moderation page's list. */
 export async function listAdminBannedUsers(
   page: number = 1,
-  limit: number = 50
+  limit: number = 50,
 ) {
   const offset = (page - 1) * limit;
 
@@ -137,7 +139,10 @@ export async function countAdminBannedUsers(): Promise<number> {
   return db().$count(users, isNotNull(users.banned_at));
 }
 
-export async function listAdminPaidOrders(page: number = 1, limit: number = 50) {
+export async function listAdminPaidOrders(
+  page: number = 1,
+  limit: number = 50,
+) {
   const offset = (page - 1) * limit;
 
   return db()
@@ -200,7 +205,7 @@ function adminOrderFilter(input: {
       ilike(orders.user_uuid, like),
       ilike(orders.org_uuid, like),
       ilike(orders.user_email, like),
-      ilike(orders.sub_id, like)
+      ilike(orders.sub_id, like),
     );
     if (match) clauses.push(match);
   }
@@ -222,22 +227,26 @@ export async function listAdminOrders({
 } = {}) {
   const offset = (page - 1) * limit;
 
-  return db()
-    .select(adminOrderColumns)
-    .from(orders)
-    .where(adminOrderFilter({ status, query }))
-    // `created_at` is nullable on this table (see the roadmap's "normalize
-    // nullable timestamps" item), so the id breaks the tie rather than leaving
-    // rows in whatever order the scan produced.
-    .orderBy(desc(orders.created_at), desc(orders.id))
-    .limit(limit)
-    .offset(offset);
+  return (
+    db()
+      .select(adminOrderColumns)
+      .from(orders)
+      .where(adminOrderFilter({ status, query }))
+      // `created_at` is nullable on this table (see the roadmap's "normalize
+      // nullable timestamps" item), so the id breaks the tie rather than leaving
+      // rows in whatever order the scan produced.
+      .orderBy(desc(orders.created_at), desc(orders.id))
+      .limit(limit)
+      .offset(offset)
+  );
 }
 
-export async function countAdminOrders(input: {
-  status?: string;
-  query?: string;
-} = {}): Promise<number> {
+export async function countAdminOrders(
+  input: {
+    status?: string;
+    query?: string;
+  } = {},
+): Promise<number> {
   const [row] = await db()
     .select({ count: sql<number>`count(*)::int` })
     .from(orders)
@@ -260,6 +269,95 @@ export async function countAdminOrdersByStatus(): Promise<
 
 export async function countAdminPaidOrders(): Promise<number> {
   return db().$count(orders, eq(orders.status, OrderStatus.Paid));
+}
+
+const adminJobColumns = {
+  id: jobs.id,
+  uuid: jobs.uuid,
+  type: jobs.type,
+  status: jobs.status,
+  attempts: jobs.attempts,
+  max_attempts: jobs.max_attempts,
+  run_at: jobs.run_at,
+  locked_at: jobs.locked_at,
+  subject_user_uuid: jobs.subject_user_uuid,
+  subject_org_uuid: jobs.subject_org_uuid,
+  last_error: jobs.last_error,
+  created_at: jobs.created_at,
+  updated_at: jobs.updated_at,
+  completed_at: jobs.completed_at,
+};
+
+function adminJobFilter(input: {
+  status?: string;
+  query?: string;
+}): SQL | undefined {
+  const clauses: SQL[] = [];
+  if (input.status) clauses.push(eq(jobs.status, input.status));
+
+  const term = input.query?.trim();
+  if (term) {
+    const like = `%${term}%`;
+    const match = or(
+      ilike(jobs.uuid, like),
+      ilike(jobs.type, like),
+      ilike(jobs.subject_user_uuid, like),
+      ilike(jobs.subject_org_uuid, like),
+    );
+    if (match) clauses.push(match);
+  }
+
+  if (clauses.length === 0) return undefined;
+  return clauses.length === 1 ? clauses[0] : and(...clauses);
+}
+
+/** List operational metadata only; payloads and dedupe keys never reach UI. */
+export async function listAdminJobs({
+  status,
+  query,
+  page = 1,
+  limit = 50,
+}: {
+  status?: string;
+  query?: string;
+  page?: number;
+  limit?: number;
+} = {}) {
+  const rows = await db()
+    .select(adminJobColumns)
+    .from(jobs)
+    .where(adminJobFilter({ status, query }))
+    .orderBy(desc(jobs.created_at), desc(jobs.id))
+    .limit(limit)
+    .offset((page - 1) * limit);
+
+  return rows.map((row) => ({
+    ...row,
+    last_error: row.last_error ? redactLogString(row.last_error) : null,
+  }));
+}
+
+export async function countAdminJobs(
+  input: {
+    status?: string;
+    query?: string;
+  } = {},
+): Promise<number> {
+  const [row] = await db()
+    .select({ count: sql<number>`count(*)::int` })
+    .from(jobs)
+    .where(adminJobFilter(input) ?? sql`true`);
+  return row?.count ?? 0;
+}
+
+export async function countAdminJobsByStatus(): Promise<
+  Record<string, number>
+> {
+  const rows = await db()
+    .select({ status: jobs.status, count: sql<number>`count(*)::int` })
+    .from(jobs)
+    .groupBy(jobs.status);
+  return Object.fromEntries(rows.map((row) => [row.status, row.count]));
 }
 
 export async function listAdminFeedbacks(page: number = 1, limit: number = 50) {
@@ -293,7 +391,10 @@ export async function countAdminAffiliates(): Promise<number> {
   return db().$count(affiliates);
 }
 
-export async function listAdminAffiliates(page: number = 1, limit: number = 50) {
+export async function listAdminAffiliates(
+  page: number = 1,
+  limit: number = 50,
+) {
   const offset = (page - 1) * limit;
 
   const data = await db()
@@ -308,7 +409,9 @@ export async function listAdminAffiliates(page: number = 1, limit: number = 50) 
   }
 
   const userUuids = Array.from(new Set(data.map((item) => item.user_uuid)));
-  const invitedByUuids = Array.from(new Set(data.map((item) => item.invited_by)));
+  const invitedByUuids = Array.from(
+    new Set(data.map((item) => item.invited_by)),
+  );
 
   const [affiliateUsers, invitedByUsers] = await Promise.all([
     getUsersByUuids(userUuids as string[]),
@@ -328,13 +431,16 @@ export async function countAdminReservations(): Promise<number> {
 
 export async function listAdminReservationsWithService(
   page: number = 1,
-  limit: number = 50
+  limit: number = 50,
 ) {
   const offset = (page - 1) * limit;
   const rows = await db()
     .select({ r: reservations, s: reservationServices })
     .from(reservations)
-    .leftJoin(reservationServices, eq(reservations.service_id, reservationServices.id))
+    .leftJoin(
+      reservationServices,
+      eq(reservations.service_id, reservationServices.id),
+    )
     .orderBy(reservations.start_at)
     .limit(limit)
     .offset(offset);

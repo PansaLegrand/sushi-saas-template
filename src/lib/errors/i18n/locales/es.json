@@ -36,6 +36,8 @@
   "REQUEST_ORIGIN_REJECTED": "Esta solicitud proviene de un origen no reconocido.",
   "REQUEST_RATE_LIMITED": "Demasiadas solicitudes. Espera un momento e inténtalo de nuevo.",
   "RESOURCE_NOT_FOUND": "No encontrado.",
+  "JOB_STATE_CONFLICT": "El estado de este trabajo cambió. Actualiza la cola e inténtalo de nuevo.",
+  "JOB_CANCELLATION_FORBIDDEN": "Cancela este trabajo desde el flujo que lo creó.",
   "CREDITS_INSUFFICIENT": "No tienes suficientes créditos para esto.",
   "CREDITS_INVALID_AMOUNT": "La cantidad de créditos no es válida.",
   "CREDITS_GRANT_LIMIT_EXCEEDED": "Eso supera el máximo permitido en una sola asignación.",

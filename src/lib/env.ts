@@ -237,6 +237,10 @@ const RawEnvSchema = z.object({
   OTEL_SERVICE_NAME: envString,
   OTEL_EXPORTER_OTLP_ENDPOINT: envUrl,
   OTEL_EXPORTER_OTLP_HEADERS: envString,
+  JOB_WORKER_POLL_MS: envPositiveInt(2000),
+  JOB_WORKER_BATCH_SIZE: envPositiveInt(25),
+  JOB_WORKER_HANDLER_TIMEOUT_MS: envPositiveInt(20000),
+  JOB_WORKER_DRAIN_DEADLINE_MS: envPositiveInt(40000),
   LOG_LEVEL: z
     .preprocess(
       emptyToUndefined,

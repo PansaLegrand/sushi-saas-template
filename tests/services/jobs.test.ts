@@ -11,20 +11,32 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { claimDueJobs, markJobSucceeded, markJobFailed, insertJob } = vi.hoisted(
-  () => ({
-    claimDueJobs: vi.fn(),
-    markJobSucceeded: vi.fn().mockResolvedValue(true),
-    markJobFailed: vi.fn().mockResolvedValue("retrying"),
-    insertJob: vi.fn().mockResolvedValue({ id: 1 }),
-  }),
-);
+const {
+  claimDueJobs,
+  markJobSucceeded,
+  markJobFailed,
+  insertJob,
+  retryFailedJobByUuid,
+  cancelPendingJobByUuid,
+  findJobByUuid,
+} = vi.hoisted(() => ({
+  claimDueJobs: vi.fn(),
+  markJobSucceeded: vi.fn().mockResolvedValue(true),
+  markJobFailed: vi.fn().mockResolvedValue("retrying"),
+  insertJob: vi.fn().mockResolvedValue({ id: 1 }),
+  retryFailedJobByUuid: vi.fn(),
+  cancelPendingJobByUuid: vi.fn(),
+  findJobByUuid: vi.fn(),
+}));
 
 vi.mock("@/models/job", () => ({
   claimDueJobs,
   markJobSucceeded,
   markJobFailed,
   insertJob,
+  retryFailedJobByUuid,
+  cancelPendingJobByUuid,
+  findJobByUuid,
   deleteFinishedJobsBefore: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -41,6 +53,7 @@ vi.mock("@/services/jobs/handlers", () => ({
 }));
 
 import { enqueueJobSafe, runDueJobs } from "@/services/jobs";
+import { cancelPendingJob, retryFailedJob } from "@/services/jobs/operator";
 
 function buildJob(overrides: Record<string, unknown> = {}) {
   return {
@@ -202,6 +215,23 @@ describe("runDueJobs", () => {
     expect(claimDueJobs).toHaveBeenCalledTimes(2);
   });
 
+  it("stops claiming after the current handler when shutdown is requested", async () => {
+    const controller = new AbortController();
+    welcomeEmail.mockImplementationOnce(async () => {
+      controller.abort();
+    });
+    queueClaims(
+      buildJob({ id: 1, uuid: "job-1" }),
+      buildJob({ id: 2, uuid: "job-2" }),
+    );
+
+    const result = await runDueJobs(2, { signal: controller.signal });
+
+    expect(result.claimed).toBe(1);
+    expect(markJobSucceeded).toHaveBeenCalledOnce();
+    expect(claimDueJobs).toHaveBeenCalledOnce();
+  });
+
   it("aborts and retries a handler that exceeds its timeout", async () => {
     let signal: AbortSignal | undefined;
     welcomeEmail.mockImplementationOnce((_payload, context) => {
@@ -296,5 +326,63 @@ describe("enqueueJobSafe", () => {
         subjectUserUuid: "u-1",
       }),
     );
+  });
+});
+
+describe("operator job transitions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    retryFailedJobByUuid.mockReset();
+    cancelPendingJobByUuid.mockReset();
+    findJobByUuid.mockReset();
+  });
+
+  it("retries only through the model's atomic failed-state update", async () => {
+    const retried = buildJob({ status: "pending", attempts: 0 });
+    retryFailedJobByUuid.mockResolvedValue(retried);
+
+    await expect(retryFailedJob("job-1")).resolves.toBe(retried);
+    expect(retryFailedJobByUuid).toHaveBeenCalledWith("job-1");
+    expect(findJobByUuid).not.toHaveBeenCalled();
+  });
+
+  it("explains a stale retry instead of reporting success", async () => {
+    retryFailedJobByUuid.mockResolvedValue(undefined);
+    findJobByUuid.mockResolvedValue(buildJob({ status: "succeeded" }));
+
+    await expect(retryFailedJob("job-1")).rejects.toMatchObject({
+      code: "JOB_STATE_CONFLICT",
+      statusCode: 409,
+      details: {
+        field: "status",
+        expected: "failed",
+        actual: "succeeded",
+      },
+    });
+  });
+
+  it("cancels pending work and reports an unknown job", async () => {
+    const canceled = buildJob({ status: "canceled" });
+    findJobByUuid.mockResolvedValueOnce(buildJob({ status: "pending" }));
+    cancelPendingJobByUuid.mockResolvedValueOnce(canceled);
+    await expect(cancelPendingJob("job-1")).resolves.toBe(canceled);
+
+    findJobByUuid.mockResolvedValueOnce(undefined);
+    await expect(cancelPendingJob("missing")).rejects.toMatchObject({
+      code: "RESOURCE_NOT_FOUND",
+      statusCode: 404,
+    });
+  });
+
+  it("refuses to orphan work owned by another domain workflow", async () => {
+    findJobByUuid.mockResolvedValueOnce(
+      buildJob({ status: "pending", type: "new_user_credits" }),
+    );
+
+    await expect(cancelPendingJob("job-1")).rejects.toMatchObject({
+      code: "JOB_CANCELLATION_FORBIDDEN",
+      statusCode: 409,
+    });
+    expect(cancelPendingJobByUuid).not.toHaveBeenCalled();
   });
 });
