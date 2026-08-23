@@ -13,6 +13,7 @@ pnpm db:lint
 pnpm containers:check
 pnpm test:run
 pnpm build
+pnpm launch:check
 ```
 
 If the change touches `src/db/schema.ts`, migrations, or database-owned

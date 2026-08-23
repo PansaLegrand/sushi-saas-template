@@ -127,6 +127,7 @@ const RawEnvSchema = z.object({
   NEXT_PUBLIC_LOCALE_DETECTION: envBoolean(false),
 
   DATABASE_URL: envString,
+  MIGRATION_DATABASE_URL: envString,
   BACKUP_DATABASE_URL: envString,
   RESTORE_DATABASE_URL: envString,
   BETTER_AUTH_SECRET: envString,

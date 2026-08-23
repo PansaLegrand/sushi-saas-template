@@ -39,6 +39,7 @@
     "config:check:prod": "tsx scripts/check-product-config.ts --production",
     "containers:check": "node scripts/check-containers.mjs",
     "bundle:runtime": "node scripts/build-runtime-bundles.mjs",
+    "launch:check": "node scripts/launch-check.mjs",
     "env:setup:dev": "node scripts/configure-env.mjs development",
     "env:setup:prod": "node scripts/configure-env.mjs production",
     "env:check:dev": "tsx scripts/check-env.ts development",

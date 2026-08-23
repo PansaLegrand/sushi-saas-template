@@ -159,6 +159,7 @@ is not a submodule and is not built by this repository.
 | `pnpm db:restore:drill`  | Restore only into a confirmed scratch database                    |
 | `pnpm retention:report`  | Preview operational rows eligible for retention                   |
 | `pnpm containers:check`  | Validate hardened production Docker/Compose bundles               |
+| `pnpm launch:check`       | Run the read-only aggregate production readiness gate            |
 
 ## Engineering documentation
 
@@ -172,6 +173,7 @@ public website:
 - [Background jobs](docs/background-jobs.md)
 - [Backups, restore drills, and retention](docs/backups-and-retention.md)
 - [Production containers](docs/containers.md)
+- [Billing, public API, and onboarding extension decisions](docs/product-extension-decisions.md)
 - [Plans and entitlements](docs/plans.md)
 - [Organizations and authorization](docs/organizations.md)
 - [Error handling contract](docs/errors.md)

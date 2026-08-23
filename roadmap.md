@@ -24,7 +24,8 @@ The starter currently includes:
 
 These are operator or policy decisions a reusable codebase cannot complete:
 
-- [ ] Fill in `src/config/legal.ts`, reconcile retention promises with actual
+- [ ] Fill in the legal identity in `saas.config.json`, review
+      `src/config/legal.ts`, reconcile retention promises with actual
       account-erasure behavior, and obtain legal review.
 - [ ] Configure production email, Stripe, Redis, private object storage, log
       retention, database backups, and a tested restore procedure.
@@ -40,8 +41,8 @@ These improve assurance without changing the starter's product model:
 
 - [ ] Add a small Playwright deployment-smoke suite for signup, organization
       switching, checkout handoff, upload, and admin authentication.
-- [ ] Add restore-drill automation and a documented recovery-time objective.
-- [ ] Add optional telemetry adapters for error tracking and OpenTelemetry while
+- [x] Add restore-drill automation and a documented recovery-time objective.
+- [x] Add optional telemetry adapters for error tracking and OpenTelemetry while
       preserving the no-vendor default.
 - [ ] Expand route coverage whenever a new mutation surface is added; every
       money or credit mutation must retain a replay test.

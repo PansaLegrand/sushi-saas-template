@@ -176,6 +176,7 @@ Notes:
 - `pnpm install && pnpm run setup`: First-clone bootstrap — writes missing SaaS and Content Studio env files with generated secrets, starts local Postgres, Redis, and S3-compatible Garage storage, creates isolated app, test, Content Studio, and restore-drill databases plus a private bucket, and applies Drizzle and Payload migrations. Idempotent; never overwrites an existing env file.
 - `pnpm customize` / `pnpm config:check:prod`: Write the tracked product config and enforce non-placeholder, environment-consistent launch identity.
 - `pnpm containers:check`: Validate all production Compose profiles and container hardening contracts. Container startup must never run migrations.
+- `pnpm launch:check`: Read-only aggregate production gate. It must never migrate, prune, deploy, or send messages.
 - `pnpm db:generate` / `pnpm db:migrate` / `pnpm db:studio`: Drizzle workflow against the local database.
 - `pnpm db:lint` / `pnpm db:integrity`: Static migration-safety policy and read-only orphan sweep. Both must pass for schema work.
 - `pnpm db:check:prod` / `pnpm db:migrate:prod`: Deployed-database migration runner (advisory-locked, non-interactive). Migrations are **never** automatic on deploy — see `DEPLOYMENT.md`.

@@ -106,6 +106,10 @@ provider's secret manager and keep the local file ignored.
 In CI or a hosting shell, validate the exported environment directly with
 `pnpm env:check:prod -- --process`; this does not read a local profile.
 
+Before promotion, run `pnpm launch:check`. It aggregates the product/env,
+migration policy/state, integrity, retention, and container checks without
+mutating the target. Serverless deployments can pass `--skip-containers`.
+
 `.env.example` is the full list with inline notes. What matters structurally:
 
 **`NEXT_PUBLIC_*` values are baked into the JavaScript bundle at build time.**

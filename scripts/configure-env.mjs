@@ -304,6 +304,9 @@ async function runGuidedPrompts() {
         secretValue: true,
         required: true,
       });
+      await ask("Direct PostgreSQL URL for migrations", "MIGRATION_DATABASE_URL", {
+        secretValue: true,
+      });
       await ask("TLS Redis URL", "RATE_LIMIT_REDIS_URL", {
         secretValue: true,
         required: true,
