@@ -9,6 +9,7 @@ Run these from the repository root:
 
 ```bash
 pnpm lint
+pnpm db:lint
 pnpm test:run
 pnpm build
 ```
@@ -26,6 +27,7 @@ To prove a target database already matches the release artifact, run:
 
 ```bash
 pnpm db:check:prod
+pnpm db:integrity -- --production
 ```
 
 The command fails when migrations are pending or the journal has drifted. If

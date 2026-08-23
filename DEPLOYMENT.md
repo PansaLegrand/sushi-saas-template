@@ -264,6 +264,20 @@ code runs against the new schema. Design migrations so that window is safe:
 The rule: **every migration must leave the currently-deployed code working.** One
 release expands the schema, a later one contracts it. Never both at once.
 
+`pnpm db:lint` enforces the migration journal and Drizzle snapshot structure,
+then reviews every migration after the policy baseline for destructive drops,
+renames, premature `SET NOT NULL`, blocking unique indexes, and unbounded
+updates/deletes. A deliberate exception must carry a rule-specific comment with a
+reviewable reason:
+
+```sql
+-- migration-safety: allow destructive-drop - contract release after two compatible deploys
+```
+
+The annotation is evidence for review, not a waiver of expand/contract. Do not
+advance `MIGRATION_POLICY_BASELINE_INDEX`; it exists only to grandfather SQL
+written before the gate.
+
 This is not hypothetical here. `email_provider_unique_idx` on
 `users(email, signin_provider)` existed from migration 0000 but sat inert because
 `signin_provider` was left null on insert, and a null is unique against
@@ -322,6 +336,12 @@ credits, reservations, upload, localized homepage, and teammate invitation.
 
 `pnpm build` runs `pnpm test:run` first via `prebuild`, so a broken test blocks a
 deploy without any extra CI wiring.
+
+Before a database change is promoted, `pnpm db:lint` must pass in the release
+artifact and `pnpm db:integrity -- --production` must report no orphans against
+the target database. The first is static and safe anywhere; the second is
+read-only but should use a connection with a statement timeout appropriate for
+the dataset.
 
 ### Background jobs
 

@@ -147,6 +147,8 @@ is not a submodule and is not built by this repository.
 | `pnpm db:migrate`       | Apply local migrations                                            |
 | `pnpm db:check:prod`    | Fail on pending, drifted, or unexpected production migrations     |
 | `pnpm db:migrate:prod`  | Apply production migrations under an advisory lock                |
+| `pnpm db:lint`          | Validate snapshots and flag risky migration SQL                   |
+| `pnpm db:integrity`     | Run a read-only orphan sweep over critical relationships          |
 | `pnpm db:backup`        | Create a private custom dump and SHA-256 manifest                 |
 | `pnpm db:restore:drill` | Restore only into a confirmed scratch database                    |
 | `pnpm retention:report` | Preview operational rows eligible for retention                   |

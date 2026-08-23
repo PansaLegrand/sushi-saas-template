@@ -102,6 +102,9 @@ jobs:
       - name: Migrate test database
         run: pnpm test:db:setup
 
+      - name: Check relational integrity
+        run: DATABASE_URL="$TEST_DATABASE_URL" pnpm db:integrity
+
       # Coverage rather than a plain run: the thresholds in vitest.config.mts
       # are the ratchet, and they only bite if CI measures them.
       - name: Test

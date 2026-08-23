@@ -461,6 +461,12 @@ Ordered by how much they will hurt.
    silent data corruption into a loud error. Start with `credits.user_uuid` and
    `tasks.user_uuid`.
 
+   Until those keys are added, `pnpm db:integrity` performs a read-only orphan
+   sweep across Better Auth identities, memberships/invitations, and
+   tenant-owned billing, credits, reservations, files, tasks, and subscriptions.
+   It exits non-zero on any orphan and runs against the migrated test database
+   in CI. Run it against production before and after relationship migrations.
+
 2. **`created_at` nullability is inconsistent.** Newer tables use
    `.notNull().defaultNow()`; older ones (`orders`, `credits`, `affiliates`,
    `feedbacks`) are nullable and set from application
