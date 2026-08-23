@@ -98,7 +98,7 @@
     "redis": "6.1.0",
     "resend": "^6.18.1",
     "server-only": "0.0.1",
-    "sonner": "^1.7.1",
+    "sonner": "^2.0.8",
     "stripe": "^17.5.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
