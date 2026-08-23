@@ -260,12 +260,17 @@ async function main() {
       const cors = await client.send(
         new GetBucketCorsCommand({ Bucket: process.env.STORAGE_BUCKET }),
       );
-      const browserRule = cors.CORSRules?.find(
-        (rule) =>
-          rule.AllowedOrigins?.includes("http://localhost:3000") &&
-          rule.AllowedMethods?.includes("PUT"),
-      );
-      if (browserRule)
+      const supportsBrowserUpload = (origin: string) =>
+        cors.CORSRules?.some(
+          (rule) =>
+            rule.AllowedOrigins?.length === 1 &&
+            rule.AllowedOrigins.includes(origin) &&
+            rule.AllowedMethods?.includes("PUT"),
+        );
+      if (
+        supportsBrowserUpload("http://localhost:3000") &&
+        supportsBrowserUpload("http://localhost:3100")
+      )
         ok("local S3 bucket allows browser uploads from the web app");
       else fail("local S3 CORS is incomplete; rerun pnpm setup");
     } catch {

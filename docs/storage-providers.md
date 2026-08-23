@@ -59,7 +59,8 @@ sweeps globally.
 ## Local Garage (default)
 
 `pnpm setup` starts Garage on the loopback interface, creates a private bucket,
-and applies CORS for `http://localhost:3000`:
+and applies CORS for the application (`:3000`) and isolated Playwright (`:3100`)
+origins:
 
 ```bash
 STORAGE_PROVIDER=garage

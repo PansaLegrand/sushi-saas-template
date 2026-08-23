@@ -13,7 +13,7 @@ a pure function wastes everyone's time.
 
 ---
 
-## The five tiers
+## The six tiers
 
 Each tier has a fixed location, a fixed budget, and — most importantly — a rule
 about what it is **allowed to mock**. Mocking discipline is what keeps tiers from
@@ -26,6 +26,7 @@ collapsing into each other.
 | **Service**        | `tests/services/`   | `@/models/*`, external SDKs                 | mock the module under test    | < 50 ms  |
 | **Component**      | `tests/components/` | `fetch`                                     | mock the component under test | < 100 ms |
 | **Infrastructure** | `tests/db/`         | nothing                                     | fake an external service      | opt-in   |
+| **End-to-end**     | `tests/e2e/`        | nothing                                     | target production             | < 60 s   |
 
 ### Unit — `tests/unit/`
 
@@ -95,6 +96,19 @@ It is **opt-in per service**: Postgres tests need `TEST_DATABASE_URL`; the Redis
 test needs `TEST_REDIS_URL`. Without either, the default test command remains a
 zero-dependency run. CI always sets both, and fails rather than silently
 skipping either service.
+
+### End-to-end — `tests/e2e/`
+
+Playwright drives the real browser against the real web application, PostgreSQL,
+Redis, Better Auth, and local S3 storage. It mocks nothing. The setup project
+logs in through the visible form and saves an isolated browser state; ordinary
+tests then prove the anonymous redirect, tenant-scoped credit ledger, and direct
+presigned upload/delete flow.
+
+The default target is the disposable local stack on port `3100`. An external
+`E2E_BASE_URL` must provide `E2E_USER_EMAIL` and `E2E_USER_PASSWORD`; mutations
+remain skipped unless `E2E_ALLOW_MUTATIONS=1` explicitly marks that environment
+disposable. Never point this suite at production.
 
 ---
 
@@ -194,6 +208,7 @@ pnpm test:fast     # hermetic mocked and component tiers
 pnpm test:run      # single pass; real-service tests skip when URLs are absent
 pnpm test:cov      # with coverage; fails below the thresholds
 pnpm test:db       # infrastructure tier (TEST_DATABASE_URL / TEST_REDIS_URL)
+pnpm test:e2e      # Playwright against the provisioned local stack
 ```
 
 ### Running the infrastructure tier locally
@@ -237,9 +252,12 @@ never calls `FLUSHDB`.
 - **pre-commit** (`.husky/pre-commit`): `pnpm lint && pnpm test:fast` — ~10s.
   Fast enough that nobody reaches for `--no-verify`.
 - **prebuild**: `pnpm test:run` runs before every build, local or otherwise.
-- **CI** (`.github/workflows/ci.yml`): lint → migrate test DB → `pnpm test:cov`
-  (all five tiers, thresholds enforced) → build both apps. Postgres 16 and
-  Redis 7 service containers back the infrastructure tier.
+- **CI Vitest/build job** (`.github/workflows/ci.yml`): lint → migrate test DB →
+  `pnpm test:cov` (all Vitest tiers, thresholds enforced) → build all apps.
+  Postgres 16 and Redis 7 service containers back the infrastructure tier.
+- **CI E2E job**: provision the complete Compose stack → run `pnpm dev:doctor`
+  → seed Better Auth fixtures → execute Playwright in Chromium. Failure traces,
+  screenshots, videos, and the HTML report are uploaded for seven days.
 
 ---
 
@@ -265,11 +283,10 @@ Keep this list honest as coverage grows:
 - **Component coverage is selective.** Auth, pricing/checkout, reservations,
   uploads, and shared admin navigation have behavioral tests; visual polish and
   every read-only table state are intentionally left to browser smoke checks.
-- **There is no committed full end-to-end suite.** The mocked tiers cannot prove
-  that a deployed browser, email provider, Stripe account, and object store agree
-  on configuration. The release checklist therefore keeps those flows as
-  explicit manual checks. A future Playwright suite must take credentials from
-  the environment, never from a tracked file.
+- **External provider E2E remains scheduled/manual.** The committed Playwright
+  suite proves the local Better Auth/database/Redis/Garage contract. Stripe and
+  Resend sandbox flows still require credentials and should run against a
+  disposable staging environment, never from tracked files.
 
 ### Manual aids
 

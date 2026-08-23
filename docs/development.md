@@ -45,6 +45,21 @@ pnpm dev:all -- --with-stripe
 The runner executes `pnpm dev:doctor` first. `--skip-doctor` exists for deliberate
 partial-stack work, not as the ordinary way to make a red preflight disappear.
 
+## Browser contracts
+
+After setup, Playwright starts an isolated web server on port `3100`, seeds the
+demo account, signs in through the visible Better Auth form, and exercises the
+tenant ledger and Garage upload/delete path:
+
+```bash
+pnpm exec playwright install chromium
+pnpm test:e2e
+```
+
+Use `pnpm test:e2e:ui` while authoring a flow. External environments require
+`E2E_BASE_URL`, explicit credentials, and `E2E_ALLOW_MUTATIONS=1` before tests
+that write data will run.
+
 ## Local object storage
 
 Docker Compose runs [Garage](https://garagehq.deuxfleurs.fr/) on

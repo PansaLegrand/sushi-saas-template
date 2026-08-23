@@ -137,6 +137,7 @@ is not a submodule and is not built by this repository.
 | `pnpm test:run`        | Run all test tiers; infrastructure tests skip without their URLs |
 | `pnpm test:cov`        | Enforce coverage thresholds                                      |
 | `pnpm test:db`         | Run real PostgreSQL and Redis invariant tests                    |
+| `pnpm test:e2e`        | Run Playwright against the disposable full local stack           |
 | `pnpm build`           | Test, then build the SaaS, admin, and Content Studio              |
 | `pnpm studio:generate` | Regenerate Payload admin imports and TypeScript types             |
 | `pnpm studio:migrate`  | Apply Content Studio's separate Payload migrations                |

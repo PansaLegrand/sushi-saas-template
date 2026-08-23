@@ -3,7 +3,7 @@ import { AppError } from "@/lib/errors/app-error";
 import { findCreditByTransNo } from "@/models/credit";
 import { ensureDemoService } from "@/models/reservation";
 import {
-  findUserByEmailAndProvider,
+  findCredentialUserByEmail,
   markUserEmailVerified,
 } from "@/models/user";
 import { CreditsTransType, increaseCredits } from "@/services/credit";
@@ -29,7 +29,7 @@ function assertDevelopmentDatabase() {
 
 export async function findDevelopmentFixtureUser(email: string) {
   assertDevelopmentDatabase();
-  return findUserByEmailAndProvider(email, "credential");
+  return findCredentialUserByEmail(email);
 }
 
 export async function seedDevelopmentFixtures(params: {
@@ -37,7 +37,7 @@ export async function seedDevelopmentFixtures(params: {
   credits: number;
 }) {
   assertDevelopmentDatabase();
-  const user = await findUserByEmailAndProvider(params.email, "credential");
+  const user = await findCredentialUserByEmail(params.email);
   if (!user) {
     throw new AppError("SERVER_ERROR", {
       message:

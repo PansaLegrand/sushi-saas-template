@@ -1,4 +1,4 @@
-import { users } from "@/db/schema";
+import { accounts, users } from "@/db/schema";
 import { db } from "@/db";
 import { and, eq, gte, inArray, isNotNull, isNull } from "drizzle-orm";
 
@@ -39,6 +39,32 @@ export async function findUserByEmailAndProvider(
     .limit(1);
 
   return user;
+}
+
+/**
+ * Credential identity lookup through Better Auth's account table.
+ *
+ * Server-side `auth.api.signUpEmail()` calls do not carry an HTTP path into the
+ * database hook, so legacy/tool-created user rows may have an empty
+ * `signin_provider`. The account row is Better Auth's authoritative provider
+ * linkage and avoids guessing from that denormalized diagnostic column.
+ */
+export async function findCredentialUserByEmail(
+  email: string,
+): Promise<typeof users.$inferSelect | undefined> {
+  const [user] = await db()
+    .select({ user: users })
+    .from(users)
+    .innerJoin(accounts, eq(accounts.user_id, users.id))
+    .where(
+      and(
+        eq(users.email, email.trim().toLowerCase()),
+        eq(accounts.provider_id, "credential"),
+      ),
+    )
+    .limit(1);
+
+  return user?.user;
 }
 
 /** Development fixture verification; normal users verify through Better Auth. */

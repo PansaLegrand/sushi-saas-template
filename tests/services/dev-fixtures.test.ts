@@ -12,8 +12,8 @@ const mocks = vi.hoisted(() => ({
   insertCredit: vi.fn<typeof import("@/models/credit").insertCredit>(),
   ensureDemoService:
     vi.fn<typeof import("@/models/reservation").ensureDemoService>(),
-  findUserByEmailAndProvider:
-    vi.fn<typeof import("@/models/user").findUserByEmailAndProvider>(),
+  findCredentialUserByEmail:
+    vi.fn<typeof import("@/models/user").findCredentialUserByEmail>(),
   markUserEmailVerified:
     vi.fn<typeof import("@/models/user").markUserEmailVerified>(),
   findMembershipsByUserId:
@@ -37,7 +37,7 @@ vi.mock("@/models/reservation", () => ({
   ensureDemoService: mocks.ensureDemoService,
 }));
 vi.mock("@/models/user", () => ({
-  findUserByEmailAndProvider: mocks.findUserByEmailAndProvider,
+  findCredentialUserByEmail: mocks.findCredentialUserByEmail,
   markUserEmailVerified: mocks.markUserEmailVerified,
 }));
 vi.mock("@/models/organization", () => ({
@@ -58,7 +58,7 @@ const user = {
   nickname: "Demo User",
   email_verified: true,
 } as NonNullable<
-  Awaited<ReturnType<typeof import("@/models/user").findUserByEmailAndProvider>>
+  Awaited<ReturnType<typeof import("@/models/user").findCredentialUserByEmail>>
 >;
 const organization = {
   uuid: "org-uuid",
@@ -85,7 +85,7 @@ describe("development fixtures", () => {
       "postgresql://sushi:sushi@localhost:5432/sushi_dev",
     );
     resetEnvCacheForTests();
-    mocks.findUserByEmailAndProvider.mockResolvedValue(user);
+    mocks.findCredentialUserByEmail.mockResolvedValue(user);
     mocks.findMembershipsByUserId.mockResolvedValue([
       { organization, member: { role: "owner" } },
     ] as never);
@@ -103,7 +103,7 @@ describe("development fixtures", () => {
     await expect(findDevelopmentFixtureUser(user.email)).rejects.toThrow(
       /loopback sushi_dev/,
     );
-    expect(mocks.findUserByEmailAndProvider).not.toHaveBeenCalled();
+    expect(mocks.findCredentialUserByEmail).not.toHaveBeenCalled();
   });
 
   it("leaves an existing verified fixture and credit grant unchanged", async () => {
@@ -122,7 +122,7 @@ describe("development fixtures", () => {
 
   it("verifies the user and issues one deterministic grant when missing", async () => {
     const unverified = { ...user, email_verified: false };
-    mocks.findUserByEmailAndProvider.mockResolvedValue(unverified);
+    mocks.findCredentialUserByEmail.mockResolvedValue(unverified);
     mocks.markUserEmailVerified.mockResolvedValue(user);
     mocks.findCreditByTransNo
       .mockResolvedValueOnce(undefined)

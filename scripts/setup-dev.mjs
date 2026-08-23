@@ -164,7 +164,8 @@ if (existsSync(envPath)) {
 }
 
 const useBundledStorage =
-  readValue(readFileSync(envPath, "utf8"), "STORAGE_PROVIDER") === "garage";
+  (process.env.STORAGE_PROVIDER?.trim() ||
+    readValue(readFileSync(envPath, "utf8"), "STORAGE_PROVIDER")) === "garage";
 
 let payloadSecret = randomBytes(32).toString("hex");
 if (existsSync(contentEnvPath)) {
@@ -438,15 +439,18 @@ if (useBundledStorage) {
     new PutBucketCorsCommand({
       Bucket: DEV_STORAGE_BUCKET,
       CORSConfiguration: {
-        CORSRules: [
-          {
-            AllowedOrigins: ["http://localhost:3000"],
+        // Garage emits one Access-Control-Allow-Origin value per matching rule.
+        // Keeping each origin in its own rule prevents a comma-joined response,
+        // which browsers reject even though both individual origins are valid.
+        CORSRules: ["http://localhost:3000", "http://localhost:3100"].map(
+          (origin) => ({
+            AllowedOrigins: [origin],
             AllowedMethods: ["GET", "PUT", "HEAD"],
             AllowedHeaders: ["*"],
             ExposeHeaders: ["ETag"],
             MaxAgeSeconds: 3000,
-          },
-        ],
+          }),
+        ),
       },
     }),
   );

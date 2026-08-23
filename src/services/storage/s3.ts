@@ -18,6 +18,13 @@ function getS3Client(): S3Client {
     region: env.STORAGE_REGION,
     endpoint,
     forcePathStyle,
+    // AWS SDK v3 defaults to calculating a CRC32 checksum whenever the
+    // operation supports one. A presigner has no body bytes, so that default
+    // becomes the checksum of an empty payload in the query string; the browser
+    // then uploads real bytes and strict S3-compatible servers correctly reject
+    // the mismatch. Explicit caller-supplied SHA-256 checksums still opt in.
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
     credentials: {
       accessKeyId: getRequiredEnv("STORAGE_ACCESS_KEY"),
       secretAccessKey: getRequiredEnv("STORAGE_SECRET_KEY"),

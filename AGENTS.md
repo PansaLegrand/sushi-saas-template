@@ -196,13 +196,13 @@ Notes:
 ## Testing Guidelines
 **Read `tests/README.md` before writing a test — it is the authoritative guide.** The summary:
 
-- Vitest, five tiers, each defined by what it may mock: `tests/unit` (mocks nothing), `tests/api` (mocks services/models, never `@/lib/*` guards), `tests/services` (mocks models), `tests/components` (browser-visible behavior), and `tests/db` (mocks nothing, needs real infrastructure).
+- Six tiers: five Vitest tiers defined by what they may mock—`tests/unit` (mocks nothing), `tests/api` (mocks services/models, never `@/lib/*` guards), `tests/services` (mocks models), `tests/components` (browser-visible behavior), and `tests/db` (mocks nothing, needs real infrastructure)—plus `tests/e2e`, where Playwright mocks nothing and targets only disposable environments.
 - Tests live under `tests/`, mirroring the source tree — not colocated beside the feature.
 - `pnpm test:fast` for the hermetic pre-commit pass, `pnpm test:run` for every configured project, `pnpm test:cov` to enforce coverage thresholds, and `pnpm test:db` for the database tier.
 - The database tier is opt-in via `TEST_DATABASE_URL` and skips without it. It truncates tables, so the database name must contain `"test"`; both the harness and `scripts/setup-test-db.mjs` refuse otherwise. CI runs it against a Postgres 16 service container.
 - Two non-negotiables: every route gets an auth-gate test asserting the data function was **not** called before the 401/403, and every credit or money mutation gets a replay test proving one effect from two identical calls.
 - Coverage thresholds in `vitest.config.mts` are a ratchet scoped to `src/services`, `src/models`, `src/lib`, `src/app/api`, and `apps/admin/lib`. Raise them when a run beats them; never lower one to turn a build green.
-- Gates: pre-commit runs `pnpm lint && pnpm test:fast`; `prebuild` runs every configured project with `pnpm test:run`; CI runs lint → migrate test DB → `pnpm test:cov` → build.
+- Gates: pre-commit runs `pnpm lint && pnpm test:fast`; `prebuild` runs every configured Vitest project with `pnpm test:run`; CI runs lint → migrate test DB → `pnpm test:cov` → build, then provisions the full local stack for `pnpm test:e2e`.
 - For auth or i18n work, verify at least one happy-path call (e.g., `/api/health` or a localized landing page) and document the manual check in the PR.
  - For storage, verify the minimal flow end‑to‑end:
    1) `POST /api/storage/uploads` returns a presigned URL
