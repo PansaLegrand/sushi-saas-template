@@ -19,7 +19,8 @@ Configuration:
   JOB_WORKER_POLL_MS
   JOB_WORKER_BATCH_SIZE
   JOB_WORKER_HANDLER_TIMEOUT_MS
-  JOB_WORKER_DRAIN_DEADLINE_MS`);
+  JOB_WORKER_DRAIN_DEADLINE_MS
+  JOB_WORKER_MAINTENANCE_INTERVAL_MS`);
   process.exit(0);
 }
 
@@ -77,6 +78,10 @@ async function main() {
     batchSize: positiveEnv("JOB_WORKER_BATCH_SIZE", 25),
     handlerTimeoutMs: positiveEnv("JOB_WORKER_HANDLER_TIMEOUT_MS", 20_000),
     drainDeadlineMs: positiveEnv("JOB_WORKER_DRAIN_DEADLINE_MS", 40_000),
+    maintenanceIntervalMs: positiveEnv(
+      "JOB_WORKER_MAINTENANCE_INTERVAL_MS",
+      300_000,
+    ),
     once,
   };
 
@@ -94,8 +99,12 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error("Job worker stopped after an unrecoverable one-shot failure.");
-  console.error(error instanceof Error ? error.message : error);
-  process.exit(1);
-});
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(
+      "Job worker stopped after an unrecoverable one-shot failure.",
+    );
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  });

@@ -28,12 +28,13 @@ to export a production database URL.
 
 The worker configuration defaults are:
 
-| Variable                        | Default | Meaning                               |
-| ------------------------------- | ------: | ------------------------------------- |
-| `JOB_WORKER_POLL_MS`            |  `2000` | Idle polling interval                 |
-| `JOB_WORKER_BATCH_SIZE`         |    `25` | Maximum jobs per bounded drain        |
-| `JOB_WORKER_HANDLER_TIMEOUT_MS` | `20000` | Maximum time for one provider handler |
-| `JOB_WORKER_DRAIN_DEADLINE_MS`  | `40000` | Maximum time for one drain cycle      |
+| Variable                             |  Default | Meaning                               |
+| ------------------------------------ | -------: | ------------------------------------- |
+| `JOB_WORKER_POLL_MS`                 |   `2000` | Idle polling interval                 |
+| `JOB_WORKER_BATCH_SIZE`              |     `25` | Maximum jobs per bounded drain        |
+| `JOB_WORKER_HANDLER_TIMEOUT_MS`      |  `20000` | Maximum time for one provider handler |
+| `JOB_WORKER_DRAIN_DEADLINE_MS`       |  `40000` | Maximum time for one drain cycle      |
+| `JOB_WORKER_MAINTENANCE_INTERVAL_MS` | `300000` | Cleanup and provider-sweep interval   |
 
 Keep the handler timeout below the five-minute lease. A handler that exceeds its
 timeout is aborted and retried through the normal exponential-backoff path.
@@ -69,5 +70,8 @@ When the queue is unhealthy:
    use stable job UUIDs for provider idempotency where supported.
 5. Leave a note in the admin action so the audit trail explains the intervention.
 
-Finished jobs are pruned after 14 days by both runner modes. This is operational
-history, not the product's permanent audit ledger.
+Both runner modes invoke the same maintenance service: finished-job and provider
+receipt retention, stale-upload cleanup, and Stripe webhook sweeps. Retention
+periods are configured through `RETENTION_*_DAYS`; see
+[backups-and-retention.md](backups-and-retention.md). Operational job history is
+not the product's permanent audit ledger.

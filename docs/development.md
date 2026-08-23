@@ -9,8 +9,9 @@ pnpm dev:all
 ```
 
 Setup is idempotent. It creates ignored environment profiles, starts the local
-infrastructure, creates and migrates all three databases, provisions a private
-S3-compatible bucket, and leaves existing credentials untouched.
+infrastructure, creates the app, test, Content Studio, and restore-drill
+databases, migrates the first three, provisions a private S3-compatible bucket,
+and leaves existing credentials untouched.
 
 ## Doctor
 
@@ -18,7 +19,7 @@ S3-compatible bucket, and leaves existing credentials untouched.
 
 - supported Node and exact pnpm versions;
 - private environment-file permissions and typed configuration;
-- loopback-only development/test/Content Studio database boundaries;
+- loopback-only development/test/Content Studio/restore database boundaries;
 - Docker, PostgreSQL, Redis, and migration readiness;
 - the local S3 endpoint, credentials, and private bucket;
 - Content Studio's separate database and shared marketing credential;
@@ -31,9 +32,9 @@ script or development container.
 
 ## Unified development runner
 
-`pnpm dev:all` runs the web app, admin console, and Content Studio with prefixed
-logs. `Ctrl-C` terminates the complete process group rather than leaving two
-servers behind.
+`pnpm dev:all` runs the web app, durable worker, admin console, and Content
+Studio with prefixed logs. `Ctrl-C` terminates the complete process group rather
+than leaving background processes behind.
 
 ```bash
 pnpm dev:all

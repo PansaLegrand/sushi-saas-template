@@ -65,6 +65,9 @@ describe("environment profile setup", () => {
 
     expect(readEnvValue(result, "DATABASE_URL")).toContain("sushi_dev");
     expect(readEnvValue(result, "TEST_DATABASE_URL")).toContain("sushi_test");
+    expect(readEnvValue(result, "RESTORE_DATABASE_URL")).toContain(
+      "sushi_restore_drill",
+    );
     expect(readEnvValue(result, "RATE_LIMIT_REDIS_URL")).toBe(
       "redis://localhost:6379",
     );
@@ -100,6 +103,7 @@ describe("environment profile setup", () => {
         "DATABASE_URL=postgresql://managed/prod",
         "BETTER_AUTH_SECRET=keep-this-production-secret-unchanged",
         "TEST_DATABASE_URL=postgresql://managed/prod-test",
+        "RESTORE_DATABASE_URL=postgresql://managed/prod-restore",
         "TEST_REDIS_URL=redis://managed",
         "ENABLE_DEMO_FEATURES=true",
         "AUTH_DEV_EMAIL_LINKS=true",
@@ -115,6 +119,7 @@ describe("environment profile setup", () => {
       "keep-this-production-secret-unchanged",
     );
     expect(readEnvValue(result, "TEST_DATABASE_URL")).toBe("");
+    expect(readEnvValue(result, "RESTORE_DATABASE_URL")).toBe("");
     expect(readEnvValue(result, "TEST_REDIS_URL")).toBe("");
     expect(readEnvValue(result, "ENABLE_DEMO_FEATURES")).toBe("false");
     expect(readEnvValue(result, "AUTH_DEV_EMAIL_LINKS")).toBe("false");

@@ -80,7 +80,7 @@ async function main() {
   console.log(`
 Validated reset target: ${profile.relativePath}
 
-  PostgreSQL: sushi_dev, sushi_test, sushi_content on loopback:5432
+  PostgreSQL: sushi_dev, sushi_test, sushi_content, sushi_restore_drill on loopback:5432
   Redis:      loopback:6379
   Storage:    Garage bucket sushi-dev on loopback:3900
 

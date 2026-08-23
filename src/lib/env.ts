@@ -127,6 +127,8 @@ const RawEnvSchema = z.object({
   NEXT_PUBLIC_LOCALE_DETECTION: envBoolean(false),
 
   DATABASE_URL: envString,
+  BACKUP_DATABASE_URL: envString,
+  RESTORE_DATABASE_URL: envString,
   BETTER_AUTH_SECRET: envString,
   AUTH_SECRET: envString,
   GOOGLE_CLIENT_ID: envString,
@@ -241,6 +243,11 @@ const RawEnvSchema = z.object({
   JOB_WORKER_BATCH_SIZE: envPositiveInt(25),
   JOB_WORKER_HANDLER_TIMEOUT_MS: envPositiveInt(20000),
   JOB_WORKER_DRAIN_DEADLINE_MS: envPositiveInt(40000),
+  JOB_WORKER_MAINTENANCE_INTERVAL_MS: envPositiveInt(300000),
+  RETENTION_FINISHED_JOBS_DAYS: envPositiveInt(14),
+  RETENTION_MARKETING_EVENTS_DAYS: envPositiveInt(30),
+  RETENTION_AUTH_EVENTS_DAYS: envPositiveInt(90),
+  RETENTION_ADMIN_AUDIT_DAYS: envPositiveInt(365),
   LOG_LEVEL: z
     .preprocess(
       emptyToUndefined,

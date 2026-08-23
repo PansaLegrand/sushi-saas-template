@@ -151,6 +151,22 @@ async function main() {
       else for (const reason of result.reasons) fail(`${name} ${reason}`);
     }
 
+    if (process.env.RESTORE_DATABASE_URL) {
+      const restoreDatabase = inspectDevelopmentDatabaseUrl(
+        process.env.RESTORE_DATABASE_URL,
+        "sushi_restore_drill",
+      );
+      if (restoreDatabase.ok) {
+        ok("RESTORE_DATABASE_URL points at the isolated local drill database");
+      } else {
+        for (const reason of restoreDatabase.reasons) {
+          fail(`RESTORE_DATABASE_URL ${reason}`);
+        }
+      }
+    } else {
+      info("RESTORE_DATABASE_URL is optional until running a restore drill");
+    }
+
     if (process.env.STORAGE_PROVIDER === "garage") {
       const storage = inspectDevelopmentStorage(process.env);
       if (storage.ok)

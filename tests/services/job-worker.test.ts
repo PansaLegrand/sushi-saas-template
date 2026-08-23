@@ -19,20 +19,20 @@ function emptyResult(claimed = 0) {
 
 describe("portable job worker", () => {
   const run = vi.fn();
-  const prune = vi.fn();
+  const maintain = vi.fn();
   const now = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
     run.mockResolvedValue(emptyResult());
-    prune.mockResolvedValue(undefined);
+    maintain.mockResolvedValue({ finishedJobsPruned: 0 });
     now.mockReturnValue(60 * 60 * 1000);
   });
 
-  it("runs one bounded cycle and prunes finished history", async () => {
+  it("runs one bounded cycle and performs recurring maintenance", async () => {
     await runJobWorker(
       { signal: new AbortController().signal, once: true, batchSize: 7 },
-      { run, prune, now },
+      { run, maintain, now },
     );
 
     expect(run).toHaveBeenCalledWith(7, {
@@ -40,7 +40,7 @@ describe("portable job worker", () => {
       drainDeadlineMs: 40_000,
       signal: expect.any(AbortSignal),
     });
-    expect(prune).toHaveBeenCalledOnce();
+    expect(maintain).toHaveBeenCalledWith(new Date(60 * 60 * 1000));
   });
 
   it("immediately continues after a full batch", async () => {
@@ -58,7 +58,7 @@ describe("portable job worker", () => {
         batchSize: 2,
         pollIntervalMs: 60_000,
       },
-      { run, prune, now },
+      { run, maintain, now },
     );
 
     expect(run).toHaveBeenCalledTimes(2);
@@ -68,7 +68,7 @@ describe("portable job worker", () => {
     const controller = new AbortController();
     const worker = runJobWorker(
       { signal: controller.signal, pollIntervalMs: 60_000 },
-      { run, prune, now },
+      { run, maintain, now },
     );
     await vi.waitFor(() => expect(run).toHaveBeenCalledOnce());
 
@@ -82,7 +82,7 @@ describe("portable job worker", () => {
     await expect(
       runJobWorker(
         { signal: new AbortController().signal, once: true },
-        { run, prune, now },
+        { run, maintain, now },
       ),
     ).rejects.toThrow("database unavailable");
   });

@@ -39,9 +39,10 @@ pnpm dev:doctor
 pnpm dev:all
 ```
 
-Three databases share one server deliberately. The `tests/db` tier truncates
-`sushi_test`, while the SaaS and Content Studio keep independent schemas in
-`sushi_dev` and `sushi_content`.
+Four databases share one server deliberately. The `tests/db` tier truncates
+`sushi_test`, the SaaS and Content Studio keep independent schemas in
+`sushi_dev` and `sushi_content`, and destructive restore practice is confined to
+`sushi_restore_drill`.
 
 | Command                             | Purpose                                                 |
 | ----------------------------------- | ------------------------------------------------------- |
@@ -57,15 +58,16 @@ confirmation, removes only the Compose volumes, reruns migrations, and seeds the
 demo fixtures. Do not replace it with an unguarded recursive cleanup command.
 
 **Already running Postgres on 5432?** Very common, and `pnpm run setup` detects
-it and stops rather than colliding. Create all three databases on the server
-you already have, point the three URLs at it, then run
+it and stops rather than colliding. Create all four databases on the server
+you already have, point the four URLs at it, then run
 `pnpm db:migrate && pnpm test:db:setup && pnpm studio:migrate`. Full walkthrough in
 [docs/database.md](docs/database.md#setting-up-from-a-fresh-clone).
 
 No Docker at all? Provide PostgreSQL, Redis, and S3-compatible storage yourself,
 put their URLs in the development profiles, create `sushi_dev`, `sushi_test`,
-and `sushi_content`, and follow the migration steps above. `pnpm dev:doctor` names
-each unavailable dependency without exposing its credentials.
+`sushi_content`, and `sushi_restore_drill`, and follow the migration steps above.
+`pnpm dev:doctor` names each unavailable dependency without exposing its
+credentials.
 
 ### Making yourself an admin
 
@@ -277,6 +279,25 @@ migration that corrects it.
 
 Take a snapshot before anything destructive. Every managed provider has
 point-in-time restore; know how to trigger yours _before_ you need it.
+
+### Backups and restore drills
+
+Configure managed point-in-time recovery and a separate logical-dump schedule.
+`pnpm db:backup` creates a private custom-format dump and SHA-256 manifest using
+`BACKUP_DATABASE_URL` or `DATABASE_URL`. Move both files to encrypted storage;
+the local output directory is not a backup destination.
+
+At least monthly, restore a recent dump into a separately provisioned database
+whose name contains `restore`, `scratch`, or `drill`:
+
+```bash
+RESTORE_DATABASE_URL=postgresql://.../product_restore_drill \
+  pnpm db:restore:drill -- --backup /secure/path/product.dump --confirm product_restore_drill
+```
+
+The drill verifies the checksum, migration ledger, application tables, and
+elapsed recovery time. See
+[docs/backups-and-retention.md](docs/backups-and-retention.md).
 
 ---
 

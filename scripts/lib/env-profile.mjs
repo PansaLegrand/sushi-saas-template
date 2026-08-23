@@ -103,6 +103,8 @@ export function prepareAppProfile(contents, profile, secret) {
       {
         DATABASE_URL: "postgresql://sushi:sushi@localhost:5432/sushi_dev",
         TEST_DATABASE_URL: "postgresql://sushi:sushi@localhost:5432/sushi_test",
+        RESTORE_DATABASE_URL:
+          "postgresql://sushi:sushi@localhost:5432/sushi_restore_drill",
         RATE_LIMIT_REDIS_URL: "redis://localhost:6379",
         TEST_REDIS_URL: "redis://localhost:6379",
         CONTENT_MARKETING_SECRET: secret("hex"),
@@ -138,6 +140,7 @@ export function prepareAppProfile(contents, profile, secret) {
     // real environment or silently enable demo-only behavior.
     result = applyEnvValues(result, {
       TEST_DATABASE_URL: "",
+      RESTORE_DATABASE_URL: "",
       TEST_REDIS_URL: "",
       AUTH_DEV_EMAIL_LINKS: "false",
       ENABLE_DEMO_FEATURES: "false",

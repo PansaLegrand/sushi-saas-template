@@ -115,6 +115,10 @@ a deploy.
       deliberate "stdout is enough for now".
 - [ ] Point-in-time restore confirmed available, and the restore procedure run
       once against a scratch database.
+- [ ] Latest logical dump and SHA-256 manifest copied to independent encrypted
+      storage; monthly restore drill scheduled against a scratch database.
+- [ ] `pnpm retention:report` reviewed and `RETENTION_*_DAYS` reconciled with the
+      published privacy policy before any apply run.
 - [ ] `/api/ready` monitored; queue degradation and request errors reach the
       configured log/OTLP backend with trace correlation.
 

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, isNotNull, lt, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, lte, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { jobs } from "@/db/schema";
@@ -266,20 +266,25 @@ export async function countJobsByStatus(): Promise<Record<string, number>> {
  * Delete finished jobs older than the cutoff, so the table does not grow
  * without bound.
  */
-export async function deleteFinishedJobsBefore(cutoff: Date): Promise<void> {
-  await db()
-    .delete(jobs)
-    .where(
-      and(
-        or(
-          eq(jobs.status, "succeeded"),
-          eq(jobs.status, "failed"),
-          eq(jobs.status, "canceled"),
-        ),
-        isNotNull(jobs.completed_at),
-        lt(jobs.completed_at, cutoff),
-      ),
-    );
+export async function deleteFinishedJobsBefore(cutoff: Date): Promise<number> {
+  const cutoffIso = cutoff.toISOString();
+  const result = await db().execute(sql`
+    with deleted as (
+      delete from ${jobs}
+      where ${jobs.status} in ('succeeded', 'failed', 'canceled')
+        and ${jobs.completed_at} is not null
+        and ${jobs.completed_at} < ${cutoffIso}::timestamptz
+      returning 1
+    )
+    select count(*)::int as count from deleted
+  `);
+  const rows = result as unknown as
+    | Array<{ count: number | string }>
+    | {
+        rows?: Array<{ count: number | string }>;
+      };
+  const row = Array.isArray(rows) ? rows[0] : rows.rows?.[0];
+  return Number(row?.count ?? 0);
 }
 
 export async function findJobByDedupeKey(

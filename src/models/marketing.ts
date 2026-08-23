@@ -302,10 +302,7 @@ export async function ensureMarketingEmailDelivery(input: {
     .where(
       and(
         eq(marketingEmailDeliveries.campaign_key, input.campaignKey),
-        eq(
-          marketingEmailDeliveries.subscription_uuid,
-          input.subscriptionUuid,
-        ),
+        eq(marketingEmailDeliveries.subscription_uuid, input.subscriptionUuid),
       ),
     )
     .limit(1);
@@ -459,12 +456,8 @@ export async function applyMarketingProviderEvent(
     const eventFields = {
       ...(status === "delivered" ? { delivered_at: input.occurredAt } : {}),
       ...(status === "bounced" ? { bounced_at: input.occurredAt } : {}),
-      ...(status === "complained"
-        ? { complained_at: input.occurredAt }
-        : {}),
-      ...(status === "suppressed"
-        ? { suppressed_at: input.occurredAt }
-        : {}),
+      ...(status === "complained" ? { complained_at: input.occurredAt } : {}),
+      ...(status === "suppressed" ? { suppressed_at: input.occurredAt } : {}),
     };
     await tx
       .update(marketingEmailDeliveries)
@@ -473,9 +466,7 @@ export async function applyMarketingProviderEvent(
         provider_message_id: input.providerMessageId,
         provider_event_at: input.occurredAt,
         last_error:
-          status === "bounced" ||
-          status === "failed" ||
-          status === "suppressed"
+          status === "bounced" || status === "failed" || status === "suppressed"
             ? (input.detail ?? status).slice(0, 4_000)
             : null,
         updated_at: new Date(),
@@ -561,17 +552,11 @@ export async function applyMarketingProviderSuppressionEvent(
       input.eventType === "suppression.removed"
         ? or(
             isNull(marketingSubscriptions.suppression_event_at),
-            lte(
-              marketingSubscriptions.suppression_event_at,
-              input.occurredAt,
-            ),
+            lte(marketingSubscriptions.suppression_event_at, input.occurredAt),
           )
         : or(
             isNull(marketingSubscriptions.suppression_event_at),
-            lt(
-              marketingSubscriptions.suppression_event_at,
-              input.occurredAt,
-            ),
+            lt(marketingSubscriptions.suppression_event_at, input.occurredAt),
           );
     const rows = await tx
       .update(marketingSubscriptions)
@@ -593,10 +578,7 @@ export async function applyMarketingProviderSuppressionEvent(
             },
       )
       .where(
-        and(
-          eq(marketingSubscriptions.email_key, input.emailKey),
-          eventIsNewer,
-        ),
+        and(eq(marketingSubscriptions.email_key, input.emailKey), eventIsNewer),
       )
       .returning({ id: marketingSubscriptions.id });
     const outcome = rows.length > 0 ? "applied" : "older_event";
@@ -611,11 +593,22 @@ export async function applyMarketingProviderSuppressionEvent(
 export async function deleteMarketingProviderEventsBefore(
   cutoff: Date,
 ): Promise<number> {
-  const deleted = await db()
-    .delete(marketingProviderEvents)
-    .where(lt(marketingProviderEvents.received_at, cutoff))
-    .returning({ id: marketingProviderEvents.id });
-  return deleted.length;
+  const cutoffIso = cutoff.toISOString();
+  const result = await db().execute(sql`
+    with deleted as (
+      delete from ${marketingProviderEvents}
+      where ${marketingProviderEvents.received_at} < ${cutoffIso}::timestamptz
+      returning 1
+    )
+    select count(*)::int as count from deleted
+  `);
+  const rows = result as unknown as
+    | Array<{ count: number | string }>
+    | {
+        rows?: Array<{ count: number | string }>;
+      };
+  const row = Array.isArray(rows) ? rows[0] : rows.rows?.[0];
+  return Number(row?.count ?? 0);
 }
 
 export async function getMarketingCampaignOverview(campaignKey: string) {
@@ -642,7 +635,9 @@ export async function getMarketingCampaignOverview(campaignKey: string) {
   return { dispatch, counts };
 }
 
-export async function cancelMarketingCampaignWork(campaignKey: string): Promise<{
+export async function cancelMarketingCampaignWork(
+  campaignKey: string,
+): Promise<{
   found: boolean;
   alreadyCanceled: boolean;
   alreadyCompleted: boolean;

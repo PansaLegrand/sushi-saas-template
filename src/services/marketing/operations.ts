@@ -1,7 +1,5 @@
-import {
-  MARKETING_CAMPAIGN_RECIPIENT_LIMIT,
-  MARKETING_PROVIDER_EVENT_RETENTION_DAYS,
-} from "@/config/marketing";
+import { MARKETING_CAMPAIGN_RECIPIENT_LIMIT } from "@/config/marketing";
+import { getRetentionPolicy } from "@/config/retention";
 import { AppError } from "@/lib/errors";
 import {
   cancelMarketingCampaignWork,
@@ -20,7 +18,7 @@ export async function pruneMarketingProviderEvents(
 ): Promise<number> {
   const cutoff = new Date(
     now.getTime() -
-      MARKETING_PROVIDER_EVENT_RETENTION_DAYS * 24 * 60 * 60 * 1_000,
+      getRetentionPolicy().marketingProviderEventsDays * 24 * 60 * 60 * 1_000,
   );
   return deleteMarketingProviderEventsBefore(cutoff);
 }

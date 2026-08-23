@@ -12,6 +12,7 @@ import { logger } from "@/lib/logger/server";
 import { AppError } from "@/lib/errors";
 import { withSpan } from "@/lib/observability";
 import { SpanStatusCode } from "@opentelemetry/api";
+import { getRetentionPolicy } from "@/config/retention";
 
 export type { JobPayloads, JobType } from "./types";
 
@@ -19,8 +20,6 @@ export type { JobPayloads, JobType } from "./types";
 const STALE_LOCK_MS = 5 * 60 * 1000;
 /** First retry delay; doubles per attempt. */
 const BACKOFF_BASE_MS = 30 * 1000;
-/** Finished jobs are pruned after this long. */
-const RETENTION_MS = 14 * 24 * 60 * 60 * 1000;
 /** Bound one provider call well below the five-minute lease window. */
 const HANDLER_TIMEOUT_MS = 20 * 1000;
 /** Leave headroom in the 60-second cron request for cleanup and reporting. */
@@ -283,6 +282,12 @@ export async function runDueJobs(
   };
 }
 
-export async function pruneFinishedJobs(): Promise<void> {
-  await deleteFinishedJobsBefore(new Date(Date.now() - RETENTION_MS));
+export async function pruneFinishedJobs(
+  now: Date = new Date(),
+): Promise<number> {
+  const cutoff = new Date(
+    now.getTime() -
+      getRetentionPolicy().finishedJobsDays * 24 * 60 * 60 * 1_000,
+  );
+  return deleteFinishedJobsBefore(cutoff);
 }

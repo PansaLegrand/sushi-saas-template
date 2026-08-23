@@ -5,6 +5,7 @@
  *   1. writes missing development profiles, with real secrets
  *   2. starts the Postgres, Redis, and local S3 containers
  *   3. applies migrations to the app, test, and Content Studio databases
+ *      and provisions an isolated restore-drill target
  *
  * Safe to re-run. Existing environment files are never overwritten — the
  * whole point of this script is that it cannot cost you a working local config.
@@ -48,6 +49,8 @@ const DEV_DATABASE_URL = "postgresql://sushi:sushi@localhost:5432/sushi_dev";
 const TEST_DATABASE_URL = "postgresql://sushi:sushi@localhost:5432/sushi_test";
 const CONTENT_DATABASE_URL =
   "postgresql://sushi:sushi@localhost:5432/sushi_content";
+const RESTORE_DATABASE_URL =
+  "postgresql://sushi:sushi@localhost:5432/sushi_restore_drill";
 const DEV_REDIS_URL = "redis://localhost:6379";
 const DEV_STORAGE_ENDPOINT = "http://localhost:3900";
 const DEV_STORAGE_REGION = "garage";
@@ -126,6 +129,7 @@ if (existsSync(envPath)) {
   let contents = readFileSync(examplePath, "utf8");
   contents = fill(contents, "DATABASE_URL", DEV_DATABASE_URL);
   contents = fill(contents, "TEST_DATABASE_URL", TEST_DATABASE_URL);
+  contents = fill(contents, "RESTORE_DATABASE_URL", RESTORE_DATABASE_URL);
   contents = fill(contents, "RATE_LIMIT_REDIS_URL", DEV_REDIS_URL);
   contents = fill(contents, "TEST_REDIS_URL", DEV_REDIS_URL);
   contents = fill(
@@ -235,18 +239,19 @@ if (portInUse(5432) && !postgresComposeRunning) {
   console.log(`
   \x1b[33mPort 5432 is already in use\x1b[0m — you appear to have Postgres running already.
 
-  That is fine, and probably better than starting a second one. Create three
+  That is fine, and probably better than starting a second one. Create four
   databases on it and point your development profile at them:
 
-    createdb sushi_dev && createdb sushi_test && createdb sushi_content
+    createdb sushi_dev && createdb sushi_test && createdb sushi_content && createdb sushi_restore_drill
     # or, if it runs in a container named <name>:
-    docker exec <name> psql -U postgres -c "create database sushi_dev;" -c "create database sushi_test;" -c "create database sushi_content;"
+    docker exec <name> psql -U postgres -c "create database sushi_dev;" -c "create database sushi_test;" -c "create database sushi_content;" -c "create database sushi_restore_drill;"
 
   Then set the SaaS/test URLs in ${displayPath(envPath)} and the Content Studio URL in
   ${displayPath(contentEnvPath)} to match that server's credentials:
 
     DATABASE_URL=postgresql://<user>:<pass>@localhost:5432/sushi_dev
     TEST_DATABASE_URL=postgresql://<user>:<pass>@localhost:5432/sushi_test
+    RESTORE_DATABASE_URL=postgresql://<user>:<pass>@localhost:5432/sushi_restore_drill
     CONTENT_DATABASE_URL=postgresql://<user>:<pass>@localhost:5432/sushi_content
 
   Finally:
@@ -329,29 +334,30 @@ if (!ready) {
   );
   process.exit(1);
 }
-const contentDatabase = spawnSync(
-  "docker",
-  [
-    "compose",
-    "exec",
-    "-T",
-    "postgres",
-    "psql",
-    "-U",
-    "sushi",
-    "-d",
-    "postgres",
-    "-tAc",
-    "SELECT 1 FROM pg_database WHERE datname = 'sushi_content'",
-  ],
-  { cwd: root, encoding: "utf8" },
-);
+for (const database of ["sushi_content", "sushi_restore_drill"]) {
+  const exists = spawnSync(
+    "docker",
+    [
+      "compose",
+      "exec",
+      "-T",
+      "postgres",
+      "psql",
+      "-U",
+      "sushi",
+      "-d",
+      "postgres",
+      "-tAc",
+      `SELECT 1 FROM pg_database WHERE datname = '${database}'`,
+    ],
+    { cwd: root, encoding: "utf8" },
+  );
+  if (exists.status !== 0) {
+    console.error(`  could not check the ${database} database`);
+    process.exit(1);
+  }
+  if (exists.stdout.trim() === "1") continue;
 
-if (contentDatabase.status !== 0) {
-  console.error("  could not check the Content Studio database");
-  process.exit(1);
-}
-if (contentDatabase.stdout.trim() !== "1") {
   const created = spawnSync(
     "docker",
     [
@@ -364,16 +370,18 @@ if (contentDatabase.stdout.trim() !== "1") {
       "sushi",
       "-O",
       "sushi",
-      "sushi_content",
+      database,
     ],
     { cwd: root, stdio: "inherit" },
   );
   if (created.status !== 0) {
-    console.error("  could not create the Content Studio database");
+    console.error(`  could not create the ${database} database`);
     process.exit(1);
   }
 }
-ok("Postgres is up on localhost:5432 (sushi_dev, sushi_test, sushi_content)");
+ok(
+  "Postgres is up on localhost:5432 (sushi_dev, sushi_test, sushi_content, sushi_restore_drill)",
+);
 
 if (!externalRedisRunning) {
   process.stdout.write("  waiting for Redis");

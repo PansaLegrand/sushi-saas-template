@@ -1,6 +1,7 @@
 import { logger } from "@/lib/logger/server";
+import { runOperationalMaintenance } from "@/services/maintenance";
 
-import { pruneFinishedJobs, runDueJobs } from "./index";
+import { runDueJobs } from "./index";
 
 export interface JobWorkerOptions {
   signal: AbortSignal;
@@ -8,13 +9,13 @@ export interface JobWorkerOptions {
   batchSize?: number;
   handlerTimeoutMs?: number;
   drainDeadlineMs?: number;
-  pruneIntervalMs?: number;
+  maintenanceIntervalMs?: number;
   once?: boolean;
 }
 
 export interface JobWorkerDependencies {
   run: typeof runDueJobs;
-  prune: typeof pruneFinishedJobs;
+  maintain: typeof runOperationalMaintenance;
   now: () => number;
 }
 
@@ -22,7 +23,7 @@ const DEFAULT_POLL_INTERVAL_MS = 2_000;
 const DEFAULT_BATCH_SIZE = 25;
 const DEFAULT_HANDLER_TIMEOUT_MS = 20_000;
 const DEFAULT_DRAIN_DEADLINE_MS = 40_000;
-const DEFAULT_PRUNE_INTERVAL_MS = 60 * 60 * 1_000;
+const DEFAULT_MAINTENANCE_INTERVAL_MS = 5 * 60 * 1_000;
 
 function positiveInteger(value: number | undefined, fallback: number): number {
   if (!Number.isFinite(value) || !value || value < 1) return fallback;
@@ -53,7 +54,7 @@ export async function runJobWorker(
   options: JobWorkerOptions,
   dependencies: JobWorkerDependencies = {
     run: runDueJobs,
-    prune: pruneFinishedJobs,
+    maintain: runOperationalMaintenance,
     now: Date.now,
   },
 ): Promise<void> {
@@ -70,11 +71,11 @@ export async function runJobWorker(
     options.drainDeadlineMs,
     DEFAULT_DRAIN_DEADLINE_MS,
   );
-  const pruneIntervalMs = positiveInteger(
-    options.pruneIntervalMs,
-    DEFAULT_PRUNE_INTERVAL_MS,
+  const maintenanceIntervalMs = positiveInteger(
+    options.maintenanceIntervalMs,
+    DEFAULT_MAINTENANCE_INTERVAL_MS,
   );
-  let lastPrunedAt = 0;
+  let lastMaintenanceAt = 0;
 
   while (!options.signal.aborted) {
     try {
@@ -85,9 +86,16 @@ export async function runJobWorker(
       });
       const now = dependencies.now();
 
-      if (now - lastPrunedAt >= pruneIntervalMs) {
-        await dependencies.prune();
-        lastPrunedAt = now;
+      if (now - lastMaintenanceAt >= maintenanceIntervalMs) {
+        const maintenance = await dependencies.maintain(new Date(now));
+        lastMaintenanceAt = now;
+        logger.info(
+          {
+            event: "jobs.worker_maintenance",
+            ...maintenance,
+          },
+          "job worker completed maintenance",
+        );
       }
 
       if (result.claimed > 0) {

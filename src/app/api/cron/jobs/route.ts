@@ -2,10 +2,8 @@ import { requireCronAuth } from "@/lib/cron";
 import { respData } from "@/lib/resp";
 import { respError } from "@/lib/errors/response";
 import { countJobsByStatus } from "@/models/job";
-import { pruneFinishedJobs, runDueJobs } from "@/services/jobs";
-import { cleanupStaleUploads } from "@/services/storage/cleanup";
-import { sweepStripeWebhookEvents } from "@/services/stripe/sweep";
-import { pruneMarketingProviderEvents } from "@/services/marketing/operations";
+import { runDueJobs } from "@/services/jobs";
+import { runOperationalMaintenance } from "@/services/maintenance";
 import { logger } from "@/lib/logger/server";
 
 // Always run on demand; never cached.
@@ -27,33 +25,34 @@ export async function GET(req: Request) {
 
   try {
     const result = await runDueJobs(25);
-    await pruneFinishedJobs();
-    const marketingProviderEventsPruned =
-      await pruneMarketingProviderEvents();
-    const staleUploadsFailed = await cleanupStaleUploads();
     // Runs after the drain, so an alert it enqueues is not picked up until the
     // next tick — which is what keeps a sweep that alerts on every run from
     // being indistinguishable from one that found something new.
-    const stripe = await sweepStripeWebhookEvents();
+    const maintenance = await runOperationalMaintenance();
     const pending = await countJobsByStatus();
 
     logger.info(
       {
         event: "cron.jobs",
         ...result,
-        stale_uploads_failed: staleUploadsFailed,
-        stripe_stuck_events: stripe.stuck,
-        marketing_provider_events_pruned: marketingProviderEventsPruned,
+        finished_jobs_pruned: maintenance.finishedJobsPruned,
+        stale_uploads_failed: maintenance.staleUploadsFailed,
+        stripe_stuck_events: maintenance.stripe.stuck,
+        marketing_provider_events_pruned:
+          maintenance.marketingProviderEventsPruned,
         duration_ms: Date.now() - startedAt,
       },
-      "cron jobs drained"
+      "cron jobs drained",
     );
 
     return respData({
       ...result,
-      storage: { staleUploadsFailed },
-      stripe,
-      marketing: { providerEventsPruned: marketingProviderEventsPruned },
+      storage: { staleUploadsFailed: maintenance.staleUploadsFailed },
+      stripe: maintenance.stripe,
+      retention: { finishedJobsPruned: maintenance.finishedJobsPruned },
+      marketing: {
+        providerEventsPruned: maintenance.marketingProviderEventsPruned,
+      },
       queue: pending,
       durationMs: Date.now() - startedAt,
     });

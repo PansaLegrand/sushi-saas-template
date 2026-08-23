@@ -1,10 +1,10 @@
 # Local Postgres, Redis, and S3-compatible object storage for development and
 # the real-infrastructure tests.
 #
-# Three databases on one server: sushi_dev for the app, sushi_test for the
-# database tests, and sushi_content for Payload. They are separate because the
-# test tier truncates tables and Content Studio has an independent schema and
-# release lifecycle.
+# Four databases on one server: sushi_dev for the app, sushi_test for database
+# tests, sushi_content for Payload, and sushi_restore_drill for destructive
+# restore practice. They are isolated because tests truncate tables, Content
+# Studio has an independent schema, and a restore must never target live dev.
 #
 #   docker compose up -d      (or: pnpm infra:up)
 #
