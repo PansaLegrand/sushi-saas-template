@@ -226,6 +226,7 @@ describe("isEntitling", () => {
 describe("features", () => {
   it("answers from the resolved plan", async () => {
     expect(await can(ORG, "tasks.text_to_video")).toBe(false);
+    expect(await can(ORG, "tasks.image_generation")).toBe(true);
 
     listSubscriptionsByOrg.mockResolvedValue([row({ tier: "plus" })]);
     expect(await can(ORG, "tasks.text_to_video")).toBe(true);
@@ -255,6 +256,7 @@ describe("features", () => {
 
   it("names the cheapest tier that includes a feature", () => {
     expect(lowestTierWith("tasks.text_to_video")).toBe("plus");
+    expect(lowestTierWith("tasks.image_generation")).toBe("free");
     expect(lowestTierWith("storage.upload")).toBe("free");
   });
 });

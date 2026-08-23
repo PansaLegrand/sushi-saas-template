@@ -20,6 +20,7 @@ compare a tier name.** Call sites ask for a capability:
 
 ```ts
 await requireEntitlement(ctx.orgUuid, "tasks.text_to_video");
+await requireEntitlement(ctx.orgUuid, "tasks.image_generation");
 await enforceLimit(ctx.orgUuid, "storage.totalMb", { current, adding });
 
 if (await can(ctx.orgUuid, "storage.upload")) { … }
@@ -203,6 +204,13 @@ They are different mechanisms and the boundary is worth stating:
 - **Entitlements gate capabilities** — whether you may use a feature at all,
   how large a file, how many generations this month.
 - **Credits meter consumption** inside a capability you already have.
+
+The shipped image-generation reference deliberately enables
+`tasks.image_generation` on every tier and charges five credits per task. This
+lets a Free organization spend its one-time signup grant while still exercising
+the entitlement door; Free is capped at ten tasks per month. Clones can move the
+capability to Plus/Max or change the limit in `src/config/plans.ts` without
+editing the route.
 
 `PLAN_MONTHLY_CREDITS` in `src/config/billing.ts` is the single source for both
 the billing screen and paid credit grants. Monthly products grant that amount;

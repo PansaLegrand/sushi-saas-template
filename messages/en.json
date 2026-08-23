@@ -53,6 +53,33 @@
       "linkSignup": "Sign up",
       "linkLogin": "Log in",
       "or": "or"
+    },
+    "imageGeneration": {
+      "title": "Image generation",
+      "intro": "A reference paid workflow that exercises authentication, entitlements, credits, durable jobs, private object storage, and safe retries.",
+      "formTitle": "Create an image",
+      "cost": "Each image costs {credits} credits.",
+      "promptLabel": "Prompt",
+      "promptPlaceholder": "A quiet sushi bar floating above a neon city",
+      "submit": "Generate image",
+      "submitting": "Scheduling…",
+      "taskTitle": "Generation task",
+      "taskId": "Task ID",
+      "statusLabel": "Status",
+      "status": {
+        "pending_payment": "Reserving credits…",
+        "queued": "Queued for the worker…",
+        "running": "Generating and storing the image…",
+        "refunding": "Generation failed; restoring your credits…",
+        "succeeded": "Image ready",
+        "failed": "Generation failed"
+      },
+      "imageAlt": "Generated result",
+      "generationFailed": "The generation did not complete. The five-credit charge has been refunded.",
+      "errorTitle": "Could not generate the image",
+      "signInTitle": "Sign in required",
+      "signInDescription": "Sign in before creating a task.",
+      "signInAction": "Sign in"
     }
   },
   "reservation": {

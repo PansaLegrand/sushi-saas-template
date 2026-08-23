@@ -11,6 +11,7 @@ import { countTasksByOrgSince } from "@/models/task";
 import { enforceLimit, requireEntitlement } from "@/services/entitlements";
 import { getOrgContext } from "@/services/authz";
 import { createTextToVideoTask } from "@/services/tasks";
+import { toTaskRecord } from "@/services/tasks/presentation";
 import type { CreateTextToVideoResponse } from "@/types/task";
 
 const TextToVideoSchema = z.object({
@@ -70,23 +71,7 @@ export async function POST(req: Request) {
     });
 
     const data: CreateTextToVideoResponse = {
-      task: {
-        uuid: task.uuid,
-        userUuid: task.user_uuid,
-        type: task.type,
-        status: task.status as any,
-        creditsUsed: task.credits_used,
-        creditsTransNo: task.credits_trans_no ?? undefined,
-        idempotencyKey: task.idempotency_key ?? undefined,
-        userInput: task.user_input ?? undefined,
-        outputUrl: task.output_url ?? undefined,
-        outputJson: task.output_json ?? undefined,
-        errorMessage: task.error_message ?? undefined,
-        startedAt: task.started_at?.toISOString() ?? null,
-        completedAt: task.completed_at?.toISOString() ?? null,
-        createdAt: task.created_at?.toISOString() ?? new Date().toISOString(),
-        updatedAt: task.updated_at?.toISOString() ?? new Date().toISOString(),
-      },
+      task: await toTaskRecord(task),
     };
 
     return respData(data);

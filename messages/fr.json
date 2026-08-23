@@ -53,6 +53,33 @@
       "linkSignup": "S’inscrire",
       "linkLogin": "Se connecter",
       "or": "ou"
+    },
+    "imageGeneration": {
+      "title": "Génération d’images",
+      "intro": "Un flux payant de référence qui teste l’authentification, les droits, les crédits, les tâches durables, le stockage privé et les reprises sûres.",
+      "formTitle": "Créer une image",
+      "cost": "Chaque image coûte {credits} crédits.",
+      "promptLabel": "Instruction",
+      "promptPlaceholder": "Un bar à sushis paisible flottant au-dessus d’une ville néon",
+      "submit": "Générer l’image",
+      "submitting": "Planification…",
+      "taskTitle": "Tâche de génération",
+      "taskId": "ID de tâche",
+      "statusLabel": "État",
+      "status": {
+        "pending_payment": "Réservation des crédits…",
+        "queued": "En attente du worker…",
+        "running": "Génération et stockage de l’image…",
+        "refunding": "Échec de la génération ; restauration des crédits…",
+        "succeeded": "Image prête",
+        "failed": "Échec de la génération"
+      },
+      "imageAlt": "Résultat généré",
+      "generationFailed": "La génération n’a pas abouti. Les cinq crédits ont été remboursés.",
+      "errorTitle": "Impossible de générer l’image",
+      "signInTitle": "Connexion requise",
+      "signInDescription": "Connectez-vous avant de créer une tâche.",
+      "signInAction": "Se connecter"
     }
   },
   "reservation": {

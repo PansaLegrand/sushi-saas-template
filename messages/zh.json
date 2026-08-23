@@ -53,6 +53,33 @@
       "linkSignup": "注册",
       "linkLogin": "登录",
       "or": "或"
+    },
+    "imageGeneration": {
+      "title": "图像生成",
+      "intro": "一个用于验证身份认证、权限、积分、持久任务、私有对象存储和安全重试的付费流程示例。",
+      "formTitle": "创建图像",
+      "cost": "每张图像消耗 {credits} 积分。",
+      "promptLabel": "提示词",
+      "promptPlaceholder": "漂浮在霓虹城市上空的安静寿司吧",
+      "submit": "生成图像",
+      "submitting": "正在排队…",
+      "taskTitle": "生成任务",
+      "taskId": "任务 ID",
+      "statusLabel": "状态",
+      "status": {
+        "pending_payment": "正在预留积分…",
+        "queued": "正在等待工作进程…",
+        "running": "正在生成并存储图像…",
+        "refunding": "生成失败，正在退还积分…",
+        "succeeded": "图像已就绪",
+        "failed": "生成失败"
+      },
+      "imageAlt": "生成结果",
+      "generationFailed": "生成未完成，已退还 5 积分。",
+      "errorTitle": "无法生成图像",
+      "signInTitle": "需要登录",
+      "signInDescription": "创建任务前请先登录。",
+      "signInAction": "登录"
     }
   },
   "reservation": {

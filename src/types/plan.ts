@@ -28,7 +28,8 @@ export type Tier = "free" | "plus" | "max";
 /** A capability a tier either has or does not have. */
 export type PlanFeature =
   | "storage.upload"
-  | "tasks.text_to_video";
+  | "tasks.text_to_video"
+  | "tasks.image_generation";
 
 /** A capability every tier has, but in a bounded amount. */
 export type PlanLimit =

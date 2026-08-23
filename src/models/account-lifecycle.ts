@@ -842,6 +842,7 @@ export async function getAccountExportData(input: {
           type: tasks.type,
           status: tasks.status,
           creditsUsed: tasks.credits_used,
+          outputFileUuid: tasks.output_file_uuid,
           prompt: tasks.user_input,
           outputUrl: tasks.output_url,
           startedAt: tasks.started_at,

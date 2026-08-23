@@ -67,13 +67,16 @@ export const PLANS = {
     features: {
       "storage.upload": true,
       "tasks.text_to_video": false,
+      // The reference workflow is credit-gated, so Free can spend its signup
+      // grant without requiring a paid subscription first.
+      "tasks.image_generation": true,
     },
     limits: {
       // The owner consumes the one Free seat, so Free cannot invite.
       "organization.members": 1,
       "storage.maxFileMb": 5,
       "storage.totalMb": 100,
-      "tasks.perMonth": 0,
+      "tasks.perMonth": 10,
     },
     // A free tier is never checked out, so it has no price.
     priceIds: [],
@@ -86,6 +89,7 @@ export const PLANS = {
     features: {
       "storage.upload": true,
       "tasks.text_to_video": true,
+      "tasks.image_generation": true,
     },
     limits: {
       "organization.members": 5,
@@ -103,6 +107,7 @@ export const PLANS = {
     features: {
       "storage.upload": true,
       "tasks.text_to_video": true,
+      "tasks.image_generation": true,
     },
     limits: {
       "organization.members": 20,

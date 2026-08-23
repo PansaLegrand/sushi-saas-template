@@ -16,6 +16,13 @@ export const E2E_USER = {
 export const E2E_MUTATIONS_ENABLED =
   !process.env.E2E_BASE_URL || process.env.E2E_ALLOW_MUTATIONS === "1";
 
+export const E2E_CRON_SECRET =
+  process.env.E2E_CRON_SECRET ||
+  "e2e-cron-secret-0123456789abcdef0123456789";
+
+export const E2E_WORKER_ENABLED =
+  !process.env.E2E_BASE_URL || Boolean(process.env.E2E_CRON_SECRET);
+
 export function emptyStorageState() {
   return { cookies: [], origins: [] };
 }

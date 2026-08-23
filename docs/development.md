@@ -55,7 +55,9 @@ partial-stack work, not as the ordinary way to make a red preflight disappear.
 
 After setup, Playwright starts an isolated web server on port `3100`, seeds the
 demo account, signs in through the visible Better Auth form, and exercises the
-tenant ledger and Garage upload/delete path:
+tenant ledger, Garage upload/delete path, and the complete five-credit image
+task from idempotent API replay through the durable worker to a signed private
+result:
 
 ```bash
 pnpm exec playwright install chromium

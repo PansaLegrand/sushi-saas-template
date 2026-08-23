@@ -53,6 +53,33 @@
       "linkSignup": "サインアップ",
       "linkLogin": "ログイン",
       "or": "または"
+    },
+    "imageGeneration": {
+      "title": "画像生成",
+      "intro": "認証、権限、クレジット、永続ジョブ、非公開ストレージ、安全な再試行を確認する有料ワークフローの例です。",
+      "formTitle": "画像を作成",
+      "cost": "画像1枚につき{credits}クレジットを消費します。",
+      "promptLabel": "プロンプト",
+      "promptPlaceholder": "ネオン都市の上に浮かぶ静かな寿司バー",
+      "submit": "画像を生成",
+      "submitting": "予約中…",
+      "taskTitle": "生成タスク",
+      "taskId": "タスクID",
+      "statusLabel": "状態",
+      "status": {
+        "pending_payment": "クレジットを確保中…",
+        "queued": "ワーカーの処理待ち…",
+        "running": "画像を生成して保存中…",
+        "refunding": "生成に失敗しました。クレジットを返却中…",
+        "succeeded": "画像の準備ができました",
+        "failed": "生成に失敗しました"
+      },
+      "imageAlt": "生成結果",
+      "generationFailed": "生成を完了できませんでした。5クレジットは返却されました。",
+      "errorTitle": "画像を生成できませんでした",
+      "signInTitle": "ログインが必要です",
+      "signInDescription": "タスクを作成する前にログインしてください。",
+      "signInAction": "ログイン"
     }
   },
   "reservation": {

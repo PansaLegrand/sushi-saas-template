@@ -1,14 +1,11 @@
 import { api } from "@/lib/api/client";
+import type {
+  CreateImageGenerationResponse,
+  TaskRecord,
+} from "@/types/task";
 import { organizationHeaders } from "./organization-context";
 
-export interface TaskRecord {
-  uuid: string;
-  type: string;
-  status: string;
-  creditsUsed: number;
-  createdAt: string;
-  outputUrl?: string | null;
-}
+export type { TaskRecord } from "@/types/task";
 
 export function getLatestTask() {
   return api.get<{ task: TaskRecord | null }>("/api/tasks/latest", {
@@ -38,4 +35,25 @@ export function createTextToVideoTask(input: {
     headers: organizationHeaders({ "Idempotency-Key": idempotencyKey }),
     body: { ...input, idempotencyKey },
   });
+}
+
+export function newTaskIdempotencyKey(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+export function createImageGenerationTask(input: {
+  prompt: string;
+  idempotencyKey: string;
+}) {
+  return api.post<CreateImageGenerationResponse>(
+    "/api/tasks/image-generation",
+    {
+      headers: organizationHeaders({
+        "Idempotency-Key": input.idempotencyKey,
+      }),
+      body: input,
+    },
+  );
 }

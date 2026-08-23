@@ -53,6 +53,33 @@
       "linkSignup": "Registrarse",
       "linkLogin": "Iniciar sesión",
       "or": "o"
+    },
+    "imageGeneration": {
+      "title": "Generación de imágenes",
+      "intro": "Un flujo de pago de referencia que prueba autenticación, permisos, créditos, trabajos duraderos, almacenamiento privado y reintentos seguros.",
+      "formTitle": "Crear una imagen",
+      "cost": "Cada imagen cuesta {credits} créditos.",
+      "promptLabel": "Instrucción",
+      "promptPlaceholder": "Un bar de sushi tranquilo flotando sobre una ciudad de neón",
+      "submit": "Generar imagen",
+      "submitting": "Programando…",
+      "taskTitle": "Tarea de generación",
+      "taskId": "ID de tarea",
+      "statusLabel": "Estado",
+      "status": {
+        "pending_payment": "Reservando créditos…",
+        "queued": "En cola para el proceso…",
+        "running": "Generando y guardando la imagen…",
+        "refunding": "La generación falló; restaurando tus créditos…",
+        "succeeded": "Imagen lista",
+        "failed": "La generación falló"
+      },
+      "imageAlt": "Resultado generado",
+      "generationFailed": "La generación no se completó. Se reembolsó el cargo de cinco créditos.",
+      "errorTitle": "No se pudo generar la imagen",
+      "signInTitle": "Debes iniciar sesión",
+      "signInDescription": "Inicia sesión antes de crear una tarea.",
+      "signInAction": "Iniciar sesión"
     }
   },
   "reservation": {
