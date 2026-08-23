@@ -244,6 +244,13 @@
       "when": 1785730134742,
       "tag": "0034_many_dragon_man",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1787505958989,
+      "tag": "0035_salty_silver_fox",
+      "breakpoints": true
     }
   ]
 }

@@ -8,6 +8,7 @@ import {
   index,
   uniqueIndex,
   check,
+  foreignKey,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
@@ -663,10 +664,18 @@ export const tasks = pgTable(
     uuid: varchar({ length: 255 }).notNull().unique(),
     user_uuid: varchar({ length: 255 }).notNull(),
     type: varchar({ length: 64 }).notNull().default("text_to_video"),
-    status: varchar({ length: 32 }).notNull().default("queued"), // queued|running|succeeded|failed
+    // pending_payment | queued | running | refunding | succeeded | failed
+    status: varchar({ length: 32 }).notNull().default("pending_payment"),
     credits_used: integer().notNull().default(0),
     credits_trans_no: varchar({ length: 255 }),
     idempotency_key: varchar({ length: 255 }),
+    // SHA-256 over the canonical request. Reusing a key with different input is
+    // a conflict, not permission to return somebody's earlier result.
+    request_fingerprint: varchar({ length: 64 }),
+    // Durable dispatch and private output references. Jobs are retention-bound,
+    // so their link clears on deletion; ledger and file identities survive.
+    job_uuid: varchar({ length: 255 }),
+    output_file_uuid: varchar({ length: 255 }),
 
     user_input: text(),
     output_url: varchar({ length: 1024 }),
@@ -685,11 +694,33 @@ export const tasks = pgTable(
     index("tasks_org_idx").on(table.org_uuid),
     index("tasks_status_idx").on(table.status),
     index("tasks_trans_idx").on(table.credits_trans_no),
+    index("tasks_job_idx").on(table.job_uuid),
+    index("tasks_output_file_idx").on(table.output_file_uuid),
     uniqueIndex("tasks_idempotency_unique_idx").on(
       table.user_uuid,
       table.type,
       table.idempotency_key,
     ),
+    check(
+      "tasks_status_check",
+      sql`${table.status} in ('pending_payment', 'queued', 'running', 'refunding', 'succeeded', 'failed')`,
+    ),
+    check("tasks_credits_used_check", sql`${table.credits_used} >= 0`),
+    foreignKey({
+      columns: [table.credits_trans_no],
+      foreignColumns: [credits.trans_no],
+      name: "tasks_credits_trans_no_credits_trans_no_fk",
+    }),
+    foreignKey({
+      columns: [table.output_file_uuid],
+      foreignColumns: [files.uuid],
+      name: "tasks_output_file_uuid_files_uuid_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.job_uuid],
+      foreignColumns: [jobs.uuid],
+      name: "tasks_job_uuid_jobs_uuid_fk",
+    }).onDelete("set null"),
   ],
 );
 
@@ -957,6 +988,12 @@ export const jobs = pgTable(
     index("jobs_subject_user_idx").on(table.subject_user_uuid),
     index("jobs_subject_org_idx").on(table.subject_org_uuid),
     uniqueIndex("jobs_dedupe_key_unique_idx").on(table.dedupe_key),
+    check(
+      "jobs_status_check",
+      sql`${table.status} in ('pending', 'running', 'succeeded', 'failed', 'canceled')`,
+    ),
+    check("jobs_attempts_check", sql`${table.attempts} >= 0`),
+    check("jobs_max_attempts_check", sql`${table.max_attempts} >= 1`),
   ],
 );
 

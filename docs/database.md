@@ -87,14 +87,22 @@ and run the migration workflow. Never set `TEST_DATABASE_URL` there. Details in
 These are the non-obvious decisions. Break one and something downstream breaks
 quietly.
 
-### 1. There are no foreign keys
+### 1. Identity links are logical; durable task artifacts are constrained
 
-Not one table declares a foreign key. Relationships are plain `varchar` columns
-holding a `user_uuid`, `order_no`, or `service_id`.
+Most relationships are plain `varchar` columns holding a `user_uuid`,
+`order_no`, or `service_id`. In particular, user references deliberately do not
+carry foreign keys: account erasure replaces a subject UUID with an irreversible
+tombstone while retaining financial and operational facts.
+
+The task pipeline is the narrow exception. A task's optional
+`credits_trans_no`, `job_uuid`, and `output_file_uuid` references are enforced
+against the credit ledger, durable queue, and private file record. Finished jobs
+are retention-bound, so deleting one sets `tasks.job_uuid` to null; task output
+and ledger references remain stable.
 
 The consequences are real and you must code around them:
 
-- **No cascade deletes.** Deleting a user leaves their credits, files, tasks,
+- **No general cascade deletes.** Deleting a user leaves their credits, files, tasks,
   and reservations behind. Any deletion flow has to clean up explicitly.
 - **No referential integrity.** Nothing stops a row pointing at a `user_uuid`
   that does not exist. Validate in the service layer.
@@ -304,7 +312,7 @@ recover the evidence, and follow the migration-drift response in
 
 ## Table catalogue
 
-Logical relationships — remember none of these are enforced foreign keys:
+Logical relationships; solid task-artifact edges are enforced foreign keys:
 
 ```mermaid
 graph LR
@@ -320,7 +328,9 @@ graph LR
   users -.uuid.-> auth_events
   affiliates -.deduplication evidence.-> affiliate_deduplication_archive
   orders -.order_no.-> credits
-  tasks -.credits_trans_no.-> credits
+  tasks -->|credits_trans_no| credits
+  tasks -->|output_file_uuid| files
+  tasks -->|job_uuid, SET NULL on retention| jobs
   reservation_services -.service_id.-> reservations
   reservations -.order_no.-> orders
 ```
@@ -353,7 +363,7 @@ graph LR
 | Table   | Purpose               | Notes                                                                                                                                                                                                                                |
 | ------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `files` | S3/R2 object metadata | Lifecycle `uploading` → `active` → `deleted`. **Soft delete**: set `status='deleted'` and `deleted_at`; the row stays. Tenant ownership is `org_uuid`; the older `org_id` column is legacy and should not be used for authorization. |
-| `tasks` | AI/usage work records | `credits_trans_no` traces the exact ledger row that paid for it. Idempotent per `(user_uuid, type, idempotency_key)`.                                                                                                                |
+| `tasks` | AI/usage work records | `credits_trans_no` traces the exact ledger row that paid for it; `job_uuid` and `output_file_uuid` trace durable execution and private output. Idempotent per `(user_uuid, type, idempotency_key)`, with a request fingerprint preventing key reuse for different input. |
 
 ### Operations
 
@@ -402,7 +412,7 @@ table outside this starter must back up and migrate that data before applying
 | Public identifiers | A separate `uuid` column, unique. Never expose the integer `id` in an API                                   |
 | Timestamps         | `timestamp({ withTimezone: true })` — always. No naked `timestamp`                                          |
 | `updated_at`       | Set by application code. **There is no trigger.** If you write a row and skip it, it goes stale             |
-| Status columns     | `varchar` with allowed values in a comment, not a Postgres enum — cheaper to extend. Validate in TypeScript |
+| Status columns     | `varchar`, not a Postgres enum — cheaper to extend. Validate in TypeScript and add a `CHECK` when the table is changed. |
 | Text               | `varchar({length})` when bounded, `text()` when not. JSON blobs are `text()` with a `_json` suffix          |
 | Booleans           | `.notNull().default(...)` — avoid nullable booleans                                                         |
 
@@ -456,10 +466,12 @@ migration file — write a new one.
 
 Ordered by how much they will hurt.
 
-1. **No foreign keys anywhere.** Adding them is an expand/contract job per table
-   and needs an orphan sweep first. Highest-value fix, since it turns a class of
-   silent data corruption into a loud error. Start with `credits.user_uuid` and
-   `tasks.user_uuid`.
+1. **Most relationships still have no foreign keys.** Adding them is an
+   expand/contract job per relationship and needs an orphan sweep plus an
+   erasure-policy decision first. Identity links such as `credits.user_uuid`
+   and `tasks.user_uuid` cannot reference `users.uuid` while retained rows use
+   irreversible subject tombstones; solve that representation before adding a
+   constraint. Task-to-ledger/job/output relationships are now enforced.
 
    Until those keys are added, `pnpm db:integrity` performs a read-only orphan
    sweep across Better Auth identities, memberships/invitations, and
