@@ -1,5 +1,9 @@
 import { sql } from "drizzle-orm";
 
+import {
+  STORAGE_FILE_STATUSES,
+  STORAGE_UPLOAD_VISIBILITIES,
+} from "@/config/storage";
 import { db } from "@/db";
 
 export type DataIntegrityFinding = {
@@ -8,13 +12,26 @@ export type DataIntegrityFinding = {
 };
 
 /**
- * Read-only orphan sweep for relationships that the legacy schema cannot yet
- * enforce with foreign keys. Tombstoned organizations remain present; erased
- * user subjects use the explicit `erased-subject` sentinel and are excluded.
+ * Read-only integrity sweep for invariants that need an operational preflight.
+ *
+ * Most checks find relationships the legacy schema cannot enforce with foreign
+ * keys. The value checks let a release detect historical rows that would block
+ * a later constraint-validation or NOT NULL migration. Tombstoned
+ * organizations remain present; erased user subjects use the explicit
+ * `erased-subject` sentinel and are excluded from identity checks.
  */
 export async function listDataIntegrityFindings(): Promise<
   DataIntegrityFinding[]
 > {
+  const fileStatuses = sql.join(
+    STORAGE_FILE_STATUSES.map((status) => sql`${status}`),
+    sql`, `,
+  );
+  const fileVisibilities = sql.join(
+    STORAGE_UPLOAD_VISIBILITIES.map((visibility) => sql`${visibility}`),
+    sql`, `,
+  );
+
   const result = await db().execute(sql`
     select 'sessions.user_id' as "check", count(*)::int as "count"
       from sessions child left join users parent on parent.id = child.user_id
@@ -91,6 +108,34 @@ export async function listDataIntegrityFindings(): Promise<
     select 'subscriptions.user_uuid', count(*)::int
       from subscriptions child left join users parent on parent.uuid = child.user_uuid
       where parent.uuid is null and child.user_uuid <> 'erased-subject'
+    union all
+    select 'files.status', count(*)::int
+      from files
+      where status not in (${fileStatuses})
+    union all
+    select 'files.visibility', count(*)::int
+      from files
+      where visibility not in (${fileVisibilities})
+    union all
+    select 'files.size', count(*)::int
+      from files
+      where size < 0
+    union all
+    select 'orders.created_at', count(*)::int
+      from orders
+      where created_at is null
+    union all
+    select 'credits.created_at', count(*)::int
+      from credits
+      where created_at is null
+    union all
+    select 'affiliates.created_at', count(*)::int
+      from affiliates
+      where created_at is null
+    union all
+    select 'feedbacks.created_at', count(*)::int
+      from feedbacks
+      where created_at is null
   `);
 
   const rows = result as unknown as

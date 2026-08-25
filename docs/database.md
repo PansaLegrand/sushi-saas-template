@@ -70,9 +70,10 @@ pnpm db:migrate && pnpm test:db:setup && pnpm studio:migrate
 pnpm test:db
 ```
 
-23 tests should pass. If they **skip** instead, `TEST_DATABASE_URL` is not being
-picked up — check it is in `.env.development.local` and that its database name
-contains `test`, which the harness requires before it will truncate anything.
+The database suite should pass. If its PostgreSQL tests **skip** instead,
+`TEST_DATABASE_URL` is not being picked up — check it is in
+`.env.development.local` and that its database name contains `test`, which the
+harness requires before it will truncate anything.
 
 ### Production
 
@@ -362,7 +363,7 @@ graph LR
 
 | Table   | Purpose               | Notes                                                                                                                                                                                                                                |
 | ------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `files` | S3/R2 object metadata | Lifecycle `uploading` → `active` → `deleted`. **Soft delete**: set `status='deleted'` and `deleted_at`; the row stays. Tenant ownership is `org_uuid`; the older `org_id` column is legacy and should not be used for authorization. |
+| `files` | S3/R2 object metadata | Normal lifecycle is `uploading` → `active`; deletion passes through `deleting` before `deleted`, and `failed` is the terminal upload-failure state. **Soft delete**: set `status='deleted'` and `deleted_at`; the row stays. Tenant ownership is `org_uuid`; the older `org_id` column is legacy and is excluded from application-facing model types. |
 | `tasks` | AI/usage work records | `credits_trans_no` traces the exact ledger row that paid for it; `job_uuid` and `output_file_uuid` trace durable execution and private output. Idempotent per `(user_uuid, type, idempotency_key)`, with a request fingerprint preventing key reuse for different input. |
 
 ### Operations
@@ -445,6 +446,7 @@ migration file — write a new one.
 - [ ] Edited `src/db/schema.ts`, not SQL by hand
 - [ ] Ran `pnpm db:generate`; reviewed the generated SQL before committing
 - [ ] **Expand/contract safe** — the currently deployed code still works against the new schema ([DEPLOYMENT.md](../DEPLOYMENT.md#expand--contract))
+- [ ] Ran `pnpm db:integrity` against existing data before tightening a relationship, value constraint, or nullability contract
 - [ ] Added a `src/models/<domain>.ts` helper rather than querying from a service or route
 - [ ] Added an index for any column you filter or sort by at scale
 - [ ] If you added a uniqueness guarantee, added a `tests/db/` test that proves it rejects a duplicate
@@ -473,25 +475,29 @@ Ordered by how much they will hurt.
    irreversible subject tombstones; solve that representation before adding a
    constraint. Task-to-ledger/job/output relationships are now enforced.
 
-   Until those keys are added, `pnpm db:integrity` performs a read-only orphan
-   sweep across Better Auth identities, memberships/invitations, and
-   tenant-owned billing, credits, reservations, files, tasks, and subscriptions.
-   It exits non-zero on any orphan and runs against the migrated test database
-   in CI. Run it against production before and after relationship migrations.
+   Until those keys are added, `pnpm db:integrity` performs a read-only sweep
+   across Better Auth identities, memberships/invitations, and tenant-owned
+   billing, credits, reservations, files, tasks, and subscriptions. It also
+   reports historical values that would block the next constraint or NOT NULL
+   contract migration. It exits non-zero on any finding and runs against the
+   migrated test database in CI. Run it against production before and after
+   relationship migrations.
 
 2. **Historical `created_at` nullability remains.** Newer tables use
    `.notNull().defaultNow()`; older `orders`, `credits`, `affiliates`, and
    `feedbacks` columns are still nullable for compatibility. Migration `0036`
    adds database defaults, so an omitted value can no longer create a new null.
    Before a later contract migration marks them NOT NULL, report and backfill
-   historical nulls in bounded batches. **Do not copy the old nullable pattern
-   into new tables.**
+   historical nulls in bounded batches; `pnpm db:integrity` reports the count in
+   each table. **Do not copy the old nullable pattern into new tables.**
 
 3. **`files.org_id` is legacy.** Tenancy now uses `org_uuid` across application
-   tables. The architecture test now rejects any application read of the old
-   path, but the physical column remains for mixed-deployment compatibility.
-   Drop it in a later contract migration only after every older app artifact is
-   retired; removing it now would make those artifacts' generated SELECTs fail.
+   tables. The file model excludes the legacy field from application-facing
+   insert, patch, and row types, while the architecture test rejects direct
+   reads of the old path. The physical column remains for mixed-deployment
+   compatibility. Drop it in a later contract migration only after every older
+   app artifact is retired; removing it now would make those artifacts'
+   generated SELECTs fail.
 
 4. ~~**No committed retention period for the audit tables.**~~ **Fixed.** The
    operational policy defaults to 14 days for finished jobs, 30 days for

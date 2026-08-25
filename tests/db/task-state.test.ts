@@ -13,7 +13,13 @@ import { db } from "@/db";
 import { jobs, tasks } from "@/db/schema";
 import { insertJob } from "@/models/job";
 
-import { describeDb, useCleanDatabase } from "./setup";
+import {
+  CHECK_VIOLATION,
+  describeDb,
+  expectConstraintViolation,
+  FOREIGN_KEY_VIOLATION,
+  useCleanDatabase,
+} from "./setup";
 
 function taskValues(overrides: Partial<typeof tasks.$inferInsert> = {}) {
   return {
@@ -26,61 +32,45 @@ function taskValues(overrides: Partial<typeof tasks.$inferInsert> = {}) {
   } satisfies typeof tasks.$inferInsert;
 }
 
-async function expectConstraint(
-  operation: Promise<unknown>,
-  code: "23503" | "23514",
-  constraintName: string,
-): Promise<void> {
-  try {
-    await operation;
-    throw new Error(`expected PostgreSQL constraint ${constraintName} to fail`);
-  } catch (error) {
-    const cause = (error as { cause?: { code?: string; constraint_name?: string } })
-      .cause;
-    expect(cause?.code).toBe(code);
-    expect(cause?.constraint_name).toBe(constraintName);
-  }
-}
-
 describeDb("task state constraints (real database)", () => {
   useCleanDatabase();
 
   it("rejects unsupported task states and negative credit costs", async () => {
-    await expectConstraint(
+    await expectConstraintViolation(
       db().insert(tasks).values(taskValues({ status: "finished" })),
-      "23514",
+      CHECK_VIOLATION,
       "tasks_status_check",
     );
 
-    await expectConstraint(
+    await expectConstraintViolation(
       db().insert(tasks).values(taskValues({ credits_used: -1 })),
-      "23514",
+      CHECK_VIOLATION,
       "tasks_credits_used_check",
     );
   });
 
   it("rejects task links to ledger, queue, or file rows that do not exist", async () => {
-    await expectConstraint(
+    await expectConstraintViolation(
       db()
         .insert(tasks)
         .values(taskValues({ credits_trans_no: `missing-${randomUUID()}` })),
-      "23503",
+      FOREIGN_KEY_VIOLATION,
       "tasks_credits_trans_no_credits_trans_no_fk",
     );
 
-    await expectConstraint(
+    await expectConstraintViolation(
       db()
         .insert(tasks)
         .values(taskValues({ job_uuid: `missing-${randomUUID()}` })),
-      "23503",
+      FOREIGN_KEY_VIOLATION,
       "tasks_job_uuid_jobs_uuid_fk",
     );
 
-    await expectConstraint(
+    await expectConstraintViolation(
       db()
         .insert(tasks)
         .values(taskValues({ output_file_uuid: `missing-${randomUUID()}` })),
-      "23503",
+      FOREIGN_KEY_VIOLATION,
       "tasks_output_file_uuid_files_uuid_fk",
     );
   });
@@ -106,23 +96,23 @@ describeDb("task state constraints (real database)", () => {
   });
 
   it("rejects invalid queue states and attempt bounds", async () => {
-    await expectConstraint(
+    await expectConstraintViolation(
       db().insert(jobs).values({
         uuid: randomUUID(),
         type: "image_generation",
         status: "waiting",
       }),
-      "23514",
+      CHECK_VIOLATION,
       "jobs_status_check",
     );
 
-    await expectConstraint(
+    await expectConstraintViolation(
       db().insert(jobs).values({
         uuid: randomUUID(),
         type: "image_generation",
         max_attempts: 0,
       }),
-      "23514",
+      CHECK_VIOLATION,
       "jobs_max_attempts_check",
     );
   });

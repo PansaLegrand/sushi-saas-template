@@ -14,18 +14,34 @@ import { scopedToOrg } from "./organization";
  * chat should still 404 for another tenant rather than serve the file.
  */
 
-/** `org_uuid` is required, not optional-with-a-default: a file with no tenant is unreachable. */
-export type FileInsert = typeof files.$inferInsert & { org_uuid: string };
+/**
+ * Application-facing file types deliberately omit the retired `org_id` column.
+ *
+ * The physical column remains for rollback compatibility with older deployed
+ * artifacts, but new code cannot write it or make it part of an authorization
+ * decision. `org_uuid` is required: a file with no tenant is unreachable.
+ */
+export type FileRow = Omit<typeof files.$inferSelect, "org_id">;
+export type FileInsert = Omit<typeof files.$inferInsert, "org_id"> & {
+  org_uuid: string;
+};
+export type FilePatch = Partial<
+  Omit<
+    FileInsert,
+    "created_at" | "org_uuid" | "user_uuid" | "uuid"
+  >
+>;
+export type FileStatus = FileRow["status"];
 
 export async function insertFile(
   data: FileInsert,
-): Promise<typeof files.$inferSelect | undefined> {
+): Promise<FileRow | undefined> {
   const [row] = await db().insert(files).values(data).returning();
   return row;
 }
 
 export type FileReservationOutcome =
-  | { ok: true; file: typeof files.$inferSelect; usedBytes: number }
+  | { ok: true; file: FileRow; usedBytes: number }
   | { ok: false; usedBytes: number };
 
 /**
@@ -67,7 +83,7 @@ export async function reserveFileWithinQuota(
 export async function findFileByUuid(
   uuid: string,
   orgUuid: string,
-): Promise<typeof files.$inferSelect | undefined> {
+): Promise<FileRow | undefined> {
   const [row] = await db()
     .select()
     .from(files)
@@ -79,8 +95,8 @@ export async function findFileByUuid(
 export async function updateFileByUuid(
   uuid: string,
   orgUuid: string,
-  patch: Partial<typeof files.$inferInsert>,
-): Promise<typeof files.$inferSelect | undefined> {
+  patch: FilePatch,
+): Promise<FileRow | undefined> {
   const [row] = await db()
     .update(files)
     .set({ ...patch, updated_at: new Date() })
@@ -99,8 +115,8 @@ export async function updateFileByUuid(
 export async function activateUploadingFile(
   uuid: string,
   orgUuid: string,
-  patch: Partial<typeof files.$inferInsert>,
-): Promise<typeof files.$inferSelect | undefined> {
+  patch: FilePatch,
+): Promise<FileRow | undefined> {
   const [row] = await db()
     .update(files)
     .set({ ...patch, status: "active", updated_at: new Date() })
@@ -121,7 +137,7 @@ export async function listFilesByOrg(
   page: number = 1,
   limit: number = 50,
   includeDeleted = false,
-): Promise<(typeof files.$inferSelect)[]> {
+): Promise<FileRow[]> {
   const offset = (page - 1) * limit;
 
   const scope = scopedToOrg(files.org_uuid, orgUuid);
@@ -141,7 +157,7 @@ export async function listFilesByOrg(
 export async function softDeleteFile(
   uuid: string,
   orgUuid: string,
-): Promise<typeof files.$inferSelect | undefined> {
+): Promise<FileRow | undefined> {
   const [row] = await db()
     .update(files)
     .set({ status: "deleted", deleted_at: new Date(), updated_at: new Date() })
@@ -154,7 +170,7 @@ export async function softDeleteFile(
 export async function markFileDeleting(
   uuid: string,
   orgUuid: string,
-): Promise<typeof files.$inferSelect | undefined> {
+): Promise<FileRow | undefined> {
   const [row] = await db()
     .update(files)
     .set({ status: "deleting", updated_at: new Date() })
@@ -181,12 +197,12 @@ export async function markFileDeleting(
 export async function scheduleFileDeletion(params: {
   uuid: string;
   orgUuid: string;
-  expectedStatuses?: readonly string[];
-  patch?: Partial<typeof files.$inferInsert>;
+  expectedStatuses?: readonly FileStatus[];
+  patch?: FilePatch;
   maxAttempts?: number;
 }): Promise<
   | {
-      file: typeof files.$inferSelect;
+      file: FileRow;
       queued: boolean;
     }
   | undefined
@@ -291,7 +307,7 @@ export async function listStaleUploadingFiles(params: {
   cutoff: Date;
   orgUuid?: string;
   limit?: number;
-}): Promise<Array<typeof files.$inferSelect>> {
+}): Promise<FileRow[]> {
   const predicates = [
     eq(files.status, "uploading"),
     lt(files.created_at, params.cutoff),

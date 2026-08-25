@@ -13,19 +13,16 @@ import { getAppEnv } from "@/lib/env";
 import {
   DEFAULT_STORAGE_UPLOAD_POLICY_ID,
   STORAGE_UPLOAD_POLICY_IDS,
+  STORAGE_UPLOAD_VISIBILITIES,
   extensionForFilename,
   getStorageUploadPolicy,
   isAllowedUploadType,
   isSha256Checksum,
-  isStorageUploadPolicyId,
   normalizeContentType,
 } from "@/config/storage";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
-import type {
-  CreateUploadRequest,
-  CreateUploadResponse,
-} from "@/types/storage";
+import type { CreateUploadResponse } from "@/types/storage";
 import {
   logger as baseLogger,
   requestIdFromHeaders,
@@ -46,7 +43,7 @@ const CreateUploadSchema = z.object({
   size: z.coerce.number().positive().optional(),
   checksumSha256: z.string().trim().optional(),
   policy: z.enum(STORAGE_UPLOAD_POLICY_IDS).optional(),
-  visibility: z.enum(["public", "private", "org"]).optional(),
+  visibility: z.enum(STORAGE_UPLOAD_VISIBILITIES).optional(),
   metadata: z.record(z.string()).optional(),
 });
 
@@ -81,29 +78,19 @@ export async function POST(req: Request) {
     if (!contentTypeHeader.toLowerCase().includes("application/json")) {
       return respCode("REQUEST_UNSUPPORTED_MEDIA_TYPE");
     }
-    const payload: Partial<CreateUploadRequest> &
-      Partial<{
-        name: string;
-        type: string;
-        mimeType: string;
-        mime: string;
-      }> = await parseJsonBody(req, CreateUploadSchema);
+    const payload = await parseJsonBody(req, CreateUploadSchema);
 
     // Normalize alternate property names
-    const filename = (payload as any).filename || (payload as any).name;
+    const filename = payload.filename || payload.name;
     const contentType =
-      (payload as any).contentType ||
-      (payload as any).type ||
-      (payload as any).mimeType ||
-      (payload as any).mime;
-    const size =
-      typeof (payload as any).size === "string"
-        ? Number((payload as any).size)
-        : (payload as any).size;
-    const checksumSha256 = (payload as any).checksumSha256;
-    const policyValue = (payload as any).policy;
-    const visibility = (payload as any).visibility;
-    const metadata = (payload as any).metadata;
+      payload.contentType || payload.type || payload.mimeType || payload.mime;
+    const {
+      size,
+      checksumSha256,
+      policy: policyValue,
+      visibility,
+      metadata,
+    } = payload;
 
     if (!filename || !contentType || !size || Number(size) <= 0) {
       // Keep message consistent but add hint for developers
@@ -116,12 +103,6 @@ export async function POST(req: Request) {
       });
       return respCode("REQUEST_MISSING_FIELD", {
         details: { fields: ["filename", "contentType", "size"] },
-      });
-    }
-
-    if (policyValue && !isStorageUploadPolicyId(policyValue)) {
-      return respCode("REQUEST_VALIDATION_FAILED", {
-        details: { fields: [{ field: "policy", code: "invalid_enum_value" }] },
       });
     }
 
@@ -197,8 +178,8 @@ export async function POST(req: Request) {
       original_filename: filename,
       extension: extension.slice(1),
       content_type: normalizedContentType,
-      size: Number(size),
-      visibility: (visibility as any) ?? "private",
+      size,
+      visibility: visibility ?? "private",
       status: "uploading",
       checksum_sha256: checksumSha256 ?? null,
       metadata_json: JSON.stringify(metadataWithPolicy(metadata, policy.id)),
@@ -208,7 +189,7 @@ export async function POST(req: Request) {
       bucket,
       key,
       contentType: normalizedContentType,
-      size: Number(size),
+      size,
       checksumSha256,
       metadata,
       expiresIn: 15 * 60,
@@ -224,7 +205,7 @@ export async function POST(req: Request) {
       file_id: fileUuid,
       key,
       bucket,
-      size: Number(size),
+      size,
       content_type: normalizedContentType,
       status: "ok",
     });

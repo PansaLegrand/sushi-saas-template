@@ -355,10 +355,10 @@ it rejects placeholders and public environment values that disagree with
 `saas.config.json`.
 
 Before a database change is promoted, `pnpm db:lint` must pass in the release
-artifact and `pnpm db:integrity -- --production` must report no orphans against
-the target database. The first is static and safe anywhere; the second is
-read-only but should use a connection with a statement timeout appropriate for
-the dataset.
+artifact and `pnpm db:integrity -- --production` must report no relationship or
+value-integrity findings against the target database. The first is static and
+safe anywhere; the second is read-only but should use a connection with a
+statement timeout appropriate for the dataset.
 
 ### Background jobs
 

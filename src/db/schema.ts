@@ -13,6 +13,11 @@ import {
 import { sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 
+import type {
+  StorageFileStatus,
+  StorageUploadVisibility,
+} from "@/types/storage";
+
 // Users table
 export const users = pgTable(
   "users",
@@ -640,8 +645,14 @@ export const files = pgTable(
     // File metadata
     original_filename: varchar({ length: 255 }).notNull().default(""),
     extension: varchar({ length: 32 }).notNull().default(""),
-    visibility: varchar({ length: 32 }).notNull().default("private"), // private|public|org
-    status: varchar({ length: 32 }).notNull().default("uploading"), // uploading|active|deleting|deleted|failed
+    visibility: varchar({ length: 32 })
+      .$type<StorageUploadVisibility>()
+      .notNull()
+      .default("private"),
+    status: varchar({ length: 32 })
+      .$type<StorageFileStatus>()
+      .notNull()
+      .default("uploading"),
     metadata_json: text(),
 
     created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),

@@ -368,15 +368,25 @@ describe("tenancy", () => {
     path.startsWith("src/models/"),
   );
 
-  it("never revives the legacy files.org_id authorization path", () => {
+  it("keeps the legacy files.org_id authorization path quarantined", () => {
     // The column remains for one mixed-deployment release, but application
     // code has completed the expand/contract first half: every file decision
-    // keys on org_uuid. Keeping that true makes a later DROP a mechanical
-    // contract migration instead of another authorization rewrite.
+    // keys on org_uuid. `src/models/file.ts` also omits the field from its
+    // application-facing types; these textual checks cover direct schema reads
+    // and deliberate attempts to evade property access with bracket syntax.
+    const readsLegacyFileOrg = (body: string) => {
+      const source = stripComments(body);
+      return (
+        /\b(?:file|files)\s*\.\s*org_id\b/.test(source) ||
+        /\b(?:file|files)\s*\[\s*["']org_id["']\s*\]/.test(source) ||
+        /\{[^}]*\borg_id\b[^}]*\}\s*=\s*(?:file|files)\b/.test(source)
+      );
+    };
+
     const offenders = FILES.filter(
       ({ path, body }) =>
         path !== "src/db/schema.ts" &&
-        /\b(?:file|files)\.org_id\b/.test(stripComments(body)),
+        readsLegacyFileOrg(body),
     ).map(({ path }) => path);
 
     expect(offenders).toEqual([]);

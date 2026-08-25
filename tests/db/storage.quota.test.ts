@@ -9,11 +9,20 @@ import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { files, jobs } from "@/db/schema";
-import { reserveFileWithinQuota, scheduleFileDeletion } from "@/models/file";
+import {
+  reserveFileWithinQuota,
+  scheduleFileDeletion,
+  type FileInsert,
+} from "@/models/file";
 
-import { describeDb, useCleanDatabase } from "./setup";
+import {
+  CHECK_VIOLATION,
+  describeDb,
+  expectConstraintViolation,
+  useCleanDatabase,
+} from "./setup";
 
-function candidate(uuid: string) {
+function candidate(uuid: string): FileInsert & { size: number } {
   return {
     uuid,
     org_uuid: "org-storage",
@@ -29,18 +38,14 @@ function candidate(uuid: string) {
 }
 
 async function expectCheck(
-  values: ReturnType<typeof candidate> & Record<string, unknown>,
+  values: Record<string, unknown>,
   constraintName: string,
-) {
-  try {
-    await db().insert(files).values(values as never);
-    throw new Error(`expected ${constraintName} to reject the file`);
-  } catch (error) {
-    const cause = (error as { cause?: { code?: string; constraint_name?: string } })
-      .cause;
-    expect(cause?.code).toBe("23514");
-    expect(cause?.constraint_name).toBe(constraintName);
-  }
+): Promise<void> {
+  await expectConstraintViolation(
+    db().insert(files).values(values as typeof files.$inferInsert),
+    CHECK_VIOLATION,
+    constraintName,
+  );
 }
 
 describeDb("storage quota reservation (real database)", () => {

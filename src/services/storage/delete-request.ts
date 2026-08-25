@@ -1,4 +1,7 @@
-import { scheduleFileDeletion } from "@/models/file";
+import {
+  scheduleFileDeletion,
+  type FileStatus,
+} from "@/models/file";
 
 /**
  * Move a file out of the readable state and durably schedule object deletion.
@@ -8,10 +11,10 @@ import { scheduleFileDeletion } from "@/models/file";
  * gives the queue a visible state to retry.
  */
 export async function requestFileDeletion(
-  file: { uuid: string; status: string },
+  file: { uuid: string; status: FileStatus },
   orgUuid: string,
   options: {
-    expectedStatuses?: readonly string[];
+    expectedStatuses?: readonly FileStatus[];
     patch?: Parameters<typeof scheduleFileDeletion>[0]["patch"];
   } = {},
 ) {

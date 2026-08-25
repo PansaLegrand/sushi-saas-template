@@ -5,8 +5,24 @@ export const STORAGE_UPLOAD_POLICY_IDS = [
   "verified",
 ] as const;
 
+export const STORAGE_UPLOAD_VISIBILITIES = [
+  "public",
+  "private",
+  "org",
+] as const;
+
+export const STORAGE_FILE_STATUSES = [
+  "uploading",
+  "active",
+  "deleting",
+  "deleted",
+  "failed",
+] as const;
+
 export type StorageUploadPolicyId = (typeof STORAGE_UPLOAD_POLICY_IDS)[number];
-export type StorageUploadVisibility = "private" | "org" | "public";
+export type StorageUploadVisibility =
+  (typeof STORAGE_UPLOAD_VISIBILITIES)[number];
+export type StorageFileStatus = (typeof STORAGE_FILE_STATUSES)[number];
 
 export type StorageUploadPolicy = {
   id: StorageUploadPolicyId;

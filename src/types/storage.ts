@@ -1,5 +1,11 @@
 import type {
+  StorageFileStatus,
   StorageUploadPolicyId,
+  StorageUploadVisibility,
+} from "@/config/storage";
+
+export type {
+  StorageFileStatus,
   StorageUploadVisibility,
 } from "@/config/storage";
 
@@ -22,8 +28,8 @@ export interface FileObject {
   storage_class?: string | null;
   original_filename: string;
   extension: string;
-  visibility: "private" | "public" | "org";
-  status: "uploading" | "active" | "deleting" | "deleted" | "failed";
+  visibility: StorageUploadVisibility;
+  status: StorageFileStatus;
   metadata_json?: string | null;
   created_at?: string | Date;
   updated_at?: string | Date;

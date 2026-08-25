@@ -10,8 +10,8 @@ const args = process.argv.slice(2).filter((arg) => arg !== "--");
 if (args.includes("--help") || args.includes("-h")) {
   console.log(`Usage: pnpm db:integrity [--production]
 
-Runs a read-only orphan sweep for high-value auth, tenancy, and tenant-owned
-relationships that are not yet protected by PostgreSQL foreign keys.`);
+Runs read-only relationship and value checks for high-value auth, tenancy,
+tenant-owned data, and pending schema-tightening work.`);
   process.exit(0);
 }
 for (const arg of args) {
@@ -39,16 +39,16 @@ async function main() {
   const { checkDataIntegrity } = await import("@/services/integrity");
   try {
     const report = await checkDataIntegrity();
-    console.log(`Data integrity: ${report.checks} relationship checks`);
+    console.log(`Data integrity: ${report.checks} checks`);
     if (!report.healthy) {
       for (const finding of report.findings) {
         console.error(
-          `  FAIL ${finding.check}: ${finding.count} orphaned row(s)`,
+          `  FAIL ${finding.check}: ${finding.count} affected row(s)`,
         );
       }
       process.exitCode = 1;
     } else {
-      console.log("  no orphaned rows found");
+      console.log("  no integrity findings");
     }
   } finally {
     const { closeDb } = await import("@/db");

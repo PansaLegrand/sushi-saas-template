@@ -211,6 +211,30 @@ describe("POST /api/storage/uploads", () => {
     expect(mocks.getPresignedUpload).not.toHaveBeenCalled();
   });
 
+  it("normalizes legacy field aliases and a string size through the schema", async () => {
+    const res = await createUpload(
+      postJson("/api/storage/uploads", {
+        name: "report.pdf",
+        type: "application/pdf",
+        size: "100",
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.reserveStorageUpload).toHaveBeenCalledWith(
+      "org-test",
+      expect.objectContaining({
+        original_filename: "report.pdf",
+        content_type: "application/pdf",
+        size: 100,
+        visibility: "private",
+      }),
+    );
+    expect(mocks.getPresignedUpload).toHaveBeenCalledWith(
+      expect.objectContaining({ size: 100 }),
+    );
+  });
+
   it("requires a checksum for verified uploads", async () => {
     const res = await createUpload(
       postJson("/api/storage/uploads", {

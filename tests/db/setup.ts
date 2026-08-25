@@ -13,7 +13,7 @@
  *   createdb sushi_test
  *   TEST_DATABASE_URL=postgresql://localhost:5432/sushi_test pnpm test:db
  */
-import { afterAll, beforeAll, beforeEach, describe } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect } from "vitest";
 import { sql } from "drizzle-orm";
 import postgres from "postgres";
 
@@ -268,8 +268,50 @@ export function useCleanDatabase(): void {
 
 /** Postgres unique-violation code, surfaced directly or wrapped in `cause`. */
 export const UNIQUE_VIOLATION = "23505";
+export const FOREIGN_KEY_VIOLATION = "23503";
+export const CHECK_VIOLATION = "23514";
+
+type DatabaseError = {
+  code?: string;
+  constraint_name?: string;
+  cause?: {
+    code?: string;
+    constraint_name?: string;
+  };
+};
+
+function asDatabaseError(error: unknown): DatabaseError | undefined {
+  return error && typeof error === "object"
+    ? (error as DatabaseError)
+    : undefined;
+}
 
 export function errorCode(error: unknown): string | undefined {
-  const e = error as { code?: string; cause?: { code?: string } } | null;
+  const e = asDatabaseError(error);
   return e?.code ?? e?.cause?.code;
+}
+
+export function errorConstraintName(error: unknown): string | undefined {
+  const e = asDatabaseError(error);
+  return e?.constraint_name ?? e?.cause?.constraint_name;
+}
+
+/** Assert a real PostgreSQL constraint rejection without depending on wrapper shape. */
+export async function expectConstraintViolation(
+  operation: PromiseLike<unknown>,
+  code: string,
+  constraintName: string,
+): Promise<void> {
+  let rejection: unknown;
+  try {
+    await operation;
+  } catch (error) {
+    rejection = error;
+  }
+
+  expect(
+    errorCode(rejection),
+    `expected PostgreSQL constraint ${constraintName} to reject the operation`,
+  ).toBe(code);
+  expect(errorConstraintName(rejection)).toBe(constraintName);
 }

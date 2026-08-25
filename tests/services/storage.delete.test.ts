@@ -27,7 +27,7 @@ const FILE = {
   status: "active",
   bucket: "bucket",
   key: "uploads/file-1",
-};
+} as const;
 
 describe("durable storage deletion", () => {
   beforeEach(() => {

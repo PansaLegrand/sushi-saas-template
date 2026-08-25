@@ -32,10 +32,11 @@ pnpm db:check:prod
 pnpm db:integrity -- --production
 ```
 
-The command fails when migrations are pending or the journal has drifted. If
-pending migrations are expected, run `pnpm db:migrate:prod` through the approved
-migration workflow first; the apply path verifies the journal again before the
-application is promoted.
+The checks fail when migrations are pending, the journal has drifted, or the
+database contains a relationship/value-integrity finding. If pending migrations
+are expected, run `pnpm db:migrate:prod` through the approved migration workflow
+first; the apply path verifies the journal again before the application is
+promoted.
 
 ## Manual Smoke Checks
 
