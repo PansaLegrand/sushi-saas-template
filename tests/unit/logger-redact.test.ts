@@ -65,4 +65,21 @@ describe("logger redaction", () => {
     expect(result.cause.accessToken).toBe("[REDACTED]");
     expect(result.self).toBe("[Circular]");
   });
+
+  it("drops raw provider payloads attached to SDK errors", () => {
+    const error = new Error("signature verification failed");
+    Object.assign(error, {
+      payload: '{"email":"buyer@example.test"}',
+      requestBody: "cardholder data",
+      providerCode: "signature_invalid",
+    });
+
+    expect(redactLogFields({ error })).toMatchObject({
+      error: {
+        payload: "[REDACTED]",
+        requestBody: "[REDACTED]",
+        providerCode: "signature_invalid",
+      },
+    });
+  });
 });

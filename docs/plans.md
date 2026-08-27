@@ -236,6 +236,13 @@ New checkouts use the server-only `STRIPE_PRICE_*` variables. Legacy
 grandfathered subscriptions keep their tier and renewal grant. CNY variants are
 optional and appear in the UI only when their Price ID is configured.
 
+The webhook route verifies the signature and translates the service result to
+HTTP. Durable claiming and outcome state live in
+`src/services/stripe/webhook.ts`; event-family handlers beside it own checkout,
+renewal, subscription, and refund policy. New Stripe event behavior belongs in
+that service dispatcher, never directly in the route, so replay handling and
+manual-action classification wrap every money-moving path consistently.
+
 ## What is deliberately not here
 
 - **Refund and chargeback reversal.** `charge.refunded` and

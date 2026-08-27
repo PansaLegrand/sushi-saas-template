@@ -6,6 +6,7 @@ import {
   sendWelcomeEmail,
 } from "@/services/email/send";
 import { sendSlackMessage } from "@/integrations/slack";
+import { AppError } from "@/lib/errors/app-error";
 import {
   CreditsTransType,
   increaseCredits,
@@ -83,7 +84,9 @@ export const jobHandlers: JobHandlerMap = {
     // shape strands every in-flight job of that type.
     const org = await findPersonalOrganizationByUserUuid(userUuid);
     if (!org) {
-      throw new Error(`no personal organization for user ${userUuid}`);
+      throw new AppError("SERVER_ERROR", {
+        message: `no personal organization for user ${userUuid}`,
+      });
     }
 
     try {

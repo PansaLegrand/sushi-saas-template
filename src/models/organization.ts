@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gt, ilike, or, sql, type SQL } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
+import { AppError } from "@/lib/errors/app-error";
 import {
   orgInvitations,
   orgMembers,
@@ -32,7 +33,6 @@ export type OrgUuid = string & { readonly __brand: "OrgUuid" };
 export function asOrgUuid(value: string): OrgUuid {
   return value as OrgUuid;
 }
-
 /** A membership row: which user belongs to which organization, in what role. */
 export type OrgMemberRow = typeof orgMembers.$inferSelect;
 
@@ -722,7 +722,9 @@ export function scopedToOrg(column: PgColumn, orgUuid: string): SQL {
     // An empty scope would match every row whose column is also empty, which
     // during the nullable window is a large and arbitrary slice of the table.
     // Failing loudly beats returning another tenant's data.
-    throw new Error("scopedToOrg called without an organization uuid");
+    throw new AppError("SERVER_ERROR", {
+      message: "scopedToOrg called without an organization uuid",
+    });
   }
 
   return eq(column, orgUuid);

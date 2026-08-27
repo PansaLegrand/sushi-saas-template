@@ -62,6 +62,27 @@ function importsModule(body: string, specifier: string): boolean {
   return new RegExp(`from ["']${specifier}(/[^"']*)?["']`).test(body);
 }
 
+function namedImportsFrom(body: string, specifierPrefix: string): string[] {
+  const source = stripComments(body);
+  const pattern = new RegExp(
+    `import\\s*\\{([\\s\\S]*?)\\}\\s*from\\s*["']${specifierPrefix}[^"']*["']`,
+    "g",
+  );
+
+  return [...source.matchAll(pattern)].flatMap((match) =>
+    match[1]
+      .split(",")
+      .map(
+        (name) =>
+          name
+            .trim()
+            .replace(/^type\s+/, "")
+            .split(/\s+as\s+/)[0],
+      )
+      .filter(Boolean),
+  );
+}
+
 describe("layering", () => {
   it("finds source files to check", () => {
     // Guards the guard: a broken walker would make every rule below vacuously
@@ -126,6 +147,29 @@ describe("layering", () => {
       }
     }
 
+    expect(offenders).toEqual([]);
+  });
+
+  it("keeps model writes behind the service layer", () => {
+    // Routes may use a model for a trivial read. Writes carry idempotency,
+    // audit, and cross-table invariants, so importing a mutating model helper
+    // into a route is an architectural bypass even though the dependency arrow
+    // still points downward.
+    const mutationName =
+      /^(?:activate|add|apply|ban|cancel|claim|complete|confirm|consume|create|decrease|delete|ensure|expire|grant|increase|insert|link|mark|persist|remove|replace|reserve|restore|revoke|save|schedule|set|softDelete|unban|unlink|update|upsert|write)/;
+    const routeFiles = FILES.filter(({ path }) => path.endsWith("/route.ts"));
+    const modelImports = routeFiles.flatMap(({ path, body }) =>
+      namedImportsFrom(body, "@/models/").map((name) => ({ path, name })),
+    );
+    const offenders = modelImports
+      .filter(({ name }) => mutationName.test(name))
+      .map(({ path, name }) => `${path} imports ${name}`);
+
+    // Guards the parser: this repository deliberately permits direct route
+    // reads, so matching none would make the mutation rule vacuous.
+    expect(modelImports.length).toBeGreaterThan(0);
+    expect(mutationName.test("updateExample")).toBe(true);
+    expect(mutationName.test("findExample")).toBe(false);
     expect(offenders).toEqual([]);
   });
 
@@ -345,6 +389,19 @@ describe("layering", () => {
 
     expect(offenders).toEqual([]);
   });
+
+  it("keeps service and model failures on the error catalog", () => {
+    // Domain layers must preserve a stable error code for every route, worker,
+    // and script that calls them. A plain Error collapses to SERVER_ERROR and
+    // makes expected failures indistinguishable from bugs at those boundaries.
+    const offenders = FILES.filter(
+      ({ path, body }) =>
+        (path.startsWith("src/services/") || path.startsWith("src/models/")) &&
+        /\bthrow\s+new\s+Error\s*\(/.test(stripComments(body)),
+    ).map(({ path }) => path);
+
+    expect(offenders).toEqual([]);
+  });
 });
 
 describe("tenancy", () => {
@@ -385,8 +442,7 @@ describe("tenancy", () => {
 
     const offenders = FILES.filter(
       ({ path, body }) =>
-        path !== "src/db/schema.ts" &&
-        readsLegacyFileOrg(body),
+        path !== "src/db/schema.ts" && readsLegacyFileOrg(body),
     ).map(({ path }) => path);
 
     expect(offenders).toEqual([]);

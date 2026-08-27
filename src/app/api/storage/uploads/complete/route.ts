@@ -1,16 +1,14 @@
 import { z } from "zod";
 
 import { respData, respNoAuth } from "@/lib/resp";
-import { respCode, respError } from "@/lib/errors/response";
+import { respError } from "@/lib/errors/response";
 import { toAppError } from "@/lib/errors/app-error";
 import { parseJsonBody } from "@/lib/http/request";
 import { getOrgContext } from "@/services/authz";
-import { activateUploadingFile, findFileByUuid } from "@/models/file";
-import { getStorageAdapter } from "@/services/storage";
 import { notifySlackError } from "@/integrations/slack";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
-import { requestFileDeletion } from "@/services/storage/delete-request";
+import { completeStorageUpload } from "@/services/storage/complete-upload";
 
 const CompleteUploadSchema = z.object({
   fileUuid: z.string().trim().min(1),
@@ -29,67 +27,7 @@ export async function POST(req: Request) {
 
     const { fileUuid } = await parseJsonBody(req, CompleteUploadSchema);
 
-    const file = await findFileByUuid(fileUuid, ctx.orgUuid);
-    if (!file) {
-      return respCode("STORAGE_FILE_NOT_FOUND");
-    }
-
-    if (file.status === "active") {
-      return respData({ ok: true, file });
-    }
-
-    const storage = getStorageAdapter();
-    const head = await storage.headObject({
-      bucket: file.bucket,
-      key: file.key,
-    });
-    if (!head) {
-      return respCode("STORAGE_OBJECT_MISSING");
-    }
-
-    // Basic size match validation
-    if (file.size && head.size && head.size !== file.size) {
-      await requestFileDeletion(file, ctx.orgUuid, {
-        expectedStatuses: ["uploading"],
-        patch: {
-          size: head.size,
-          etag: head.etag ?? null,
-          content_type: head.contentType ?? file.content_type,
-          checksum_sha256: head.checksumSHA256 ?? null,
-          storage_class: head.storageClass ?? null,
-        },
-      });
-      return respCode("STORAGE_SIZE_MISMATCH");
-    }
-
-    if (
-      file.checksum_sha256 &&
-      head.checksumSHA256 &&
-      head.checksumSHA256 !== file.checksum_sha256
-    ) {
-      await requestFileDeletion(file, ctx.orgUuid, {
-        expectedStatuses: ["uploading"],
-        patch: {
-          size: head.size || file.size,
-          etag: head.etag ?? null,
-          content_type: head.contentType ?? file.content_type,
-          checksum_sha256: head.checksumSHA256,
-          storage_class: head.storageClass ?? null,
-        },
-      });
-      return respCode("STORAGE_CHECKSUM_MISMATCH");
-    }
-
-    const updated = await activateUploadingFile(file.uuid, ctx.orgUuid, {
-      size: head.size || file.size,
-      etag: head.etag ?? null,
-      content_type: head.contentType ?? file.content_type,
-      checksum_sha256: head.checksumSHA256 ?? file.checksum_sha256 ?? null,
-      storage_class: head.storageClass ?? null,
-    });
-    if (!updated) {
-      return respCode("STORAGE_UPLOAD_STATE_CONFLICT");
-    }
+    const updated = await completeStorageUpload(ctx.orgUuid, fileUuid);
 
     return respData({ ok: true, file: updated });
   } catch (error) {

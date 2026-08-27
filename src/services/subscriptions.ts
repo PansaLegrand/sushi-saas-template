@@ -1,6 +1,7 @@
 import type Stripe from "stripe";
 
 import { newId } from "@/lib/ids";
+import { AppError } from "@/lib/errors/app-error";
 import { logger } from "@/lib/logger/server";
 import { notifySlackError } from "@/integrations/slack";
 import {
@@ -134,7 +135,6 @@ export async function syncStripeSubscription(
 
   return { status: "applied", row, tier };
 }
-
 /**
  * Who does this subscription belong to?
  *
@@ -278,7 +278,11 @@ export async function grantManualSubscription(input: {
     note: input.note ?? null,
   });
 
-  if (!row) throw new Error("failed to insert manual subscription");
+  if (!row) {
+    throw new AppError("SERVER_ERROR", {
+      message: "failed to insert manual subscription",
+    });
+  }
 
   logger.info({
     event: "subscription.comp.granted",

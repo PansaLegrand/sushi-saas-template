@@ -37,9 +37,11 @@ extract the pure part.
 
 `architecture.test.ts` also lives here. It reads the source tree as text and
 fails the build when a layer boundary is crossed — a file outside `models/`
-importing `@/db`, a model importing a service, `lib/` growing domain knowledge, a
-`src/features/` directory reappearing. Documentation describing an architecture
-decays; this does not. When it fails it names the offending file path.
+importing `@/db`, a model importing a service, a route importing a mutating model
+helper, `lib/` growing domain knowledge, or a `src/features/` directory
+reappearing. Routes may still import model reads; writes go through services so
+their invariants have one home. Documentation describing an architecture decays;
+this does not. When it fails it names the offending file path and import.
 
 ### Route — `tests/api/`
 

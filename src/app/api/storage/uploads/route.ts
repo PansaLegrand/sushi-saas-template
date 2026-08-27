@@ -5,31 +5,18 @@ import { respCode, respError } from "@/lib/errors/response";
 import { toAppError } from "@/lib/errors/app-error";
 import { parseJsonBody } from "@/lib/http/request";
 import { getOrgContext } from "@/services/authz";
-import { newId } from "@/lib/ids";
-import { limitOf, requireEntitlement } from "@/services/entitlements";
-import { getStorageAdapter } from "@/services/storage";
-import { reserveStorageUpload } from "@/services/storage/uploads";
-import { getAppEnv } from "@/lib/env";
+import { createStorageUpload } from "@/services/storage/uploads";
 import {
-  DEFAULT_STORAGE_UPLOAD_POLICY_ID,
   STORAGE_UPLOAD_POLICY_IDS,
   STORAGE_UPLOAD_VISIBILITIES,
-  extensionForFilename,
-  getStorageUploadPolicy,
-  isAllowedUploadType,
-  isSha256Checksum,
-  normalizeContentType,
 } from "@/config/storage";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
-import type { CreateUploadResponse } from "@/types/storage";
 import {
   logger as baseLogger,
   requestIdFromHeaders,
 } from "@/lib/logger/server";
 import { notifySlackError } from "@/integrations/slack";
-
-const DEFAULT_MAX_UPLOAD_MB = getAppEnv().STORAGE_MAX_UPLOAD_MB;
 
 const ContentTypeField = z.string().trim().max(255).optional();
 
@@ -46,16 +33,6 @@ const CreateUploadSchema = z.object({
   visibility: z.enum(STORAGE_UPLOAD_VISIBILITIES).optional(),
   metadata: z.record(z.string()).optional(),
 });
-
-function metadataWithPolicy(
-  metadata: Record<string, string> | undefined,
-  policyId: string,
-): Record<string, string> {
-  return {
-    ...(metadata ?? {}),
-    upload_policy: policyId,
-  };
-}
 
 export async function POST(req: Request) {
   const invalidOrigin = requireSameOrigin(req);
@@ -106,117 +83,36 @@ export async function POST(req: Request) {
       });
     }
 
-    const policyId = policyValue ?? DEFAULT_STORAGE_UPLOAD_POLICY_ID;
-    const policy = getStorageUploadPolicy(policyId);
-    const normalizedContentType = normalizeContentType(contentType);
-    const extension = extensionForFilename(filename);
-
-    if (
-      !isAllowedUploadType(policy, {
-        filename,
-        contentType: normalizedContentType,
-      })
-    ) {
-      return respCode("STORAGE_FILE_TYPE_NOT_ALLOWED", {
-        details: {
-          policy: policy.id,
-          allowedContentTypes: policy.allowedContentTypes,
-          allowedExtensions: policy.allowedExtensions,
-        },
-      });
-    }
-
-    if (checksumSha256 && !isSha256Checksum(checksumSha256)) {
-      return respCode("STORAGE_CHECKSUM_INVALID", {
-        details: { field: "checksumSha256" },
-      });
-    }
-
-    if (policy.requireChecksum && !checksumSha256) {
-      return respCode("STORAGE_CHECKSUM_REQUIRED", {
-        details: { policy: policy.id },
-      });
-    }
-
-    // Two independent caps, and the smaller wins.
-    //
-    // The env var is an infrastructure ceiling — what this deployment will
-    // accept at all, whatever anyone is paying. The plan limit is a product
-    // decision. Keeping them separate means raising a tier's allowance never
-    // silently raises what the server will accept from an unpaid account.
-    await requireEntitlement(ctx.orgUuid, "storage.upload");
-
-    const planMaxMb = await limitOf(ctx.orgUuid, "storage.maxFileMb");
-    const effectiveMaxMb = Math.min(
-      DEFAULT_MAX_UPLOAD_MB,
-      ...(planMaxMb === null ? [] : [planMaxMb]),
-      ...(policy.maxFileMb === undefined ? [] : [policy.maxFileMb]),
-    );
-    const maxBytes = effectiveMaxMb * 1024 * 1024;
-
-    if (size > maxBytes) {
-      return respCode("STORAGE_FILE_TOO_LARGE", {
-        details: { maxBytes },
-      });
-    }
-
-    const storage = getStorageAdapter();
-    const bucket = storage.getDefaultBucket();
-    const key = storage.buildObjectKey({ userUuid, filename });
-
-    // Reserve a record in DB with status 'uploading'
-    const fileUuid = newId();
-    await reserveStorageUpload(ctx.orgUuid, {
-      org_uuid: ctx.orgUuid,
-      uuid: fileUuid,
-      user_uuid: userUuid,
-      provider: storage.provider,
-      bucket,
-      key,
-      region: getAppEnv().STORAGE_REGION || null,
-      endpoint: getAppEnv().STORAGE_ENDPOINT || null,
-      original_filename: filename,
-      extension: extension.slice(1),
-      content_type: normalizedContentType,
-      size,
-      visibility: visibility ?? "private",
-      status: "uploading",
-      checksum_sha256: checksumSha256 ?? null,
-      metadata_json: JSON.stringify(metadataWithPolicy(metadata, policy.id)),
-    });
-
-    const signed = await storage.getPresignedUpload({
-      bucket,
-      key,
-      contentType: normalizedContentType,
+    const result = await createStorageUpload({
+      orgUuid: ctx.orgUuid,
+      userUuid,
+      filename,
+      contentType,
       size,
       checksumSha256,
+      policy: policyValue,
+      visibility,
       metadata,
-      expiresIn: 15 * 60,
     });
-
-    const res: CreateUploadResponse = {
-      ...signed,
-      fileUuid,
-    };
     log.info({
       event: "storage.presign.create",
       user_id: userUuid,
-      file_id: fileUuid,
-      key,
-      bucket,
+      file_id: result.upload.fileUuid,
+      key: result.upload.key,
+      bucket: result.upload.bucket,
       size,
-      content_type: normalizedContentType,
+      content_type: result.contentType,
       status: "ok",
     });
-    return respData(res);
+    return respData(result.upload);
   } catch (error) {
     const appError = toAppError(error, "STORAGE_UPLOAD_FAILED");
     if (appError.statusCode >= 500) {
       baseLogger.error({
         event: "storage.presign.create.error",
-        error_name: (error as any)?.name,
-        error_message: (error as any)?.message,
+        error_name: error instanceof Error ? error.name : "UnknownError",
+        error_message:
+          error instanceof Error ? error.message : "upload creation failed",
       });
       notifySlackError("Storage: create upload failed", error, {
         route: "/api/storage/uploads",

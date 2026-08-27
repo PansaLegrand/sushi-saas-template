@@ -28,6 +28,13 @@ The client may pass a narrower `accept` list, but it cannot expand what the
 server allows. To add an app-specific upload surface, add a named policy in
 `src/config/storage.ts` and pass that policy to the uploader.
 
+The route owns authentication, request parsing, and the HTTP envelope. Upload
+policy, entitlements, quota reservation, object-key construction, and provider
+signing stay together in `src/services/storage/uploads.ts`. Completion follows
+the same boundary: `src/services/storage/complete-upload.ts` verifies provider
+metadata and owns the activate-or-delete state transition. Keep those flows in
+services so a second caller cannot bypass an invariant by copying route logic.
+
 ```tsx
 <Uploader
   policy="images"

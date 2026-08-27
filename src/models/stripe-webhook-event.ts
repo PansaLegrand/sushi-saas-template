@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { stripeWebhookEvents } from "@/db/schema";
+import { AppError } from "@/lib/errors/app-error";
 
 const PROCESSING_STALE_MS = 15 * 60 * 1000;
 
@@ -34,7 +35,6 @@ export interface StripeWebhookEventReceipt {
   api_version?: string | null;
   request_id?: string | null;
 }
-
 interface ClaimStripeWebhookEventParams {
   eventId: string;
   eventType: string;
@@ -87,7 +87,9 @@ export async function claimStripeWebhookEvent({
     .limit(1);
 
   if (!existing) {
-    throw new Error(`Failed to claim Stripe webhook event ${eventId}`);
+    throw new AppError("SERVER_ERROR", {
+      message: `failed to claim Stripe webhook event ${eventId}`,
+    });
   }
 
   // `resolved` is terminal alongside `completed`, and the distinction matters

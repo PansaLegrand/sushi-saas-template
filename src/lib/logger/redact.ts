@@ -18,6 +18,12 @@ const SENSITIVE_KEY_PARTS = [
   "databaseurl",
   "connectionstring",
   "otlpheaders",
+  // Provider SDK errors often attach the full request/response under these
+  // fields. They are diagnostic objects, not safe structured log context.
+  "payload",
+  "rawbody",
+  "requestbody",
+  "responsebody",
 ];
 
 function normalizedKey(key: string): string {
