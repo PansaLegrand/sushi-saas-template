@@ -114,7 +114,7 @@
     "resend": "^6.29.0",
     "server-only": "0.0.1",
     "sonner": "^2.0.8",
-    "stripe": "^17.5.0",
+    "stripe": "^23.0.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "tsx": "^4.23.15",
