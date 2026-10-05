@@ -88,6 +88,8 @@ export default buildConfig({
   plugins: [
     s3Storage({
       enabled: s3Enabled,
+      // Keep migration and type generation independent of storage credentials.
+      alwaysInsertFields: true,
       collections: { media: { prefix: "media" } },
       bucket: process.env.CONTENT_STORAGE_BUCKET ?? "",
       config: {

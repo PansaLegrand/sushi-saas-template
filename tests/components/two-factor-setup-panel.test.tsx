@@ -1,40 +1,36 @@
 /**
- * The two-factor panel's provider-only branch.
+ * The two-factor panel's provider-only branch and authenticator setup contract.
  *
  * The bug this covers: an account created through Google has no password, so
  * the panel's "confirm your password" prompt was unanswerable — every input
  * came back `INVALID_PASSWORD`, which reads as a typo. Because admin roles
  * cannot open the console until two-factor auth is on, a Google-only admin was
  * stuck with no way forward from inside the app.
+ * The real auth client also distinguishes authenticator setup from OTP-only
+ * responses; accepting the latter as QR data would break setup rendering.
  */
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { TwoFactorSetupPanel } from "@/components/auth/two-factor-setup-panel";
+import { resolveAuthError } from "@/lib/errors/auth-client";
 
-const mocks = vi.hoisted(() => ({
-  setAccountPassword: vi.fn(),
-  enable: vi.fn(),
-}));
+// Better Auth captures fetch when its client is created during module import.
+const fetchMock = vi.hoisted(() => {
+  const mock = vi.fn<typeof fetch>();
+  vi.stubGlobal("fetch", mock);
+  return mock;
+});
 
-vi.mock("@/api/account", () => ({
-  setAccountPassword: mocks.setAccountPassword,
-}));
+beforeEach(() => {
+  fetchMock.mockReset();
+  vi.stubGlobal("fetch", fetchMock);
+});
 
-vi.mock("@/lib/auth-client", () => ({
-  authClient: {
-    twoFactor: {
-      enable: mocks.enable,
-      verifyTotp: vi.fn(),
-      disable: vi.fn(),
-    },
-  },
-}));
-
-vi.mock("next/navigation", () => ({
-  useParams: () => ({ locale: "en" }),
-}));
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("TwoFactorSetupPanel", () => {
   it("asks a password-holding account to confirm its password", async () => {
@@ -91,7 +87,9 @@ describe("TwoFactorSetupPanel", () => {
     // The whole point: one form flows into the next without a reload, so the
     // user is not left guessing whether it worked.
     const user = userEvent.setup();
-    mocks.setAccountPassword.mockResolvedValue({ ok: true });
+    fetchMock.mockResolvedValue(
+      Response.json({ code: 0, data: { ok: true } }),
+    );
 
     render(
       <TwoFactorSetupPanel
@@ -109,12 +107,18 @@ describe("TwoFactorSetupPanel", () => {
         screen.getByRole("button", { name: "Enable two-factor" })
       ).toBeInTheDocument();
     });
-    expect(mocks.setAccountPassword).toHaveBeenCalledWith("a-good-password");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/account/password",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ newPassword: "a-good-password" }),
+      }),
+    );
   });
 
   it("keeps the form open and shows catalogued copy when setting fails", async () => {
     const user = userEvent.setup();
-    mocks.setAccountPassword.mockRejectedValue(new Error("connection lost"));
+    fetchMock.mockRejectedValue(new Error("connection lost"));
 
     render(
       <TwoFactorSetupPanel initialEnabled={false} initialHasPassword={false} />
@@ -138,5 +142,44 @@ describe("TwoFactorSetupPanel", () => {
     expect(
       screen.getByRole("button", { name: "Disable two-factor" })
     ).toBeInTheDocument();
+  });
+
+  it("requests authenticator setup and displays its QR and backup codes", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValue(
+      Response.json({
+        method: "totp",
+        totpURI: "otpauth://totp/Example?secret=OBZW4ZSEKUZW63LUIQYQ",
+        backupCodes: ["aaaa1-bbbb2", "cccc3-dddd4"],
+      }),
+    );
+    render(<TwoFactorSetupPanel initialEnabled={false} initialHasPassword />);
+
+    await user.type(screen.getByLabelText(/Password/), "a-good-password");
+    await user.click(screen.getByRole("button", { name: "Enable two-factor" }));
+
+    expect(await screen.findByRole("img", { name: /QR code/i })).toBeInTheDocument();
+    expect(screen.getByText("aaaa1-bbbb2")).toBeInTheDocument();
+    expect(screen.getByText("cccc3-dddd4")).toBeInTheDocument();
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(String(url)).toContain("/api/auth/two-factor/enable");
+    expect(JSON.parse(String(options?.body))).toEqual({
+      password: "a-good-password",
+      method: "totp",
+    });
+  });
+
+  it("keeps setup available with catalogued copy for an unexpected OTP response", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValue(Response.json({ method: "otp" }));
+    render(<TwoFactorSetupPanel initialEnabled={false} initialHasPassword />);
+
+    await user.type(screen.getByLabelText(/Password/), "a-good-password");
+    await user.click(screen.getByRole("button", { name: "Enable two-factor" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(resolveAuthError(null));
+    expect(screen.queryByRole("img", { name: /QR code/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Enable two-factor" })).toBeEnabled();
+    expect(screen.getByText("Disabled")).toBeInTheDocument();
   });
 });

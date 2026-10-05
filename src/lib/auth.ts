@@ -213,6 +213,7 @@ const organizationPlugin = organization({
         organizationId: "organization_id",
         inviterId: "inviter_id",
         expiresAt: "expires_at",
+        createdAt: "created_at",
       },
     },
     session: {
@@ -324,13 +325,39 @@ const twoFactorPlugin = twoFactor({
       fields: {
         userId: "user_id",
         backupCodes: "backup_codes",
+        failedVerificationCount: "failed_verification_count",
+        lockedUntil: "locked_until",
       },
     },
   },
 });
 
-const duplicateEmailSignupGuard = {
-  id: "duplicate-email-signup-guard",
+async function assertSignupAllowed(
+  email: string | undefined,
+  info: ReturnType<typeof describeAuthRequest>,
+) {
+  const check = await checkSignupAllowed(email);
+  if (check.allowed) return;
+
+  logger.warn(
+    {
+      event: "auth.signup_blocked",
+      reason: check.reason,
+      matched: check.matchedValue,
+      provider: info.provider,
+      ip: info.ip,
+    },
+    "signup rejected by blocklist",
+  );
+
+  throw new APIError("FORBIDDEN", {
+    code: "ACCOUNT_SIGNUP_BLOCKED",
+    message: "ACCOUNT_SIGNUP_BLOCKED",
+  });
+}
+
+const credentialSignupGuard = {
+  id: "credential-signup-guard",
   hooks: {
     before: [
       {
@@ -338,6 +365,12 @@ const duplicateEmailSignupGuard = {
         handler: createAuthMiddleware(async (ctx) => {
           const email = (ctx.body as { email?: string } | undefined)?.email;
           if (!email) return;
+
+          // Better Auth masks database-hook 403s as successful signups when
+          // email verification is required. Preserve the app's translated
+          // blocklist response before that handler; the database hook below
+          // still protects OAuth and other user-creation paths.
+          await assertSignupAllowed(email, describeAuthRequest(ctx));
 
           const existingUser = await findUserByEmail(email.toLowerCase());
           if (!existingUser) return;
@@ -514,7 +547,7 @@ export const auth = betterAuth({
   // it would not get its cookies written.
   plugins: [
     ...captchaPlugins,
-    duplicateEmailSignupGuard,
+    credentialSignupGuard,
     organizationPlugin,
     twoFactorPlugin,
     nextCookies(),
@@ -535,32 +568,13 @@ export const auth = betterAuth({
 
           // The signup gate.
           //
-          // Here rather than on `/sign-up/email` because this hook is the one
-          // point *every* signup passes through, OAuth included — and OAuth is
+          // Keep this even with the credential prehook: this is the one point
+          // *every* signup passes through, OAuth included — and OAuth is
           // the path with no captcha in front of it. A blocklist wired to the
           // credential endpoint alone leaves "continue with Google" open, which
           // is exactly how a banned address gets back in.
           const email = (data as { email?: string }).email;
-          const check = await checkSignupAllowed(email);
-          if (!check.allowed) {
-            logger.warn(
-              {
-                event: "auth.signup_blocked",
-                reason: check.reason,
-                matched: check.matchedValue,
-                provider: info.provider,
-                ip: info.ip,
-              },
-              "signup rejected by blocklist",
-            );
-
-            // The message doubles as the catalog code so `resolveAuthError`
-            // translates it, rather than rendering this English on the form.
-            throw new APIError("FORBIDDEN", {
-              code: "ACCOUNT_SIGNUP_BLOCKED",
-              message: "ACCOUNT_SIGNUP_BLOCKED",
-            });
-          }
+          await assertSignupAllowed(email, info);
 
           return {
             data: {

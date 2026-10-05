@@ -136,10 +136,16 @@ export function TwoFactorSetupPanel({
     try {
       const { data, error } = await authClient.twoFactor.enable({
         password,
+        method: "totp",
       });
 
       if (error) {
         setErrorMessage(resolveAuthError(error, locale));
+        return;
+      }
+
+      if (data.method !== "totp") {
+        setErrorMessage(resolveAuthError(null, locale));
         return;
       }
 

@@ -14,7 +14,8 @@ import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { getOrgContext } from "@/services/authz";
 
 const CreditGrantSchema = z.object({
-  credits: z.unknown(),
+  // Missing amounts use the same domain error as other invalid amounts below.
+  credits: z.unknown().optional(),
   orderNo: z.string().optional(),
   expiredAt: z.string().optional(),
   ledgerLimit: z.coerce.number().int().positive().max(500).optional(),

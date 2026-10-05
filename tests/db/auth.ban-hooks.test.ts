@@ -22,7 +22,7 @@ import { eq } from "drizzle-orm";
 import { describeDb, useCleanDatabase } from "./setup";
 
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { accounts, users } from "@/db/schema";
 import { addBlocklistEntry, banUserAccount } from "@/services/moderation";
 
 useCleanDatabase();
@@ -92,6 +92,11 @@ async function markVerified(email: string) {
     .where(eq(users.email, email));
 }
 
+async function expectNoAuthRecords() {
+  expect(await db().select().from(users)).toEqual([]);
+  expect(await db().select().from(accounts)).toEqual([]);
+}
+
 let email: string;
 
 beforeEach(() => {
@@ -121,6 +126,7 @@ describeDb("signup gate (real auth stack)", () => {
 
     expect(result.ok).toBe(false);
     expect(result.code).toBe("ACCOUNT_SIGNUP_BLOCKED");
+    await expectNoAuthRecords();
   });
 
   it("refuses a plus-alias of a blocklisted address", async () => {
@@ -136,6 +142,7 @@ describeDb("signup gate (real auth stack)", () => {
 
     expect(result.ok).toBe(false);
     expect(result.code).toBe("ACCOUNT_SIGNUP_BLOCKED");
+    await expectNoAuthRecords();
   });
 
   it("refuses an address it has never seen when the domain is blocked", async () => {
@@ -150,17 +157,17 @@ describeDb("signup gate (real auth stack)", () => {
 
     expect(result.ok).toBe(false);
     expect(result.code).toBe("ACCOUNT_SIGNUP_BLOCKED");
+    await expectNoAuthRecords();
   });
 
-  it("writes no user row for a blocked signup", async () => {
+  it("writes no auth records for a blocked signup", async () => {
     // A hook that rejects *after* the insert would leave the account behind and
     // make the address unusable forever, including by whoever legitimately owns it.
     await addBlocklistEntry({ scope: "domain", value: DOMAIN, actorUuid: "test" });
 
     await signUp(email);
 
-    const rows = await db().select().from(users).where(eq(users.email, email));
-    expect(rows).toEqual([]);
+    await expectNoAuthRecords();
   });
 });
 

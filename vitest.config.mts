@@ -40,6 +40,15 @@ function loadTestInfrastructureUrls(): void {
 
 loadTestInfrastructureUrls();
 
+// Skip collection as well as execution when no local service is configured:
+// merely importing infrastructure suites can initialize the real auth/DB stack.
+// CI always collects them so the harness rejects missing service URLs.
+const includeInfrastructureProject = Boolean(
+  process.env.CI ||
+    process.env.TEST_DATABASE_URL?.trim() ||
+    process.env.TEST_REDIS_URL?.trim(),
+);
+
 export default defineConfig({
   test: {
     environment: "node",
@@ -59,6 +68,7 @@ export default defineConfig({
           // into a Node environment where `document` does not exist.
           include: ["tests/**/*.test.ts"],
           exclude: ["tests/db/**", "tests/components/**"],
+          setupFiles: ["tests/setup-mocked.ts"],
         },
       },
       {
@@ -76,11 +86,13 @@ export default defineConfig({
           setupFiles: ["tests/components/setup.ts"],
         },
       },
-      {
+      ...(includeInfrastructureProject ? [{
         extends: true,
         test: {
           name: "db",
-          include: ["tests/db/**/*.test.ts"],
+          include: process.env.CI || process.env.TEST_DATABASE_URL?.trim()
+            ? ["tests/db/**/*.test.ts"]
+            : ["tests/db/rate-limit.redis.test.ts"],
           // One database, shared by every file in this tier, and each file
           // truncates the same tables between tests. Run them in parallel and
           // one file's `beforeEach` wipes rows another file is mid-assertion
@@ -90,10 +102,10 @@ export default defineConfig({
           // other. `fileParallelism: false` looks like the obvious knob but is
           // root-only in Vitest 3 and is silently ignored here; this is the
           // project-level equivalent. The mocked project stays parallel.
-          pool: "forks",
+          pool: "forks" as const,
           poolOptions: { forks: { singleFork: true } },
         },
-      },
+      }] : []),
     ],
     coverage: {
       provider: "v8",
@@ -117,14 +129,13 @@ export default defineConfig({
       // never lower one to make a red build green — that is the signal working.
       // Calibrated against a fresh clone with no test database — the floor
       // every contributor can meet without installing Postgres. Measured there:
-      // 33.78 / 52.12 / 70.52. A run with TEST_DATABASE_URL set (CI always)
-      // comes in around 42.4 / 61.8 / 71.5; that is headroom, not a reason to
-      // relax these.
+      // 41.75 / 54.83 / 70.84 (lines / functions / branches). Infrastructure
+      // coverage is additional headroom, not a reason to relax this floor.
       thresholds: {
-        lines: 33,
-        functions: 51,
-        branches: 69,
-        statements: 33,
+        lines: 41,
+        functions: 54,
+        branches: 70,
+        statements: 41,
       },
     },
   },
