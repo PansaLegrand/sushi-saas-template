@@ -217,6 +217,25 @@ describe("POST /api/storage/uploads", () => {
     );
   });
 
+  it("rejects non-string metadata before reserving an upload", async () => {
+    const res = await createUpload(
+      postJson("/api/storage/uploads", {
+        filename: "report.pdf",
+        contentType: "application/pdf",
+        size: 100,
+        metadata: { entity: "invoice", pageCount: 2 },
+      }),
+    );
+    const payload = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(payload.error_code).toBe("REQUEST_VALIDATION_FAILED");
+    expect(payload.details.fields).toEqual([
+      expect.objectContaining({ field: "metadata.pageCount" }),
+    ]);
+    expect(mocks.createStorageUpload).not.toHaveBeenCalled();
+  });
+
   it("applies the upload policy max size in addition to plan and env limits", async () => {
     mocks.createStorageUpload.mockRejectedValue(
       new AppError("STORAGE_FILE_TOO_LARGE", {

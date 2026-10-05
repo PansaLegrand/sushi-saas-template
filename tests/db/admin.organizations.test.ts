@@ -239,7 +239,8 @@ describeDb("admin organization detail (real database)", () => {
       status: "active",
       source: "stripe",
       stripe_subscription_id: "sub_team_1",
-      current_period_end: new Date("2026-09-01T00:00:00.000Z"),
+      // Keep this active-plan fixture valid whenever the suite runs.
+      current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       cancel_at_period_end: true,
     });
 

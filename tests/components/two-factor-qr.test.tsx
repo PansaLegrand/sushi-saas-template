@@ -6,7 +6,7 @@
  * saving the backup codes and locks themselves out. So what is asserted here is
  * mostly whether the page makes the safe path the easy one.
  */
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -16,30 +16,21 @@ const SECRET = "OBZW4ZSEKUZW63LUIQYQ";
 const TOTP_URI = `otpauth://totp/Sushi%20SaaS:user%40example.com?secret=${SECRET}&issuer=Sushi%20SaaS`;
 const BACKUP_CODES = ["aaaa1-bbbb2", "cccc3-dddd4", "eeee5-ffff6"];
 
-const mocks = vi.hoisted(() => ({
-  enable: vi.fn(),
-  verifyTotp: vi.fn(),
-  disable: vi.fn(),
-  setAccountPassword: vi.fn(),
-}));
+// Better Auth captures fetch when its client is created during module import.
+const fetchMock = vi.hoisted(() => {
+  const mock = vi.fn<typeof fetch>();
+  vi.stubGlobal("fetch", mock);
+  return mock;
+});
 
-vi.mock("@/api/account", () => ({
-  setAccountPassword: mocks.setAccountPassword,
-}));
+beforeEach(() => {
+  fetchMock.mockReset();
+  vi.stubGlobal("fetch", fetchMock);
+});
 
-vi.mock("@/lib/auth-client", () => ({
-  authClient: {
-    twoFactor: {
-      enable: mocks.enable,
-      verifyTotp: mocks.verifyTotp,
-      disable: mocks.disable,
-    },
-  },
-}));
-
-vi.mock("next/navigation", () => ({
-  useParams: () => ({ locale: "en" }),
-}));
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 /**
  * jsdom defines `navigator.clipboard` as a getter with no setter, so assigning
@@ -56,10 +47,9 @@ function stubClipboard(writeText: ReturnType<typeof vi.fn>) {
 
 /** Drive the panel to the point where the QR and codes are on screen. */
 async function reachSetupStep(user: ReturnType<typeof userEvent.setup>) {
-  mocks.enable.mockResolvedValue({
-    data: { totpURI: TOTP_URI, backupCodes: BACKUP_CODES },
-    error: null,
-  });
+  fetchMock.mockResolvedValue(
+    Response.json({ method: "totp", totpURI: TOTP_URI, backupCodes: BACKUP_CODES }),
+  );
 
   render(<TwoFactorSetupPanel initialEnabled={false} initialHasPassword />);
 

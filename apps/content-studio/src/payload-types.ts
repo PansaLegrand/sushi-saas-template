@@ -339,6 +339,8 @@ export interface Media {
    * Enable only after this asset is ready to appear on a published page.
    */
   isPublic?: boolean | null;
+  prefix?: string | null;
+  _objectKey?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -507,12 +509,7 @@ export interface MarketingCampaign {
   subject: string;
   preheader?: string | null;
   content: (
-    | EmailHeadingBlock
-    | EmailTextBlock
-    | EmailImageBlock
-    | EmailButtonBlock
-    | EmailDividerBlock
-    | EmailSpacerBlock
+    EmailHeadingBlock | EmailTextBlock | EmailImageBlock | EmailButtonBlock | EmailDividerBlock | EmailSpacerBlock
   )[];
   fromName?: string | null;
   replyTo?: string | null;
@@ -612,6 +609,7 @@ export interface User {
   resetPasswordExpiration?: string | null;
   salt?: string | null;
   hash?: string | null;
+  resetPasswordRequestedAt?: string | null;
   loginAttempts?: number | null;
   lockUntil?: string | null;
   sessions?:
@@ -653,6 +651,7 @@ export interface ServiceAccount {
   enableAPIKey?: boolean | null;
   apiKey?: string | null;
   apiKeyIndex?: string | null;
+  hasAPIKey?: boolean | null;
   collection: 'service-accounts';
 }
 /**
@@ -1093,6 +1092,8 @@ export interface MediaSelect<T extends boolean = true> {
   alt?: T;
   caption?: T;
   isPublic?: T;
+  prefix?: T;
+  _objectKey?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -1280,6 +1281,7 @@ export interface UsersSelect<T extends boolean = true> {
   resetPasswordExpiration?: T;
   salt?: T;
   hash?: T;
+  resetPasswordRequestedAt?: T;
   loginAttempts?: T;
   lockUntil?: T;
   sessions?:
@@ -1304,6 +1306,7 @@ export interface ServiceAccountsSelect<T extends boolean = true> {
   enableAPIKey?: T;
   apiKey?: T;
   apiKeyIndex?: T;
+  hasAPIKey?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1447,7 +1450,15 @@ export interface TaskSchedulePublish {
           value: number | Post;
         } | null);
     global?: string | null;
-    user?: (number | null) | User;
+    user?:
+      | ({
+          relationTo: 'users';
+          value: number | User;
+        } | null)
+      | ({
+          relationTo: 'service-accounts';
+          value: number | ServiceAccount;
+        } | null);
   };
   output?: unknown;
 }

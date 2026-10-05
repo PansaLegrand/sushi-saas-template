@@ -96,8 +96,11 @@ was broken.
 
 It is **opt-in per service**: Postgres tests need `TEST_DATABASE_URL`; the Redis
 test needs `TEST_REDIS_URL`. Without either, the default test command remains a
-zero-dependency run. CI always sets both, and fails rather than silently
-skipping either service.
+zero-dependency run: Vitest omits the infrastructure project before collection,
+so skipped suites cannot initialize the real auth or database stack through
+their imports. Configuring either URL includes the project, with each service's
+tests gated by its own URL. CI always includes the project and fails rather than
+silently skipping either missing service.
 
 ### End-to-end — `tests/e2e/`
 
@@ -207,8 +210,8 @@ were deleted. If you cannot write that sentence, you may not need the test.
 ```bash
 pnpm test          # watch mode
 pnpm test:fast     # hermetic mocked and component tiers
-pnpm test:run      # single pass; real-service tests skip when URLs are absent
-pnpm test:cov      # with coverage; fails below the thresholds
+pnpm test:run      # single pass; infrastructure collected only when opted in or on CI
+pnpm test:cov      # same project selection; full source scope and coverage thresholds
 pnpm test:db       # infrastructure tier (TEST_DATABASE_URL / TEST_REDIS_URL)
 pnpm test:e2e      # Playwright against the provisioned local stack
 ```
@@ -266,7 +269,9 @@ never calls `FLUSHDB`.
 ## Environment
 
 - Node 20+; tests use the platform `Request`/`Response`. No server is started.
-- Mocked tiers make no network or database calls.
+- Mocked tiers make no network or database calls. `tests/setup-mocked.ts` clears
+  the deployment Redis URL before test modules load, so route tests use the
+  resettable in-memory rate limiter even when CI enables the Redis tier.
 - The Stripe webhook test generates a real signature in-process against a dummy
   `STRIPE_WEBHOOK_SECRET` rather than stubbing `constructEvent` — the signature
   check is the thing worth testing.

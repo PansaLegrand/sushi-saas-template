@@ -213,6 +213,7 @@ const organizationPlugin = organization({
         organizationId: "organization_id",
         inviterId: "inviter_id",
         expiresAt: "expires_at",
+        createdAt: "created_at",
       },
     },
     session: {
@@ -324,6 +325,8 @@ const twoFactorPlugin = twoFactor({
       fields: {
         userId: "user_id",
         backupCodes: "backup_codes",
+        failedVerificationCount: "failed_verification_count",
+        lockedUntil: "locked_until",
       },
     },
   },

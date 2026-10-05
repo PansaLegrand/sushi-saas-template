@@ -350,6 +350,17 @@ graph LR
 | `org_members`     | Organization membership and role                 | Unique on `(organization_id, user_id)`. Owners, admins, and members each consume one plan seat.                                                                                                                                                                                                                                                                                                                                                    |
 | `org_invitations` | Pending and historical membership invitations    | A live pending row reserves a seat until accepted, rejected, canceled, superseded, or expired.                                                                                                                                                                                                                                                                                                                                                     |
 
+Migration `0037` expands `two_factor` for Better Auth's enrollment and account
+lockout state: `verified` defaults to false, `failed_verification_count` defaults
+to zero, and `locked_until` is nullable. Apply this migration before deploying
+the updated auth adapter; Better Auth validates its plugin schema at startup.
+Existing rows become verified only when their `user_id` matches a `users.id`
+whose `two_factor_enabled` is true. Pending enrollments and orphaned secrets stay
+unverified, and encrypted secrets and backup codes remain unchanged. New TOTP
+enrollment explicitly stays unverified until a valid code is submitted. The
+defaulted columns also allow older writers to omit them during the schema-first
+deployment window; their existing reads and writes remain valid SQL.
+
 ### Billing & credits
 
 | Table                   | Purpose                                            | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |

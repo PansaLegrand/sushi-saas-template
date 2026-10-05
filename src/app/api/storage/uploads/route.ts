@@ -31,7 +31,7 @@ const CreateUploadSchema = z.object({
   checksumSha256: z.string().trim().optional(),
   policy: z.enum(STORAGE_UPLOAD_POLICY_IDS).optional(),
   visibility: z.enum(STORAGE_UPLOAD_VISIBILITIES).optional(),
-  metadata: z.record(z.string()).optional(),
+  metadata: z.record(z.string(), z.string()).optional(),
 });
 
 export async function POST(req: Request) {

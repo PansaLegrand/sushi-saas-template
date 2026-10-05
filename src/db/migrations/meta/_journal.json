@@ -258,6 +258,13 @@
       "when": 1787507924293,
       "tag": "0036_pretty_leopardon",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1791168148370,
+      "tag": "0037_neat_excalibur",
+      "breakpoints": true
     }
   ]
 }

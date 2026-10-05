@@ -165,6 +165,9 @@ export const twoFactor = pgTable(
     user_id: varchar({ length: 255 }).notNull(),
     secret: text().notNull(),
     backup_codes: text().notNull(),
+    verified: boolean().notNull().default(false),
+    failed_verification_count: integer().notNull().default(0),
+    locked_until: timestamp({ withTimezone: true }),
   },
   (table) => [uniqueIndex("two_factor_user_id_unique_idx").on(table.user_id)],
 );

@@ -19,6 +19,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { resetEnvCacheForTests } from "@/lib/env";
 import { resetRateLimitForTests } from "@/lib/rate-limit";
+import { postJson } from "../helpers/request";
 
 // Define mocks BEFORE importing the route under test
 vi.mock("@/services/user", () => ({
@@ -131,7 +132,24 @@ describe("POST /api/account/credits/grant", () => {
     expect(payload.data.balance).toBe(5);
   });
 
-  it("rejects invalid amounts", async () => {
+  it("authenticates before granting credits or reading their summary", async () => {
+    process.env.ENABLE_DEMO_FEATURES = "true";
+    process.env.ENABLE_ACCOUNT_CREDIT_GRANT = "true";
+    resetEnvCacheForTests();
+    const authz = await import("@/services/authz");
+    vi.mocked(authz.getOrgContext).mockResolvedValueOnce(null);
+
+    const res = await grantCredits(
+      postJson("/api/account/credits/grant", { credits: 5 }),
+    );
+    const credit = await import("@/services/credit");
+
+    expect(res.status).toBe(401);
+    expect(credit.increaseCredits).not.toHaveBeenCalled();
+    expect(credit.getOrgCreditSummary).not.toHaveBeenCalled();
+  });
+
+  it.each([{}, { credits: 0 }])("rejects invalid amounts %j", async (body) => {
     process.env.ENABLE_DEMO_FEATURES = "true";
     process.env.ENABLE_ACCOUNT_CREDIT_GRANT = "true";
     resetEnvCacheForTests();
@@ -139,11 +157,14 @@ describe("POST /api/account/credits/grant", () => {
     const req = new Request("http://test", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ credits: 0 }),
+      body: JSON.stringify(body),
     });
     const res = await grantCredits(req);
     const payload = await res.json();
     expect(res.status).toBe(400);
     expect(payload.code).toBe(-1);
+    expect(payload.error_code).toBe("CREDITS_INVALID_AMOUNT");
+    const credit = await import("@/services/credit");
+    expect(credit.increaseCredits).not.toHaveBeenCalled();
   });
 });

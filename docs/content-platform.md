@@ -85,3 +85,26 @@ pnpm --dir apps/content-studio check
 Commit the generated types, import map, migration TypeScript, and migration
 JSON. Content Studio schema migrations are independent from Drizzle migrations
 under `src/db/migrations`.
+
+### Payload 3.90 upgrade
+
+Apply `20261005_024231_payload_security_fields` with `pnpm studio:migrate`
+against `CONTENT_DATABASE_URL` before deploying the updated Studio. Container
+startup does not apply migrations. The migration only adds nullable columns:
+
+- `users.reset_password_requested_at` records password-reset throttling.
+- `media.prefix` stores the configured storage prefix, defaulting to `media`.
+- `media._objectkey` stores Payload's `_objectKey` for per-upload storage folders.
+
+Existing rows remain readable by the previous Studio version. Existing uploads
+keep a null `_objectKey` and continue resolving through their prefix and filename;
+the upgrade does not move stored objects. The S3 plugin always registers its
+schema fields, even when storage credentials are absent, so local generation and
+production migrations describe the same columns. Service accounts disable local
+password authentication and do not receive password-reset columns.
+
+Payload 3.90 also shows service-account API keys only when they are generated.
+Capture the key at that point; subsequent document reads do not reveal it.
+Re-create pending scheduled publish/unpublish events after upgrading, because
+the task's user reference now includes its authentication collection. These
+requirements come from the [Payload 3.90 release notes](https://github.com/payloadcms/payload/releases/tag/v3.90.0).
