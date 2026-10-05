@@ -6,15 +6,20 @@ credits, private storage, durable jobs, internationalization, a separately
 deployed admin console, and an optional Content Studio behind one enforced
 architecture.
 
-[Website](https://www.sushisaas.com) ·
-[Documentation](https://www.sushisaas.com/docs) ·
+[Official website](https://www.sushisaas.com/) ·
+[Official documentation](https://www.sushisaas.com/docs) ·
 [Quick start](https://www.sushisaas.com/docs/quick-start)
 
 This repository is the application starter. Public marketing, guides, and blog
-content live on the [Sushi SaaS website](https://www.sushisaas.com), whose
+content live on [sushisaas.com, the official documentation website](https://www.sushisaas.com/), whose
 source is maintained in
 [PansaLegrand/sushi-saas-site](https://github.com/PansaLegrand/sushi-saas-site),
 so content releases never require an application deployment.
+
+[DojoClip](https://dojoclip.com/) is one use case: an AI media SaaS built with
+Sushi SaaS, offering video editing and image, music, and voice workflows. Its
+product features extend the starter's shared application foundation; those
+media tools are not included in this repository.
 
 ## What is included
 
@@ -119,8 +124,9 @@ Local auth links are logged when no email provider is configured. Production
 validation fails closed when required credentials or anti-abuse controls are
 missing.
 
-The application renders an external documentation link only when
-`NEXT_PUBLIC_DOCS_URL` is set. Point it to the adopting product's own
+Set your application's external documentation link through `product.docsUrl`
+in `saas.config.json` with `pnpm customize -- --docs-url`, or override it with
+`NEXT_PUBLIC_DOCS_URL` for a deployment. Point it to the adopting product's own
 documentation site; it intentionally has no upstream default. The docs website
 is not a submodule and is not built by this repository.
 
