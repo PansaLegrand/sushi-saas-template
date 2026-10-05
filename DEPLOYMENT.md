@@ -113,8 +113,9 @@ mutating the target. Serverless deployments can pass `--skip-containers`.
 `.env.example` is the full list with inline notes. What matters structurally:
 
 **`NEXT_PUBLIC_*` values are baked into the JavaScript bundle at build time.**
-Changing one in your hosting dashboard does nothing until you redeploy. Everything
-else is read at runtime and takes effect on the next request.
+Changing one in your hosting dashboard requires a rebuild/redeploy. Restart or
+replace running server/worker processes after changing server settings too:
+validated environment configuration and provider clients are cached.
 
 **Required in production or the app refuses to start** — a deliberate design
 choice, so a deploy cannot silently end up unprotected:
@@ -122,13 +123,17 @@ choice, so a deploy cannot silently end up unprotected:
 | Variable                                                  | Why                                                                                     |
 | --------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | `DATABASE_URL`                                            | Everything                                                                              |
+| `NEXT_PUBLIC_WEB_URL`, `BETTER_AUTH_URL`, `NEXT_PUBLIC_AUTH_BASE_URL` | Explicit public/auth origins; Admin auth URLs point to Admin |
 | `BETTER_AUTH_SECRET`                                      | Session signing. `openssl rand -base64 32`                                              |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` | Bot protection on auth endpoints. Opt out only with `NEXT_PUBLIC_CAPTCHA_ENABLED=false` |
 | `CRON_SECRET`                                             | Guards `/api/cron/jobs`. `openssl rand -hex 32`                                         |
+| `STRIPE_PRIVATE_KEY`, `STRIPE_WEBHOOK_SECRET`              | Required by the shared production validator, including Admin and the portable worker |
 | `STRIPE_BILLING_PORTAL_CONFIGURATION_ID`                  | Named `bpc_...` configuration; subscription updates must be disabled                    |
 | `STRIPE_PRICE_{PLUS,MAX}_{MONTHLY,YEARLY}`                | Stable recurring Prices used by checkout, entitlement sync, and renewal grants          |
 | `RATE_LIMIT_REDIS_URL`                                    | Shared rate-limit counters. Use the managed service's TLS `rediss://` URL               |
 | `RATE_LIMIT_IP_SOURCE`                                    | The one client-IP header overwritten by the trusted edge                                |
+| `RESEND_API_KEY`, `EMAIL_FROM`                             | Transactional email credentials and verified sender required at production startup     |
+| `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY` | Required private storage configuration; also set the provider region/endpoint correctly |
 
 Production validation rejects auth and cron secrets shorter than 32 UTF-8 bytes
 or recognizable setup placeholders. Generate both independently; never reuse a
@@ -136,14 +141,18 @@ secret across environments or between authentication and cron.
 
 **Required for the features that use them**:
 
-- `RESEND_API_KEY` + `EMAIL_FROM` for password reset, welcome, payment, and
-  reservation mail.
 - `CONTENT_MARKETING_SECRET`, `MARKETING_UNSUBSCRIBE_SECRET`, and the Resend
   endpoint's `RESEND_WEBHOOK_SECRET` for marketing campaigns.
-- `STRIPE_PRIVATE_KEY` + `STRIPE_WEBHOOK_SECRET` for billing.
-- The `STORAGE_*` block for private uploads.
 - `OTEL_ENABLED=true`, `OTEL_SERVICE_NAME`, and the standard
   `OTEL_EXPORTER_OTLP_*` variables for vendor-neutral tracing.
+
+Empty Stripe, Resend, or storage keys do not disable those domains. Removing a
+capability from an adopting product requires reviewing its runtime and startup
+validation together. Use `pnpm env:setup:prod` and `pnpm env:check:prod`, then
+supply production variables to the host and any standalone release/worker
+commands. Admin uses the same required environment contract with its own auth
+URLs. The [official environment guide](https://www.sushisaas.com/docs/environment-configuration)
+documents profile loading and shared values.
 
 Local development may omit `RATE_LIMIT_REDIS_URL` and use the in-memory
 fallback, but production app mode rejects that configuration because an

@@ -14,7 +14,7 @@ Use exactly one default mode per environment:
 | Local development         | Dedicated worker started by `pnpm dev:all` | `pnpm jobs:work`              |
 | VM, container, Kubernetes | Dedicated worker process                   | `pnpm jobs:work --production` |
 | Platform scheduler        | One bounded process                        | `pnpm jobs:run --production`  |
-| Vercel                    | Authenticated HTTP cron                    | `POST /api/cron/jobs`         |
+| Vercel                    | Authenticated HTTP cron                    | `GET /api/cron/jobs`          |
 
 Concurrent runners are safe. A full worker batch immediately attempts another
 drain; an incomplete batch waits for `JOB_WORKER_POLL_MS`. `SIGINT` and
@@ -64,9 +64,12 @@ unavailable. Replaying a `refunding` task never calls the provider again.
 Locally, enable `ENABLE_DEMO_FEATURES=true` and
 `ENABLE_IMAGE_GENERATION_MOCK=true`. `IMAGE_GENERATION_MOCK_FAILURES=N` makes
 the first N provider attempts fail so retry and refund behavior can be tested
-without an external account. Production ignores the mock flag; replace only
-`src/services/ai/image.ts` with a provider adapter that honors the supplied
-idempotency key and abort signal.
+without an external account. Production closes the mock gate in the task page,
+API route, and service. A real provider integration must replace that demo
+admission with reviewed production admission, adapt the SVG-only output
+contract to validated provider output types, and implement
+`src/services/ai/image.ts` while preserving idempotency, abort, credit, job, and
+storage invariants. Replacing the adapter alone cannot enable production tasks.
 
 ## Operator Workflow
 
