@@ -98,9 +98,11 @@ It is **opt-in per service**: Postgres tests need `TEST_DATABASE_URL`; the Redis
 test needs `TEST_REDIS_URL`. Without either, the default test command remains a
 zero-dependency run: Vitest omits the infrastructure project before collection,
 so skipped suites cannot initialize the real auth or database stack through
-their imports. Configuring either URL includes the project, with each service's
-tests gated by its own URL. CI always includes the project and fails rather than
-silently skipping either missing service.
+their imports. Configuring only Redis collects only its test, so PostgreSQL and
+auth modules are not initialized without a database. Configuring Postgres
+collects the full project, with the Redis test still gated by its own URL. CI
+always collects the full project and fails rather than silently skipping either
+missing service.
 
 ### End-to-end — `tests/e2e/`
 

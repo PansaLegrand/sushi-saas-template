@@ -90,7 +90,9 @@ export default defineConfig({
         extends: true,
         test: {
           name: "db",
-          include: ["tests/db/**/*.test.ts"],
+          include: process.env.CI || process.env.TEST_DATABASE_URL?.trim()
+            ? ["tests/db/**/*.test.ts"]
+            : ["tests/db/rate-limit.redis.test.ts"],
           // One database, shared by every file in this tier, and each file
           // truncates the same tables between tests. Run them in parallel and
           // one file's `beforeEach` wipes rows another file is mid-assertion
