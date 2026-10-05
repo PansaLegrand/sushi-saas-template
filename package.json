@@ -83,7 +83,7 @@
     "@aws-sdk/client-s3": "^3.1140.0",
     "@aws-sdk/s3-request-presigner": "^3.1140.0",
     "@daypicker/react": "^10.0.1",
-    "@next/third-parties": "^15.5.22",
+    "@next/third-parties": "^16.3.5",
     "@opentelemetry/api": "^1.9.1",
     "@radix-ui/react-dialog": "^1.1.23",
     "@radix-ui/react-label": "^2.1.15",
@@ -161,7 +161,7 @@
       "postcss": "^8.5.28",
       "qs": "^6.15.2",
       "rollup": "^4.59.0",
-      "sharp": "^0.35.3",
+      "sharp": "^0.35.4",
       "vite": "^7.3.5"
     }
   }
