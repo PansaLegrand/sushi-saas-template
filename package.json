@@ -136,7 +136,7 @@
     "drizzle-kit": "^0.31.11",
     "esbuild": "^0.28.2",
     "eslint": "9.36.0",
-    "eslint-config-next": "^15.5.27",
+    "eslint-config-next": "^16.3.8",
     "husky": "^9.1.7",
     "jsdom": "^29.1.1",
     "pino-pretty": "^11.3.0",
