@@ -23,13 +23,17 @@ test("the seeded session reaches the tenant-scoped credits ledger", async ({
   await page.goto("/en/account/credits");
 
   await expect(page.getByRole("heading", { name: "Credits" })).toBeVisible();
-  await expect(page.getByText("Demo User").first()).toBeVisible();
+  // External disposable fixtures may have any display name. The contract is
+  // that the page uses the selected workspace, not the default seed's label.
+  const selected = page.getByLabel("Switch workspace").locator("option:checked");
+  const workspace = (await selected.innerText()).split(" · ")[0];
+  await expect(page.getByRole("main")).toContainText(workspace);
   const balance = page
     .getByText("Spendable balance")
     .locator("..")
     .locator("dd");
   await expect(balance).toHaveText(/\d+/);
-  await expect(page.getByText("Manual adjustment").first()).toBeVisible();
+  await expect(page.getByRole("table", { name: "Workspace credit history" })).toBeVisible();
 });
 
 test("credit history pages retain workspace context and the full balance", async ({
