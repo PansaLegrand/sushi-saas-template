@@ -124,6 +124,12 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Install Chromium for production smoke
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Smoke production artifacts
+        run: pnpm test:production
+
   e2e:
     name: Full-stack browser contracts
     needs: checks

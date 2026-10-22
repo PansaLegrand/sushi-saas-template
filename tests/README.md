@@ -270,7 +270,7 @@ never calls `FLUSHDB`.
 
 ## Environment
 
-- Node 20+; tests use the platform `Request`/`Response`. No server is started.
+- Node 24.22.1+ within the supported Node 24 line; tests use the platform `Request`/`Response`. No server is started.
 - Mocked tiers make no network or database calls. `tests/setup-mocked.ts` clears
   the deployment Redis URL before test modules load, so route tests use the
   resettable in-memory rate limiter even when CI enables the Redis tier.
@@ -311,3 +311,15 @@ stripe trigger checkout_session_completed
 
 Requires `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `NEXT_PUBLIC_WEB_URL`
 in `.env.development.local`.
+
+### Built production smoke
+
+After `pnpm build`, run `pnpm test:production` (Chromium must be installed). It
+copies the standalone web/admin outputs into temporary directories, excludes
+environment files, supplies generated secrets and synthetic provider values,
+and starts them in production mode. It verifies mobile login rendering, client
+chunks, headers, process liveness and the localized anonymous account redirect.
+It never submits forms, sends mail, runs jobs, or touches a database. CI runs
+this after the build in addition to the full-stack development browser suite.
+Content Studio remains covered by its build and component/service tests; this
+smoke does not claim a live Payload/editor or external-provider flow.
