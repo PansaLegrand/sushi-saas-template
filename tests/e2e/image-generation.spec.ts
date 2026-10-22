@@ -6,9 +6,10 @@ import {
   E2E_WORKER_ENABLED,
 } from "./fixtures";
 
-async function credits(request: APIRequestContext) {
+async function credits(request: APIRequestContext, org: string) {
   const response = await request.post("/api/account/credits", {
     data: { includeLedger: false, includeExpiring: false },
+    headers: { "x-organization-slug": org },
   });
   expect(response.ok()).toBe(true);
   return (await response.json()).data as { balance: number };
@@ -26,7 +27,10 @@ test("charges five credits once and stores the generated image privately", async
     "Set E2E_CRON_SECRET so the disposable environment can drain its worker.",
   );
 
-  await page.goto("/en/tasks/image-generation");
+  await page.goto("/en/account/billing");
+  await expect(page).toHaveURL(/[?&]org=/);
+  const org = new URL(page.url()).searchParams.get("org")!;
+  await page.goto(`/en/tasks/image-generation?org=${encodeURIComponent(org)}`);
   await expect(
     page.getByRole("heading", { name: "Image generation" }),
   ).toBeVisible();
@@ -38,11 +42,11 @@ test("charges five credits once and stores the generated image privately", async
     headers: { Authorization: `Bearer ${E2E_CRON_SECRET}` },
   });
   expect(fixtureDrain.ok()).toBe(true);
-  const before = await credits(request);
+  const before = await credits(request, org);
   const key = `playwright-image-${Date.now()}`;
   const create = () =>
     request.post("/api/tasks/image-generation", {
-      headers: { "Idempotency-Key": key },
+      headers: { "Idempotency-Key": key, "x-organization-slug": org },
       data: {
         prompt: "A tiny sushi boat under a violet moon",
         idempotencyKey: key,
@@ -57,7 +61,7 @@ test("charges five credits once and stores the generated image privately", async
   const replayPayload = await replay.json();
   expect(replayPayload.data.task.uuid).toBe(firstPayload.data.task.uuid);
   expect(replayPayload.data.replayed).toBe(true);
-  expect((await credits(request)).balance).toBe(before.balance - 5);
+  expect((await credits(request, org)).balance).toBe(before.balance - 5);
 
   const taskUuid = firstPayload.data.task.uuid as string;
   let task = firstPayload.data.task as {
@@ -72,7 +76,7 @@ test("charges five credits once and stores the generated image privately", async
     });
     expect(drain.ok()).toBe(true);
 
-    const current = await request.get(`/api/tasks/${taskUuid}`);
+    const current = await request.get(`/api/tasks/${taskUuid}?org=${encodeURIComponent(org)}`);
     expect(current.ok()).toBe(true);
     task = (await current.json()).data.task;
   }
@@ -80,7 +84,7 @@ test("charges five credits once and stores the generated image privately", async
   expect(task.status).toBe("succeeded");
   expect(task.outputFileUuid).toBe(taskUuid);
   expect(task.outputUrl).toBeTruthy();
-  expect((await credits(request)).balance).toBe(before.balance - 5);
+  expect((await credits(request, org)).balance).toBe(before.balance - 5);
 
   const image = await request.get(task.outputUrl!);
   expect(image.ok()).toBe(true);

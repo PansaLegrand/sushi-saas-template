@@ -40,23 +40,27 @@ export default function FilesList() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [fileToDelete, setFileToDelete] = useState<FileObject | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal: AbortSignal) => {
     setLoading(true);
     try {
-      const data = await listFiles();
-      setItems(data?.items ?? []);
+      const data = await listFiles(signal);
+      if (!signal.aborted) setItems(data?.items ?? []);
     } catch (error) {
-      toast.error(resolveErrorMessage(error, locale));
+      if (!signal.aborted) toast.error(resolveErrorMessage(error, locale));
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   }, [locale]);
 
   useEffect(() => {
-    load();
-    const onRefresh = () => load();
+    const controller = new AbortController();
+    void load(controller.signal);
+    const onRefresh = () => void load(controller.signal);
     window.addEventListener("files:refresh", onRefresh);
-    return () => window.removeEventListener("files:refresh", onRefresh);
+    return () => {
+      controller.abort();
+      window.removeEventListener("files:refresh", onRefresh);
+    };
   }, [load]);
 
   const onDownload = useCallback(

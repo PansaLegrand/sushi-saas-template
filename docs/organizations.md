@@ -1,5 +1,15 @@
 # Organizations, teams, and tenancy
 
+The account URL's `org` query parameter owns the current tab's workspace.
+The shared layout supplies a landing fallback only when the parameter is absent;
+it must never overwrite an explicit selection during navigation. The account
+shell keys its content by workspace so forms, member lists, and file requests
+cannot retain state from the previous tenant. File requests are aborted on
+unmount. Authorization still resolves membership on the server on every request.
+
+`tests/e2e/workspaces.spec.ts` covers switching, browser history, and independent
+tabs against real membership data.
+
 Every user belongs to at least one organization, always. Signup creates a
 personal workspace, so a solo account is a team of one — there is no
 "user-owned resource" path running alongside the org-owned one.

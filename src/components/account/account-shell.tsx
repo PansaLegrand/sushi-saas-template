@@ -16,6 +16,7 @@ import {
 
 import LogoutButton from "@/components/auth/logout-button";
 import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
 import { ORGANIZATION_QUERY_PARAM } from "@/config/organization-context";
 import { localePath } from "@/i18n/locale";
 import { cn } from "@/lib/utils";
@@ -49,7 +50,19 @@ export default function AccountShell({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const selectedSlug = navigation.current.orgSlug;
+  // Shared layouts survive navigation. Their selection is only a landing
+  // fallback; the URL owns this tab's selection after that.
+  const selectedSlug =
+    searchParams.get(ORGANIZATION_QUERY_PARAM) ?? navigation.current.orgSlug;
+  const workspace = navigation.workspaces.find(({ slug }) => slug === selectedSlug);
+  const currentNavigation: OrgNavigationView = {
+    ...navigation,
+    current: {
+      orgSlug: selectedSlug,
+      orgName: workspace?.name ?? selectedSlug,
+      role: workspace?.role ?? "member",
+    },
+  };
 
   function contextualHref(path: string, slug = selectedSlug) {
     const query = new URLSearchParams(searchParams.toString());
@@ -67,7 +80,7 @@ export default function AccountShell({
   // URL. API buttons are safe even before this effect runs: multi-workspace
   // requests without the header fail closed on the server.
   useEffect(() => {
-    if (searchParams.get(ORGANIZATION_QUERY_PARAM) === selectedSlug) return;
+    if (searchParams.has(ORGANIZATION_QUERY_PARAM)) return;
 
     const query = new URLSearchParams(searchParams.toString());
     query.set(ORGANIZATION_QUERY_PARAM, selectedSlug);
@@ -103,7 +116,7 @@ export default function AccountShell({
           </Link>
 
           <WorkspaceSelector
-            navigation={navigation}
+            navigation={currentNavigation}
             onSelect={(slug) => router.push(currentPathHref(slug))}
           />
 
@@ -139,7 +152,7 @@ export default function AccountShell({
           </div>
         </aside>
 
-        <div id="account-content" className="min-w-0 flex-1" tabIndex={-1}>
+        <div key={selectedSlug} id="account-content" className="min-w-0 flex-1" tabIndex={-1}>
           {children}
         </div>
       </div>
@@ -179,18 +192,18 @@ function WorkspaceSelector({
       >
         {t("switchWorkspace")}
       </label>
-      <select
+      <Select
         id="account-workspace"
         value={current.orgSlug}
         onChange={(event) => onSelect(event.currentTarget.value)}
-        className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="mt-1 text-sm font-medium"
       >
         {navigation.workspaces.map((workspace) => (
           <option key={workspace.slug} value={workspace.slug}>
             {workspace.name} · {t(`roles.${workspace.role}`)}
           </option>
         ))}
-      </select>
+      </Select>
     </div>
   );
 }
