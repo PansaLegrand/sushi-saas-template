@@ -12,9 +12,15 @@ export interface CreatedUpload {
   expiresIn: number;
 }
 
-export function listFiles(signal?: AbortSignal) {
-  return api.get<{ items: FileObject[] }>("/api/storage/files", {
+export function listFiles(signal?: AbortSignal, page = 1) {
+  return api.get<{
+    items: FileObject[];
+    page: number;
+    limit: number;
+    hasMore: boolean;
+  }>("/api/storage/files", {
     signal,
+    query: { page, limit: 50 },
     headers: organizationHeaders(),
   });
 }
@@ -22,7 +28,7 @@ export function listFiles(signal?: AbortSignal) {
 export function getDownloadUrl(uuid: string) {
   return api.get<{ downloadUrl?: string }>(
     `/api/storage/files/${encodeURIComponent(uuid)}`,
-    { query: { download: 1 }, headers: organizationHeaders() }
+    { query: { download: 1 }, headers: organizationHeaders() },
   );
 }
 

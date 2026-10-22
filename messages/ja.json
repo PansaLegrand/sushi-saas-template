@@ -197,6 +197,32 @@
       "verifying": "検証中",
       "done": "完了",
       "error": "エラー"
+    },
+    "fileList": {
+      "title": "保存済みファイル",
+      "loading": "ファイルを読み込み中…",
+      "emptyTitle": "ファイルはありません",
+      "emptyDescription": "アップロードしたファイルがここに表示されます。",
+      "unnamed": "名称未設定のファイル",
+      "download": "ダウンロード",
+      "delete": "削除",
+      "deleteTitle": "ファイルを削除しますか？",
+      "deleteDescription": "{filename} を完全に削除します。この操作は取り消せません。",
+      "cancel": "キャンセル",
+      "deleted": "削除を依頼しました",
+      "loadFailed": "ファイルを読み込めませんでした",
+      "retry": "再試行",
+      "previous": "前へ",
+      "next": "次へ",
+      "page": "{page} ページ",
+      "pagination": "ファイルのページ切り替え",
+      "status": {
+        "uploading": "アップロード中",
+        "active": "利用可能",
+        "deleting": "削除中",
+        "deleted": "削除済み",
+        "failed": "失敗"
+      }
     }
   },
   "errors": {

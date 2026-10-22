@@ -55,7 +55,9 @@ export default function AccountShell({
   // fallback; the URL owns this tab's selection after that.
   const selectedSlug =
     searchParams.get(ORGANIZATION_QUERY_PARAM) ?? navigation.current.orgSlug;
-  const workspace = navigation.workspaces.find(({ slug }) => slug === selectedSlug);
+  const workspace = navigation.workspaces.find(
+    ({ slug }) => slug === selectedSlug,
+  );
   const currentNavigation: OrgNavigationView = {
     ...navigation,
     current: {
@@ -66,14 +68,12 @@ export default function AccountShell({
   };
 
   function contextualHref(path: string, slug = selectedSlug) {
-    const query = new URLSearchParams(searchParams.toString());
-    query.set(ORGANIZATION_QUERY_PARAM, slug);
+    const query = new URLSearchParams({ [ORGANIZATION_QUERY_PARAM]: slug });
     return `${localePath(locale, path)}?${query.toString()}`;
   }
 
   function currentPathHref(slug: string) {
-    const query = new URLSearchParams(searchParams.toString());
-    query.set(ORGANIZATION_QUERY_PARAM, slug);
+    const query = new URLSearchParams({ [ORGANIZATION_QUERY_PARAM]: slug });
     return `${pathname}?${query.toString()}`;
   }
 
@@ -92,7 +92,7 @@ export default function AccountShell({
     (item) =>
       !("reservationOnly" in item) ||
       !item.reservationOnly ||
-      reservationsEnabled
+      reservationsEnabled,
   );
 
   return (
@@ -136,7 +136,7 @@ export default function AccountShell({
                         "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
                         active
                           ? "bg-primary text-primary-foreground shadow-sm"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
                       )}
                     >
                       <Icon className="size-4" aria-hidden="true" />
@@ -153,8 +153,15 @@ export default function AccountShell({
           </div>
         </aside>
 
-        <div key={selectedSlug} id="account-content" className="min-w-0 flex-1" tabIndex={-1}>
-          {searchParams.has(ORGANIZATION_QUERY_PARAM) ? children : (
+        <div
+          key={selectedSlug}
+          id="account-content"
+          className="min-w-0 flex-1"
+          tabIndex={-1}
+        >
+          {searchParams.has(ORGANIZATION_QUERY_PARAM) ? (
+            children
+          ) : (
             <div className="space-y-4 p-8" aria-busy="true">
               <Skeleton className="h-8 w-48" />
               <Skeleton className="h-64 w-full" />
@@ -183,7 +190,9 @@ function WorkspaceSelector({
           {t("workspace")}
         </p>
         <div className="mt-1 flex items-center justify-between gap-2">
-          <p className="min-w-0 truncate text-sm font-semibold">{current.orgName}</p>
+          <p className="min-w-0 truncate text-sm font-semibold">
+            {current.orgName}
+          </p>
           <Badge variant="secondary">{t(`roles.${current.role}`)}</Badge>
         </div>
       </div>

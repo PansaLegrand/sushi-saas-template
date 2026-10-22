@@ -156,6 +156,29 @@ export async function listFilesByOrg(
   return rows;
 }
 
+/** Fetch one extra row to expose continuation without an unbounded count. */
+export async function listFilesPageByOrg(
+  orgUuid: string,
+  page: number,
+  limit: number,
+) {
+  const rows = await db()
+    .select()
+    .from(files)
+    .where(
+      and(scopedToOrg(files.org_uuid, orgUuid), eq(files.status, "active")),
+    )
+    .orderBy(desc(files.created_at), desc(files.id))
+    .limit(limit + 1)
+    .offset((page - 1) * limit);
+  return {
+    items: rows.slice(0, limit),
+    page,
+    limit,
+    hasMore: rows.length > limit,
+  };
+}
+
 export async function softDeleteFile(
   uuid: string,
   orgUuid: string,

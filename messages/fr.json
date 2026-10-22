@@ -197,6 +197,32 @@
       "verifying": "vérification",
       "done": "terminé",
       "error": "erreur"
+    },
+    "fileList": {
+      "title": "Fichiers enregistrés",
+      "loading": "Chargement des fichiers…",
+      "emptyTitle": "Aucun fichier",
+      "emptyDescription": "Les fichiers importés apparaîtront ici.",
+      "unnamed": "Fichier sans titre",
+      "download": "Télécharger",
+      "delete": "Supprimer",
+      "deleteTitle": "Supprimer le fichier ?",
+      "deleteDescription": "Cela supprimera définitivement {filename}. Cette action est irréversible.",
+      "cancel": "Annuler",
+      "deleted": "Suppression demandée",
+      "loadFailed": "Impossible de charger les fichiers",
+      "retry": "Réessayer",
+      "previous": "Précédent",
+      "next": "Suivant",
+      "page": "Page {page}",
+      "pagination": "Pagination des fichiers",
+      "status": {
+        "uploading": "Importation",
+        "active": "Disponible",
+        "deleting": "Suppression",
+        "deleted": "Supprimé",
+        "failed": "Échec"
+      }
     }
   },
   "errors": {

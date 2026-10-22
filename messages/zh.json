@@ -197,6 +197,32 @@
       "verifying": "验证中",
       "done": "完成",
       "error": "错误"
+    },
+    "fileList": {
+      "title": "已存储文件",
+      "loading": "正在加载文件…",
+      "emptyTitle": "暂无文件",
+      "emptyDescription": "上传的文件将显示在这里。",
+      "unnamed": "未命名文件",
+      "download": "下载",
+      "delete": "删除",
+      "deleteTitle": "删除文件？",
+      "deleteDescription": "这将永久移除 {filename}，且无法撤销。",
+      "cancel": "取消",
+      "deleted": "已提交删除请求",
+      "loadFailed": "无法加载文件",
+      "retry": "重试",
+      "previous": "上一页",
+      "next": "下一页",
+      "page": "第 {page} 页",
+      "pagination": "文件分页",
+      "status": {
+        "uploading": "上传中",
+        "active": "可用",
+        "deleting": "删除中",
+        "deleted": "已删除",
+        "failed": "失败"
+      }
     }
   },
   "errors": {

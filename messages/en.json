@@ -197,6 +197,32 @@
       "verifying": "verifying",
       "done": "done",
       "error": "error"
+    },
+    "fileList": {
+      "title": "Stored files",
+      "loading": "Loading files…",
+      "emptyTitle": "No files yet",
+      "emptyDescription": "Files you upload will appear here.",
+      "unnamed": "Untitled file",
+      "download": "Download",
+      "delete": "Delete",
+      "deleteTitle": "Delete file?",
+      "deleteDescription": "This will permanently remove {filename}. This action cannot be undone.",
+      "cancel": "Cancel",
+      "deleted": "Deletion requested",
+      "loadFailed": "Could not load files",
+      "retry": "Try again",
+      "previous": "Previous",
+      "next": "Next",
+      "page": "Page {page}",
+      "pagination": "File pages",
+      "status": {
+        "uploading": "Uploading",
+        "active": "Ready",
+        "deleting": "Deleting",
+        "deleted": "Deleted",
+        "failed": "Failed"
+      }
     }
   },
   "errors": {

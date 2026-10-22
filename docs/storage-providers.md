@@ -185,3 +185,16 @@ For a lower-level API smoke test:
 5. `DELETE /api/storage/files/{uuid}`.
 
 Keep this flow in the release checklist for storage changes.
+
+## File-list pagination
+
+`GET /api/storage/files` validates finite integer query parameters: `page` is
+1–10,000 and `limit` is 1–100 (defaults: 1 and 50). Authentication precedes
+the query, and the upload/read rate-limit bucket applies. The response retains
+`items` and adds `page`, `limit`, and `hasMore`. Only active files in the selected
+organization are listed, ordered by creation time and id. One extra row provides
+continuation metadata without a full count.
+
+The account list exposes previous/next controls, resets to the first page after
+an upload, cancels old requests, and distinguishes a failed load from an empty
+workspace. Changing workspace or account section resets page-specific filters.

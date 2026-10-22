@@ -197,6 +197,32 @@
       "verifying": "verificando",
       "done": "completado",
       "error": "error"
+    },
+    "fileList": {
+      "title": "Archivos guardados",
+      "loading": "Cargando archivos…",
+      "emptyTitle": "Aún no hay archivos",
+      "emptyDescription": "Los archivos que subas aparecerán aquí.",
+      "unnamed": "Archivo sin título",
+      "download": "Descargar",
+      "delete": "Eliminar",
+      "deleteTitle": "¿Eliminar archivo?",
+      "deleteDescription": "Se eliminará permanentemente {filename}. Esta acción no se puede deshacer.",
+      "cancel": "Cancelar",
+      "deleted": "Eliminación solicitada",
+      "loadFailed": "No se pudieron cargar los archivos",
+      "retry": "Reintentar",
+      "previous": "Anterior",
+      "next": "Siguiente",
+      "page": "Página {page}",
+      "pagination": "Páginas de archivos",
+      "status": {
+        "uploading": "Subiendo",
+        "active": "Disponible",
+        "deleting": "Eliminando",
+        "deleted": "Eliminado",
+        "failed": "Fallido"
+      }
     }
   },
   "errors": {

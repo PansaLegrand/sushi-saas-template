@@ -60,6 +60,18 @@ function validationDetails(error: ZodError) {
   };
 }
 
+export function parseQuery<Schema extends ZodTypeAny>(
+  params: URLSearchParams,
+  schema: Schema,
+): Schema["_output"] {
+  const parsed = schema.safeParse(Object.fromEntries(params));
+  if (!parsed.success)
+    throw new AppError("REQUEST_VALIDATION_FAILED", {
+      details: validationDetails(parsed.error),
+    });
+  return parsed.data;
+}
+
 export async function parseJsonBody<Schema extends ZodTypeAny>(
   req: Request,
   schema: Schema,
