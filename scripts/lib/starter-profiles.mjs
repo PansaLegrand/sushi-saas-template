@@ -28,6 +28,8 @@ export function starterCommands(profile, action) {
       return [["dev:doctor"]];
     case "dev":
       return [["dev:all"]];
+    case "demo":
+      return [["dev:seed"], ["dev:all"]];
     case "build":
       return [
         ["test:run"],
@@ -46,7 +48,26 @@ export function starterCommands(profile, action) {
       ];
     default:
       throw new Error(
-        `Unknown starter action: ${action}. Use install, setup, doctor, dev, build, or lint.`,
+        `Unknown starter action: ${action}. Use install, setup, doctor, demo, dev, build, or lint.`,
       );
   }
+}
+
+/** Demo choices are process-local. Existing development profiles stay untouched. */
+export function starterEnvironment(profile, action) {
+  return {
+    SAAS_STARTER_PROFILE: profile.name,
+    ...(action === "demo"
+      ? {
+          ENABLE_DEMO_FEATURES: "true",
+          ENABLE_IMAGE_GENERATION_MOCK: "true",
+          IMAGE_GENERATION_MOCK_FAILURES: "0",
+          NEXT_PUBLIC_CAPTCHA_ENABLED: "false",
+          AUTH_DEV_EMAIL_LINKS: "true",
+          RESEND_API_KEY: "",
+          SLACK_WEBHOOK_URL: "",
+          STRIPE_PRIVATE_KEY: "",
+        }
+      : {}),
+  };
 }

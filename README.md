@@ -66,35 +66,44 @@ Requirements:
 
 - Node.js `>=24.22.1 <25`
 - pnpm `10.22.0`
-- Docker for the default local PostgreSQL, Redis, and S3-compatible services
+- Git and a running Docker daemon for local PostgreSQL, Redis, and object storage
+
+Start with **Core**: the customer application and its background worker. The
+admin console and Content Studio can be added later.
 
 ```bash
-./scripts/setup.sh development
-pnpm dev:doctor
-pnpm dev:all
+git clone https://github.com/PansaLegrand/sushi-saas-template.git
+cd sushi-saas-template
+export SAAS_STARTER_PROFILE=core
+pnpm starter core install
+pnpm starter core setup
+pnpm starter core doctor
+pnpm starter core demo
 ```
 
-The application runs on `http://localhost:3000`, the admin console on `:3001`,
-and Content Studio on `:3002`. `pnpm dev:all` also drains durable jobs, prefixes
-every process's logs, and stops the complete group on `Ctrl-C`.
+Open `http://localhost:3000/en/login` and sign in with `demo@example.test` /
+`DemoPass123!` (or your existing `DEV_SEED_PASSWORD`). The demo grants 1,000
+credits once; the normal signup bonus is a separate ledger entry. At
+`/en/tasks/image-generation`, submit a prompt and wait for **Image ready**.
+The local adapter returns a labeled SVG placeholder, stores it privately, and
+spends five credits. It does not call an AI provider.
 
-Use `pnpm dev`, `pnpm dev:admin`, or `pnpm dev:studio` when working on only one
-application.
+`demo` seeds the guarded local database and runs both web and worker. It disables
+captcha, email, Slack, and Stripe for those processes without rewriting your
+environment files. `Ctrl-C` stops them. Use `pnpm starter core dev` afterward
+for normal development with your own configuration. Starting only `pnpm dev`
+does not process background jobs.
 
-The guided script installs dependencies, writes ignored development profiles,
-generates internal secrets, optionally collects provider credentials, starts
-PostgreSQL, Redis, and local S3 storage, provisions isolated app, test, Content
-Studio, and restore-drill databases, and applies both Drizzle and Payload
-migrations. It is idempotent and never replaces an existing value.
+Follow the [first-result tutorial](https://www.sushisaas.com/docs/quick-start)
+for expected screens, recovery steps, and the next guide. No Stripe, email, or
+AI-provider account is needed for this local result.
 
-The interactive flow begins with `pnpm customize`, which writes the tracked
-product identity, style, locale, support/docs, and legal-identity configuration.
-Use `--dry-run` for an automation preview.
-
-For CI or a no-prompts bootstrap, use `pnpm install && pnpm run setup`. Existing
-clones using `.env` remain supported; fresh clones use
-`.env.development.local` and
-`apps/content-studio/.env.development.local`.
+Core setup creates `.env.development.local`, local services, migrations, and a
+private bucket. Re-running it preserves existing environment files and data.
+`pnpm customize` edits the tracked product identity when you are ready to make
+the application yours. For optional applications, use the `operations` or
+`publishing` install/setup/dev commands described in
+[local development](docs/development.md#optional-application-profiles).
 
 ## Configuration
 
@@ -108,7 +117,8 @@ Configuration has one tracked inventory and separate ignored runtime profiles:
 | `pnpm env:check:prod`     | production profile       | Enforce the full production contract         |
 | `./scripts/setup.sh prod` | production profile       | Guided setup plus validation; never deploys  |
 
-`.env.example` remains the canonical list. Configure at minimum:
+`.env.example` remains the canonical list. Local setup fills the values needed
+for the demo. Before production, configure and validate:
 
 - `DATABASE_URL`
 - `BETTER_AUTH_SECRET`

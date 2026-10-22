@@ -20,34 +20,47 @@ files import it. The override is version-scoped so an upstream upgrade restores
 normal dependency resolution and must be reviewed again. It removes the
 unpatched `braces` path without replacing Payload's storage implementation.
 
-The default development loop is deliberately one command at each stage:
+Use the Core profile for the initial development loop:
 
 ```bash
-./scripts/setup.sh development
-pnpm dev:doctor
-pnpm dev:all
+export SAAS_STARTER_PROFILE=core
+pnpm starter core install
+pnpm starter core setup
+pnpm starter core doctor
+pnpm starter core demo
 ```
 
-Setup is idempotent. It creates ignored environment profiles, starts the local
-infrastructure, creates the app, test, Content Studio, and restore-drill
-databases, migrates the first three, provisions a private S3-compatible bucket,
-and leaves existing credentials untouched.
+Core setup is idempotent. It creates the ignored application profile, starts
+local infrastructure, migrates the app and test databases, provisions an
+isolated restore target and private S3-compatible bucket, and preserves existing
+credentials and data. It does not install or initialize Content Studio.
 
-On an interactive run, setup first opens `pnpm customize`. Its tracked
+The demo command seeds the local account, then starts web and worker with the
+image mock enabled and failure simulation disabled. Captcha is disabled locally;
+email is logged and Resend, Slack, and Stripe credentials are cleared for the
+child processes only. No environment file is rewritten. Normal `dev` commands
+retain the developer's configuration. The seed's existing local database guards
+remain mandatory; the demo command cannot seed a production database.
+
+Stop the demo with `Ctrl-C` before `pnpm starter core dev` to resume ordinary
+development. First-result steps belong in the public Quick Start; this file
+defines the tooling contract that those instructions rely on.
+
+Run `pnpm customize` when adapting the starter. Its tracked
 `saas.config.json` output becomes the default for product name/slug, style,
 locales, support/docs links, and legal identity; environment setup then handles
 deployment URLs and secrets. See [customization.md](customization.md).
 
 ## Doctor
 
-`pnpm dev:doctor` is read-only. It checks:
+`pnpm starter core doctor` is read-only. It checks the selected profile:
 
 - supported Node and exact pnpm versions;
 - private environment-file permissions and typed configuration;
 - loopback-only development/test/Content Studio/restore database boundaries;
 - Docker, PostgreSQL, Redis, and migration readiness;
 - the local S3 endpoint, credentials, and private bucket;
-- Content Studio's separate database and shared marketing credential;
+- Content Studio's separate database and shared marketing credential when selected;
 - optional Stripe CLI availability and whether the three applications are
   already listening.
 
@@ -57,18 +70,21 @@ script or development container.
 
 ## Unified development runner
 
-`pnpm dev:all` runs the web app, durable worker, admin console, and Content
-Studio with prefixed logs. `Ctrl-C` terminates the complete process group rather
-than leaving background processes behind.
+`pnpm starter core dev` runs the web app and durable worker with prefixed logs.
+The `operations` profile adds the admin console; `publishing` also adds Content
+Studio. `Ctrl-C` terminates the processes. The legacy `pnpm dev:all` defaults to
+publishing unless `SAAS_STARTER_PROFILE` selects a smaller profile.
 
 ```bash
-pnpm dev:all
+pnpm starter core dev
+pnpm starter operations dev
+pnpm starter publishing dev
 pnpm dev:all -- --web-only
 pnpm dev:all -- --no-studio
 pnpm dev:all -- --with-stripe
 ```
 
-The runner executes `pnpm dev:doctor` first. `--skip-doctor` exists for deliberate
+The runner executes the selected-profile doctor first. `--skip-doctor` exists for deliberate
 partial-stack work, not as the ordinary way to make a red preflight disappear.
 
 ## Browser contracts
@@ -115,6 +131,12 @@ The seed is idempotent and creates or repairs:
 - one deterministic 1,000-credit ledger grant;
 - the demo consultation reservation service.
 
+The normal signup credit job is independent of that 1,000-credit demo grant.
+After the worker processes it, the total may include the signup bonus. Re-running
+the seed repairs missing fixtures; it does not reset spent credits or issue a
+second demo grant. The Core browser smoke waits for signup work before asserting
+the image job's exact five-credit balance change.
+
 Override the password through `DEV_SEED_PASSWORD`, not a CLI flag that would
 appear in the process list. `--email` accepts only reserved `.test` and
 `.invalid` domains, and `--credits` is bounded to 1–100,000. The command refuses
@@ -141,7 +163,7 @@ Better Auth 1.7.6 declares Vitest as an optional peer exclusively for its
 The version-scoped `.pnpmfile.cjs` hook keeps the development runner out of the production
 dependency graph. The development runner is used in Node run mode only; do not
 expose a Vitest browser/mock server while its major-version migration is pending.
-# Optional application profiles
+## Optional application profiles
 
 The existing `pnpm setup`, `pnpm dev:all`, and `pnpm build` commands retain the
 complete stack. For a smaller adoption, choose a profile on each command:
@@ -156,6 +178,7 @@ complete stack. For a smaller adoption, choose a profile on each command:
 pnpm starter core install
 pnpm starter core setup
 pnpm starter core doctor
+pnpm starter core demo
 pnpm starter core dev
 pnpm starter core build
 pnpm starter operations build --dry-run
@@ -164,12 +187,13 @@ pnpm starter operations build --dry-run
 `install` uses the frozen lockfile and filters out the optional Studio workspace
 for core/operations. `setup` skips Studio environment creation, database creation
 and migrations for those profiles. Existing files and databases remain intact.
-`doctor`, `dev`, `lint`, and `build` inspect or run the selected applications.
+`doctor`, `demo`, `dev`, `lint`, and `build` inspect or run the selected applications.
 Builds retain the root test suite and bundle the durable worker runtime.
 
 After a filtered install, export `SAAS_STARTER_PROFILE=core` (or `operations`)
 in that shell so the ordinary `pnpm lint` and pre-commit hook use the same
-selection. CI leaves it unset and validates the complete publishing stack.
+selection. The main CI job validates publishing; a separate fresh-checkout job
+proves the Core install, setup, doctor, and first demo result.
 
 Profiles are developer tooling choices, not product plans or runtime security
 flags. Core still contains the application API, billing, organizations and

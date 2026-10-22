@@ -20,19 +20,30 @@ context, and safe to adapt into a real product.
 Requirements:
 
 - Node.js 24.22.1 or newer, below Node.js 25
-- pnpm 10.22
-- Docker, or local PostgreSQL 16 and Redis 7 instances
+- pnpm 10.22.0
+- Git and a running Docker daemon for PostgreSQL, Redis, and private object storage
 
 Bootstrap a fresh checkout:
 
 ```bash
-pnpm install --frozen-lockfile
-pnpm run setup
-pnpm dev
+export SAAS_STARTER_PROFILE=core
+pnpm starter core install
+pnpm starter core setup
+pnpm starter core doctor
+pnpm starter core demo
 ```
 
-`pnpm run setup` creates local-only secrets, starts the development services,
-and applies migrations. It never overwrites an existing env file.
+Core setup creates local-only secrets, starts the development services,
+and applies migrations. It never overwrites an existing env file. The demo
+command seeds a local account and starts the web app **and durable worker**,
+using the local image mock and disabling external email, Slack, and Stripe.
+See the README Quick Start for the first-result check.
+
+After that check, stop the demo with `Ctrl-C` and use `pnpm starter core dev`
+for ordinary development. Keep `SAAS_STARTER_PROFILE=core` in the shell so lint
+and commit hooks do not require the optional Content Studio workspace.
+Use `operations` for admin work or `publishing` for Content Studio; run that
+profile's install and setup before its dev command.
 
 ## Making a change
 
@@ -55,13 +66,18 @@ and applies migrations. It never overwrites an existing env file.
 
 ## Validation
 
-Run the same core gates as CI:
+Run the selected profile's checks:
 
 ```bash
-pnpm lint
+pnpm starter core lint
 pnpm test:cov
-pnpm build
+pnpm starter core build
 ```
+
+The complete CI pipeline also validates the admin console and Content Studio.
+For changes to those applications, install the `publishing` profile and run
+`pnpm lint && pnpm build` as well. A fresh Core onboarding job independently
+checks the documented first-result journey; see `tests/README.md`.
 
 The real-database tier requires `TEST_DATABASE_URL` and `TEST_REDIS_URL`:
 

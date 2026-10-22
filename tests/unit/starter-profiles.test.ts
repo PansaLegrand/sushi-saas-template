@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import {
   starterCommands,
+  starterEnvironment,
   starterProfile,
 } from "../../scripts/lib/starter-profiles.mjs";
 
@@ -48,5 +49,33 @@ describe("starter profiles", () => {
     expect(
       starterCommands(starterProfile("publishing"), "build"),
     ).toContainEqual(["build:studio"]);
+  });
+  it("seeds before starting the demo and scopes integration overrides to that action", () => {
+    const core = starterProfile("core");
+    expect(starterCommands(core, "demo")).toEqual([["dev:seed"], ["dev:all"]]);
+    const inherited = {
+      STRIPE_PRIVATE_KEY: "configured-test-value",
+      RESEND_API_KEY: "configured-test-value",
+      SLACK_WEBHOOK_URL: "https://example.invalid/webhook",
+      ENABLE_IMAGE_GENERATION_MOCK: "false",
+      IMAGE_GENERATION_MOCK_FAILURES: "3",
+    };
+    const demo = { ...inherited, ...starterEnvironment(core, "demo") };
+    expect(demo).toMatchObject({
+      SAAS_STARTER_PROFILE: "core",
+      ENABLE_DEMO_FEATURES: "true",
+      ENABLE_IMAGE_GENERATION_MOCK: "true",
+      IMAGE_GENERATION_MOCK_FAILURES: "0",
+      NEXT_PUBLIC_CAPTCHA_ENABLED: "false",
+      AUTH_DEV_EMAIL_LINKS: "true",
+      STRIPE_PRIVATE_KEY: "",
+      RESEND_API_KEY: "",
+      SLACK_WEBHOOK_URL: "",
+    });
+    expect({ ...inherited, ...starterEnvironment(core, "dev") }).toEqual({
+      ...inherited,
+      SAAS_STARTER_PROFILE: "core",
+    });
+    expect(inherited.STRIPE_PRIVATE_KEY).toBe("configured-test-value");
   });
 });
