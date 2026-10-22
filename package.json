@@ -29,8 +29,8 @@
     "start:admin": "NODE_NO_WARNINGS=1 next start apps/admin -p 3001",
     "start:studio": "pnpm --dir apps/content-studio start",
     "lint": "pnpm config:check && pnpm lint:web && pnpm lint:admin && pnpm lint:studio && pnpm db:lint",
-    "lint:web": "next lint --max-warnings 0",
-    "lint:admin": "next lint apps/admin --max-warnings 0",
+    "lint:web": "eslint src --max-warnings 0",
+    "lint:admin": "eslint apps/admin --max-warnings 0",
     "lint:studio": "pnpm --dir apps/content-studio lint",
     "setup": "node scripts/setup-dev.mjs",
     "setup:guided": "bash scripts/setup.sh development",
@@ -122,6 +122,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
     "@next/bundle-analyzer": "^16.3.1",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.3.3",

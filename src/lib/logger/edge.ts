@@ -20,7 +20,6 @@ function write(level: LogLevel, base: LogFields, obj?: LogFields, msg?: string) 
     ...(msg ? { message: redactLogString(msg) } : {}),
     ...payload,
   };
-  // eslint-disable-next-line no-console
   console.log(JSON.stringify(line));
 }
 

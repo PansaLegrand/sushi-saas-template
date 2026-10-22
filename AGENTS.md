@@ -183,7 +183,7 @@ Notes:
 - `pnpm dev:doctor` / `pnpm dev:all`: Diagnose the complete local stack, then run the web, durable worker, admin, and Content Studio processes together.
 - `pnpm dev` / `pnpm dev:webpack`: Start only the application dev server (Turbopack or Webpack).
 - `pnpm build` then `pnpm start`: Production build and runtime smoke test; both must succeed before opening a PR.
-- `pnpm lint`: Execute `next lint`; warnings are treated as blockers.
+- `pnpm lint`: Execute ESLint directly for each application; warnings are treated as blockers.
 - `pnpm test:fast` / `pnpm test:run` / `pnpm test:cov` / `pnpm test:db`: Vitest tiers; see `tests/README.md`. `test:fast` runs only the hermetic mocked and component projects; `test:db` additionally needs `TEST_DATABASE_URL` and a one-time `pnpm test:db:setup`.
 - `pnpm drizzle-kit <generate|migrate> --config src/db/config.ts`: Keep database migrations synchronized with `src/db/schema.ts`.
  - The `files` table powers uploads; regenerate and migrate when touching storage schema.

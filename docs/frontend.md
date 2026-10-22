@@ -150,3 +150,12 @@ Before merging frontend work:
 Architecture tests enforce token use, preset completeness, and the mechanically
 detectable parts of primitive adoption. Component tests cover behavior users can
 notice. Visual density and hierarchy still require browser review.
+
+## Hook dependency checks
+
+`pnpm lint` uses the ESLint CLI for the web, admin, and Content Studio apps.
+React hook dependency checks are errors throughout web and admin source. Keep
+effects scoped to their actual inputs, abort stale asynchronous work on cleanup,
+and use stable callbacks when a subscription depends on a function. The root
+flat configuration adapts the Next 15 presets; Content Studio retains its
+separate Next 16 configuration. Generated files and build output are excluded.
