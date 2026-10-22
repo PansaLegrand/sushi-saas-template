@@ -39,6 +39,7 @@ vi.mock("sonner", () => ({
 }));
 
 class SuccessfulXHR {
+  static sentHeaders: [string, string][] = [];
   status = 200;
   statusText = "OK";
   responseText = "";
@@ -47,7 +48,9 @@ class SuccessfulXHR {
   onerror?: () => void;
 
   open() {}
-  setRequestHeader() {}
+  setRequestHeader(name: string, value: string) {
+    SuccessfulXHR.sentHeaders.push([name.toLowerCase(), value]);
+  }
   send(file: File) {
     this.upload.onprogress?.({
       lengthComputable: true,
@@ -98,6 +101,7 @@ function fileObject(overrides: Partial<FileObject> = {}): FileObject {
 describe("Uploader", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    SuccessfulXHR.sentHeaders = [];
     vi.stubGlobal("XMLHttpRequest", SuccessfulXHR);
     mocks.createUpload.mockResolvedValue({
       fileUuid: "file-1",
@@ -113,6 +117,15 @@ describe("Uploader", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("sends the presigned content type exactly once", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<Uploader />);
+    await user.upload(container.querySelector('input[type="file"]')!, new File(["pdf"], "report.pdf", { type: "application/pdf" }));
+    await waitFor(() => expect(mocks.completeUpload).toHaveBeenCalled());
+    expect(SuccessfulXHR.sentHeaders.filter(([name]) => name === "content-type"))
+      .toEqual([["content-type", "application/pdf"]]);
   });
 
   it("rejects files outside the selected policy before creating a presign", async () => {

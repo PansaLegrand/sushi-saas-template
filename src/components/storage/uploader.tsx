@@ -59,13 +59,14 @@ function uploadViaXHR(
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", url, true);
-    if (headers) {
-      for (const [k, v] of Object.entries(headers)) xhr.setRequestHeader(k, v);
+    // XHR appends repeated headers. Sending the signed Content-Type and then
+    // the file type produced "text/plain, text/plain", breaking MIME metadata
+    // and turning a safelisted content type into a CORS preflight header.
+    const requestHeaders = new Headers(headers);
+    if (!requestHeaders.has("Content-Type")) {
+      requestHeaders.set("Content-Type", file.type || "application/octet-stream");
     }
-    xhr.setRequestHeader(
-      "Content-Type",
-      file.type || "application/octet-stream",
-    );
+    requestHeaders.forEach((value, name) => xhr.setRequestHeader(name, value));
     xhr.upload.onprogress = (evt) => {
       if (!evt.lengthComputable) return;
       const pct = Math.round((evt.loaded / evt.total) * 100);
