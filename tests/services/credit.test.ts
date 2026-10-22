@@ -102,6 +102,49 @@ describe("credit service", () => {
     vi.useRealTimers();
   });
 
+  it("pages logical movements while retaining the complete balance", async () => {
+    const logical = creditRow({ trans_no: "logical-spend", credits: -5 });
+    const older = creditRow({ trans_no: "older-grant", credits: 10 });
+    mocks.getOrgCreditLedgerSnapshot.mockResolvedValue({
+      rows: [
+        creditRow({ trans_no: "part-1" }),
+        creditRow({ trans_no: "part-2" }),
+        older,
+      ],
+      logicalRows: [logical, older],
+      balance: balanceSnapshot(),
+    });
+    const first = await getOrgCreditSummary("org-1", {
+      ledgerPage: 1,
+      ledgerLimit: 1,
+    });
+    const second = await getOrgCreditSummary("org-1", {
+      ledgerPage: 2,
+      ledgerLimit: 1,
+    });
+    expect(first.ledger[0].transNo).toBe("logical-spend");
+    expect(first.ledgerPagination).toEqual({
+      page: 1,
+      limit: 1,
+      hasMore: true,
+    });
+    expect(second.ledger[0].transNo).toBe("older-grant");
+    expect(second.ledgerPagination).toEqual({
+      page: 2,
+      limit: 1,
+      hasMore: false,
+    });
+    expect(second.balance).toBe(first.balance);
+    expect(second.balance).toBe(6);
+  });
+
+  it("refuses invalid history pages before reading the ledger", async () => {
+    await expect(
+      getOrgCreditSummary("org-1", { ledgerPage: Infinity }),
+    ).rejects.toMatchObject({ code: "REQUEST_INVALID" });
+    expect(mocks.getOrgCreditLedgerSnapshot).not.toHaveBeenCalled();
+  });
+
   it("publishes the exact spendable snapshot and remaining expiry amount", async () => {
     const summary = await getOrgCreditSummary("org-1");
 

@@ -371,8 +371,16 @@
         "videoTask": "Video generation",
         "refund": "Refund",
         "usage": "Usage",
-        "other": "Other"
-      }
+        "other": "Other",
+        "imageTask": "Image generation"
+      },
+      "pagination": {
+        "previous": "Previous",
+        "next": "Next",
+        "page": "Page {page}",
+        "label": "Credit history pages"
+      },
+      "noPageHistory": "No entries on this page."
     },
     "files": {
       "title": "Workspace files",

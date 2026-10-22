@@ -12,6 +12,7 @@ const CreditQuerySchema = z.object({
   includeLedger: z.boolean().optional(),
   ledgerLimit: z.coerce.number().int().positive().max(500).optional(),
   includeExpiring: z.boolean().optional(),
+  ledgerPage: z.coerce.number().int().min(1).max(10_000).optional(),
 });
 
 export async function POST(req: Request) {
@@ -35,6 +36,7 @@ export async function POST(req: Request) {
       includeLedger: payload.includeLedger,
       ledgerLimit: payload.ledgerLimit,
       includeExpiring: payload.includeExpiring,
+      ledgerPage: payload.ledgerPage,
     });
 
     return respData(summary);

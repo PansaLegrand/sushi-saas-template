@@ -1,5 +1,9 @@
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
+import { z } from "zod";
+import { Button } from "@/components/ui/button";
+import { localePath } from "@/i18n/locale";
 import { getTranslations } from "next-intl/server";
 
 import { buildMetadata, defaultMetaFallbacks } from "@/lib/seo";
@@ -46,6 +50,8 @@ function transactionLabelKey(type: string): string {
       return "types.adjustment";
     case "task_text_to_video":
       return "types.videoTask";
+    case "task_image_generation":
+      return "types.imageTask";
     case "task_adjust":
       return "types.refund";
     case "ping":
@@ -58,19 +64,31 @@ function transactionLabelKey(type: string): string {
 
 export default async function CreditsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<{ page?: string }>;
 }) {
   const requestHeaders = await headers();
   const ctx = await getOrgContextFromHeaders(requestHeaders);
   if (!ctx) redirect("/login");
 
   const { locale } = await params;
+  const parsed = z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(10_000)
+    .default(1)
+    .safeParse((await searchParams).page);
+  if (!parsed.success) notFound();
+  const page = parsed.data;
   const [summary, t] = await Promise.all([
     getOrgCreditSummary(ctx.orgUuid, {
       includeLedger: true,
       includeExpiring: true,
       ledgerLimit: 100,
+      ledgerPage: page,
     }),
     getTranslations("account.credits"),
   ]);
@@ -137,7 +155,7 @@ export default async function CreditsPage({
 
         {summary.ledger.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground">
-            {t("noHistory")}
+            {t(page === 1 ? "noHistory" : "noPageHistory")}
           </div>
         ) : (
           <div
@@ -190,6 +208,40 @@ export default async function CreditsPage({
             </table>
           </div>
         )}
+        <nav
+          aria-label={t("pagination.label")}
+          className="flex items-center justify-between gap-3"
+        >
+          {page > 1 ? (
+            <Button asChild variant="outline" size="sm">
+              <Link
+                href={`${localePath(locale, "/account/credits")}?org=${encodeURIComponent(ctx.orgSlug)}&page=${page - 1}`}
+              >
+                {t("pagination.previous")}
+              </Link>
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" disabled>
+              {t("pagination.previous")}
+            </Button>
+          )}
+          <span className="text-sm text-muted-foreground">
+            {t("pagination.page", { page })}
+          </span>
+          {summary.ledgerPagination?.hasMore ? (
+            <Button asChild variant="outline" size="sm">
+              <Link
+                href={`${localePath(locale, "/account/credits")}?org=${encodeURIComponent(ctx.orgSlug)}&page=${page + 1}`}
+              >
+                {t("pagination.next")}
+              </Link>
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" disabled>
+              {t("pagination.next")}
+            </Button>
+          )}
+        </nav>
       </section>
     </main>
   );

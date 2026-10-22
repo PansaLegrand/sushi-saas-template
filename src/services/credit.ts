@@ -37,6 +37,7 @@ export enum CreditsAmount {
 
 interface CreditSummaryOptions {
   ledgerLimit?: number;
+  ledgerPage?: number;
   includeLedger?: boolean;
   includeExpiring?: boolean;
   /**
@@ -175,6 +176,10 @@ export async function getOrgCreditSummary(
   orgUuid: string,
   options: CreditSummaryOptions = {},
 ): Promise<CreditSummary> {
+  const ledgerPage = options.ledgerPage ?? 1;
+  if (!Number.isInteger(ledgerPage) || ledgerPage < 1 || ledgerPage > 10_000) {
+    throw new AppError("REQUEST_INVALID", { details: { field: "ledgerPage" } });
+  }
   const now = new Date();
   const { rows, logicalRows, balance } = await getOrgCreditLedgerSnapshot(
     orgUuid,
@@ -195,13 +200,18 @@ export async function getOrgCreditSummary(
   const includeAudit = options.includeAudit ?? false;
   const ledgerRows = includeAudit ? rows : logicalRows;
 
-  let ledgerCount = 0;
-
-  for (const row of ledgerRows) {
-    if (includeLedger && ledgerCount < ledgerLimit) {
-      summary.ledger.push(buildLedgerEntry(row, includeAudit));
-      ledgerCount += 1;
-    }
+  const offset = (ledgerPage - 1) * ledgerLimit;
+  if (includeLedger) {
+    summary.ledger = ledgerRows
+      .slice(offset, offset + ledgerLimit)
+      .map((row) => buildLedgerEntry(row, includeAudit));
+  }
+  if (options.ledgerPage !== undefined) {
+    summary.ledgerPagination = {
+      page: ledgerPage,
+      limit: ledgerLimit,
+      hasMore: ledgerRows.length > offset + ledgerLimit,
+    };
   }
 
   if (includeExpiring) {
@@ -251,9 +261,7 @@ export async function getOrgCredits(orgUuid: string): Promise<UserCredits> {
 
 function isUniqueViolation(error: unknown): boolean {
   const candidate = error as
-    | { code?: string; cause?: { code?: string } }
-    | null
-    | undefined;
+    { code?: string; cause?: { code?: string } } | null | undefined;
   return candidate?.code === "23505" || candidate?.cause?.code === "23505";
 }
 

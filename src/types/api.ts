@@ -16,6 +16,7 @@ export interface CreditQueryRequest {
   includeLedger?: boolean;
   ledgerLimit?: number;
   includeExpiring?: boolean;
+  ledgerPage?: number;
 }
 
 export interface UserInfoRequest {

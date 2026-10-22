@@ -43,4 +43,5 @@ export interface CreditSummary {
   /** Remaining amounts in grant buckets expiring within the warning window. */
   expiringSoon: CreditLedgerEntry[];
   ledger: CreditLedgerEntry[];
+  ledgerPagination?: { page: number; limit: number; hasMore: boolean };
 }

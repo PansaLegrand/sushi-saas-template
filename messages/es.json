@@ -371,8 +371,16 @@
         "videoTask": "Generación de vídeo",
         "refund": "Reembolso",
         "usage": "Uso",
-        "other": "Otro"
-      }
+        "other": "Otro",
+        "imageTask": "Generación de imágenes"
+      },
+      "pagination": {
+        "previous": "Anterior",
+        "next": "Siguiente",
+        "page": "Página {page}",
+        "label": "Páginas del historial de créditos"
+      },
+      "noPageHistory": "No hay entradas en esta página."
     },
     "files": {
       "title": "Archivos del espacio",

@@ -371,8 +371,16 @@
         "videoTask": "Génération vidéo",
         "refund": "Remboursement",
         "usage": "Utilisation",
-        "other": "Autre"
-      }
+        "other": "Autre",
+        "imageTask": "Génération d’image"
+      },
+      "pagination": {
+        "previous": "Précédent",
+        "next": "Suivant",
+        "page": "Page {page}",
+        "label": "Pagination de l’historique des crédits"
+      },
+      "noPageHistory": "Aucune entrée sur cette page."
     },
     "files": {
       "title": "Fichiers de l’espace",

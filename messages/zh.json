@@ -371,8 +371,16 @@
         "videoTask": "视频生成",
         "refund": "退还",
         "usage": "使用",
-        "other": "其他"
-      }
+        "other": "其他",
+        "imageTask": "图像生成"
+      },
+      "pagination": {
+        "previous": "上一页",
+        "next": "下一页",
+        "page": "第 {page} 页",
+        "label": "积分记录分页"
+      },
+      "noPageHistory": "本页没有记录。"
     },
     "files": {
       "title": "工作区文件",

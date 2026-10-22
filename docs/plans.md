@@ -265,3 +265,12 @@ manual-action classification wrap every money-moving path consistently.
 Production requires `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` (`bpc_...`). The
 app retrieves that exact configuration on every portal open and fails closed if
 `features.subscription_update.enabled` has drifted to true in Stripe.
+
+## Credit-history pages
+
+The account credit ledger exposes 100 logical movements per page, with the
+organization retained in each navigation URL. `POST /api/account/credits` also
+accepts `ledgerPage` (1–10,000) alongside the existing bounded `ledgerLimit` and
+returns `ledgerPagination` when requested. FEFO parts are grouped before
+pagination; a split spend/refund stays one customer movement. Balance and
+expiry summaries always use the complete ledger, independent of the page.
