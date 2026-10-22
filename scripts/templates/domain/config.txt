@@ -1,0 +1,2 @@
+// Enable only after completing docs/domains/__DOMAIN__.md.
+export const __CONSTANT___ENABLED = false;

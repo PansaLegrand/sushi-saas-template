@@ -1,0 +1,17 @@
+import { respData, respNoAuth } from "@/lib/resp";
+import { respError } from "@/lib/errors/response";
+import { rateLimitOrThrow } from "@/lib/rate-limit";
+import { getOrgContext } from "@/services/authz";
+import { list__PASCAL__ForOrganization } from "@/services/__DOMAIN__";
+
+export async function GET(req: Request) {
+  const limited = await rateLimitOrThrow(req, "account-read");
+  if (limited) return limited;
+  try {
+    const actor = await getOrgContext(req);
+    if (!actor) return respNoAuth();
+    return respData(await list__PASCAL__ForOrganization(actor.orgUuid));
+  } catch (error) {
+    return respError(error, { logFields: { event: "__DOMAIN__.list_failed" }, fallback: "SERVER_ERROR" });
+  }
+}

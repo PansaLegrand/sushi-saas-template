@@ -1,0 +1,9 @@
+import { AppError } from "@/lib/errors";
+import type { __PASCAL__Record } from "@/types/__DOMAIN__";
+
+export async function list__PASCAL__ByOrg(orgUuid: string): Promise<__PASCAL__Record[]> {
+  void orgUuid;
+  // Add an owner-scoped, bounded query after designing the schema/migration.
+  // Keeping this disabled prevents a scaffold from impersonating real data.
+  throw new AppError("FEATURE_DISABLED");
+}

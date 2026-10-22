@@ -1,0 +1,17 @@
+/** No domain data may be read before tenant authentication. */
+import { beforeEach, expect, it, vi } from "vitest";
+import { get } from "../helpers/request";
+import { resetRateLimitForTests } from "@/lib/rate-limit";
+const mocks = vi.hoisted(() => ({
+  actor: vi.fn<typeof import("@/services/authz").getOrgContext>(),
+  list: vi.fn<typeof import("@/services/__DOMAIN__").list__PASCAL__ForOrganization>(),
+}));
+vi.mock("@/services/authz", () => ({ getOrgContext: mocks.actor }));
+vi.mock("@/services/__DOMAIN__", () => ({ list__PASCAL__ForOrganization: mocks.list }));
+import { GET } from "@/app/api/__DOMAIN__/route";
+beforeEach(() => { vi.resetAllMocks(); resetRateLimitForTests(); });
+it("rejects anonymous requests before reading domain data", async () => {
+  mocks.actor.mockResolvedValue(null);
+  expect((await GET(get("/api/__DOMAIN__"))).status).toBe(401);
+  expect(mocks.list).not.toHaveBeenCalled();
+});

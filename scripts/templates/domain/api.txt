@@ -1,0 +1,6 @@
+import { api } from "@/lib/api/client";
+import type { __PASCAL__Record } from "@/types/__DOMAIN__";
+
+export function get__PASCAL__(orgSlug: string, signal?: AbortSignal) {
+  return api.get<__PASCAL__Record[]>("/api/__DOMAIN__", { query: { org: orgSlug }, signal });
+}

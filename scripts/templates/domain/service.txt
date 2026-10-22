@@ -1,0 +1,9 @@
+import { __CONSTANT___ENABLED } from "@/config/__DOMAIN__";
+import { AppError } from "@/lib/errors";
+import { list__PASCAL__ByOrg } from "@/models/__DOMAIN__";
+
+export async function list__PASCAL__ForOrganization(orgUuid: string) {
+  if (!__CONSTANT___ENABLED) throw new AppError("FEATURE_DISABLED");
+  // Add requireEntitlement/enforceLimit here if this domain is plan-gated.
+  return list__PASCAL__ByOrg(orgUuid);
+}

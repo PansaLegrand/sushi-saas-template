@@ -1,0 +1,21 @@
+# __PASCAL__ implementation contract
+
+This scaffold is disabled. Its model deliberately throws FEATURE_DISABLED even
+after the config flag changes, until a real tenant-scoped query is implemented.
+
+- [ ] Define owned resources, public DTO, validation and bounded pagination.
+- [ ] Read docs/database.md; add expand/contract schema and generated migrations.
+- [ ] Keep queries in src/models/__DOMAIN__.ts and writes/invariants in services.
+- [ ] Define role capabilities and plan entitlements through their existing services.
+- [ ] Add auth-gate, cross-tenant database and happy-path tests.
+- [ ] For money/credit writes, prove concurrent/replayed requests have one effect.
+- [ ] For asynchronous work, define stable job identity, cancellation and recovery.
+- [ ] Inventory fields in account export, erasure, retention, logs and audit rules.
+- [ ] Add domain errors to the catalog and translate every code in all five locales.
+- [ ] Compose UI primitives with loading, empty, error, keyboard and mobile states.
+- [ ] Server pages call services; clients use src/api/__DOMAIN__.ts and catalog errors.
+- [ ] Add browser coverage, update engineering contracts and detached public guides.
+- [ ] Remove the model's disabled placeholder and enable config only after checks pass.
+
+Run pnpm lint, pnpm test:fast, the relevant database/browser tier and pnpm build.
+No generated route should be advertised as a finished product feature.

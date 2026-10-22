@@ -1,0 +1,4 @@
+export interface __PASCAL__Record {
+  uuid: string;
+  // Define the public DTO. Do not expose internal IDs or private metadata.
+}

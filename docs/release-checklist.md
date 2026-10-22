@@ -13,6 +13,8 @@ pnpm db:lint
 pnpm containers:check
 pnpm test:run
 pnpm build
+pnpm test:production
+pnpm benchmark:ledger -- --check
 pnpm launch:check
 ```
 
