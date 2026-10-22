@@ -19,6 +19,7 @@ const {
   retryFailedJobByUuid,
   cancelPendingJobByUuid,
   findJobByUuid,
+  rescheduleJobContinuation,
 } = vi.hoisted(() => ({
   claimDueJobs: vi.fn(),
   markJobSucceeded: vi.fn().mockResolvedValue(true),
@@ -27,6 +28,7 @@ const {
   retryFailedJobByUuid: vi.fn(),
   cancelPendingJobByUuid: vi.fn(),
   findJobByUuid: vi.fn(),
+  rescheduleJobContinuation: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock("@/models/job", () => ({
@@ -37,6 +39,7 @@ vi.mock("@/models/job", () => ({
   retryFailedJobByUuid,
   cancelPendingJobByUuid,
   findJobByUuid,
+  rescheduleJobContinuation,
   deleteFinishedJobsBefore: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -53,6 +56,7 @@ vi.mock("@/services/jobs/handlers", () => ({
 }));
 
 import { enqueueJobSafe, runDueJobs } from "@/services/jobs";
+import { JobContinuation } from "@/services/jobs/continuation";
 import { cancelPendingJob, retryFailedJob } from "@/services/jobs/operator";
 
 function buildJob(overrides: Record<string, unknown> = {}) {
@@ -253,6 +257,24 @@ describe("runDueJobs", () => {
       expect.any(Number),
     );
     expect(result).toMatchObject({ claimed: 1, retrying: 1 });
+  });
+
+  it("reschedules checkpointed work without counting a failure", async () => {
+    welcomeEmail.mockRejectedValueOnce(new JobContinuation());
+    queueClaims(buildJob());
+    const result = await runDueJobs(1);
+    expect(rescheduleJobContinuation).toHaveBeenCalledWith(
+      expect.objectContaining({ uuid: "job-1" }),
+      1_000,
+    );
+    expect(markJobFailed).not.toHaveBeenCalled();
+    expect(markJobSucceeded).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      claimed: 1,
+      yielded: 1,
+      failed: 0,
+      retrying: 0,
+    });
   });
 
   it("releases a lease when the claim itself crosses the drain deadline", async () => {

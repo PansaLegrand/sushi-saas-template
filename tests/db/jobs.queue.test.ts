@@ -29,6 +29,7 @@ import {
   listPendingJobs,
   markJobFailed,
   markJobSucceeded,
+  rescheduleJobContinuation,
   retryFailedJobByUuid,
 } from "@/models/job";
 import { runDueJobs } from "@/services/jobs";
@@ -183,6 +184,17 @@ describeDb("job queue (real database)", () => {
 
     expect(reclaimed.map((j) => j.uuid)).toEqual([job?.uuid]);
     expect(reclaimed[0]?.attempts).toBe(2);
+  });
+
+  it("preserves the failure budget across checkpointed continuations", async () => {
+    await insertJob({ type: "welcome_email", maxAttempts: 1 });
+    const [lease] = await claimDueJobs(1, STALE_LOCK_MS);
+    expect(lease.attempts).toBe(1);
+    expect(await rescheduleJobContinuation(lease, 0)).toBe(true);
+    const [next] = await claimDueJobs(1, STALE_LOCK_MS);
+    expect(next.uuid).toBe(lease.uuid);
+    expect(next.attempts).toBe(1);
+    expect(await rescheduleJobContinuation(lease, 0)).toBe(false);
   });
 
   it("rejects completion from a runner whose lease was replaced", async () => {

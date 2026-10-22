@@ -3,11 +3,13 @@ import {
   deleteFinishedJobsBefore,
   insertJob,
   isJobLeaseActive,
+  rescheduleJobContinuation,
   markJobFailed,
   markJobSucceeded,
   type JobRow,
 } from "@/models/job";
 import { jobHandlers } from "./handlers";
+import { JobContinuation } from "./continuation";
 import type { JobHandlerContext, JobPayloads, JobType } from "./types";
 import { logger } from "@/lib/logger/server";
 import { AppError } from "@/lib/errors";
@@ -102,11 +104,17 @@ export interface RunJobsResult {
   retrying: number;
   failed: number;
   leaseLost: number;
+  yielded: number;
   results: {
     uuid: string;
     type: string;
     outcome:
-      "succeeded" | "retrying" | "failed" | "unknown_type" | "lease_lost";
+      | "succeeded"
+      | "retrying"
+      | "failed"
+      | "unknown_type"
+      | "lease_lost"
+      | "yielded";
     error?: string;
   }[];
 }
@@ -186,6 +194,7 @@ async function runOne(
           attempt: job.attempts,
           maxAttempts: job.max_attempts,
           signal: controller.signal,
+          deadlineAt: Date.now() + timeoutMs,
           lease: job.locked_at
             ? { uuid: job.uuid, lockedAt: job.locked_at }
             : undefined,
@@ -221,6 +230,12 @@ async function runOne(
           outcome,
         };
       } catch (e) {
+        if (e instanceof JobContinuation) {
+          const released = await rescheduleJobContinuation(job, e.delayMs);
+          const outcome = released ? "yielded" : "lease_lost";
+          span.setAttribute("job.outcome", outcome);
+          return { uuid: job.uuid, type: job.type, outcome };
+        }
         const message = e instanceof Error ? e.message : String(e);
         const outcome = await markJobFailed(job, message, BACKOFF_BASE_MS);
         span.setAttribute("job.outcome", outcome);
@@ -292,6 +307,7 @@ export async function runDueJobs(
       (r) => r.outcome === "failed" || r.outcome === "unknown_type",
     ).length,
     leaseLost: results.filter((r) => r.outcome === "lease_lost").length,
+    yielded: results.filter((r) => r.outcome === "yielded").length,
     results,
   };
 }

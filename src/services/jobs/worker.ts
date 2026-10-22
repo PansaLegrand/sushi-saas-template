@@ -107,6 +107,7 @@ export async function runJobWorker(
             retrying: result.retrying,
             failed: result.failed,
             lease_lost: result.leaseLost,
+            yielded: result.yielded,
           },
           "job worker drained queue",
         );

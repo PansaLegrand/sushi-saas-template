@@ -62,22 +62,21 @@ export async function cancelStripeCustomerSubscriptionsForErasure(input: {
   customerId: string;
   requestUuid: string;
   signal?: AbortSignal;
+  onSubscription?: (id: string) => Promise<void>;
 }): Promise<string[]> {
   throwIfAborted(input.signal);
   const stripe = newStripeClient().stripe();
-  const page = await stripe.subscriptions
-    .list(
-      {
-        customer: input.customerId,
-        status: "all",
-        limit: 100,
-      },
-      { timeout: 10_000, maxNetworkRetries: 0 },
-    )
-    .autoPagingToArray({ limit: 10_000 });
-
   const canceled: string[] = [];
-  for (const subscription of page) {
+  // Iterate pages lazily so the owning workflow can checkpoint/yield after
+  // each subscription instead of loading an unbounded customer snapshot.
+  for await (const subscription of stripe.subscriptions.list(
+    {
+      customer: input.customerId,
+      status: "all",
+      limit: 100,
+    },
+    { timeout: 10_000, maxNetworkRetries: 0 },
+  )) {
     throwIfAborted(input.signal);
     if (
       subscription.status !== "canceled" &&
@@ -89,6 +88,7 @@ export async function cancelStripeCustomerSubscriptionsForErasure(input: {
         signal: input.signal,
       });
     }
+    await input.onSubscription?.(subscription.id);
     canceled.push(subscription.id);
   }
 

@@ -75,6 +75,34 @@ export interface EnqueueJobParams {
 
 export type JobRow = typeof jobs.$inferSelect;
 
+/** Release a checkpointed batch without consuming the handler's retry budget. */
+export async function rescheduleJobContinuation(
+  job: JobRow,
+  delayMs: number,
+): Promise<boolean> {
+  if (!job.locked_at) return false;
+  const now = new Date();
+  const [updated] = await db()
+    .update(jobs)
+    .set({
+      status: "pending",
+      attempts: sql`greatest(0, ${jobs.attempts} - 1)`,
+      run_at: new Date(now.getTime() + Math.max(0, delayMs)),
+      locked_at: null,
+      last_error: null,
+      updated_at: now,
+    })
+    .where(
+      and(
+        eq(jobs.id, job.id),
+        eq(jobs.status, "running"),
+        eq(jobs.locked_at, job.locked_at),
+      ),
+    )
+    .returning({ id: jobs.id });
+  return Boolean(updated);
+}
+
 function normalizeClaimedJob(row: JobRow): JobRow {
   const date = (value: Date | string): Date =>
     value instanceof Date ? value : new Date(value);

@@ -2,6 +2,10 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { ACCOUNT_LIFECYCLE_POLICY } from "@/config/account-lifecycle";
 import { auth } from "@/lib/auth";
+import {
+  createJobWorkBudget,
+  JobContinuation,
+} from "@/services/jobs/continuation";
 import { assertJobActive } from "@/services/jobs/execution";
 import type { JobHandlerContext } from "@/services/jobs/types";
 import { AppError, isAppError } from "@/lib/errors";
@@ -474,6 +478,7 @@ async function rememberEffect(
   id: string,
   state: ReturnType<typeof parsePrivacyExternalState>,
   context?: JobHandlerContext,
+  budget?: ReturnType<typeof createJobWorkBudget>,
 ) {
   await assertJobActive(context);
   if (state[effect].includes(id)) return;
@@ -484,6 +489,7 @@ async function rememberEffect(
     ...(context?.lease ? { lease: context.lease } : {}),
   });
   state[effect].push(id);
+  budget?.checkpoint();
 }
 
 export async function runAccountErasure(
@@ -511,6 +517,7 @@ export async function runAccountErasure(
     });
   }
 
+  const budget = createJobWorkBudget(25, context?.deadlineAt);
   try {
     const plan = await getAccountErasurePlan(input.requestUuid);
     if (!plan) {
@@ -541,12 +548,22 @@ export async function runAccountErasure(
         id,
         state,
         context,
+        budget,
       );
     }
 
     for (const customerId of plan.stripeCustomerIds) {
       await assertJobActive(context);
       const discovered = await cancelStripeCustomerSubscriptionsForErasure({
+        onSubscription: async (id) =>
+          rememberEffect(
+            input.requestUuid,
+            "stripeSubscriptions",
+            id,
+            state,
+            context,
+            budget,
+          ),
         ...(context ? { signal: context.signal } : {}),
         customerId,
         requestUuid: input.requestUuid,
@@ -558,6 +575,7 @@ export async function runAccountErasure(
           subscriptionId,
           state,
           context,
+          budget,
         );
       }
 
@@ -577,6 +595,7 @@ export async function runAccountErasure(
           customerId,
           state,
           context,
+          budget,
         );
       }
     }
@@ -597,6 +616,7 @@ export async function runAccountErasure(
         file.uuid,
         state,
         context,
+        budget,
       );
     }
 
@@ -610,6 +630,7 @@ export async function runAccountErasure(
         task.uuid,
         state,
         context,
+        budget,
       );
     }
 
@@ -629,6 +650,7 @@ export async function runAccountErasure(
         id,
         state,
         context,
+        budget,
       );
     }
 
@@ -647,6 +669,7 @@ export async function runAccountErasure(
       });
     }
   } catch (cause) {
+    if (cause instanceof JobContinuation) throw cause;
     await assertJobActive(context);
     await markPrivacyRequestFailed(
       input.requestUuid,

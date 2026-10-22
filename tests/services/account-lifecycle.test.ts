@@ -189,10 +189,12 @@ describe("runAccountErasure", () => {
       subscriptionId: "sub_2",
       requestUuid: request.uuid,
     });
-    expect(mocks.cancelCustomerSubscriptions).toHaveBeenCalledWith({
-      customerId: "cus_1",
-      requestUuid: request.uuid,
-    });
+    expect(mocks.cancelCustomerSubscriptions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customerId: "cus_1",
+        requestUuid: request.uuid,
+      }),
+    );
     expect(mocks.deleteCustomer).toHaveBeenCalledWith({
       customerId: "cus_1",
       requestUuid: request.uuid,
@@ -221,6 +223,34 @@ describe("runAccountErasure", () => {
     });
     expect(mocks.finalize).toHaveBeenCalledOnce();
     expect(mocks.markFailed).not.toHaveBeenCalled();
+  });
+
+  it("continues large erasures in checkpointed batches", async () => {
+    const large = {
+      ...plan(),
+      stripeSubscriptions: [],
+      stripeCustomerIds: [],
+      taskOutputs: [],
+      exportArtifacts: [],
+      storedFiles: Array.from({ length: 26 }, (_, index) => ({
+        uuid: `file-${index}`,
+        org_uuid: "org-1",
+      })),
+    };
+    mocks.getPlan.mockResolvedValue(large);
+    mocks.parseState.mockReturnValue(emptyState());
+    await expect(
+      runAccountErasure({ requestUuid: request.uuid }),
+    ).rejects.toMatchObject({
+      message: "job yielded after checkpointed progress",
+    });
+    expect(mocks.deleteStoredObject).toHaveBeenCalledTimes(25);
+    expect(mocks.recordEffect).toHaveBeenCalledTimes(25);
+    expect(mocks.finalize).not.toHaveBeenCalled();
+    expect(mocks.markFailed).not.toHaveBeenCalled();
+    await runAccountErasure({ requestUuid: request.uuid });
+    expect(mocks.deleteStoredObject).toHaveBeenCalledTimes(26);
+    expect(mocks.finalize).toHaveBeenCalledOnce();
   });
 
   it("stops erasure after cancellation without finalizing or overwriting request state", async () => {

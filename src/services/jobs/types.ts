@@ -95,6 +95,7 @@ export type JobHandlerContext = {
   attempt: number;
   maxAttempts: number;
   signal: AbortSignal;
+  deadlineAt?: number;
   lease?: import("@/models/job").JobLease;
   /** Revalidate ownership before starting another external effect. */
   assertActive?: () => Promise<void>;

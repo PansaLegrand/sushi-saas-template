@@ -52,6 +52,14 @@ state after a timeout or lease replacement. Custom handlers should call
 `assertJobActive(context)` between awaits and pass `context.lease` to guarded
 model writes. Never interpret `Promise.race` alone as cancellation of its loser.
 
+Large erasures checkpoint and yield after 25 new external effects, or when less
+than ten seconds remain in the execution budget. Stripe subscriptions are read
+page by page and checkpointed individually. `JobContinuation` reschedules the
+same job after one second and restores the attempt consumed by claiming it;
+useful progress therefore cannot exhaust the failure-retry budget. The runner
+reports `yielded` separately from failed/retrying work. Custom handlers must
+persist their progress before yielding and skip completed effects on replay.
+
 ## Reference Paid Workflow: Image Generation
 
 Image generation is the minimal end-to-end example for a paid asynchronous
