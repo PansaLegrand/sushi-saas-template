@@ -31,7 +31,7 @@ export async function generateTextToVideo(
   void seconds;
   void aspect;
 
-  const fallbackUrl = process.env.TEXT2VIDEO_MOCK_URL ?? "/demo-video.mp4";
+  const fallbackUrl = process.env.TEXT2VIDEO_MOCK_URL?.trim() || "/demo-video.mp4";
 
   return {
     outputUrl: fallbackUrl,

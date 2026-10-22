@@ -227,6 +227,7 @@ export async function runTextToVideoTask(
       { idempotencyKey: task.uuid, signal: context.signal },
     );
     await assertJobActive(context);
+    if (!result.outputUrl?.trim()) throw new AppError("TASK_PROVIDER_FAILED");
     if (
       !(await transitionTaskStatus(
         task.uuid,
@@ -234,7 +235,7 @@ export async function runTextToVideoTask(
         ["running"],
         "succeeded",
         {
-          output_url: result.outputUrl,
+          output_url: result.outputUrl.trim(),
           output_json: result.raw ? JSON.stringify(result.raw) : null,
           completed_at: new Date(),
           error_message: null,

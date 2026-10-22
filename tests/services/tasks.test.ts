@@ -176,6 +176,15 @@ describe("durable video tasks", () => {
       undefined,
     );
   });
+  it("never records empty provider output as success and compensates after retry exhaustion", async () => {
+    mocks.generate.mockResolvedValue({ outputUrl: "   " });
+    await runTextToVideoTask({ taskUuid: "task-1", orgUuid: "org-1" }, { ...context, attempt: 5 });
+    expect(mocks.transition.mock.calls.some(call => call[3] === "succeeded")).toBe(false);
+    expect(mocks.refund).toHaveBeenCalledWith(expect.objectContaining({ original_trans_no: "task_video:task-1" }));
+    mocks.read.mockResolvedValue(task({ status: "failed" }));
+    await runTextToVideoTask({ taskUuid: "task-1", orgUuid: "org-1" }, { ...context, attempt: 5 });
+    expect(mocks.refund).toHaveBeenCalledTimes(1);
+  });
   it("compensates terminal failure before recording failed", async () => {
     mocks.generate.mockRejectedValue(new AppError("TASK_PROVIDER_FAILED"));
     await runTextToVideoTask(

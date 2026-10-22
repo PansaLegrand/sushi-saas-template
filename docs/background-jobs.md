@@ -125,7 +125,7 @@ attempts. Deploy a worker that understands `text_to_video` before admitting
 that job type in an adopting application.
 
 The development adapter returns the bundled eight-second `/demo-video.mp4` sample
-(or `TEXT2VIDEO_MOCK_URL`); it does not synthesize the requested prompt, aspect,
+(or a non-empty `TEXT2VIDEO_MOCK_URL`); it does not synthesize the requested prompt, aspect,
 or duration. Both demo providers remain closed in production. Old synchronous
 video tasks without a request fingerprint are never automatically resubmitted:
 an operator must reconcile their provider outcome before settlement.
@@ -170,3 +170,7 @@ receipt retention, stale-upload cleanup, and Stripe webhook sweeps. Retention
 periods are configured through `RETENTION_*_DAYS`; see
 [backups-and-retention.md](backups-and-retention.md). Operational job history is
 not the product's permanent audit ledger.
+
+An absent, empty or whitespace-only video mock URL uses the bundled demo asset.
+The worker treats missing provider output as a failure and compensates after
+retry exhaustion; it never records an empty output as a successful paid task.
