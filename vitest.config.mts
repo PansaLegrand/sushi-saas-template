@@ -1,8 +1,7 @@
 import { defineConfig } from "vitest/config";
-import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parse } from "dotenv";
+import { readTestInfrastructureUrls } from "./scripts/lib/test-infrastructure.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -17,28 +16,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * profile, and only the real-infrastructure tier reads them. Explicit shell/CI
  * values always win.
  */
-function loadTestInfrastructureUrls(): void {
-  const keys = ["TEST_DATABASE_URL", "TEST_REDIS_URL"] as const;
-
-  for (const file of [
-    ".env.development.local",
-    ".env.local",
-    ".env.development",
-    ".env",
-  ]) {
-    const filePath = path.resolve(__dirname, file);
-    if (!fs.existsSync(filePath)) continue;
-    const values = parse(fs.readFileSync(filePath));
-
-    for (const key of keys) {
-      if (process.env[key]?.trim()) continue;
-      const value = values[key]?.trim();
-      if (value) process.env[key] = value;
-    }
-  }
-}
-
-loadTestInfrastructureUrls();
+Object.assign(process.env, readTestInfrastructureUrls(__dirname, process.env));
 
 // Skip collection as well as execution when no local service is configured:
 // merely importing infrastructure suites can initialize the real auth/DB stack.
@@ -129,13 +107,13 @@ export default defineConfig({
       // never lower one to make a red build green — that is the signal working.
       // Calibrated against a fresh clone with no test database — the floor
       // every contributor can meet without installing Postgres. Measured there:
-      // 41.73 / 54.83 / 70.87 (lines / functions / branches), on Node 24. Infrastructure
+      // 44.17 / 54.95 / 72.89 (lines / functions / branches), on Node 24. Infrastructure
       // coverage is additional headroom, not a reason to relax this floor.
       thresholds: {
-        lines: 41.7,
-        functions: 54.8,
-        branches: 70.8,
-        statements: 41.7,
+        lines: 44.1,
+        functions: 54.9,
+        branches: 72.8,
+        statements: 44.1,
       },
     },
   },

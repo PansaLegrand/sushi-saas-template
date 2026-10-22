@@ -323,3 +323,12 @@ It never submits forms, sends mail, runs jobs, or touches a database. CI runs
 this after the build in addition to the full-stack development browser suite.
 Content Studio remains covered by its build and component/service tests; this
 smoke does not claim a live Payload/editor or external-provider flow.
+
+To force a hermetic coverage run even when local profiles contain test URLs:
+
+```bash
+TEST_DATABASE_URL= TEST_REDIS_URL= pnpm test:cov
+```
+
+Explicit empty shell values disable infrastructure discovery; they never fall
+back to another profile’s database. CI still requires its infrastructure URLs.
