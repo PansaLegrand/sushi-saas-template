@@ -79,7 +79,8 @@
       "errorTitle": "无法生成图像",
       "signInTitle": "需要登录",
       "signInDescription": "创建任务前请先登录。",
-      "signInAction": "登录"
+      "signInAction": "登录",
+      "generateAgain": "再生成一张图片"
     }
   },
   "reservation": {

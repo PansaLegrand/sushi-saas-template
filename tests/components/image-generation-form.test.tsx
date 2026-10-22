@@ -5,7 +5,13 @@
  * polling from queued to succeeded, and the rule that an uncertain network
  * response retries with the original key rather than spending twice.
  */
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -45,10 +51,13 @@ function response(data: unknown, status = 200): Response {
   return Response.json({ code: 0, message: "ok", data }, { status });
 }
 
-function renderForm(pollIntervalMs?: number) {
+function renderForm(pollIntervalMs?: number, persistenceKey?: string) {
   return render(
     <NextIntlClientProvider locale="en" messages={messages}>
-      <ImageGenerationForm pollIntervalMs={pollIntervalMs} />
+      <ImageGenerationForm
+        pollIntervalMs={pollIntervalMs}
+        persistenceKey={persistenceKey}
+      />
     </NextIntlClientProvider>,
   );
 }
@@ -59,7 +68,11 @@ function imageCalls(fetchMock: ReturnType<typeof vi.fn>) {
   );
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  sessionStorage.clear();
+  window.history.replaceState({}, "", "/");
+});
 
 describe("ImageGenerationForm", () => {
   it("sends one mutation and one replay key for two synchronous clicks", () => {
@@ -87,7 +100,9 @@ describe("ImageGenerationForm", () => {
   it("polls a queued task and renders its private signed result", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
-      .mockResolvedValueOnce(response({ task: task("queued"), replayed: false }, 202))
+      .mockResolvedValueOnce(
+        response({ task: task("queued"), replayed: false }, 202),
+      )
       .mockResolvedValueOnce(
         response({
           task: task("succeeded", "https://storage.test/signed-image"),
@@ -101,10 +116,9 @@ describe("ImageGenerationForm", () => {
     await user.click(screen.getByRole("button", { name: "Generate image" }));
 
     expect(await screen.findByText("Image ready")).toBeVisible();
-    expect(screen.getByRole("img", { name: "Generated result" })).toHaveAttribute(
-      "src",
-      "https://storage.test/signed-image",
-    );
+    expect(
+      screen.getByRole("img", { name: "Generated result" }),
+    ).toHaveAttribute("src", "https://storage.test/signed-image");
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(String(fetchMock.mock.calls[1]?.[0])).toContain("/api/tasks/task-1");
   });
@@ -113,20 +127,81 @@ describe("ImageGenerationForm", () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockRejectedValueOnce(new Error("connection reset"))
-      .mockResolvedValueOnce(response({ task: task("queued"), replayed: true }, 202));
+      .mockResolvedValueOnce(
+        response({ task: task("queued"), replayed: true }, 202),
+      );
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
     renderForm();
 
     await user.type(screen.getByRole("textbox", { name: "Prompt" }), "Sushi");
     await user.click(screen.getByRole("button", { name: "Generate image" }));
-    await screen.findByText("Could not reach the server. Check your connection and try again.");
+    await screen.findByText(
+      "Could not reach the server. Check your connection and try again.",
+    );
     await user.click(screen.getByRole("button", { name: "Generate image" }));
 
     await waitFor(() => expect(imageCalls(fetchMock)).toHaveLength(2));
     const [first, second] = imageCalls(fetchMock);
+    expect(new Headers(first?.[1]?.headers).get("Idempotency-Key")).toBe(
+      new Headers(second?.[1]?.headers).get("Idempotency-Key"),
+    );
+  });
+
+  it("recovers automatically when one status read fails", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        response({ task: task("queued"), replayed: false }, 202),
+      )
+      .mockRejectedValueOnce(new Error("temporarily offline"))
+      .mockResolvedValueOnce(
+        response({ task: task("succeeded", "https://storage.test/result") }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    renderForm(1);
+    await user.type(screen.getByRole("textbox", { name: "Prompt" }), "Sushi");
+    await user.click(screen.getByRole("button", { name: "Generate image" }));
+    expect(await screen.findByText("Image ready")).toBeVisible();
+    expect(imageCalls(fetchMock)).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("restores the original intent after reload without automatically submitting", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockRejectedValueOnce(new Error("response lost"))
+      .mockResolvedValueOnce(
+        response({ task: task("queued"), replayed: true }, 202),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    const first = renderForm(1_500, "task:user-a:org-a");
+    await user.type(
+      screen.getByRole("textbox", { name: "Prompt" }),
+      "Saved prompt",
+    );
+    await user.click(screen.getByRole("button", { name: "Generate image" }));
+    await screen.findByText(
+      "Could not reach the server. Check your connection and try again.",
+    );
+    const key = new Headers(imageCalls(fetchMock)[0]?.[1]?.headers).get(
+      "Idempotency-Key",
+    );
+    expect(new URL(window.location.href).searchParams.get("intent")).toBe(key);
+    first.unmount();
+    renderForm(1_500, "task:user-a:org-a");
+    expect(screen.getByRole("textbox", { name: "Prompt" })).toHaveValue(
+      "Saved prompt",
+    );
+    expect(imageCalls(fetchMock)).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "Generate image" }));
+    await waitFor(() => expect(imageCalls(fetchMock)).toHaveLength(2));
     expect(
-      new Headers(first?.[1]?.headers).get("Idempotency-Key"),
-    ).toBe(new Headers(second?.[1]?.headers).get("Idempotency-Key"));
+      new Headers(imageCalls(fetchMock)[1]?.[1]?.headers).get(
+        "Idempotency-Key",
+      ),
+    ).toBe(key);
   });
 });

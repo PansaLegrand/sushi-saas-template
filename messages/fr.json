@@ -79,7 +79,8 @@
       "errorTitle": "Impossible de générer l’image",
       "signInTitle": "Connexion requise",
       "signInDescription": "Connectez-vous avant de créer une tâche.",
-      "signInAction": "Se connecter"
+      "signInAction": "Se connecter",
+      "generateAgain": "Générer une autre image"
     }
   },
   "reservation": {

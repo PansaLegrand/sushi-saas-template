@@ -1,8 +1,5 @@
 import { api } from "@/lib/api/client";
-import type {
-  CreateImageGenerationResponse,
-  TaskRecord,
-} from "@/types/task";
+import type { CreateImageGenerationResponse, TaskRecord } from "@/types/task";
 import { organizationHeaders } from "./organization-context";
 
 export type { TaskRecord } from "@/types/task";
@@ -13,10 +10,10 @@ export function getLatestTask() {
   });
 }
 
-export function getTask(uuid: string) {
+export function getTask(uuid: string, signal?: AbortSignal) {
   return api.get<{ task: TaskRecord }>(
     `/api/tasks/${encodeURIComponent(uuid)}`,
-    { headers: organizationHeaders() }
+    { headers: organizationHeaders(), signal },
   );
 }
 

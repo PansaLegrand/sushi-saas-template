@@ -79,7 +79,8 @@
       "errorTitle": "No se pudo generar la imagen",
       "signInTitle": "Debes iniciar sesión",
       "signInDescription": "Inicia sesión antes de crear una tarea.",
-      "signInAction": "Iniciar sesión"
+      "signInAction": "Iniciar sesión",
+      "generateAgain": "Generar otra imagen"
     }
   },
   "reservation": {

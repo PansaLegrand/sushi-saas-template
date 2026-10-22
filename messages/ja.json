@@ -79,7 +79,8 @@
       "errorTitle": "画像を生成できませんでした",
       "signInTitle": "ログインが必要です",
       "signInDescription": "タスクを作成する前にログインしてください。",
-      "signInAction": "ログイン"
+      "signInAction": "ログイン",
+      "generateAgain": "別の画像を生成"
     }
   },
   "reservation": {

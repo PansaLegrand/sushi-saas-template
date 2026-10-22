@@ -88,6 +88,13 @@ dispatches for nonterminal paid tasks can be revived, while running leases and
 terminal tasks remain untouched. Read `tasks.dispatchesRepaired` in cron output
 or `taskDispatchesRepaired` in worker maintenance logs.
 
+The image page stores the replay identity in its URL and the draft in
+tab-local storage scoped by user and organization. Reload resolves that task
+server-side; it never resubmits generation. Transient status-read failures use
+bounded exponential backoff, reconnect/focus refresh the result, and leaving
+the page aborts reads. After a terminal result, “Generate another image” is an
+explicit new paid intent with a new key.
+
 The worker state machine is `queued → running → succeeded`. Provider
 failures return to `queued` for the first four attempts. On the fifth failure,
 the worker moves the task to `refunding`, applies the ledger's deterministic

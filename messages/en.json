@@ -79,7 +79,8 @@
       "errorTitle": "Could not generate the image",
       "signInTitle": "Sign in required",
       "signInDescription": "Sign in before creating a task.",
-      "signInAction": "Sign in"
+      "signInAction": "Sign in",
+      "generateAgain": "Generate another image"
     }
   },
   "reservation": {

@@ -4,11 +4,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
-import {
-  createImageGenerationTask,
-  getTask,
-  newTaskIdempotencyKey,
-} from "@/api/tasks";
+import { createImageGenerationTask, newTaskIdempotencyKey } from "@/api/tasks";
 import { BillingPromptDialog } from "@/components/billing/billing-prompt-dialog";
 import { useBillingPrompt } from "@/components/billing/use-billing-prompt";
 import { ErrorBanner } from "@/components/errors/error-banner";
@@ -24,22 +20,36 @@ import {
 import { Field } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import { Link } from "@/i18n/navigation";
+import {
+  readTaskIntent,
+  saveTaskIntent,
+  updateTaskLocation,
+} from "./task-intent";
+import { isActiveTask, useTaskStatus } from "./use-task-status";
 import { isClientApiError, resolveErrorMessage } from "@/lib/errors/client";
 import type { TaskRecord } from "@/types/task";
 
 const POLL_INTERVAL_MS = 1_500;
-const ACTIVE_STATUSES = new Set([
-  "pending_payment",
-  "queued",
-  "running",
-  "refunding",
-]);
+function taskPrompt(task?: TaskRecord | null): string {
+  try {
+    const input = JSON.parse(task?.userInput ?? "{}");
+    return typeof input.prompt === "string" ? input.prompt : "";
+  } catch {
+    return "";
+  }
+}
 
 export function ImageGenerationForm({
   pollIntervalMs = POLL_INTERVAL_MS,
+  initialTask = null,
+  initialIntentKey,
+  persistenceKey,
 }: {
   /** Test and embedded-surface override; product pages use the default. */
   pollIntervalMs?: number;
+  initialTask?: TaskRecord | null;
+  initialIntentKey?: string;
+  persistenceKey?: string;
 } = {}) {
   const t = useTranslations("tasks.imageGeneration");
   const locale = useLocale();
@@ -48,13 +58,32 @@ export function ImageGenerationForm({
     clear: clearBilling,
     dialogProps: billingDialogProps,
   } = useBillingPrompt();
-  const [prompt, setPrompt] = useState("");
-  const [task, setTask] = useState<TaskRecord | null>(null);
+  const [prompt, setPrompt] = useState(taskPrompt(initialTask));
+  const [task, setTask] = useState<TaskRecord | null>(initialTask);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [needsSignIn, setNeedsSignIn] = useState(false);
-  const idempotencyKey = useRef<string | null>(null);
+  const idempotencyKey = useRef<string | null>(
+    initialIntentKey ?? initialTask?.idempotencyKey ?? null,
+  );
+  const submittedPrompt = useRef<string | null>(
+    initialTask ? taskPrompt(initialTask) : null,
+  );
   const submission = useRef<Promise<void> | null>(null);
+
+  useEffect(() => {
+    const saved = readTaskIntent(persistenceKey);
+    setPrompt(saved?.prompt ?? taskPrompt(initialTask));
+    setTask(initialTask);
+    idempotencyKey.current = saved
+      ? saved.idempotencyKey
+      : (initialIntentKey ?? initialTask?.idempotencyKey ?? null);
+    submittedPrompt.current = saved?.idempotencyKey
+      ? saved.prompt.trim()
+      : initialTask
+        ? taskPrompt(initialTask).trim()
+        : null;
+  }, [persistenceKey, initialTask, initialIntentKey]);
 
   const handleError = useCallback(
     (error: unknown) => {
@@ -76,14 +105,21 @@ export function ImageGenerationForm({
       setErrorMessage(null);
       setNeedsSignIn(false);
       clearBilling();
+      if (task && !isActiveTask(task)) idempotencyKey.current = null;
       idempotencyKey.current ??= newTaskIdempotencyKey();
+      const requestKey = idempotencyKey.current;
+      submittedPrompt.current = prompt.trim();
+      saveTaskIntent(persistenceKey, { prompt, idempotencyKey: requestKey });
+      if (persistenceKey)
+        updateTaskLocation({ intent: requestKey, task: null });
 
       try {
         const response = await createImageGenerationTask({
           prompt: prompt.trim(),
-          idempotencyKey: idempotencyKey.current,
+          idempotencyKey: requestKey,
         });
         setTask(response.task);
+        if (persistenceKey) updateTaskLocation({ task: response.task.uuid });
       } catch (error) {
         handleError(error);
       } finally {
@@ -94,22 +130,18 @@ export function ImageGenerationForm({
 
     submission.current = operation;
     return operation;
-  }, [clearBilling, handleError, prompt]);
+  }, [clearBilling, handleError, prompt, persistenceKey, task]);
 
-  useEffect(() => {
-    if (!task || !ACTIVE_STATUSES.has(task.status)) return;
-
-    const timer = window.setTimeout(() => {
-      void getTask(task.uuid)
-        .then(({ task: current }) => {
-          setTask(current);
-          setErrorMessage(null);
-        })
-        .catch(handleError);
-    }, pollIntervalMs);
-
-    return () => window.clearTimeout(timer);
-  }, [handleError, pollIntervalMs, task]);
+  const receiveTask = useCallback((current: TaskRecord) => {
+    setTask(current);
+    setErrorMessage(null);
+  }, []);
+  useTaskStatus({
+    task,
+    onTask: receiveTask,
+    onError: handleError,
+    intervalMs: pollIntervalMs,
+  });
 
   return (
     <div className="grid gap-6">
@@ -123,7 +155,7 @@ export function ImageGenerationForm({
         <Alert>
           <AlertTitle>{t("signInTitle")}</AlertTitle>
           <AlertDescription>
-            {t("signInDescription")} {" "}
+            {t("signInDescription")}{" "}
             <Link href="/login" className="font-medium underline">
               {t("signInAction")}
             </Link>
@@ -146,8 +178,19 @@ export function ImageGenerationForm({
                 rows={5}
                 placeholder={t("promptPlaceholder")}
                 onChange={(event) => {
-                  setPrompt(event.currentTarget.value);
-                  idempotencyKey.current = null;
+                  const value = event.currentTarget.value;
+                  setPrompt(value);
+                  if (
+                    submittedPrompt.current !== null &&
+                    value.trim() !== submittedPrompt.current
+                  ) {
+                    idempotencyKey.current = null;
+                    if (persistenceKey) updateTaskLocation({ intent: null });
+                  }
+                  saveTaskIntent(persistenceKey, {
+                    prompt: value,
+                    idempotencyKey: idempotencyKey.current,
+                  });
                 }}
               />
             )}
@@ -155,10 +198,14 @@ export function ImageGenerationForm({
 
           <Button
             type="button"
-            disabled={!prompt.trim() || isSubmitting}
+            disabled={!prompt.trim() || isSubmitting || isActiveTask(task)}
             onClick={() => void submit()}
           >
-            {isSubmitting ? t("submitting") : t("submit")}
+            {isSubmitting
+              ? t("submitting")
+              : task && !isActiveTask(task)
+                ? t("generateAgain")
+                : t("submit")}
           </Button>
         </CardContent>
       </Card>
