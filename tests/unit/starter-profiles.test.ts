@@ -60,9 +60,14 @@ describe("starter profiles", () => {
   );
   it("seeds before starting the demo and scopes integration overrides to that action", () => {
     const core = starterProfile("core");
-    expect(starterCommands(core, "demo")).toEqual([["dev:seed"], ["dev:all"]]);
+    expect(starterCommands(core, "demo")).toEqual([
+      ["dev:doctor"],
+      ["dev:seed"],
+      ["dev:all", "--", "--skip-doctor"],
+    ]);
     const inherited = {
       STRIPE_PRIVATE_KEY: "configured-test-value",
+      STRIPE_WEBHOOK_SECRET: "configured-test-webhook",
       RESEND_API_KEY: "configured-test-value",
       SLACK_WEBHOOK_URL: "https://example.invalid/webhook",
       ENABLE_IMAGE_GENERATION_MOCK: "false",
@@ -77,6 +82,7 @@ describe("starter profiles", () => {
       NEXT_PUBLIC_CAPTCHA_ENABLED: "false",
       AUTH_DEV_EMAIL_LINKS: "true",
       STRIPE_PRIVATE_KEY: "",
+      STRIPE_WEBHOOK_SECRET: "",
       RESEND_API_KEY: "",
       SLACK_WEBHOOK_URL: "",
     });

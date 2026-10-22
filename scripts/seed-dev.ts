@@ -76,6 +76,7 @@ async function main() {
 
   const fixtures = await import("../src/services/dev-fixtures");
   let user = await fixtures.findDevelopmentFixtureUser(email);
+  const creatingAccount = !user;
   if (!user) {
     const { auth } = await import("../src/lib/auth");
     await auth.api.signUpEmail({
@@ -100,7 +101,7 @@ Development fixtures are ready.
 
   Web:          http://localhost:3000
   Email:        ${email}
-  Password:     ${customPassword ? "set by DEV_SEED_PASSWORD" : password}
+  Password:     ${creatingAccount ? (customPassword ? "set by DEV_SEED_PASSWORD" : password) : "unchanged; use this account's original password"}
   Organization: ${result.organization.slug}
   Credits:      ${result.credit?.credits ?? credits}
   Reservation:  ${result.reservationService.slug}

@@ -35,10 +35,11 @@ local infrastructure, migrates the app and test databases, provisions an
 isolated restore target and private S3-compatible bucket, and preserves existing
 credentials and data. It does not install or initialize Content Studio.
 
-The demo command seeds the local account, then starts web and worker with the
+The demo command checks the selected-profile doctor before seeding the local
+account, then starts web and worker with the
 image mock enabled and failure simulation disabled. Captcha is disabled locally;
 email is logged and Resend, Slack, and Stripe credentials are cleared for the
-child processes only. No environment file is rewritten. Normal `dev` commands
+child processes only, including Stripe's webhook verification secret. No environment file is rewritten. Normal `dev` commands
 retain the developer's configuration. The seed's existing local database guards
 remain mandatory; the demo command cannot seed a production database.
 
@@ -141,6 +142,10 @@ Override the password through `DEV_SEED_PASSWORD`, not a CLI flag that would
 appear in the process list. `--email` accepts only reserved `.test` and
 `.invalid` domains, and `--credits` is bounded to 1–100,000. The command refuses
 anything except a loopback `sushi_dev` database.
+
+The password is chosen only when the demo account is created. Re-seeding keeps
+an existing password and prints that fact; changing `DEV_SEED_PASSWORD` does not
+reset the account's credentials.
 
 ## Safe reset
 

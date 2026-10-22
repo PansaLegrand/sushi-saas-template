@@ -31,7 +31,7 @@ export function starterCommands(profile, action) {
     case "dev":
       return [["dev:all"]];
     case "demo":
-      return [["dev:seed"], ["dev:all"]];
+      return [["dev:doctor"], ["dev:seed"], ["dev:all", "--", "--skip-doctor"]];
     case "build":
       return [
         ["test:run"],
@@ -69,6 +69,7 @@ export function starterEnvironment(profile, action) {
           RESEND_API_KEY: "",
           SLACK_WEBHOOK_URL: "",
           STRIPE_PRIVATE_KEY: "",
+          STRIPE_WEBHOOK_SECRET: "",
         }
       : {}),
   };
