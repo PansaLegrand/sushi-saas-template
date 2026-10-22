@@ -1,4 +1,5 @@
 import { AppError } from "@/lib/errors";
+import { throwIfAborted } from "@/lib/abort";
 
 export type ErasableTaskOutput = {
   uuid: string;
@@ -14,7 +15,10 @@ export interface AccountLifecycleExternalDataAdapter {
    * Implementations must be idempotent: a crash may replay the call after the
    * provider deleted the artifact but before the database recorded success.
    */
-  deleteTaskOutput(task: ErasableTaskOutput): Promise<void>;
+  deleteTaskOutput(
+    task: ErasableTaskOutput,
+    options?: { signal?: AbortSignal },
+  ): Promise<void>;
 }
 
 let externalDataAdapter: AccountLifecycleExternalDataAdapter | undefined;
@@ -33,7 +37,9 @@ export function setAccountLifecycleExternalDataAdapter(
 
 export async function deleteTaskOutputForErasure(
   task: ErasableTaskOutput,
+  signal?: AbortSignal,
 ): Promise<void> {
+  throwIfAborted(signal);
   if (!task.output_url || task.output_url.startsWith("/")) return;
 
   if (!externalDataAdapter) {
@@ -43,7 +49,8 @@ export async function deleteTaskOutputForErasure(
     });
   }
 
-  await externalDataAdapter.deleteTaskOutput(task);
+  await externalDataAdapter.deleteTaskOutput(task, { signal });
+  throwIfAborted(signal);
 }
 
 export function resetAccountLifecycleExternalDataAdapterForTests(): void {

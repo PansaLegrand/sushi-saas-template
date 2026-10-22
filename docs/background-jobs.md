@@ -39,6 +39,19 @@ The worker configuration defaults are:
 Keep the handler timeout below the five-minute lease. A handler that exceeds its
 timeout is aborted and retried through the normal exponential-backoff path.
 
+Cancellation is cooperative. Image and account-lifecycle handlers check both
+the abort signal and current lease between external effects. S3 PUT, HEAD and
+DELETE receive the signal; Stripe erasure calls use bounded ten-second requests
+and stable idempotency keys. An already accepted external operation can still
+finish, so providers must retain their replay guarantees.
+
+Task transitions, generated-file activation, and lifecycle checkpoint/final
+writes lock the execution lease inside their database transaction. An old
+attempt cannot refund/regress a newer task or overwrite its privacy-request
+state after a timeout or lease replacement. Custom handlers should call
+`assertJobActive(context)` between awaits and pass `context.lease` to guarded
+model writes. Never interpret `Promise.race` alone as cancellation of its loser.
+
 ## Reference Paid Workflow: Image Generation
 
 Image generation is the minimal end-to-end example for a paid asynchronous

@@ -3,13 +3,54 @@ import { and, asc, eq, lte, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { jobs } from "@/db/schema";
+import { AppError } from "@/lib/errors";
+
+export type JobLease = { uuid: string; lockedAt: Date };
+type JobTransaction = Parameters<
+  Parameters<ReturnType<typeof db>["transaction"]>[0]
+>[0];
+
+/** Hold the execution lease through a domain transaction's final write. */
+export async function lockActiveJobLease(
+  tx: JobTransaction,
+  lease?: JobLease,
+): Promise<void> {
+  if (!lease) return;
+  const [current] = await tx
+    .select({ id: jobs.id })
+    .from(jobs)
+    .where(
+      and(
+        eq(jobs.uuid, lease.uuid),
+        eq(jobs.locked_at, lease.lockedAt),
+        eq(jobs.status, "running"),
+      ),
+    )
+    .limit(1)
+    .for("update");
+  if (!current)
+    throw new AppError("SERVICE_UNAVAILABLE", {
+      message: "job execution lease was replaced",
+    });
+}
+
+export async function isJobLeaseActive(lease: JobLease): Promise<boolean> {
+  const [current] = await db()
+    .select({ id: jobs.id })
+    .from(jobs)
+    .where(
+      and(
+        eq(jobs.uuid, lease.uuid),
+        eq(jobs.locked_at, lease.lockedAt),
+        eq(jobs.status, "running"),
+      ),
+    )
+    .limit(1);
+  return Boolean(current);
+}
 
 export type JobStatus =
-  | "pending"
-  | "running"
-  | "succeeded"
-  | "failed"
-  | "canceled";
+  "pending" | "running" | "succeeded" | "failed" | "canceled";
 
 export interface EnqueueJobParams {
   type: string;

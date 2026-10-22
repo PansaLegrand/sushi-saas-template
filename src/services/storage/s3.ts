@@ -146,7 +146,7 @@ export function createS3Adapter(): StorageAdapter {
       const url = await getSignedUrl(client, cmd, { expiresIn });
       return { url, expiresIn };
     },
-    async putObject({ bucket, key, body, contentType, metadata }) {
+    async putObject({ bucket, key, body, contentType, metadata, signal }) {
       await client.send(
         new PutObjectCommand({
           Bucket: bucket,
@@ -156,12 +156,14 @@ export function createS3Adapter(): StorageAdapter {
           ContentType: contentType,
           Metadata: metadata,
         }),
+        { abortSignal: signal },
       );
     },
-    async headObject({ bucket, key }) {
+    async headObject({ bucket, key, signal }) {
       try {
         const res = await client.send(
           new HeadObjectCommand({ Bucket: bucket, Key: key }),
+          { abortSignal: signal },
         );
         return {
           size: Number(res.ContentLength || 0),
@@ -175,8 +177,10 @@ export function createS3Adapter(): StorageAdapter {
         throw err;
       }
     },
-    async deleteObject({ bucket, key }) {
-      await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+    async deleteObject({ bucket, key, signal }) {
+      await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }), {
+        abortSignal: signal,
+      });
     },
   };
 }

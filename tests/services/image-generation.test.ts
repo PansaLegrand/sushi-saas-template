@@ -144,6 +144,7 @@ const context = {
   attempt: 1,
   maxAttempts: 8,
   signal: new AbortController().signal,
+  lease: { uuid: "job-1", lockedAt: new Date("2026-01-01") },
 };
 
 describe("image-generation task orchestration", () => {
@@ -291,6 +292,29 @@ describe("image-generation task orchestration", () => {
     });
   });
 
+  it("does not store, settle or refund a provider response after cancellation", async () => {
+    const controller = new AbortController();
+    mocks.generateImage.mockImplementationOnce(async () => {
+      controller.abort();
+      return {
+        body: new Uint8Array([1]),
+        contentType: "image/svg+xml",
+        extension: "svg",
+        provider: "mock",
+        providerRequestId: "late",
+      };
+    });
+    await expect(
+      runImageGenerationTask(
+        { taskUuid: "task-1", orgUuid: "org-1" },
+        { ...context, signal: controller.signal },
+      ),
+    ).rejects.toMatchObject({ code: "SERVICE_UNAVAILABLE" });
+    expect(mocks.putObject).not.toHaveBeenCalled();
+    expect(mocks.refundCreditsForTransaction).not.toHaveBeenCalled();
+    expect(mocks.transitionTaskStatus).toHaveBeenCalledTimes(1);
+  });
+
   it("stores the result privately and completes the queued task", async () => {
     await runImageGenerationTask(
       { taskUuid: "task-1", orgUuid: "org-1" },
@@ -322,6 +346,7 @@ describe("image-generation task orchestration", () => {
       ["queued", "running"],
       "succeeded",
       expect.objectContaining({ output_file_uuid: "task-1" }),
+      context.lease,
     );
   });
 
@@ -340,6 +365,7 @@ describe("image-generation task orchestration", () => {
       ["running"],
       "queued",
       { error_message: "TASK_PROVIDER_FAILED" },
+      context.lease,
     );
     expect(mocks.refundCreditsForTransaction).not.toHaveBeenCalled();
   });
@@ -367,6 +393,7 @@ describe("image-generation task orchestration", () => {
       ["refunding"],
       "failed",
       expect.objectContaining({ error_message: "TASK_PROVIDER_FAILED" }),
+      context.lease,
     );
   });
 });

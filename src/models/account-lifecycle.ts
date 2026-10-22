@@ -12,6 +12,7 @@ import {
 } from "drizzle-orm";
 
 import { db } from "@/db";
+import { lockActiveJobLease, type JobLease } from "./job";
 import {
   accounts,
   adminAuditLogs,
@@ -42,12 +43,7 @@ import {
 export type PrivacyRequestRow = typeof privacyRequests.$inferSelect;
 export type PrivacyRequestType = "export" | "erasure";
 export type PrivacyRequestStatus =
-  | "scheduled"
-  | "processing"
-  | "blocked"
-  | "completed"
-  | "canceled"
-  | "failed";
+  "scheduled" | "processing" | "blocked" | "completed" | "canceled" | "failed";
 
 type Tx = Parameters<Parameters<ReturnType<typeof db>["transaction"]>[0]>[0];
 
@@ -495,6 +491,7 @@ export async function cancelScheduledErasure(input: {
 export async function beginPrivacyRequest(
   uuid: string,
   requestType: PrivacyRequestType,
+  lease?: JobLease,
 ): Promise<BeginPrivacyRequestResult> {
   return db().transaction(async (tx) => {
     const [request] = await tx
@@ -508,6 +505,7 @@ export async function beginPrivacyRequest(
       )
       .limit(1)
       .for("update");
+    await lockActiveJobLease(tx, lease);
 
     if (!request) return { outcome: "not_found" };
     if (["completed", "canceled", "blocked"].includes(request.status)) {
@@ -589,25 +587,35 @@ export async function beginPrivacyRequest(
 export async function markPrivacyRequestFailed(
   uuid: string,
   error: string,
+  lease?: JobLease,
 ): Promise<void> {
-  await db()
-    .update(privacyRequests)
-    .set({
-      status: "failed",
-      last_error: error.slice(0, 4000),
-      updated_at: new Date(),
-    })
-    .where(
-      and(
-        eq(privacyRequests.uuid, uuid),
-        ne(privacyRequests.status, "completed"),
-        ne(privacyRequests.status, "canceled"),
-      ),
-    );
+  await db().transaction(async (tx) => {
+    await tx
+      .select({ id: privacyRequests.id })
+      .from(privacyRequests)
+      .where(eq(privacyRequests.uuid, uuid))
+      .for("update");
+    await lockActiveJobLease(tx, lease);
+    await tx
+      .update(privacyRequests)
+      .set({
+        status: "failed",
+        last_error: error.slice(0, 4000),
+        updated_at: new Date(),
+      })
+      .where(
+        and(
+          eq(privacyRequests.uuid, uuid),
+          ne(privacyRequests.status, "completed"),
+          ne(privacyRequests.status, "canceled"),
+        ),
+      );
+  });
 }
 
 export async function recordPrivacyExternalEffect(input: {
   requestUuid: string;
+  lease?: JobLease;
   effect: PrivacyExternalEffect;
   id: string;
 }): Promise<void> {
@@ -618,6 +626,7 @@ export async function recordPrivacyExternalEffect(input: {
       .where(eq(privacyRequests.uuid, input.requestUuid))
       .limit(1)
       .for("update");
+    await lockActiveJobLease(tx, input.lease);
     if (!request) return;
 
     const state = parsePrivacyExternalState(request.external_state_json);
@@ -898,9 +907,7 @@ export async function getAccountExportData(input: {
           updatedAt: marketingSubscriptions.updated_at,
         })
         .from(marketingSubscriptions)
-        .where(
-          eq(marketingSubscriptions.email_key, user.email.toLowerCase()),
-        );
+        .where(eq(marketingSubscriptions.email_key, user.email.toLowerCase()));
 
       const auditRows = await tx
         .select({
@@ -986,6 +993,7 @@ export async function getAccountExportData(input: {
  */
 export async function prepareAccountExportArtifact(input: {
   requestUuid: string;
+  lease?: JobLease;
   bucket: string;
   key: string;
   expiresAt: Date;
@@ -1003,6 +1011,7 @@ export async function prepareAccountExportArtifact(input: {
       )
       .limit(1)
       .for("update");
+    await lockActiveJobLease(tx, input.lease);
     if (!request || request.status === "canceled") return false;
     if (request.status === "completed") return true;
 
@@ -1053,6 +1062,7 @@ export async function prepareAccountExportArtifact(input: {
 
 export async function completeAccountExport(input: {
   requestUuid: string;
+  lease?: JobLease;
   bucket: string;
   key: string;
   size: number;
@@ -1067,6 +1077,7 @@ export async function completeAccountExport(input: {
       .where(eq(privacyRequests.uuid, input.requestUuid))
       .limit(1)
       .for("update");
+    await lockActiveJobLease(tx, input.lease);
     if (!request || ["completed", "canceled"].includes(request.status)) {
       return request?.status === "completed";
     }
@@ -1286,6 +1297,7 @@ function includesAll(completed: string[], required: string[]): boolean {
 
 export async function finalizeAccountErasure(input: {
   requestUuid: string;
+  lease?: JobLease;
   requireStripeCustomerDeletion: boolean;
   retainSecurityBlocklistEntries: boolean;
 }): Promise<FinalizeErasureResult> {
@@ -1296,6 +1308,7 @@ export async function finalizeAccountErasure(input: {
       .where(eq(privacyRequests.uuid, input.requestUuid))
       .limit(1)
       .for("update");
+    await lockActiveJobLease(tx, input.lease);
     if (!request) return "not_found";
     if (request.status === "completed") return "already_completed";
 
@@ -1539,9 +1552,7 @@ export async function finalizeAccountErasure(input: {
     await tx.delete(feedbacks).where(eq(feedbacks.user_uuid, user.uuid));
     await tx
       .delete(marketingSubscriptions)
-      .where(
-        eq(marketingSubscriptions.email_key, user.email.toLowerCase()),
-      );
+      .where(eq(marketingSubscriptions.email_key, user.email.toLowerCase()));
     await tx
       .update(reservations)
       .set({

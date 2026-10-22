@@ -1,3 +1,4 @@
+import { throwIfAborted } from "@/lib/abort";
 import { newStripeClient } from "@/integrations/stripe";
 
 function isStripeResourceMissing(error: unknown): boolean {
@@ -19,7 +20,9 @@ function isStripeResourceMissing(error: unknown): boolean {
 export async function cancelStripeSubscriptionForErasure(input: {
   subscriptionId: string;
   requestUuid: string;
+  signal?: AbortSignal;
 }): Promise<void> {
+  throwIfAborted(input.signal);
   const stripe = newStripeClient().stripe();
 
   try {
@@ -27,11 +30,19 @@ export async function cancelStripeSubscriptionForErasure(input: {
       input.subscriptionId,
       {},
       {
+        timeout: 10_000,
+        maxNetworkRetries: 0,
         idempotencyKey: `account-erasure:${input.requestUuid}:subscription:${input.subscriptionId}`,
       },
     );
+    throwIfAborted(input.signal);
   } catch (cause) {
-    const current = await stripe.subscriptions.retrieve(input.subscriptionId);
+    throwIfAborted(input.signal);
+    const current = await stripe.subscriptions.retrieve(
+      input.subscriptionId,
+      {},
+      { timeout: 10_000, maxNetworkRetries: 0 },
+    );
     if (
       current.status === "canceled" ||
       current.status === "incomplete_expired"
@@ -50,18 +61,24 @@ export async function cancelStripeSubscriptionForErasure(input: {
 export async function cancelStripeCustomerSubscriptionsForErasure(input: {
   customerId: string;
   requestUuid: string;
+  signal?: AbortSignal;
 }): Promise<string[]> {
+  throwIfAborted(input.signal);
   const stripe = newStripeClient().stripe();
   const page = await stripe.subscriptions
-    .list({
-      customer: input.customerId,
-      status: "all",
-      limit: 100,
-    })
+    .list(
+      {
+        customer: input.customerId,
+        status: "all",
+        limit: 100,
+      },
+      { timeout: 10_000, maxNetworkRetries: 0 },
+    )
     .autoPagingToArray({ limit: 10_000 });
 
   const canceled: string[] = [];
   for (const subscription of page) {
+    throwIfAborted(input.signal);
     if (
       subscription.status !== "canceled" &&
       subscription.status !== "incomplete_expired"
@@ -69,6 +86,7 @@ export async function cancelStripeCustomerSubscriptionsForErasure(input: {
       await cancelStripeSubscriptionForErasure({
         subscriptionId: subscription.id,
         requestUuid: input.requestUuid,
+        signal: input.signal,
       });
     }
     canceled.push(subscription.id);
@@ -81,7 +99,9 @@ export async function cancelStripeCustomerSubscriptionsForErasure(input: {
 export async function deleteStripeCustomerForErasure(input: {
   customerId: string;
   requestUuid: string;
+  signal?: AbortSignal;
 }): Promise<void> {
+  throwIfAborted(input.signal);
   const stripe = newStripeClient().stripe();
 
   try {
@@ -89,10 +109,14 @@ export async function deleteStripeCustomerForErasure(input: {
       input.customerId,
       {},
       {
+        timeout: 10_000,
+        maxNetworkRetries: 0,
         idempotencyKey: `account-erasure:${input.requestUuid}:customer:${input.customerId}`,
       },
     );
+    throwIfAborted(input.signal);
   } catch (cause) {
+    throwIfAborted(input.signal);
     // Stripe returns resource_missing when a previous attempt deleted the
     // customer but the worker crashed before recording that effect.
     if (isStripeResourceMissing(cause)) return;

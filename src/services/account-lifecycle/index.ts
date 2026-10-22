@@ -2,6 +2,8 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { ACCOUNT_LIFECYCLE_POLICY } from "@/config/account-lifecycle";
 import { auth } from "@/lib/auth";
+import { assertJobActive } from "@/services/jobs/execution";
+import type { JobHandlerContext } from "@/services/jobs/types";
 import { AppError, isAppError } from "@/lib/errors";
 import {
   beginPrivacyRequest,
@@ -106,7 +108,9 @@ function fingerprint(kind: "export" | "erasure", userUuid: string): string {
     .digest("hex");
 }
 
-export function validateAccountLifecycleIdempotencyKey(raw: string | null): string {
+export function validateAccountLifecycleIdempotencyKey(
+  raw: string | null,
+): string {
   const key = raw?.trim();
   if (!key) {
     throw new AppError("REQUEST_MISSING_FIELD", {
@@ -159,7 +163,9 @@ export function requireFreshAccountSession(actor: AccountActor): void {
 
 function throwForBlockers(blockers: LifecycleBlocker[]): never {
   const owner = blockers.find(
-    (blocker): blocker is Extract<LifecycleBlocker, { kind: "owner_transfer" }> =>
+    (
+      blocker,
+    ): blocker is Extract<LifecycleBlocker, { kind: "owner_transfer" }> =>
       blocker.kind === "owner_transfer",
   );
   if (owner) {
@@ -328,9 +334,8 @@ export async function getAccountExportStatus(input: {
     userId: input.actor.userId,
     userUuid: input.actor.userUuid,
   });
-  const fileDownloads: NonNullable<
-    AccountExportStatus["download"]
-  >["files"] = [];
+  const fileDownloads: NonNullable<AccountExportStatus["download"]>["files"] =
+    [];
   for (const file of exportData?.fileObjects ?? []) {
     if (file.status !== "active") continue;
     const signed = await storage.getPresignedDownload({
@@ -354,7 +359,10 @@ export async function getAccountExportStatus(input: {
   };
 }
 
-function asWorkerError(code: "ACCOUNT_EXPORT_FAILED" | "ACCOUNT_LIFECYCLE_FAILED", cause: unknown) {
+function asWorkerError(
+  code: "ACCOUNT_EXPORT_FAILED" | "ACCOUNT_LIFECYCLE_FAILED",
+  cause: unknown,
+) {
   if (isAppError(cause)) return cause;
   return new AppError(code, {
     message: cause instanceof Error ? cause.message : String(cause),
@@ -362,10 +370,18 @@ function asWorkerError(code: "ACCOUNT_EXPORT_FAILED" | "ACCOUNT_LIFECYCLE_FAILED
   });
 }
 
-export async function runAccountDataExport(input: {
-  requestUuid: string;
-}): Promise<void> {
-  const begun = await beginPrivacyRequest(input.requestUuid, "export");
+export async function runAccountDataExport(
+  input: {
+    requestUuid: string;
+  },
+  context?: JobHandlerContext,
+): Promise<void> {
+  await assertJobActive(context);
+  const begun = await beginPrivacyRequest(
+    input.requestUuid,
+    "export",
+    context?.lease,
+  );
   if (begun.outcome === "terminal" || begun.outcome === "not_due") return;
   if (begun.outcome !== "started") {
     throw new AppError("ACCOUNT_EXPORT_FAILED", {
@@ -387,8 +403,7 @@ export async function runAccountDataExport(input: {
     const document = {
       schemaVersion: 1,
       generatedAt: new Date().toISOString(),
-      note:
-        "Authentication secrets, password hashes, access tokens, webhook payloads, and private storage coordinates are intentionally excluded.",
+      note: "Authentication secrets, password hashes, access tokens, webhook payloads, and private storage coordinates are intentionally excluded.",
       data: data.snapshot,
     };
     const body = new TextEncoder().encode(JSON.stringify(document, null, 2));
@@ -400,6 +415,7 @@ export async function runAccountDataExport(input: {
 
     const prepared = await prepareAccountExportArtifact({
       requestUuid: begun.request.uuid,
+      ...(context?.lease ? { lease: context.lease } : {}),
       bucket,
       key,
       expiresAt,
@@ -407,7 +423,9 @@ export async function runAccountDataExport(input: {
     });
     if (!prepared) return;
 
+    await assertJobActive(context);
     await storage.putObject({
+      ...(context ? { signal: context.signal } : {}),
       bucket,
       key,
       body,
@@ -418,8 +436,10 @@ export async function runAccountDataExport(input: {
       },
     });
 
+    await assertJobActive(context);
     const completed = await completeAccountExport({
       requestUuid: begun.request.uuid,
+      ...(context?.lease ? { lease: context.lease } : {}),
       bucket,
       key,
       size: body.byteLength,
@@ -430,10 +450,20 @@ export async function runAccountDataExport(input: {
     if (!completed) {
       // Erasure may have crossed its irreversible boundary while the export was
       // uploading. Do not leave an untracked artifact behind.
-      await storage.deleteObject({ bucket, key });
+      await assertJobActive(context);
+      await storage.deleteObject({
+        ...(context ? { signal: context.signal } : {}),
+        bucket,
+        key,
+      });
     }
   } catch (cause) {
-    await markPrivacyRequestFailed(input.requestUuid, String(cause));
+    await assertJobActive(context);
+    await markPrivacyRequestFailed(
+      input.requestUuid,
+      String(cause),
+      context?.lease,
+    );
     throw asWorkerError("ACCOUNT_EXPORT_FAILED", cause);
   }
 }
@@ -443,16 +473,31 @@ async function rememberEffect(
   effect: PrivacyExternalEffect,
   id: string,
   state: ReturnType<typeof parsePrivacyExternalState>,
+  context?: JobHandlerContext,
 ) {
+  await assertJobActive(context);
   if (state[effect].includes(id)) return;
-  await recordPrivacyExternalEffect({ requestUuid, effect, id });
+  await recordPrivacyExternalEffect({
+    requestUuid,
+    effect,
+    id,
+    ...(context?.lease ? { lease: context.lease } : {}),
+  });
   state[effect].push(id);
 }
 
-export async function runAccountErasure(input: {
-  requestUuid: string;
-}): Promise<void> {
-  const begun = await beginPrivacyRequest(input.requestUuid, "erasure");
+export async function runAccountErasure(
+  input: {
+    requestUuid: string;
+  },
+  context?: JobHandlerContext,
+): Promise<void> {
+  await assertJobActive(context);
+  const begun = await beginPrivacyRequest(
+    input.requestUuid,
+    "erasure",
+    context?.lease,
+  );
   if (
     begun.outcome === "terminal" ||
     begun.outcome === "not_due" ||
@@ -477,16 +522,16 @@ export async function runAccountErasure(input: {
     }
     if (plan.blockers.length > 0) throwForBlockers(plan.blockers);
 
-    const state = parsePrivacyExternalState(
-      plan.request.external_state_json,
-    );
+    const state = parsePrivacyExternalState(plan.request.external_state_json);
 
     // Cancel every locally known subscription, then ask Stripe for every
     // subscription on each customer. The second pass closes webhook lag.
     for (const subscription of plan.stripeSubscriptions) {
       const id = subscription.stripe_subscription_id;
       if (!id || state.stripeSubscriptions.includes(id)) continue;
+      await assertJobActive(context);
       await cancelStripeSubscriptionForErasure({
+        ...(context ? { signal: context.signal } : {}),
         subscriptionId: id,
         requestUuid: input.requestUuid,
       });
@@ -495,21 +540,24 @@ export async function runAccountErasure(input: {
         "stripeSubscriptions",
         id,
         state,
+        context,
       );
     }
 
     for (const customerId of plan.stripeCustomerIds) {
-      const discovered =
-        await cancelStripeCustomerSubscriptionsForErasure({
-          customerId,
-          requestUuid: input.requestUuid,
-        });
+      await assertJobActive(context);
+      const discovered = await cancelStripeCustomerSubscriptionsForErasure({
+        ...(context ? { signal: context.signal } : {}),
+        customerId,
+        requestUuid: input.requestUuid,
+      });
       for (const subscriptionId of discovered) {
         await rememberEffect(
           input.requestUuid,
           "stripeSubscriptions",
           subscriptionId,
           state,
+          context,
         );
       }
 
@@ -517,7 +565,9 @@ export async function runAccountErasure(input: {
         ACCOUNT_LIFECYCLE_POLICY.deleteStripeCustomers &&
         !state.stripeCustomers.includes(customerId)
       ) {
+        await assertJobActive(context);
         await deleteStripeCustomerForErasure({
+          ...(context ? { signal: context.signal } : {}),
           customerId,
           requestUuid: input.requestUuid,
         });
@@ -526,32 +576,40 @@ export async function runAccountErasure(input: {
           "stripeCustomers",
           customerId,
           state,
+          context,
         );
       }
     }
 
     for (const file of plan.storedFiles) {
       if (state.storageFiles.includes(file.uuid)) continue;
-      await deleteStoredObject({
-        fileUuid: file.uuid,
-        orgUuid: file.org_uuid,
-      });
+      await assertJobActive(context);
+      await deleteStoredObject(
+        {
+          fileUuid: file.uuid,
+          orgUuid: file.org_uuid,
+        },
+        context,
+      );
       await rememberEffect(
         input.requestUuid,
         "storageFiles",
         file.uuid,
         state,
+        context,
       );
     }
 
     for (const task of plan.taskOutputs) {
       if (state.taskOutputs.includes(task.uuid)) continue;
-      await deleteTaskOutputForErasure(task);
+      await assertJobActive(context);
+      await deleteTaskOutputForErasure(task, context?.signal);
       await rememberEffect(
         input.requestUuid,
         "taskOutputs",
         task.uuid,
         state,
+        context,
       );
     }
 
@@ -559,7 +617,9 @@ export async function runAccountErasure(input: {
     for (const artifact of plan.exportArtifacts) {
       const id = `${artifact.bucket}/${artifact.key}`;
       if (state.exportArtifacts.includes(id)) continue;
+      await assertJobActive(context);
       await storage.deleteObject({
+        ...(context ? { signal: context.signal } : {}),
         bucket: artifact.bucket,
         key: artifact.key,
       });
@@ -568,33 +628,42 @@ export async function runAccountErasure(input: {
         "exportArtifacts",
         id,
         state,
+        context,
       );
     }
 
+    await assertJobActive(context);
     const finalized = await finalizeAccountErasure({
+      ...(context?.lease ? { lease: context.lease } : {}),
       requestUuid: input.requestUuid,
       requireStripeCustomerDeletion:
         ACCOUNT_LIFECYCLE_POLICY.deleteStripeCustomers,
       retainSecurityBlocklistEntries:
         ACCOUNT_LIFECYCLE_POLICY.retainSecurityBlocklistEntries,
     });
-    if (
-      finalized !== "completed" &&
-      finalized !== "already_completed"
-    ) {
+    if (finalized !== "completed" && finalized !== "already_completed") {
       throw new AppError("ACCOUNT_LIFECYCLE_FAILED", {
         message: `account erasure cannot finalize: ${finalized}`,
       });
     }
   } catch (cause) {
-    await markPrivacyRequestFailed(input.requestUuid, String(cause));
+    await assertJobActive(context);
+    await markPrivacyRequestFailed(
+      input.requestUuid,
+      String(cause),
+      context?.lease,
+    );
     throw asWorkerError("ACCOUNT_LIFECYCLE_FAILED", cause);
   }
 }
 
-export async function expireAccountExport(input: {
-  requestUuid: string;
-}): Promise<void> {
+export async function expireAccountExport(
+  input: {
+    requestUuid: string;
+  },
+  context?: JobHandlerContext,
+): Promise<void> {
+  await assertJobActive(context);
   const request = await findPrivacyRequestByUuid(input.requestUuid);
   if (
     !request ||
@@ -612,9 +681,12 @@ export async function expireAccountExport(input: {
   }
 
   const storage = getStorageAdapter();
+  await assertJobActive(context);
   await storage.deleteObject({
+    ...(context ? { signal: context.signal } : {}),
     bucket: request.export_bucket,
     key: request.export_key,
   });
+  await assertJobActive(context);
   await clearExpiredAccountExportArtifact(request.uuid);
 }

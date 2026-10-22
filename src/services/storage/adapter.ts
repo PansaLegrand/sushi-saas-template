@@ -1,4 +1,8 @@
-import type { CreateUploadRequest, CreateUploadResponse, SignedDownloadUrl } from "@/types/storage";
+import type {
+  CreateUploadRequest,
+  CreateUploadResponse,
+  SignedDownloadUrl,
+} from "@/types/storage";
 import { getAppEnv, getRequiredEnv } from "@/lib/env";
 
 export interface StorageAdapter {
@@ -26,20 +30,26 @@ export interface StorageAdapter {
     bucket: string;
     key: string;
     body: Uint8Array;
+    signal?: AbortSignal;
     contentType: string;
     metadata?: Record<string, string>;
   }): Promise<void>;
-  headObject(params: { bucket: string; key: string }): Promise<
-    | {
-        size: number;
-        etag?: string;
-        contentType?: string;
-        checksumSHA256?: string;
-        storageClass?: string;
-      }
-    | null
-  >;
-  deleteObject(params: { bucket: string; key: string }): Promise<void>;
+  headObject(params: {
+    bucket: string;
+    key: string;
+    signal?: AbortSignal;
+  }): Promise<{
+    size: number;
+    etag?: string;
+    contentType?: string;
+    checksumSHA256?: string;
+    storageClass?: string;
+  } | null>;
+  deleteObject(params: {
+    bucket: string;
+    key: string;
+    signal?: AbortSignal;
+  }): Promise<void>;
 }
 
 export interface StorageConfig {

@@ -36,6 +36,7 @@ import {
   CreditsTransType,
   refundCreditsForTransaction,
 } from "@/services/credit";
+import { assertJobActive } from "@/services/jobs/execution";
 import type { JobHandlerContext } from "@/services/jobs/types";
 import { getStorageAdapter } from "@/services/storage";
 import { reserveStorageUpload } from "@/services/storage/uploads";
@@ -219,6 +220,7 @@ async function existingGeneratedOutput(task: TaskRow) {
 }
 
 async function storeGeneratedOutput(task: TaskRow, context: JobHandlerContext) {
+  await assertJobActive(context);
   let file = await existingGeneratedOutput(task);
   if (file?.status === "active") return file;
   if (file && file.status !== "uploading") {
@@ -227,6 +229,7 @@ async function storeGeneratedOutput(task: TaskRow, context: JobHandlerContext) {
     });
   }
 
+  await assertJobActive(context);
   const generated = await generateImage(
     { prompt: JSON.parse(task.user_input ?? "{}").prompt ?? "" },
     {
@@ -235,6 +238,7 @@ async function storeGeneratedOutput(task: TaskRow, context: JobHandlerContext) {
       signal: context.signal,
     },
   );
+  await assertJobActive(context);
   const storage = getStorageAdapter();
   const bucket = storage.getDefaultBucket();
   const key = generatedObjectKey(task);
@@ -263,26 +267,39 @@ async function storeGeneratedOutput(task: TaskRow, context: JobHandlerContext) {
     file = await reserveStorageUpload(asOrgUuid(task.org_uuid), data);
   }
 
+  await assertJobActive(context);
   await storage.putObject({
+    signal: context.signal,
     bucket,
     key,
     body: generated.body,
     contentType: generated.contentType,
     metadata: { task_uuid: task.uuid },
   });
-  const stored = await storage.headObject({ bucket, key });
+  await assertJobActive(context);
+  const stored = await storage.headObject({
+    bucket,
+    key,
+    signal: context.signal,
+  });
+  await assertJobActive(context);
   if (!stored || stored.size !== generated.body.byteLength) {
     throw new AppError("TASK_PROVIDER_FAILED", {
       message: `stored output for task ${task.uuid} did not verify`,
     });
   }
 
-  const active = await activateUploadingFile(file.uuid, task.org_uuid, {
-    size: stored.size,
-    content_type: stored.contentType ?? generated.contentType,
-    etag: stored.etag ?? null,
-    checksum_sha256: stored.checksumSHA256 ?? null,
-  });
+  const active = await activateUploadingFile(
+    file.uuid,
+    task.org_uuid,
+    {
+      size: stored.size,
+      content_type: stored.contentType ?? generated.contentType,
+      etag: stored.etag ?? null,
+      checksum_sha256: stored.checksumSHA256 ?? null,
+    },
+    context.lease,
+  );
   if (active) return active;
 
   const current = await existingGeneratedOutput(task);
@@ -292,7 +309,12 @@ async function storeGeneratedOutput(task: TaskRow, context: JobHandlerContext) {
   });
 }
 
-async function completeTaskWithOutput(task: TaskRow, fileUuid: string) {
+async function completeTaskWithOutput(
+  task: TaskRow,
+  fileUuid: string,
+  context: JobHandlerContext,
+) {
+  await assertJobActive(context);
   const completed = await transitionTaskStatus(
     task.uuid,
     task.org_uuid,
@@ -304,6 +326,7 @@ async function completeTaskWithOutput(task: TaskRow, fileUuid: string) {
       error_message: null,
       completed_at: new Date(),
     },
+    context.lease,
   );
   if (completed) return completed;
 
@@ -318,7 +341,9 @@ async function completeTaskWithOutput(task: TaskRow, fileUuid: string) {
 async function refundFailedTask(
   task: TaskRow,
   errorCode: string,
+  context: JobHandlerContext,
 ): Promise<void> {
+  await assertJobActive(context);
   if (!task.credits_trans_no) {
     throw new AppError("TASK_CREATE_FAILED", {
       message: `cannot refund task ${task.uuid} without a credit transaction`,
@@ -335,6 +360,7 @@ async function refundFailedTask(
           ["queued", "running"],
           "refunding",
           { error_message: errorCode },
+          context.lease,
         );
   if (!refunding) {
     const current = await findTaskByUuid(task.uuid, task.org_uuid);
@@ -349,6 +375,7 @@ async function refundFailedTask(
     task = refunding;
   }
 
+  await assertJobActive(context);
   await refundCreditsForTransaction({
     org_uuid: task.org_uuid,
     user_uuid: task.user_uuid,
@@ -361,6 +388,7 @@ async function refundFailedTask(
     ["refunding"],
     "failed",
     { error_message: errorCode, completed_at: new Date() },
+    context.lease,
   );
   if (failed) return;
 
@@ -387,11 +415,16 @@ export async function runImageGenerationTask(
   payload: { taskUuid: string; orgUuid: string },
   context: JobHandlerContext,
 ): Promise<void> {
+  await assertJobActive(context);
   let task = await findTaskByUuid(payload.taskUuid, payload.orgUuid);
   if (!task) throw new AppError("TASK_NOT_FOUND");
   if (task.status === "succeeded" || task.status === "failed") return;
   if (task.status === "refunding") {
-    await refundFailedTask(task, task.error_message ?? "TASK_PROVIDER_FAILED");
+    await refundFailedTask(
+      task,
+      task.error_message ?? "TASK_PROVIDER_FAILED",
+      context,
+    );
     return;
   }
   if (!task.credits_trans_no) {
@@ -402,7 +435,7 @@ export async function runImageGenerationTask(
 
   const activeOutput = await existingGeneratedOutput(task);
   if (activeOutput?.status === "active") {
-    await completeTaskWithOutput(task, activeOutput.uuid);
+    await completeTaskWithOutput(task, activeOutput.uuid, context);
     return;
   }
 
@@ -416,6 +449,7 @@ export async function runImageGenerationTask(
       started_at: task.started_at ?? new Date(),
       error_message: null,
     },
+    context.lease,
   );
   if (!running) {
     const current = await findTaskByUuid(task.uuid, task.org_uuid);
@@ -428,8 +462,10 @@ export async function runImageGenerationTask(
 
   try {
     const file = await storeGeneratedOutput(task, context);
-    await completeTaskWithOutput(task, file.uuid);
+    await completeTaskWithOutput(task, file.uuid, context);
   } catch (error) {
+    // An aborted/stale attempt must not refund or regress the newer attempt.
+    await assertJobActive(context);
     const appError = toAppError(error, "TASK_PROVIDER_FAILED");
     if (shouldRetryProvider(appError, context.attempt)) {
       const queued = await transitionTaskStatus(
@@ -438,6 +474,7 @@ export async function runImageGenerationTask(
         ["running"],
         "queued",
         { error_message: appError.code },
+        context.lease,
       );
       if (!queued) {
         const current = await findTaskByUuid(task.uuid, task.org_uuid);
@@ -448,6 +485,6 @@ export async function runImageGenerationTask(
       throw appError;
     }
 
-    await refundFailedTask(task, appError.code);
+    await refundFailedTask(task, appError.code, context);
   }
 }

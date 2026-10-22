@@ -102,7 +102,8 @@ export const jobHandlers: JobHandlerMap = {
       });
     } catch (e) {
       const code = (e as { code?: string } | null)?.code;
-      const causeCode = (e as { cause?: { code?: string } } | null)?.cause?.code;
+      const causeCode = (e as { cause?: { code?: string } } | null)?.cause
+        ?.code;
       // 23505 = unique violation, i.e. already granted.
       if (code !== "23505" && causeCode !== "23505") throw e;
     }
@@ -111,47 +112,39 @@ export const jobHandlers: JobHandlerMap = {
     await getOrgCreditSummary(org.uuid, { includeLedger: false });
   },
 
-  storage_object_delete: async ({ fileUuid, orgUuid }) => {
-    await deleteStoredObject({ fileUuid, orgUuid });
+  storage_object_delete: async ({ fileUuid, orgUuid }, context) => {
+    await deleteStoredObject({ fileUuid, orgUuid }, context);
   },
 
   image_generation: async (payload, context) => {
     // Dynamic import keeps provider/storage initialization out of workers that
     // are only delivering mail or pruning objects.
-    const { runImageGenerationTask } = await import(
-      "@/services/tasks/image-generation"
-    );
+    const { runImageGenerationTask } =
+      await import("@/services/tasks/image-generation");
     await runImageGenerationTask(payload, context);
   },
 
-  account_data_export: async ({ requestUuid }) => {
+  account_data_export: async ({ requestUuid }, context) => {
     // Dynamic import avoids making the auth configuration and the job registry
     // initialize each other. Lifecycle route helpers use `auth`; workers do not
     // need it, and are loaded only when their durable job actually runs.
-    const { runAccountDataExport } = await import(
-      "@/services/account-lifecycle"
-    );
-    await runAccountDataExport({ requestUuid });
+    const { runAccountDataExport } =
+      await import("@/services/account-lifecycle");
+    await runAccountDataExport({ requestUuid }, context);
   },
 
-  account_export_expire: async ({ requestUuid }) => {
-    const { expireAccountExport } = await import(
-      "@/services/account-lifecycle"
-    );
-    await expireAccountExport({ requestUuid });
+  account_export_expire: async ({ requestUuid }, context) => {
+    const { expireAccountExport } =
+      await import("@/services/account-lifecycle");
+    await expireAccountExport({ requestUuid }, context);
   },
 
-  account_erasure: async ({ requestUuid }) => {
-    const { runAccountErasure } = await import(
-      "@/services/account-lifecycle"
-    );
-    await runAccountErasure({ requestUuid });
+  account_erasure: async ({ requestUuid }, context) => {
+    const { runAccountErasure } = await import("@/services/account-lifecycle");
+    await runAccountErasure({ requestUuid }, context);
   },
 
-  payment_success_email: async (
-    { to, orderNo, amount, currency },
-    context,
-  ) => {
+  payment_success_email: async ({ to, orderNo, amount, currency }, context) => {
     await sendPaymentSuccessEmail(
       to,
       { orderNo, amount, currency },
@@ -175,15 +168,18 @@ export const jobHandlers: JobHandlerMap = {
     );
   },
 
-  reservation_confirmed_email: async ({
-    to,
-    reservationNo,
-    serviceTitle,
-    startsAt,
-    timezone,
-    icsContent,
-    googleCalendarUrl,
-  }, context) => {
+  reservation_confirmed_email: async (
+    {
+      to,
+      reservationNo,
+      serviceTitle,
+      startsAt,
+      timezone,
+      icsContent,
+      googleCalendarUrl,
+    },
+    context,
+  ) => {
     await sendReservationConfirmedEmail(
       to,
       {

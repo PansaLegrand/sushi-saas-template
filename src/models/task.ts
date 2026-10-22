@@ -2,6 +2,8 @@ import { tasks } from "@/db/schema";
 import { db } from "@/db";
 import { and, desc, eq, gte, inArray, ne } from "drizzle-orm";
 
+import { lockActiveJobLease, type JobLease } from "./job";
+
 import { scopedToOrg } from "./organization";
 
 export type TaskStatus =
@@ -22,7 +24,7 @@ export type TaskPatch = Omit<
 export type TaskInsert = typeof tasks.$inferInsert & { org_uuid: string };
 
 export async function insertTask(
-  data: TaskInsert
+  data: TaskInsert,
 ): Promise<typeof tasks.$inferSelect | undefined> {
   if (data.created_at && typeof data.created_at === "string") {
     data.created_at = new Date(data.created_at);
@@ -50,7 +52,7 @@ export async function insertTask(
  * index exists to provide.
  */
 export async function insertTaskForIdempotencyKey(
-  data: TaskInsert
+  data: TaskInsert,
 ): Promise<typeof tasks.$inferSelect | undefined> {
   const [row] = await db()
     .insert(tasks)
@@ -65,7 +67,7 @@ export async function insertTaskForIdempotencyKey(
 
 export async function findTaskByUuid(
   uuid: string,
-  orgUuid: string
+  orgUuid: string,
 ): Promise<typeof tasks.$inferSelect | undefined> {
   const [row] = await db()
     .select()
@@ -94,8 +96,8 @@ export async function findTaskByIdempotencyKey({
         scopedToOrg(tasks.org_uuid, org_uuid),
         eq(tasks.user_uuid, user_uuid),
         eq(tasks.type, type),
-        eq(tasks.idempotency_key, idempotency_key)
-      )
+        eq(tasks.idempotency_key, idempotency_key),
+      ),
     )
     .limit(1);
   return row;
@@ -104,7 +106,7 @@ export async function findTaskByIdempotencyKey({
 export async function getTasksByOrg(
   orgUuid: string,
   page: number = 1,
-  limit: number = 50
+  limit: number = 50,
 ): Promise<(typeof tasks.$inferSelect)[] | undefined> {
   const data = await db()
     .select()
@@ -128,7 +130,7 @@ export async function getTasksByOrg(
  */
 export async function countTasksByOrgSince(
   orgUuid: string,
-  since: Date
+  since: Date,
 ): Promise<number> {
   return db().$count(
     tasks,
@@ -188,20 +190,24 @@ export async function transitionTaskStatus(
   expectedStatuses: readonly TaskStatus[],
   status: TaskStatus,
   fields: TaskPatch = {},
+  lease?: JobLease,
 ): Promise<TaskRow | undefined> {
   if (expectedStatuses.length === 0) return undefined;
 
-  const [row] = await db()
-    .update(tasks)
-    .set({ ...fields, status, updated_at: new Date() })
-    .where(
-      and(
-        eq(tasks.uuid, uuid),
-        scopedToOrg(tasks.org_uuid, orgUuid),
-        inArray(tasks.status, [...expectedStatuses]),
-      ),
-    )
-    .returning();
+  return db().transaction(async (tx) => {
+    await lockActiveJobLease(tx, lease);
+    const [row] = await tx
+      .update(tasks)
+      .set({ ...fields, status, updated_at: new Date() })
+      .where(
+        and(
+          eq(tasks.uuid, uuid),
+          scopedToOrg(tasks.org_uuid, orgUuid),
+          inArray(tasks.status, [...expectedStatuses]),
+        ),
+      )
+      .returning();
 
-  return row;
+    return row;
+  });
 }

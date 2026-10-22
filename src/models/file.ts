@@ -1,3 +1,4 @@
+import { lockActiveJobLease, type JobLease } from "./job";
 import { db } from "@/db";
 import { files, jobs } from "@/db/schema";
 import { and, desc, eq, inArray, lt, ne, sql } from "drizzle-orm";
@@ -26,10 +27,7 @@ export type FileInsert = Omit<typeof files.$inferInsert, "org_id"> & {
   org_uuid: string;
 };
 export type FilePatch = Partial<
-  Omit<
-    FileInsert,
-    "created_at" | "org_uuid" | "user_uuid" | "uuid"
-  >
+  Omit<FileInsert, "created_at" | "org_uuid" | "user_uuid" | "uuid">
 >;
 export type FileStatus = FileRow["status"];
 
@@ -116,20 +114,24 @@ export async function activateUploadingFile(
   uuid: string,
   orgUuid: string,
   patch: FilePatch,
+  lease?: JobLease,
 ): Promise<FileRow | undefined> {
-  const [row] = await db()
-    .update(files)
-    .set({ ...patch, status: "active", updated_at: new Date() })
-    .where(
-      and(
-        eq(files.uuid, uuid),
-        scopedToOrg(files.org_uuid, orgUuid),
-        eq(files.status, "uploading"),
-      ),
-    )
-    .returning();
+  return db().transaction(async (tx) => {
+    await lockActiveJobLease(tx, lease);
+    const [row] = await tx
+      .update(files)
+      .set({ ...patch, status: "active", updated_at: new Date() })
+      .where(
+        and(
+          eq(files.uuid, uuid),
+          scopedToOrg(files.org_uuid, orgUuid),
+          eq(files.status, "uploading"),
+        ),
+      )
+      .returning();
 
-  return row;
+    return row;
+  });
 }
 
 export async function listFilesByOrg(

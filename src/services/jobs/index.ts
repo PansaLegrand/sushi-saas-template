@@ -2,6 +2,7 @@ import {
   claimDueJobs,
   deleteFinishedJobsBefore,
   insertJob,
+  isJobLeaseActive,
   markJobFailed,
   markJobSucceeded,
   type JobRow,
@@ -105,11 +106,7 @@ export interface RunJobsResult {
     uuid: string;
     type: string;
     outcome:
-      | "succeeded"
-      | "retrying"
-      | "failed"
-      | "unknown_type"
-      | "lease_lost";
+      "succeeded" | "retrying" | "failed" | "unknown_type" | "lease_lost";
     error?: string;
   }[];
 }
@@ -189,6 +186,23 @@ async function runOne(
           attempt: job.attempts,
           maxAttempts: job.max_attempts,
           signal: controller.signal,
+          lease: job.locked_at
+            ? { uuid: job.uuid, lockedAt: job.locked_at }
+            : undefined,
+          assertActive: async () => {
+            if (
+              controller.signal.aborted ||
+              !job.locked_at ||
+              !(await isJobLeaseActive({
+                uuid: job.uuid,
+                lockedAt: job.locked_at,
+              }))
+            ) {
+              throw new AppError("SERVICE_UNAVAILABLE", {
+                message: "job execution no longer owns its lease",
+              });
+            }
+          },
         };
         await runWithTimeout(
           () => handler(payload, context),

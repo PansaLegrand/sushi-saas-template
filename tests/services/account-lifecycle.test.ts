@@ -207,16 +207,40 @@ describe("runAccountErasure", () => {
       ),
     ).toBeLessThan(customerDeleteOrder);
 
-    expect(mocks.deleteStoredObject).toHaveBeenCalledWith({
-      fileUuid: "file-1",
-      orgUuid: "org-1",
-    });
+    expect(mocks.deleteStoredObject).toHaveBeenCalledWith(
+      {
+        fileUuid: "file-1",
+        orgUuid: "org-1",
+      },
+      undefined,
+    );
     expect(mocks.deleteTaskOutput).toHaveBeenCalled();
     expect(mocks.storageDelete).toHaveBeenCalledWith({
       bucket: "private",
       key: "account-exports/export-1/account-data.json",
     });
     expect(mocks.finalize).toHaveBeenCalledOnce();
+    expect(mocks.markFailed).not.toHaveBeenCalled();
+  });
+
+  it("stops erasure after cancellation without finalizing or overwriting request state", async () => {
+    const controller = new AbortController();
+    mocks.deleteStoredObject.mockImplementationOnce(async () =>
+      controller.abort(),
+    );
+    await expect(
+      runAccountErasure(
+        { requestUuid: request.uuid },
+        {
+          jobUuid: "job-1",
+          attempt: 1,
+          maxAttempts: 8,
+          signal: controller.signal,
+        },
+      ),
+    ).rejects.toMatchObject({ code: "SERVICE_UNAVAILABLE" });
+    expect(mocks.deleteTaskOutput).not.toHaveBeenCalled();
+    expect(mocks.finalize).not.toHaveBeenCalled();
     expect(mocks.markFailed).not.toHaveBeenCalled();
   });
 
@@ -233,6 +257,7 @@ describe("runAccountErasure", () => {
     expect(mocks.markFailed).toHaveBeenCalledWith(
       request.uuid,
       expect.stringContaining("storage provider unavailable"),
+      undefined,
     );
   });
 
@@ -321,6 +346,25 @@ describe("runAccountDataExport", () => {
       email: user.email,
     });
     expect(document.note).toContain("intentionally excluded");
+  });
+
+  it("does not complete an export after its upload outlives the execution", async () => {
+    const controller = new AbortController();
+    mocks.storagePut.mockImplementationOnce(async () => controller.abort());
+    await expect(
+      runAccountDataExport(
+        { requestUuid: request.uuid },
+        {
+          jobUuid: "job-1",
+          attempt: 1,
+          maxAttempts: 8,
+          signal: controller.signal,
+        },
+      ),
+    ).rejects.toMatchObject({ code: "SERVICE_UNAVAILABLE" });
+    expect(mocks.completeExport).not.toHaveBeenCalled();
+    expect(mocks.markFailed).not.toHaveBeenCalled();
+    expect(mocks.prepareExport).toHaveBeenCalled();
   });
 
   it("does not upload when erasure wins the preparation race", async () => {
