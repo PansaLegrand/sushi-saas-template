@@ -117,6 +117,35 @@ The default target is the disposable local stack on port `3100`. An external
 remain skipped unless `E2E_ALLOW_MUTATIONS=1` explicitly marks that environment
 disposable. Never point this suite at production.
 
+### First-run Core onboarding
+
+The separate `Fresh Core onboarding` CI job starts from a checkout without
+installed workspace packages or runtime profiles. It runs the public Core
+`install`, `setup`, and `doctor` commands, verifies that Content Studio's
+dependencies and environment were not created, and seeds the demo twice.
+`playwright.core.config.ts` then starts **`pnpm starter core demo`**, including
+its real durable worker, with the shipped demo command's local image adapter.
+
+The browser logs in, proves exactly one 1,000-credit demo grant, submits an image,
+replays the same request, and waits for the background worker to finish without
+calling the cron drain endpoint. It checks the private Garage output, anonymous
+denial, reload recovery, and exactly one five-credit ledger debit. The ordinary
+signup grant settles before comparing balances. Email, Stripe, and Slack
+credentials are cleared by the demo command itself; no external provider is used.
+
+Run this only in a **fresh disposable local checkout and Compose stack**, after
+the Core bootstrap and two `pnpm dev:seed` calls:
+
+```bash
+E2E_ALLOW_MUTATIONS=1 pnpm exec playwright test --config playwright.core.config.ts
+```
+
+The config rejects external targets, non-local infrastructure, and existing
+servers. Its `.smoke.ts` file is deliberately outside the normal `.spec.ts`
+discovery, so the full-stack suite never silently reuses its changed ledger.
+It does not reset an existing development database and is not intended for a
+working checkout with existing demo activity.
+
 ---
 
 ## The rules

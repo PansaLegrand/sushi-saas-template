@@ -133,6 +133,67 @@ jobs:
       - name: Smoke production artifacts
         run: pnpm test:production
 
+  core-onboarding:
+    name: Fresh Core onboarding
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+        with:
+          version: 10.22.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.22.1
+          cache: pnpm
+
+      # Deliberately do not restore node_modules or install the full workspace:
+      # this job proves the commands a first-time Core adopter actually runs.
+      - name: Install Core only
+        run: pnpm starter core install
+
+      - name: Provision Core local infrastructure
+        run: pnpm starter core setup
+
+      - name: Check Core environment and optional app exclusion
+        run: |
+          pnpm starter core doctor
+          test ! -d apps/content-studio/node_modules
+          test ! -e apps/content-studio/.env.development.local
+          studio_count=$(docker compose exec -T postgres psql -U sushi -d postgres -tAc "SELECT count(*) FROM pg_database WHERE datname = 'sushi_content'")
+          test "$studio_count" = "0"
+
+      - name: Seed the local demo twice to prove replay safety
+        run: |
+          pnpm dev:seed
+          pnpm dev:seed
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Exercise the first Core result with its background worker
+        env:
+          E2E_ALLOW_MUTATIONS: "1"
+        run: pnpm exec playwright test --config playwright.core.config.ts
+
+      - name: Upload Core onboarding diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: core-onboarding-report
+          path: |
+            playwright-report/core/
+            test-results/core-onboarding/
+          retention-days: 7
+
   e2e:
     name: Full-stack browser contracts
     needs: checks
