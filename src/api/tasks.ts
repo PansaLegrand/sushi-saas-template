@@ -13,7 +13,7 @@ export function getLatestTask() {
 export function getTask(uuid: string, signal?: AbortSignal) {
   return api.get<{ task: TaskRecord }>(
     `/api/tasks/${encodeURIComponent(uuid)}`,
-    { headers: organizationHeaders(), signal },
+    { headers: organizationHeaders(), signal, cache: "no-store" },
   );
 }
 
@@ -21,16 +21,11 @@ export function createTextToVideoTask(input: {
   prompt: string;
   seconds: number;
   aspectRatio: string;
+  idempotencyKey: string;
 }) {
-  // One key per attempt: a retry of this request cannot double-charge credits.
-  const idempotencyKey =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
   return api.post<{ task: TaskRecord }>("/api/tasks/text-to-video", {
-    headers: organizationHeaders({ "Idempotency-Key": idempotencyKey }),
-    body: { ...input, idempotencyKey },
+    headers: organizationHeaders({ "Idempotency-Key": input.idempotencyKey }),
+    body: input,
   });
 }
 

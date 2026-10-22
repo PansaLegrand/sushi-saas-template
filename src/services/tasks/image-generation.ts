@@ -14,11 +14,7 @@ import {
   findFileByUuid,
   type FileInsert,
 } from "@/models/file";
-import {
-  admitPaidTask,
-  listTaskDispatchRepairs,
-} from "@/models/task-admission";
-import { logger } from "@/lib/logger/server";
+import { admitPaidTask } from "@/models/task-admission";
 import { startOfUtcMonth } from "@/lib/time";
 import {
   enforceLimit,
@@ -164,41 +160,6 @@ export async function createImageGenerationTask(
     });
   }
   throw new AppError("TASK_CREATE_FAILED");
-}
-
-/** Repair historical charged intents without creating a new credit spend. */
-export async function reconcileImageTaskDispatch(
-  now = new Date(),
-): Promise<number> {
-  const candidates = await listTaskDispatchRepairs(
-    new Date(now.getTime() - 5 * 60_000),
-  );
-  let repaired = 0;
-  for (const task of candidates) {
-    if (!task.idempotency_key || !task.request_fingerprint) continue;
-    try {
-      const outcome = await admitPaidTask({
-        task: {
-          ...task,
-          idempotency_key: task.idempotency_key,
-          request_fingerprint: task.request_fingerprint,
-        },
-        maxTasks: null,
-        since: startOfUtcMonth(),
-        spendPrefix: "task_image",
-        transType: CreditsTransType.TaskImageGeneration,
-        maxAttempts: IMAGE_GENERATION_JOB_ATTEMPTS,
-        repairOnly: true,
-      });
-      if (outcome.ok) repaired += 1;
-    } catch (err) {
-      logger.error(
-        { err, task_uuid: task.uuid },
-        "task dispatch repair failed",
-      );
-    }
-  }
-  return repaired;
 }
 
 function generatedObjectKey(task: TaskRow): string {

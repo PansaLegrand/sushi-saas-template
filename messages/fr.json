@@ -52,7 +52,16 @@
       "notSignedInDesc": "Veuillez vous inscrire ou vous connecter pour créer une tâche.",
       "linkSignup": "S’inscrire",
       "linkLogin": "Se connecter",
-      "or": "ou"
+      "or": "ou",
+      "generateAgain": "Générer une autre vidéo",
+      "status": {
+        "pending_payment": "Réservation des crédits…",
+        "queued": "En attente",
+        "running": "Génération de la vidéo…",
+        "refunding": "Échec de la génération ; restauration des crédits…",
+        "succeeded": "Vidéo prête",
+        "failed": "Échec de la génération"
+      }
     },
     "imageGeneration": {
       "title": "Génération d’images",

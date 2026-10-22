@@ -52,7 +52,16 @@
       "notSignedInDesc": "Please sign up or log in to create a task.",
       "linkSignup": "Sign up",
       "linkLogin": "Log in",
-      "or": "or"
+      "or": "or",
+      "generateAgain": "Generate another video",
+      "status": {
+        "pending_payment": "Reserving credits…",
+        "queued": "Queued",
+        "running": "Generating the video…",
+        "refunding": "Generation failed; restoring your credits…",
+        "succeeded": "Video ready",
+        "failed": "Generation failed"
+      }
     },
     "imageGeneration": {
       "title": "Image generation",

@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, gte, inArray, lt, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, lt, ne, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { credits, jobs, organizations, tasks, users } from "@/db/schema";
+import { credits, jobs, organizations, orgMembers, tasks, users } from "@/db/schema";
 import { AppError } from "@/lib/errors";
 import { lockOrgAndSumLedger, spendCreditInTransaction } from "./credit";
 import { scopedToOrg } from "./organization";
-import type { TaskInsert, TaskRow } from "./task";
+import { countTasksByOrgSince, type TaskInsert, type TaskRow } from "./task";
 
 export type TaskAdmissionInput = {
   task: TaskInsert & {
@@ -37,6 +37,18 @@ export async function admitPaidTask(
 ): Promise<TaskAdmissionOutcome> {
   return db().transaction(async (tx) => {
     const data = input.task;
+    // Keep erasure and membership removal from crossing the admission commit.
+    // Their owning transactions lock these same identity/organization rows.
+    const [user] = await tx.select({ id: users.id, state: users.lifecycle_status })
+      .from(users).where(eq(users.uuid, data.user_uuid)).for("share");
+    if (!user || user.state === "erasing") throw new AppError("AUTH_REQUIRED");
+    const [organization] = await tx.select({ id: organizations.id, state: organizations.lifecycle_status })
+      .from(organizations).where(eq(organizations.uuid, data.org_uuid)).for("share");
+    if (!organization || organization.state !== "active") throw new AppError("AUTH_FORBIDDEN");
+    const [membership] = await tx.select({ id: orgMembers.id }).from(orgMembers).where(and(
+      eq(orgMembers.organization_id, organization.id), eq(orgMembers.user_id, user.id),
+    )).limit(1);
+    if (!membership) throw new AppError("AUTH_FORBIDDEN");
     await lockOrgAndSumLedger(tx, data.org_uuid);
     const [existing] = await tx
       .select()
@@ -79,13 +91,10 @@ export async function admitPaidTask(
       .limit(1);
     if (input.repairOnly && !paid) return { ok: false, reason: "unpaid" };
     if (!paid && input.maxTasks !== null) {
-      const current = await tx.$count(
-        tasks,
-        and(
-          scopedToOrg(tasks.org_uuid, data.org_uuid),
-          gte(tasks.created_at, input.since),
-          ne(tasks.status, "pending_payment"),
-        ),
+      const current = await countTasksByOrgSince(
+        data.org_uuid,
+        input.since,
+        tx,
       );
       if (current >= input.maxTasks)
         return { ok: false, reason: "quota", current };
@@ -175,7 +184,7 @@ export async function listTaskDispatchRepairs(
     .leftJoin(jobs, eq(jobs.uuid, tasks.job_uuid))
     .where(
       and(
-        eq(tasks.type, "image_generation"),
+        inArray(tasks.type, ["image_generation", "text_to_video"]),
         inArray(tasks.status, [
           "pending_payment",
           "queued",

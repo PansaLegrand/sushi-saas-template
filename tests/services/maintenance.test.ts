@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  reconcileImageTaskDispatch: vi.fn(),
+  reconcilePaidTaskDispatch: vi.fn(),
   pruneFinishedJobs: vi.fn(),
   pruneMarketingProviderEvents: vi.fn(),
   cleanupStaleUploads: vi.fn(),
   sweepStripeWebhookEvents: vi.fn(),
 }));
 
-vi.mock("@/services/tasks/image-generation", () => ({
-  reconcileImageTaskDispatch: mocks.reconcileImageTaskDispatch,
+vi.mock("@/services/tasks/reconcile", () => ({
+  reconcilePaidTaskDispatch: mocks.reconcilePaidTaskDispatch,
 }));
 vi.mock("@/services/jobs", () => ({
   pruneFinishedJobs: mocks.pruneFinishedJobs,
@@ -29,7 +29,7 @@ import { runOperationalMaintenance } from "@/services/maintenance";
 describe("operational maintenance", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.reconcileImageTaskDispatch.mockResolvedValue(1);
+    mocks.reconcilePaidTaskDispatch.mockResolvedValue(1);
     mocks.pruneFinishedJobs.mockResolvedValue(3);
     mocks.pruneMarketingProviderEvents.mockResolvedValue(4);
     mocks.cleanupStaleUploads.mockResolvedValue(2);

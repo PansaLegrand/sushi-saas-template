@@ -17,7 +17,9 @@ import {
   increaseCredits,
 } from "@/services/credit";
 import { ensurePersonalOrganization } from "@/services/organizations";
-import { reconcileImageTaskDispatch } from "@/services/tasks/image-generation";
+import { reconcilePaidTaskDispatch } from "@/services/tasks/reconcile";
+import { runTextToVideoTask } from "@/services/tasks";
+import { resetEnvCacheForTests } from "@/lib/env";
 import { describeDb, useCleanDatabase } from "./setup";
 
 describeDb("atomic task admission", () => {
@@ -129,6 +131,73 @@ describeDb("atomic task admission", () => {
     expect(await db().$count(jobs)).toBe(0);
   });
 
+  it("refuses admission when erasure has already closed the account", async () => {
+    await fund(10);
+    await db().update(users).set({ lifecycle_status: "erasing" }).where(eq(users.uuid, userUuid));
+    await expect(admitPaidTask(intent())).rejects.toMatchObject({ code: "AUTH_REQUIRED" });
+    expect(await db().$count(tasks)).toBe(0);
+    expect((await getOrgCreditSummary(orgUuid)).balance).toBe(10);
+  });
+
+  it("meters an old unpaid draft in the month it is funded", async () => {
+    await fund(10);
+    const now = new Date();
+    const since = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+    );
+    const input = intent();
+    input.since = since;
+    input.task.created_at = new Date(since.getTime() - 86_400_000);
+    await insertTaskForIdempotencyKey(input.task);
+    expect(await admitPaidTask(input)).toMatchObject({ ok: true });
+    expect(await admitPaidTask({ ...intent(), since })).toMatchObject({
+      ok: false,
+      reason: "quota",
+      current: 1,
+    });
+  });
+
+  it("refunds a durable video failure once even when the worker is replayed", async () => {
+    await fund(8);
+    const input = intent();
+    input.task.type = "text_to_video";
+    input.task.credits_used = 8;
+    input.spendPrefix = "task_video";
+    input.transType = CreditsTransType.TaskTextToVideo;
+    const created = await admitPaidTask(input);
+    if (!created.ok) throw new Error("fixture admission failed");
+    const prior = process.env.ENABLE_TEXT2VIDEO_MOCK;
+    process.env.ENABLE_TEXT2VIDEO_MOCK = "false";
+    resetEnvCacheForTests();
+    try {
+      const context = {
+        jobUuid: created.task.job_uuid!,
+        attempt: 1,
+        maxAttempts: 8,
+        signal: new AbortController().signal,
+      };
+      const payload = { taskUuid: created.task.uuid, orgUuid };
+      await runTextToVideoTask(payload, context);
+      await runTextToVideoTask(payload, context);
+      const summary = await getOrgCreditSummary(orgUuid);
+      expect(summary.balance).toBe(8);
+      expect(
+        summary.ledger.filter(
+          (entry) => entry.transType === CreditsTransType.TaskTextToVideo,
+        ),
+      ).toHaveLength(1);
+      expect(
+        summary.ledger.filter(
+          (entry) => entry.transType === CreditsTransType.TaskAdjust,
+        ),
+      ).toHaveLength(1);
+    } finally {
+      if (prior === undefined) delete process.env.ENABLE_TEXT2VIDEO_MOCK;
+      else process.env.ENABLE_TEXT2VIDEO_MOCK = prior;
+      resetEnvCacheForTests();
+    }
+  });
+
   it("rolls the debit back when queue persistence fails", async () => {
     await fund(5);
     await db().execute(
@@ -161,7 +230,7 @@ describeDb("atomic task admission", () => {
       trans_type: CreditsTransType.TaskImageGeneration,
       actor: `user:${userUuid}`,
     });
-    expect(await reconcileImageTaskDispatch()).toBe(1);
+    expect(await reconcilePaidTaskDispatch()).toBe(1);
     expect(await db().$count(jobs)).toBe(1);
     expect((await getOrgCreditSummary(orgUuid)).balance).toBe(5);
     const [task] = await db()

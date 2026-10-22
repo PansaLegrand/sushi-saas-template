@@ -114,6 +114,28 @@ storage invariants. Replacing the adapter alone cannot enable production tasks.
 
 ## Operator Workflow
 
+### Video example
+
+Text-to-video uses the same atomic admission model and queue as image tasks.
+It requires a replay key and accepts 1–60 whole seconds with prompts up to
+1,000 characters. `POST /api/tasks/text-to-video` returns 202 while queued;
+the client polls and restores its intent/settings on reload. Provider failures
+receive five attempts, followed by durable compensation within eight job
+attempts. Deploy a worker that understands `text_to_video` before admitting
+that job type in an adopting application.
+
+The development adapter returns the bundled eight-second `/demo-video.mp4` sample
+(or `TEXT2VIDEO_MOCK_URL`); it does not synthesize the requested prompt, aspect,
+or duration. Both demo providers remain closed in production. Old synchronous
+video tasks without a request fingerprint are never automatically resubmitted:
+an operator must reconcile their provider outcome before settlement.
+
+Use `pnpm dev:seed -- --paid-examples` for a local manual entitlement to the
+paid examples. The database guard still requires the loopback `sushi_dev`
+database. Local Playwright setup uses this fixture and disables real email and
+Slack delivery. External disposable targets opt into the video test with
+`E2E_VIDEO_ENABLED=1` after provisioning the same capability.
+
 The admin console's `/jobs` page exposes operational metadata but never payload
 JSON or deduplication keys. Operators can:
 

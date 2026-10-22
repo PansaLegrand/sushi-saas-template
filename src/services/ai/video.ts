@@ -1,5 +1,6 @@
 import { isTextToVideoMockEnabled } from "@/lib/demo-flags";
 import { AppError } from "@/lib/errors/app-error";
+import { throwIfAborted } from "@/lib/abort";
 
 interface TextToVideoInput {
   prompt: string;
@@ -14,8 +15,10 @@ interface TextToVideoResult {
 }
 
 export async function generateTextToVideo(
-  input: TextToVideoInput
+  input: TextToVideoInput,
+  options?: { idempotencyKey: string; signal: AbortSignal },
 ): Promise<TextToVideoResult> {
+  throwIfAborted(options?.signal);
   if (!isTextToVideoMockEnabled()) {
     throw new AppError("FEATURE_DISABLED", {
       message: "text-to-video demo provider is disabled",
@@ -28,9 +31,7 @@ export async function generateTextToVideo(
   void seconds;
   void aspect;
 
-  const fallbackUrl =
-    process.env.TEXT2VIDEO_MOCK_URL ??
-    "/test.mp4";
+  const fallbackUrl = process.env.TEXT2VIDEO_MOCK_URL ?? "/demo-video.mp4";
 
   return {
     outputUrl: fallbackUrl,

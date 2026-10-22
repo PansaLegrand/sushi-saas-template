@@ -153,11 +153,11 @@ tests and visual hierarchy still requires browser review.
 - Models: `src/models/task.ts` for insert/find/update/list helpers.
 - Services:
   - `src/services/ai/video.ts` (provider adapter stub — swap with Replicate/OpenAI or your engine).
-  - `src/services/tasks.ts#createTextToVideoTask` orchestrates: deduct credits → call provider → persist task.
+  - `src/services/tasks/video.ts#createTextToVideoTask` atomically reserves quota, credits, task, and durable dispatch; the worker invokes the provider and settles or compensates.
   - Credits transaction type: `task_text_to_video` in `src/services/credit.ts`.
   - Each task stores `credits_trans_no` to trace the exact ledger entry used.
 - API Routes:
-  - `POST /api/tasks/text-to-video` — create task, spend credits, return task + `outputUrl`.
+  - `POST /api/tasks/text-to-video` — atomically admit a paid task; return 202 while queued and poll for its output.
   - `GET /api/tasks/[uuid]` — fetch task (owner‑scoped).
 - UI (dev/demo): minimal client page at `src/app/[locale]/tasks/text-to-video/page.tsx`.
  - Pricing constants: `src/config/tasks.ts` defines per‑second cost and aspect multipliers.
@@ -170,7 +170,7 @@ tests and visual hierarchy still requires browser review.
 
 Notes:
 - Keep provider specifics in `services/ai/*`; do not hardcode in routes.
-- Consider async task processing and refunds-on-failure for production.
+- Paid task examples use durable workers and refunds on failure. Replacement providers must preserve replay identities, cancellation, and recovery.
 
 ## Build, Test, and Development Commands
 - `pnpm install && pnpm run setup`: First-clone bootstrap — writes missing SaaS and Content Studio env files with generated secrets, starts local Postgres, Redis, and S3-compatible Garage storage, creates isolated app, test, Content Studio, and restore-drill databases plus a private bucket, and applies Drizzle and Payload migrations. Idempotent; never overwrites an existing env file.

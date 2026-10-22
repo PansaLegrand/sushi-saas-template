@@ -84,7 +84,7 @@ export type UpsertResult = {
  * property a webhook handler needs.
  */
 export async function upsertStripeSubscription(
-  input: UpsertStripeSubscriptionInput
+  input: UpsertStripeSubscriptionInput,
 ): Promise<UpsertResult> {
   const now = new Date();
 
@@ -145,7 +145,7 @@ export async function upsertStripeSubscription(
  * this is the call that *establishes* which tenant the event belongs to.
  */
 export async function findSubscriptionByStripeId(
-  stripeSubscriptionId: string
+  stripeSubscriptionId: string,
 ): Promise<SubscriptionRow | undefined> {
   const [row] = await db()
     .select()
@@ -170,7 +170,7 @@ export async function findSubscriptionByStripeId(
  */
 export async function listSubscriptionsByOrg(
   orgUuid: string,
-  options: { statuses?: readonly string[] } = {}
+  options: { statuses?: readonly string[] } = {},
 ): Promise<SubscriptionRow[]> {
   const statuses = options.statuses;
   const scope = scopedToOrg(subscriptions.org_uuid, orgUuid);
@@ -181,7 +181,7 @@ export async function listSubscriptionsByOrg(
     .where(
       statuses?.length
         ? and(scope, inArray(subscriptions.status, [...statuses]))
-        : scope
+        : scope,
     )
     .orderBy(desc(subscriptions.updated_at));
 }
@@ -223,7 +223,7 @@ export type InsertManualSubscriptionInput = {
 
 /** Comp a user onto a tier without Stripe. See `docs/plans.md`. */
 export async function insertManualSubscription(
-  input: InsertManualSubscriptionInput
+  input: InsertManualSubscriptionInput,
 ): Promise<SubscriptionRow | undefined> {
   const [row] = await db()
     .insert(subscriptions)
@@ -237,6 +237,7 @@ export async function insertManualSubscription(
       current_period_end: input.current_period_end ?? null,
       note: input.note ?? null,
     })
+    .onConflictDoNothing({ target: subscriptions.uuid })
     .returning();
 
   return row;
@@ -245,7 +246,7 @@ export async function insertManualSubscription(
 /** End a subscription row locally. Used to revoke a comp. */
 export async function endSubscription(
   uuid: string,
-  status: string = SubscriptionStatus.Canceled
+  status: string = SubscriptionStatus.Canceled,
 ): Promise<SubscriptionRow | undefined> {
   const now = new Date();
 

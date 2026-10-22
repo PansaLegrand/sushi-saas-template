@@ -2,7 +2,7 @@ import { pruneFinishedJobs } from "@/services/jobs";
 import { pruneMarketingProviderEvents } from "@/services/marketing/operations";
 import { cleanupStaleUploads } from "@/services/storage/cleanup";
 import { sweepStripeWebhookEvents } from "@/services/stripe/sweep";
-import { reconcileImageTaskDispatch } from "@/services/tasks/image-generation";
+import { reconcilePaidTaskDispatch } from "@/services/tasks/reconcile";
 
 /** Maintenance shared by HTTP cron and the portable worker. */
 export async function runOperationalMaintenance(now: Date = new Date()) {
@@ -10,7 +10,7 @@ export async function runOperationalMaintenance(now: Date = new Date()) {
   const marketingProviderEventsPruned = await pruneMarketingProviderEvents(now);
   const staleUploadsFailed = await cleanupStaleUploads({ now });
   const stripe = await sweepStripeWebhookEvents(now);
-  const taskDispatchesRepaired = await reconcileImageTaskDispatch(now);
+  const taskDispatchesRepaired = await reconcilePaidTaskDispatch(now);
 
   return {
     finishedJobsPruned,

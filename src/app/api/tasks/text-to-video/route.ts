@@ -6,17 +6,14 @@ import { respData, respNoAuth } from "@/lib/resp";
 import { respCode, respError } from "@/lib/errors/response";
 import { parseJsonBody } from "@/lib/http/request";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
-import { startOfUtcMonth } from "@/lib/time";
-import { countTasksByOrgSince } from "@/models/task";
-import { enforceLimit, requireEntitlement } from "@/services/entitlements";
 import { getOrgContext } from "@/services/authz";
 import { createTextToVideoTask } from "@/services/tasks";
 import { toTaskRecord } from "@/services/tasks/presentation";
 import type { CreateTextToVideoResponse } from "@/types/task";
 
 const TextToVideoSchema = z.object({
-  prompt: z.string().trim().optional(),
-  seconds: z.coerce.number().positive().optional(),
+  prompt: z.string().trim().max(1_000).optional(),
+  seconds: z.coerce.number().int().min(1).max(60).optional(),
   aspectRatio: z.enum(["landscape", "portrait", "square"]).optional(),
   idempotencyKey: z.string().optional(),
 });
@@ -36,18 +33,6 @@ export async function POST(req: Request) {
     const ctx = await getOrgContext(req);
     if (!ctx) return respNoAuth();
 
-    // Plan gate before anything is parsed or spent. Two checks, because they
-    // fail for different reasons and the user needs to be told which: the
-    // first means "your plan never included this", the second means "it does,
-    // and you have used this month's allowance".
-    await requireEntitlement(ctx.orgUuid, "tasks.text_to_video");
-    // Org-wide: the monthly allowance is bought by the tenant, so five members
-    // share one quota rather than getting five.
-    await enforceLimit(ctx.orgUuid, "tasks.perMonth", {
-      current: await countTasksByOrgSince(ctx.orgUuid, startOfUtcMonth()),
-      adding: 1,
-    });
-
     const payload = await parseJsonBody(req, TextToVideoSchema);
 
     if (!payload.prompt) {
@@ -61,7 +46,12 @@ export async function POST(req: Request) {
     const idempotencyKey =
       typeof payload.idempotencyKey === "string"
         ? payload.idempotencyKey
-        : req.headers.get("idempotency-key") ?? undefined;
+        : (req.headers.get("idempotency-key") ?? undefined);
+
+    if (!idempotencyKey?.trim())
+      return respCode("REQUEST_MISSING_FIELD", {
+        details: { field: "idempotencyKey" },
+      });
 
     const { task } = await createTextToVideoTask({
       orgUuid: ctx.orgUuid,
@@ -74,7 +64,9 @@ export async function POST(req: Request) {
       task: await toTaskRecord(task),
     };
 
-    return respData(data);
+    return respData(data, {
+      status: ["succeeded", "failed"].includes(task.status) ? 200 : 202,
+    });
   } catch (error) {
     // toAppError maps known throws ("insufficient credits" -> CREDITS_INSUFFICIENT
     // via the catalog's legacy aliases), so the branching on message text that

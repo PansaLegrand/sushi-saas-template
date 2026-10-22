@@ -52,7 +52,16 @@
       "notSignedInDesc": "タスクを作成するには、サインアップまたはログインしてください。",
       "linkSignup": "サインアップ",
       "linkLogin": "ログイン",
-      "or": "または"
+      "or": "または",
+      "generateAgain": "別の動画を生成",
+      "status": {
+        "pending_payment": "クレジットを確保中…",
+        "queued": "処理待ち",
+        "running": "動画を生成中…",
+        "refunding": "生成に失敗しました。クレジットを返却中…",
+        "succeeded": "動画の準備ができました",
+        "failed": "生成に失敗しました"
+      }
     },
     "imageGeneration": {
       "title": "画像生成",

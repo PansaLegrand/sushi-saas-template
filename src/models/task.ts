@@ -1,6 +1,6 @@
-import { tasks } from "@/db/schema";
+import { tasks, credits } from "@/db/schema";
 import { db } from "@/db";
-import { and, desc, eq, gte, inArray, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 
 import { lockActiveJobLease, type JobLease } from "./job";
 
@@ -131,17 +131,22 @@ export async function getTasksByOrg(
 export async function countTasksByOrgSince(
   orgUuid: string,
   since: Date,
+  connection: Pick<ReturnType<typeof db>, "select"> = db(),
 ): Promise<number> {
-  return db().$count(
-    tasks,
-    and(
-      scopedToOrg(tasks.org_uuid, orgUuid),
-      gte(tasks.created_at, since),
-      // A request that could not reserve credits never reached a provider and
-      // must not consume the provider-backed monthly allowance.
-      ne(tasks.status, "pending_payment"),
-    ),
-  );
+  // An unpaid legacy draft may be funded in a later month. Meter admission
+  // from the immutable debit timestamp, not the earlier draft creation time.
+  const [row] = await connection
+    .select({ count: sql<number>`count(*)::int` })
+    .from(tasks)
+    .leftJoin(credits, eq(credits.trans_no, tasks.credits_trans_no))
+    .where(
+      and(
+        scopedToOrg(tasks.org_uuid, orgUuid),
+        ne(tasks.status, "pending_payment"),
+        sql`coalesce(${credits.created_at}, ${tasks.created_at}) >= ${since.toISOString()}::timestamptz`,
+      ),
+    );
+  return row.count;
 }
 
 export async function updateTaskStatus(

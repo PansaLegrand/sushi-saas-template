@@ -16,10 +16,11 @@ function valueFor(name: string) {
 }
 
 if (args.includes("--help") || args.includes("-h")) {
-  console.log(`Usage: pnpm dev:seed [--email address] [--credits amount]
+  console.log(`Usage: pnpm dev:seed [--email address] [--credits amount] [--paid-examples]
 
 Creates or repairs one verified Better Auth demo account, its personal
 organization, an idempotent credit grant, and the demo reservation service.
+--paid-examples adds one local manual entitlement for the paid task examples.
 
 Credentials:
   email     demo@example.test (must end in .test or .invalid)
@@ -89,7 +90,11 @@ async function main() {
     process.exit(1);
   }
 
-  const result = await fixtures.seedDevelopmentFixtures({ email, credits });
+  const result = await fixtures.seedDevelopmentFixtures({
+    email,
+    credits,
+    includePaidExamples: args.includes("--paid-examples"),
+  });
   console.log(`
 Development fixtures are ready.
 

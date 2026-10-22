@@ -52,7 +52,16 @@
       "notSignedInDesc": "Regístrate o inicia sesión para crear una tarea.",
       "linkSignup": "Registrarse",
       "linkLogin": "Iniciar sesión",
-      "or": "o"
+      "or": "o",
+      "generateAgain": "Generar otro vídeo",
+      "status": {
+        "pending_payment": "Reservando créditos…",
+        "queued": "En cola",
+        "running": "Generando el vídeo…",
+        "refunding": "La generación falló; restaurando tus créditos…",
+        "succeeded": "Vídeo listo",
+        "failed": "La generación falló"
+      }
     },
     "imageGeneration": {
       "title": "Generación de imágenes",

@@ -7,6 +7,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  insertManualSubscription: vi.fn(),
   findCreditByTransNo:
     vi.fn<typeof import("@/models/credit").findCreditByTransNo>(),
   insertCredit: vi.fn<typeof import("@/models/credit").insertCredit>(),
@@ -33,6 +34,9 @@ vi.mock("@/models/credit", async () => {
     insertCredit: mocks.insertCredit,
   };
 });
+vi.mock("@/models/subscription", () => ({
+  insertManualSubscription: mocks.insertManualSubscription,
+}));
 vi.mock("@/models/reservation", () => ({
   ensureDemoService: mocks.ensureDemoService,
 }));
@@ -91,6 +95,29 @@ describe("development fixtures", () => {
     ] as never);
     mocks.ensureDemoService.mockResolvedValue(reservationService);
     mocks.insertCredit.mockResolvedValue(credit);
+  });
+
+  it("uses a stable optional local entitlement identity", async () => {
+    await seedDevelopmentFixtures({
+      email: user.email,
+      credits: 1000,
+      includePaidExamples: true,
+    });
+    await seedDevelopmentFixtures({
+      email: user.email,
+      credits: 1000,
+      includePaidExamples: true,
+    });
+    expect(mocks.insertManualSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({
+        uuid: `dev-plan:${organization.uuid}`,
+        org_uuid: organization.uuid,
+        tier: "plus",
+      }),
+    );
+    expect(mocks.insertManualSubscription.mock.calls[0][0].uuid).toBe(
+      mocks.insertManualSubscription.mock.calls[1][0].uuid,
+    );
   });
 
   it("refuses a remote database before looking up a user", async () => {

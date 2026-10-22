@@ -1,196 +1,198 @@
+/** Video admission must share atomic paid-task semantics and worker compensation. */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
 const mocks = vi.hoisted(() => ({
-  insertTaskForIdempotencyKey: vi.fn(),
-  findTaskByIdempotencyKey: vi.fn(),
-  updateTaskStatus: vi.fn(),
-  decreaseCredits: vi.fn(),
-  refundCreditsForTransaction: vi.fn(),
-  generateTextToVideo: vi.fn(),
+  admit: vi.fn(),
+  find: vi.fn(),
+  read: vi.fn(),
+  transition: vi.fn(),
+  refund: vi.fn(),
+  generate: vi.fn(),
+  require: vi.fn(),
+  limit: vi.fn(),
+  enforce: vi.fn(),
 }));
-
-vi.mock("@/lib/demo-flags", () => ({
-  isTextToVideoMockEnabled: vi.fn(() => true),
-}));
-
+vi.mock("@/lib/demo-flags", () => ({ isTextToVideoMockEnabled: () => true }));
+vi.mock("@/models/task-admission", () => ({ admitPaidTask: mocks.admit }));
 vi.mock("@/models/task", () => ({
-  insertTaskForIdempotencyKey: mocks.insertTaskForIdempotencyKey,
-  findTaskByIdempotencyKey: mocks.findTaskByIdempotencyKey,
-  updateTaskStatus: mocks.updateTaskStatus,
+  findTaskByIdempotencyKey: mocks.find,
+  findTaskByUuid: mocks.read,
+  transitionTaskStatus: mocks.transition,
 }));
-
 vi.mock("@/services/credit", () => ({
-  CreditsTransType: {
-    TaskTextToVideo: "task_text_to_video",
-    TaskAdjust: "task_adjust",
-  },
-  decreaseCredits: mocks.decreaseCredits,
-  refundCreditsForTransaction: mocks.refundCreditsForTransaction,
+  CreditsTransType: { TaskTextToVideo: "task_text_to_video" },
+  refundCreditsForTransaction: mocks.refund,
 }));
-
-vi.mock("@/services/ai/video", () => ({
-  generateTextToVideo: mocks.generateTextToVideo,
+vi.mock("@/services/ai/video", () => ({ generateTextToVideo: mocks.generate }));
+vi.mock("@/services/entitlements", () => ({
+  requireEntitlement: mocks.require,
+  limitOf: mocks.limit,
+  enforceLimit: mocks.enforce,
 }));
+import { AppError } from "@/lib/errors";
+import { createTextToVideoTask, runTextToVideoTask } from "@/services/tasks";
 
-import { createTextToVideoTask } from "@/services/tasks";
-
-function task(overrides: Record<string, unknown> = {}) {
-  const now = new Date("2026-01-01T00:00:00.000Z");
-
+const input = {
+  orgUuid: "org-1",
+  userUuid: "user-1",
+  input: { prompt: "hello", seconds: 8, aspectRatio: "landscape" },
+  idempotencyKey: "request-1",
+};
+const context = {
+  jobUuid: "job-1",
+  attempt: 1,
+  maxAttempts: 8,
+  signal: new AbortController().signal,
+};
+function task(extra: Record<string, unknown> = {}) {
   return {
-    id: 1,
     uuid: "task-1",
-    user_uuid: "u-test",
+    org_uuid: "org-1",
+    user_uuid: "user-1",
     type: "text_to_video",
-    status: "running",
+    status: "queued",
     credits_used: 8,
-    credits_trans_no: null,
-    idempotency_key: "idem-1",
+    credits_trans_no: "task_video:task-1",
+    request_fingerprint: null,
     user_input: JSON.stringify({
       prompt: "hello",
       seconds: 8,
       aspect_ratio: "landscape",
     }),
-    output_url: null,
-    output_json: null,
-    error_message: null,
-    started_at: now,
-    completed_at: null,
-    created_at: now,
-    updated_at: now,
-    ...overrides,
+    ...extra,
   };
 }
-
-describe("createTextToVideoTask", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mocks.insertTaskForIdempotencyKey.mockResolvedValue(task());
-    mocks.findTaskByIdempotencyKey.mockResolvedValue(undefined);
-    mocks.decreaseCredits.mockResolvedValue("credit-trans-1");
-    mocks.refundCreditsForTransaction.mockResolvedValue("refund_credit-trans-1");
-    mocks.generateTextToVideo.mockResolvedValue({ outputUrl: "/test.mp4" });
-    mocks.updateTaskStatus.mockImplementation(
-      async (
-        uuid: string,
-        _orgUuid: string,
-        status: string,
-        fields: Record<string, unknown> = {}
-      ) =>
-        task({ uuid, status, ...fields, updated_at: new Date("2026-01-01T00:00:01.000Z") })
-    );
-  });
-
-  it("creates a task, spends credits, and marks the task succeeded", async () => {
-    const result = await createTextToVideoTask({
-      orgUuid: "org-test",
-      userUuid: "u-test",
-      input: { prompt: "hello", seconds: 8, aspectRatio: "landscape" },
-      idempotencyKey: "idem-1",
+beforeEach(() => {
+  vi.resetAllMocks();
+  mocks.limit.mockResolvedValue(50);
+  mocks.admit.mockResolvedValue({ ok: true, task: task(), replayed: false });
+  mocks.read.mockResolvedValue(task());
+  mocks.generate.mockResolvedValue({ outputUrl: "/test.mp4" });
+  mocks.transition.mockImplementation(
+    async (_id, _org, _expected, status, fields) => task({ status, ...fields }),
+  );
+});
+describe("durable video tasks", () => {
+  it("reserves eight credits and durable dispatch without invoking a provider inline", async () => {
+    expect(await createTextToVideoTask(input)).toMatchObject({
+      task: { status: "queued" },
     });
-
-    expect(mocks.insertTaskForIdempotencyKey).toHaveBeenCalledWith(
+    expect(mocks.require).toHaveBeenCalledWith("org-1", "tasks.text_to_video");
+    expect(mocks.admit).toHaveBeenCalledWith(
       expect.objectContaining({
-        user_uuid: "u-test",
-        status: "running",
-        idempotency_key: "idem-1",
-      })
+        maxTasks: 50,
+        spendPrefix: "task_video",
+        task: expect.objectContaining({
+          credits_used: 8,
+          idempotency_key: "request-1",
+        }),
+      }),
     );
-    // The spend is attributed to the member but drawn from the org's balance.
-    expect(mocks.decreaseCredits).toHaveBeenCalledWith({
-      org_uuid: "org-test",
-      user_uuid: "u-test",
-      trans_type: "task_text_to_video",
-      credits: 8,
-      actor: "user:u-test",
-      // Links the spend to what it bought, which survives the task row being
-      // pruned. Asserted as the exact uuid rather than `expect.any(String)`,
-      // which would pass if the code passed the idempotency key by mistake.
-      metadata: { task_uuid: "task-1" },
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+  it("refuses missing replay identity before admission", async () => {
+    await expect(
+      createTextToVideoTask({ ...input, idempotencyKey: undefined }),
+    ).rejects.toMatchObject({ code: "REQUEST_MISSING_FIELD" });
+    expect(mocks.admit).not.toHaveBeenCalled();
+  });
+  it("rejects different input with the same identity", async () => {
+    mocks.find.mockResolvedValue(task({ request_fingerprint: "different" }));
+    await expect(createTextToVideoTask(input)).rejects.toMatchObject({
+      code: "TASK_IDEMPOTENCY_CONFLICT",
     });
-    expect(mocks.generateTextToVideo).toHaveBeenCalledWith({
-      prompt: "hello",
-      seconds: 8,
-      aspectRatio: "landscape",
+    expect(mocks.admit).not.toHaveBeenCalled();
+  });
+  it("returns a terminal legacy replay without requiring another entitlement", async () => {
+    mocks.find.mockResolvedValue(task({ status: "succeeded" }));
+    expect(await createTextToVideoTask(input)).toMatchObject({
+      task: { status: "succeeded" },
     });
-    expect(mocks.updateTaskStatus).toHaveBeenCalledWith(
+    expect(mocks.require).not.toHaveBeenCalled();
+    expect(mocks.admit).not.toHaveBeenCalled();
+  });
+  it("never resubmits an uncertain synchronous legacy task", async () => {
+    mocks.find.mockResolvedValue(task({ status: "running" }));
+    await expect(createTextToVideoTask(input)).rejects.toMatchObject({
+      code: "TASK_CREATE_FAILED",
+    });
+    expect(mocks.admit).not.toHaveBeenCalled();
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+  it("enforces feature access before any financial effect", async () => {
+    mocks.require.mockRejectedValue(new AppError("PLAN_UPGRADE_REQUIRED"));
+    await expect(createTextToVideoTask(input)).rejects.toMatchObject({
+      code: "PLAN_UPGRADE_REQUIRED",
+    });
+    expect(mocks.admit).not.toHaveBeenCalled();
+  });
+  it("reports an atomic quota refusal", async () => {
+    mocks.admit.mockResolvedValue({ ok: false, reason: "quota", current: 50 });
+    await expect(createTextToVideoTask(input)).rejects.toMatchObject({
+      code: "PLAN_LIMIT_EXCEEDED",
+    });
+    expect(mocks.enforce).toHaveBeenCalledWith("org-1", "tasks.perMonth", {
+      current: 50,
+      adding: 1,
+    });
+  });
+  it("reports the refusing transaction's actual balance", async () => {
+    mocks.admit.mockResolvedValue({
+      ok: false,
+      reason: "credits",
+      available: 3,
+    });
+    await expect(createTextToVideoTask(input)).rejects.toMatchObject({
+      code: "CREDITS_INSUFFICIENT",
+      details: { required: 8, available: 3, shortfall: 5 },
+    });
+  });
+  it("executes with a stable provider identity and records the output", async () => {
+    await runTextToVideoTask({ taskUuid: "task-1", orgUuid: "org-1" }, context);
+    expect(mocks.generate).toHaveBeenCalledWith(input.input, {
+      idempotencyKey: "task-1",
+      signal: context.signal,
+    });
+    expect(mocks.transition).toHaveBeenLastCalledWith(
       "task-1",
-      "org-test",
+      "org-1",
+      ["running"],
       "succeeded",
-      expect.objectContaining({ output_url: "/test.mp4" })
+      expect.objectContaining({ output_url: "/test.mp4" }),
+      undefined,
     );
-    expect(result.task.status).toBe("succeeded");
   });
-
-  it("returns the existing task for a repeated idempotency key without spending credits", async () => {
-    const existing = task({ uuid: "task-existing", status: "succeeded" });
-    mocks.insertTaskForIdempotencyKey.mockResolvedValue(undefined);
-    mocks.findTaskByIdempotencyKey.mockResolvedValue(existing);
-
-    const result = await createTextToVideoTask({
-      orgUuid: "org-test",
-      userUuid: "u-test",
-      input: { prompt: "hello", seconds: 8, aspectRatio: "landscape" },
-      idempotencyKey: "idem-1",
-    });
-
-    expect(result.task).toBe(existing);
-    expect(mocks.findTaskByIdempotencyKey).toHaveBeenCalledWith({
-      org_uuid: "org-test",
-      user_uuid: "u-test",
-      type: "text_to_video",
-      idempotency_key: "idem-1",
-    });
-    expect(mocks.decreaseCredits).not.toHaveBeenCalled();
-    expect(mocks.generateTextToVideo).not.toHaveBeenCalled();
-  });
-
-  it("refunds credits and marks the task failed when the provider fails", async () => {
-    const providerError = new Error("provider down");
-    mocks.generateTextToVideo.mockRejectedValue(providerError);
-
+  it("retries a transient provider failure without refunding", async () => {
+    mocks.generate.mockRejectedValue(new AppError("TASK_PROVIDER_FAILED"));
     await expect(
-      createTextToVideoTask({
-        orgUuid: "org-test",
-      userUuid: "u-test",
-        input: { prompt: "hello", seconds: 8, aspectRatio: "landscape" },
-        idempotencyKey: "idem-1",
-      })
-    ).rejects.toMatchObject({
-      code: "TASK_PROVIDER_FAILED",
-      message: "provider down",
-    });
-
-    expect(mocks.refundCreditsForTransaction).toHaveBeenCalledWith({
-      org_uuid: "org-test",
-      user_uuid: "u-test",
-      original_trans_no: "credit-trans-1",
-    });
-    expect(mocks.updateTaskStatus).toHaveBeenCalledWith(
+      runTextToVideoTask({ taskUuid: "task-1", orgUuid: "org-1" }, context),
+    ).rejects.toMatchObject({ code: "TASK_PROVIDER_FAILED" });
+    expect(mocks.refund).not.toHaveBeenCalled();
+    expect(mocks.transition).toHaveBeenLastCalledWith(
       "task-1",
-      "org-test",
-      "failed",
-      expect.objectContaining({
-        credits_trans_no: "credit-trans-1",
-        error_message: "TASK_PROVIDER_FAILED",
-      })
+      "org-1",
+      ["running"],
+      "queued",
+      expect.any(Object),
+      undefined,
     );
   });
-
-  it("rejects overlong idempotency keys before inserting a task", async () => {
-    await expect(
-      createTextToVideoTask({
-        orgUuid: "org-test",
-      userUuid: "u-test",
-        input: { prompt: "hello", seconds: 8, aspectRatio: "landscape" },
-        idempotencyKey: "x".repeat(256),
-      })
-    ).rejects.toMatchObject({
-      code: "REQUEST_INVALID",
-      details: { field: "idempotencyKey", max: 255 },
-    });
-
-    expect(mocks.insertTaskForIdempotencyKey).not.toHaveBeenCalled();
-    expect(mocks.decreaseCredits).not.toHaveBeenCalled();
+  it("compensates terminal failure before recording failed", async () => {
+    mocks.generate.mockRejectedValue(new AppError("TASK_PROVIDER_FAILED"));
+    await runTextToVideoTask(
+      { taskUuid: "task-1", orgUuid: "org-1" },
+      { ...context, attempt: 5 },
+    );
+    expect(mocks.refund).toHaveBeenCalledWith(
+      expect.objectContaining({ original_trans_no: "task_video:task-1" }),
+    );
+    expect(mocks.refund.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.transition.mock.invocationCallOrder.at(-1)!,
+    );
+  });
+  it("resumes compensation without generating again", async () => {
+    mocks.read.mockResolvedValue(task({ status: "refunding" }));
+    await runTextToVideoTask({ taskUuid: "task-1", orgUuid: "org-1" }, context);
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.refund).toHaveBeenCalledOnce();
   });
 });

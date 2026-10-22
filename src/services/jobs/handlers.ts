@@ -123,6 +123,10 @@ export const jobHandlers: JobHandlerMap = {
       await import("@/services/tasks/image-generation");
     await runImageGenerationTask(payload, context);
   },
+  text_to_video: async (payload, context) => {
+    const { runTextToVideoTask } = await import("@/services/tasks");
+    await runTextToVideoTask(payload, context);
+  },
 
   account_data_export: async ({ requestUuid }, context) => {
     // Dynamic import avoids making the auth configuration and the job registry

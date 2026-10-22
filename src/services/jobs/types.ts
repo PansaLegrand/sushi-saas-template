@@ -32,6 +32,7 @@ export interface JobPayloads {
     taskUuid: string;
     orgUuid: string;
   };
+  text_to_video: { taskUuid: string; orgUuid: string };
   account_data_export: {
     requestUuid: string;
   };

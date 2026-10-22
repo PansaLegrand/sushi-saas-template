@@ -2,6 +2,7 @@ import { getRequiredEnv, isProductionRuntime } from "@/lib/env";
 import { AppError } from "@/lib/errors/app-error";
 import { findCreditByTransNo } from "@/models/credit";
 import { ensureDemoService } from "@/models/reservation";
+import { insertManualSubscription } from "@/models/subscription";
 import {
   findCredentialUserByEmail,
   markUserEmailVerified,
@@ -35,6 +36,7 @@ export async function findDevelopmentFixtureUser(email: string) {
 export async function seedDevelopmentFixtures(params: {
   email: string;
   credits: number;
+  includePaidExamples?: boolean;
 }) {
   assertDevelopmentDatabase();
   const user = await findCredentialUserByEmail(params.email);
@@ -60,6 +62,16 @@ export async function seedDevelopmentFixtures(params: {
     nickname: verified.nickname,
   });
   const reservationService = await ensureDemoService();
+  if (params.includePaidExamples) {
+    await insertManualSubscription({
+      uuid: `dev-plan:${organization.uuid}`,
+      org_uuid: organization.uuid,
+      user_uuid: verified.uuid,
+      tier: "plus",
+      status: "active",
+      note: "Local paid-example fixture; no provider purchase",
+    });
+  }
 
   const creditTransaction = `dev-seed:${verified.uuid}`;
   let credit = await findCreditByTransNo(creditTransaction);

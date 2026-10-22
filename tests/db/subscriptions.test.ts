@@ -29,7 +29,9 @@ import {
 
 const STRIPE_SUB_ID = "sub_stripe_test";
 
-function baseInput(overrides: Partial<Parameters<typeof upsertStripeSubscription>[0]> = {}) {
+function baseInput(
+  overrides: Partial<Parameters<typeof upsertStripeSubscription>[0]> = {},
+) {
   return {
     uuid: `uuid-${Math.random().toString(36).slice(2)}`,
     // The plan belongs to the org; the user is recorded for attribution only.
@@ -79,12 +81,12 @@ describeDb("subscriptions", () => {
       baseInput({
         status: SubscriptionStatus.Canceled,
         stripe_event_at: new Date("2026-01-05T00:00:00.000Z"),
-      })
+      }),
     );
 
     expect(applied).toBe(true);
     expect((await findSubscriptionByStripeId(STRIPE_SUB_ID))?.status).toBe(
-      SubscriptionStatus.Canceled
+      SubscriptionStatus.Canceled,
     );
   });
 
@@ -95,19 +97,19 @@ describeDb("subscriptions", () => {
       baseInput({
         status: SubscriptionStatus.Canceled,
         stripe_event_at: new Date("2026-01-05T00:00:00.000Z"),
-      })
+      }),
     );
 
     const { applied } = await upsertStripeSubscription(
       baseInput({
         status: SubscriptionStatus.Active,
         stripe_event_at: new Date("2026-01-01T00:00:00.000Z"),
-      })
+      }),
     );
 
     expect(applied).toBe(false);
     expect((await findSubscriptionByStripeId(STRIPE_SUB_ID))?.status).toBe(
-      SubscriptionStatus.Canceled
+      SubscriptionStatus.Canceled,
     );
   });
 
@@ -118,7 +120,7 @@ describeDb("subscriptions", () => {
 
     await upsertStripeSubscription(baseInput({ stripe_event_at: at }));
     const { applied } = await upsertStripeSubscription(
-      baseInput({ tier: "max", stripe_event_at: at })
+      baseInput({ tier: "max", stripe_event_at: at }),
     );
 
     expect(applied).toBe(true);
@@ -126,13 +128,28 @@ describeDb("subscriptions", () => {
   });
 
   it("filters by status so cancelled rows stay out of the read path", async () => {
-    await upsertStripeSubscription(baseInput({ status: SubscriptionStatus.Canceled }));
+    await upsertStripeSubscription(
+      baseInput({ status: SubscriptionStatus.Canceled }),
+    );
 
     expect(
       await listSubscriptionsByOrg("org-1", {
         statuses: [SubscriptionStatus.Active, SubscriptionStatus.Trialing],
-      })
+      }),
     ).toHaveLength(0);
+    expect(await listSubscriptionsByOrg("org-1")).toHaveLength(1);
+  });
+
+  it("does not duplicate a deterministic local comp on replay", async () => {
+    const input = {
+      uuid: "comp-replay",
+      org_uuid: "org-1",
+      user_uuid: "u-1",
+      tier: "plus",
+      status: SubscriptionStatus.Active,
+    };
+    expect(await insertManualSubscription(input)).toBeDefined();
+    expect(await insertManualSubscription(input)).toBeUndefined();
     expect(await listSubscriptionsByOrg("org-1")).toHaveLength(1);
   });
 
@@ -180,21 +197,24 @@ describeDb("subscriptions", () => {
     // round trips for one row of numbers; the shape is the same one the Stripe
     // events page already uses.
     await upsertStripeSubscription(
-      baseInput({ stripe_subscription_id: "sub_a", status: SubscriptionStatus.Active })
+      baseInput({
+        stripe_subscription_id: "sub_a",
+        status: SubscriptionStatus.Active,
+      }),
     );
     await upsertStripeSubscription(
       baseInput({
         stripe_subscription_id: "sub_b",
         org_uuid: "org-9",
         status: SubscriptionStatus.PastDue,
-      })
+      }),
     );
     await upsertStripeSubscription(
       baseInput({
         stripe_subscription_id: "sub_c",
         org_uuid: "org-9",
         status: SubscriptionStatus.Canceled,
-      })
+      }),
     );
 
     const byStatus = await countSubscriptionsByStatus();

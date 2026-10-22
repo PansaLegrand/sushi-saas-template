@@ -52,7 +52,16 @@
       "notSignedInDesc": "请注册或登录后再创建任务。",
       "linkSignup": "注册",
       "linkLogin": "登录",
-      "or": "或"
+      "or": "或",
+      "generateAgain": "再生成一个视频",
+      "status": {
+        "pending_payment": "正在预留积分…",
+        "queued": "排队中",
+        "running": "正在生成视频…",
+        "refunding": "生成失败，正在退还积分…",
+        "succeeded": "视频已就绪",
+        "failed": "生成失败"
+      }
     },
     "imageGeneration": {
       "title": "图像生成",
