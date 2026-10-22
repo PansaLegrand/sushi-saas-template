@@ -17,6 +17,7 @@ import {
 import LogoutButton from "@/components/auth/logout-button";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ORGANIZATION_QUERY_PARAM } from "@/config/organization-context";
 import { localePath } from "@/i18n/locale";
 import { cn } from "@/lib/utils";
@@ -153,7 +154,12 @@ export default function AccountShell({
         </aside>
 
         <div key={selectedSlug} id="account-content" className="min-w-0 flex-1" tabIndex={-1}>
-          {children}
+          {searchParams.has(ORGANIZATION_QUERY_PARAM) ? children : (
+            <div className="space-y-4 p-8" aria-busy="true">
+              <Skeleton className="h-8 w-48" />
+              <Skeleton className="h-64 w-full" />
+            </div>
+          )}
         </div>
       </div>
     </div>

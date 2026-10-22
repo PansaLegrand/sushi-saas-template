@@ -41,4 +41,13 @@ test("workspace switching, history, and separate tabs keep their own tenant", as
   await expect(selector).toHaveValue(slug);
   await expect(page.locator("main")).toContainText("E2E Secondary Workspace");
   await otherTab.close();
+
+  // A legacy URL must become explicit before a tenant client can fetch or
+  // submit. Otherwise a multi-workspace account's first file request is 409.
+  const filesResponse = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === "/api/storage/files",
+  );
+  await page.goto("/en/account/files");
+  expect((await filesResponse).status()).toBe(200);
+  await expect(page).toHaveURL(/[?&]org=/);
 });
