@@ -50,6 +50,14 @@ describe("starter profiles", () => {
       starterCommands(starterProfile("publishing"), "build"),
     ).toContainEqual(["build:studio"]);
   });
+  it.each(["core", "operations", "publishing"])(
+    "%s setup invokes the application script rather than pnpm's shell installer",
+    (name) => {
+      expect(starterCommands(starterProfile(name), "setup")).toEqual([
+        ["run", "setup"],
+      ]);
+    },
+  );
   it("seeds before starting the demo and scopes integration overrides to that action", () => {
     const core = starterProfile("core");
     expect(starterCommands(core, "demo")).toEqual([["dev:seed"], ["dev:all"]]);

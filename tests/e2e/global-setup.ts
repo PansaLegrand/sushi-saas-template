@@ -18,7 +18,7 @@ export default async function globalSetup() {
 
   if (seeded.status !== 0) {
     throw new Error(
-      "Playwright could not prepare the local demo fixture. Run pnpm setup and pnpm dev:doctor first.",
+      "Playwright could not prepare the local demo fixture. Run pnpm run setup and pnpm dev:doctor first.",
     );
   }
 }

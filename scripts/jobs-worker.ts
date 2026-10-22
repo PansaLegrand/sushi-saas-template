@@ -53,7 +53,7 @@ function positiveEnv(name: string, fallback: number): number {
 }
 
 if (!process.env.DATABASE_URL?.trim()) {
-  console.error("DATABASE_URL is required. Run pnpm setup or export it first.");
+  console.error("DATABASE_URL is required. Run pnpm run setup or export it first.");
   process.exit(1);
 }
 

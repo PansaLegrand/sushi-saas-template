@@ -31,7 +31,7 @@ Credentials:
 async function main() {
   const profile = loadDevelopmentAppProfile(root);
   if (!profile) {
-    console.error("Development profile is missing. Run pnpm setup first.");
+    console.error("Development profile is missing. Run pnpm run setup first.");
     process.exit(1);
   }
 

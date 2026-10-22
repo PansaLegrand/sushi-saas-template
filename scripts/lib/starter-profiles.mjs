@@ -23,7 +23,9 @@ export function starterCommands(profile, action) {
           : ["--filter", "sushi-saas-starter", "install", "--frozen-lockfile"],
       ];
     case "setup":
-      return [["setup"]];
+      // `pnpm setup` configures pnpm itself and may edit the user's shell rc.
+      // The explicit run form is required for our package script of that name.
+      return [["run", "setup"]];
     case "doctor":
       return [["dev:doctor"]];
     case "dev":

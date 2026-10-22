@@ -165,7 +165,7 @@ dependency graph. The development runner is used in Node run mode only; do not
 expose a Vitest browser/mock server while its major-version migration is pending.
 ## Optional application profiles
 
-The existing `pnpm setup`, `pnpm dev:all`, and `pnpm build` commands retain the
+The existing `pnpm run setup`, `pnpm dev:all`, and `pnpm build` commands retain the
 complete stack. For a smaller adoption, choose a profile on each command:
 
 | Profile | Processes and build targets |

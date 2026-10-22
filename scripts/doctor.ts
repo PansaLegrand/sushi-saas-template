@@ -295,9 +295,9 @@ async function main() {
         supportsBrowserUpload("http://localhost:3100")
       )
         ok("local S3 bucket allows browser uploads from the web app");
-      else fail("local S3 CORS is incomplete; rerun pnpm setup");
+      else fail("local S3 CORS is incomplete; rerun pnpm run setup");
     } catch {
-      fail("local S3 bucket is unavailable; rerun pnpm setup");
+      fail("local S3 bucket is unavailable; rerun pnpm run setup");
     }
   }
 
