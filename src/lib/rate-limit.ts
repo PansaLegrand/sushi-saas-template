@@ -12,6 +12,7 @@ type RateLimitBucket =
   | "auth-signin"
   | "auth-recovery"
   | "auth-sensitive"
+  | "account-read"
   | "checkout"
   | "feedback"
   | "marketing"
@@ -55,6 +56,7 @@ const RATE_LIMIT_RULES: Record<RateLimitBucket, RateLimitRule> = {
   // Password changes, email changes, session revocation, and 2FA changes are
   // authenticated but security-sensitive.
   "auth-sensitive": { limit: 10, windowMs: 5 * 60 * 1000 },
+  "account-read": { limit: 60, windowMs: 60 * 1000 },
   checkout: { limit: 10, windowMs: 60 * 1000 },
   feedback: { limit: 5, windowMs: 60 * 1000 },
   marketing: { limit: 5, windowMs: 15 * 60 * 1000 },

@@ -1,7 +1,7 @@
 "use client";
 
-import { FormEvent, useCallback, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { Download } from "lucide-react";
 
 import { setAccountPassword } from "@/api/account";
@@ -44,15 +44,21 @@ interface TwoFactorSetupPanelProps {
   initialHasPassword: boolean;
   /** e.g. `["google"]`. Names the provider in the copy rather than guessing. */
   providers?: string[];
+  requiredForAdmin?: boolean;
+  passwordManagedElsewhere?: boolean;
+  onChanged?: () => Promise<void>;
 }
 
 export function TwoFactorSetupPanel({
   initialEnabled,
   initialHasPassword,
   providers = [],
+  requiredForAdmin = false,
+  passwordManagedElsewhere = false,
+  onChanged,
 }: TwoFactorSetupPanelProps) {
-  const params = useParams<{ locale: string }>();
-  const locale = params?.locale ?? "";
+  const locale = useLocale();
+  const t = useTranslations("auth.twoFactorSetup");
 
   const [enabled, setEnabled] = useState(initialEnabled);
   const [hasPassword, setHasPassword] = useState(initialHasPassword);
@@ -64,6 +70,9 @@ export function TwoFactorSetupPanel({
   const [isSubmitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => { setHasPassword(initialHasPassword); }, [initialHasPassword]);
+  useEffect(() => { setEnabled(initialEnabled); if (initialEnabled) { setTotpURI(null); setCode(""); } }, [initialEnabled]);
 
   const socialProvider = providers.find(
     (provider) => provider !== "credential",
@@ -88,9 +97,9 @@ export function TwoFactorSetupPanel({
   const downloadBackupCodes = useCallback(() => {
     const blob = new Blob(
       [
-        `Backup codes\n`,
-        `Each code works once, in place of your authenticator code.\n`,
-        `Generated ${new Date().toISOString()}\n\n`,
+        `${t("backupFileTitle")}\n`,
+        `${t("backupFileHelp")}\n`,
+        `${t("generated", { date: new Date().toISOString() })}\n\n`,
         `${backupCodesText}\n`,
       ],
       { type: "text/plain" },
@@ -105,7 +114,7 @@ export function TwoFactorSetupPanel({
     // click() returns, and an un-revoked object URL pins the codes in memory
     // for the lifetime of the document.
     URL.revokeObjectURL(url);
-  }, [backupCodesText]);
+  }, [backupCodesText, t]);
 
   const createPassword = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -118,10 +127,11 @@ export function TwoFactorSetupPanel({
       setHasPassword(true);
       setNewPassword("");
       setSuccessMessage(
-        "Password set. Enter it below to create your authenticator secret.",
+        t("passwordSet"),
       );
+      await onChanged?.();
     } catch (error) {
-      setErrorMessage(resolveErrorMessage(error));
+      setErrorMessage(resolveErrorMessage(error, locale));
     } finally {
       setSubmitting(false);
     }
@@ -152,7 +162,7 @@ export function TwoFactorSetupPanel({
       setTotpURI(data.totpURI);
       setBackupCodes(data.backupCodes);
       setSuccessMessage(
-        "Add this account to your authenticator, then enter the code it shows.",
+        t("addAuthenticator"),
       );
     } catch {
       setErrorMessage(resolveAuthError(null, locale));
@@ -182,8 +192,9 @@ export function TwoFactorSetupPanel({
       setPassword("");
       setTotpURI(null);
       setSuccessMessage(
-        "Two-factor authentication is enabled. Store your backup codes somewhere safe.",
+        t("enabledSuccess"),
       );
+      await onChanged?.();
     } catch {
       setErrorMessage(resolveAuthError(null, locale));
     } finally {
@@ -212,7 +223,8 @@ export function TwoFactorSetupPanel({
       setCode("");
       setTotpURI(null);
       setBackupCodes([]);
-      setSuccessMessage("Two-factor authentication is disabled.");
+      setSuccessMessage(t("disabledSuccess"));
+      await onChanged?.();
     } catch {
       setErrorMessage(resolveAuthError(null, locale));
     } finally {
@@ -223,17 +235,16 @@ export function TwoFactorSetupPanel({
   return (
     <section className="space-y-5 rounded-lg border border-border bg-card p-6 shadow-sm">
       <div className="space-y-1">
-        <h2 className="text-lg font-medium">Security</h2>
+        <h2 className="text-lg font-medium">{t("title")}</h2>
         <p className="text-sm text-muted-foreground">
-          Admin accounts must enable two-factor authentication before they can
-          use the admin console.
+          {requiredForAdmin ? t("adminDescription") : t("description")}
         </p>
       </div>
 
       <div className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
-        <span>Two-factor authentication</span>
+        <span>{t("label")}</span>
         <span className={enabled ? "text-success" : "text-muted-foreground"}>
-          {enabled ? "Enabled" : "Disabled"}
+          {enabled ? t("enabled") : t("disabled")}
         </span>
       </div>
 
@@ -256,29 +267,25 @@ export function TwoFactorSetupPanel({
               recoverable state — the alternative is a support ticket to reset
               the second factor. */}
           <Alert variant="warning">
-            <AlertTitle>Save these now — they are shown once</AlertTitle>
+            <AlertTitle>{t("saveCodesTitle")}</AlertTitle>
             <AlertDescription>
-              Closing this page without storing them means starting setup again.
-              Put them in a password manager rather than a screenshot: a picture
-              of these is a working second factor, and it usually syncs to a
-              cloud photo library.
+              {t("saveCodesDescription")}
             </AlertDescription>
           </Alert>
 
           <div className="space-y-3">
             <p className="text-sm font-medium">
-              1. Scan with your authenticator
+              {t("scanTitle")}
             </p>
             <div className="flex justify-center rounded-md border border-border bg-qr-background p-4">
               <QrCode
                 value={totpURI}
                 size={200}
-                label="Two-factor setup QR code"
+                label={t("qrLabel")}
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              1Password, Google Authenticator, Authy, or your phone&apos;s
-              built-in password manager will all read this.
+              {t("authenticatorHelp")}
             </p>
           </div>
 
@@ -288,13 +295,12 @@ export function TwoFactorSetupPanel({
               see it at all. */}
           <details className="rounded-md border border-border p-3">
             <summary className="cursor-pointer text-sm font-medium">
-              Can&apos;t scan? Enter the key by hand
+              {t("manualTitle")}
             </summary>
             <div className="mt-3 space-y-3">
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">
-                  Setup key — choose &ldquo;enter a setup key&rdquo; in your
-                  app, with type &ldquo;time based&rdquo;.
+                  {t("keyHelp")}
                 </p>
                 <div className="flex items-center gap-2">
                   <code className="min-w-0 flex-1 overflow-x-auto rounded bg-muted px-2 py-1 font-mono text-xs">
@@ -302,15 +308,14 @@ export function TwoFactorSetupPanel({
                   </code>
                   <CopyButton
                     value={totpSecret ?? totpURI}
-                    ariaLabel="Copy setup key"
+                    ariaLabel={t("copyKey")}
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">
-                  Full <code>otpauth://</code> URI — some password managers take
-                  this directly.
+                  {t("uriHelp")}
                 </p>
                 <div className="flex items-center gap-2">
                   <code className="min-w-0 flex-1 overflow-x-auto rounded bg-muted px-2 py-1 font-mono text-xs">
@@ -318,7 +323,7 @@ export function TwoFactorSetupPanel({
                   </code>
                   <CopyButton
                     value={totpURI}
-                    ariaLabel="Copy authenticator URI"
+                    ariaLabel={t("copyUri")}
                   />
                 </div>
               </div>
@@ -329,13 +334,13 @@ export function TwoFactorSetupPanel({
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-medium">
-                  2. Store your backup codes
+                  {t("backupTitle")}
                 </p>
                 <div className="flex gap-2">
                   <CopyButton
                     value={backupCodesText}
-                    label="Copy all"
-                    ariaLabel="Copy all backup codes"
+                    label={t("copyAll")}
+                    ariaLabel={t("copyAllCodes")}
                   />
                   <Button
                     type="button"
@@ -344,7 +349,7 @@ export function TwoFactorSetupPanel({
                     onClick={downloadBackupCodes}
                   >
                     <Download className="mr-1 h-4 w-4" aria-hidden />
-                    Download
+                    {t("download")}
                   </Button>
                 </div>
               </div>
@@ -359,16 +364,15 @@ export function TwoFactorSetupPanel({
                 ))}
               </div>
               <p className="text-xs text-muted-foreground">
-                Each one works once, in place of a six-digit code, if you lose
-                your phone. Keep them somewhere other than that phone.
+                {t("backupHelp")}
               </p>
             </div>
           ) : null}
 
           <form className="space-y-4" onSubmit={verifySetup}>
             <Field
-              label="3. Enter the code your app shows"
-              description="Six digits, refreshed every 30 seconds."
+              label={t("verifyLabel")}
+              description={t("verifyHelp")}
               required
             >
               {(field) => (
@@ -383,13 +387,15 @@ export function TwoFactorSetupPanel({
               )}
             </Field>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Verifying..." : "Verify and enable"}
+              {isSubmitting ? t("verifying") : t("verifyEnable")}
             </Button>
           </form>
         </div>
+      ) : !hasPassword && passwordManagedElsewhere ? (
+        <Alert><AlertDescription>{t("passwordAbove")}</AlertDescription></Alert>
       ) : enabled ? (
         <form className="space-y-4" onSubmit={disable}>
-          <Field label="Password" required>
+          <Field label={t("password")} required>
             {(field) => (
               <Input
                 {...field}
@@ -402,7 +408,7 @@ export function TwoFactorSetupPanel({
             )}
           </Field>
           <Button type="submit" variant="outline" disabled={isSubmitting}>
-            {isSubmitting ? "Disabling..." : "Disable two-factor"}
+            {isSubmitting ? t("disabling") : t("disable")}
           </Button>
         </form>
       ) : !hasPassword ? (
@@ -414,27 +420,14 @@ export function TwoFactorSetupPanel({
          */
         <form className="space-y-4" onSubmit={createPassword}>
           <Alert role="status">
-            <AlertTitle>Set a password first</AlertTitle>
+            <AlertTitle>{t("setPasswordFirst")}</AlertTitle>
             <AlertDescription>
-              You signed up with{" "}
-              {socialProvider ? (
-                <span className="capitalize">{socialProvider}</span>
-              ) : (
-                "a sign-in provider"
-              )}
-              , so this account has no password yet. Two-factor setup needs one.
-              You can keep signing in with{" "}
-              {socialProvider ? (
-                <span className="capitalize">{socialProvider}</span>
-              ) : (
-                "your provider"
-              )}{" "}
-              afterwards.
+              {t.rich("providerDescription", { first: socialProvider ?? t("providerFallback"), second: socialProvider ?? t("yourProvider"), provider: (chunks) => <span className="capitalize">{chunks}</span> })}
             </AlertDescription>
           </Alert>
           <Field
-            label="New password"
-            description="At least 8 characters."
+            label={t("newPassword")}
+            description={t("passwordLength")}
             required
           >
             {(field) => (
@@ -450,14 +443,14 @@ export function TwoFactorSetupPanel({
             )}
           </Field>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Saving..." : "Set password"}
+            {isSubmitting ? t("saving") : t("setPassword")}
           </Button>
         </form>
       ) : (
         <form className="space-y-4" onSubmit={startSetup}>
           <Field
-            label="Password"
-            description="Confirm your password before creating an authenticator secret."
+            label={t("password")}
+            description={t("confirmPassword")}
             required
           >
             {(field) => (
@@ -472,7 +465,7 @@ export function TwoFactorSetupPanel({
             )}
           </Field>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Starting..." : "Enable two-factor"}
+            {isSubmitting ? t("starting") : t("enable")}
           </Button>
         </form>
       )}

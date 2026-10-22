@@ -16,7 +16,7 @@
   "ACCOUNT_NOT_FOUND": "未找到该账户。",
   "ACCOUNT_SUSPENDED": "该账号已被封禁。如果你认为这是误判，请联系客服。",
   "ACCOUNT_SIGNUP_BLOCKED": "该邮箱地址无法用于注册。如果你认为这是误判，请联系客服。",
-  "AUTH_REAUTHENTICATION_REQUIRED": "请重新登录后再更改账户所有权。",
+  "AUTH_REAUTHENTICATION_REQUIRED": "修改敏感账户设置前，请重新登录。",
   "ACCOUNT_DELETION_PENDING": "账户删除已安排。",
   "ACCOUNT_DELETION_IN_PROGRESS": "正在删除账户。",
   "ACCOUNT_DELETION_OWNER_TRANSFER_REQUIRED": "删除账户前，请先转移共享工作区的所有权。",

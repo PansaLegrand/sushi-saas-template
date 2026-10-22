@@ -1,7 +1,13 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq, gt } from "drizzle-orm";
 
 import { db } from "@/db";
 import { sessions } from "@/db/schema";
+
+/** Server-only rows; services must project away tokens and internal IDs. */
+export async function listActiveAccountSessions(userId: string) {
+  return db().select().from(sessions).where(and(eq(sessions.user_id, userId), gt(sessions.expires_at, new Date())))
+    .orderBy(desc(sessions.created_at), desc(sessions.id)).limit(100);
+}
 
 /**
  * Live sessions.

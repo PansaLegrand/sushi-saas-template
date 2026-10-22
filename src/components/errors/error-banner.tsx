@@ -22,7 +22,7 @@ export function ErrorBanner({
   action,
 }: ErrorBannerProps) {
   return (
-    <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+    <div role="alert" className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
       <div className="font-medium">
         {title}
       </div>

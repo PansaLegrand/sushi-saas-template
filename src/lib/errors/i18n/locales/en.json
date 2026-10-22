@@ -16,7 +16,7 @@
   "ACCOUNT_NOT_FOUND": "Account not found.",
   "ACCOUNT_SUSPENDED": "This account has been suspended. Contact support if you think this is a mistake.",
   "ACCOUNT_SIGNUP_BLOCKED": "This email address cannot be used to register. Contact support if you think this is a mistake.",
-  "AUTH_REAUTHENTICATION_REQUIRED": "Please sign in again before changing account ownership.",
+  "AUTH_REAUTHENTICATION_REQUIRED": "Please sign in again before changing sensitive account settings.",
   "ACCOUNT_DELETION_PENDING": "Account deletion is already scheduled.",
   "ACCOUNT_DELETION_IN_PROGRESS": "Account deletion is in progress.",
   "ACCOUNT_DELETION_OWNER_TRANSFER_REQUIRED": "Transfer ownership of your shared workspaces before deleting your account.",

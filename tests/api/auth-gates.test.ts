@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   getOrgContext: vi.fn(),
 }));
 
+vi.mock("@/services/account-lifecycle", () => ({ getAccountActorFromHeaders: vi.fn() }));
+vi.mock("@/services/account-settings", () => ({ updateAccountName: vi.fn() }));
 vi.mock("@/services/user", () => ({
   getUserUuid: mocks.getUserUuid,
   getUserProfileByUuid: mocks.getUserProfileByUuid,

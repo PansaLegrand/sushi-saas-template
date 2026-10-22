@@ -170,7 +170,7 @@ export const ERROR_CATALOG = {
   },
   AUTH_REAUTHENTICATION_REQUIRED: {
     statusCode: 401,
-    defaultMessage: "Please sign in again before changing account ownership.",
+    defaultMessage: "Please sign in again before changing sensitive account settings.",
   },
   ACCOUNT_DELETION_PENDING: {
     statusCode: 409,

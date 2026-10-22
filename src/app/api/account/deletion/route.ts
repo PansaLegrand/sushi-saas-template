@@ -36,7 +36,7 @@ export async function POST(req: Request) {
   }
 }
 export async function GET(req: Request) {
-  const limited = await rateLimitOrThrow(req, "auth-sensitive");
+  const limited = await rateLimitOrThrow(req, "account-read");
   if (limited) return limited;
 
   try {

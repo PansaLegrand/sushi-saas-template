@@ -416,6 +416,14 @@ export async function findPrivacyRequestByUuid(
   return request;
 }
 
+export async function findLatestExportForUser(userUuid: string) {
+  const [result] = await db().select({ request: privacyRequests, jobStatus: jobs.status }).from(privacyRequests)
+    .leftJoin(jobs, eq(jobs.dedupe_key, sql`'account_data_export:' || ${privacyRequests.uuid}`))
+    .where(and(eq(privacyRequests.user_uuid, userUuid), eq(privacyRequests.request_type, "export")))
+    .orderBy(desc(privacyRequests.created_at), desc(privacyRequests.id)).limit(1);
+  return result;
+}
+
 export async function findLatestErasureForUser(
   userUuid: string,
 ): Promise<PrivacyRequestRow | undefined> {

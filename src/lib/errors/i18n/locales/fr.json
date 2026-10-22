@@ -16,7 +16,7 @@
   "ACCOUNT_NOT_FOUND": "Compte introuvable.",
   "ACCOUNT_SUSPENDED": "Ce compte a été suspendu. Contactez le support si vous pensez qu'il s'agit d'une erreur.",
   "ACCOUNT_SIGNUP_BLOCKED": "Cette adresse e-mail ne peut pas être utilisée pour s'inscrire. Contactez le support si vous pensez qu'il s'agit d'une erreur.",
-  "AUTH_REAUTHENTICATION_REQUIRED": "Reconnectez-vous avant de modifier la propriété du compte.",
+  "AUTH_REAUTHENTICATION_REQUIRED": "Reconnectez-vous avant de modifier les paramètres sensibles du compte.",
   "ACCOUNT_DELETION_PENDING": "La suppression du compte est déjà planifiée.",
   "ACCOUNT_DELETION_IN_PROGRESS": "La suppression du compte est en cours.",
   "ACCOUNT_DELETION_OWNER_TRANSFER_REQUIRED": "Transférez la propriété de vos espaces partagés avant de supprimer votre compte.",

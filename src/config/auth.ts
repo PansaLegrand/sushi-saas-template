@@ -11,6 +11,21 @@ export const AUTH_ROUTES = {
 
 export type AuthRouteKey = keyof typeof AUTH_ROUTES;
 
+/** Session inventory/revocation use the app's redacted, fresh-session boundary. */
+export function isManagedSessionEndpoint(pathname: string): boolean {
+  let path = pathname;
+  try {
+    for (let pass = 0; pass < 3; pass += 1) {
+      const decoded = decodeURIComponent(path);
+      if (decoded === path) break;
+      path = decoded;
+    }
+  } catch { return true; }
+  if (/[\u0000-\u001f\u007f]/.test(path)) return true;
+  const endpoint = path.replace(/\/+$/, "").split("/").at(-1)?.toLowerCase();
+  return ["list-sessions", "revoke-session", "revoke-sessions", "revoke-other-sessions"].includes(endpoint ?? "");
+}
+
 export function withLocale(locale: string | undefined, path: string) {
   return localePath(locale, path);
 }

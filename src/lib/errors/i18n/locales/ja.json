@@ -16,7 +16,7 @@
   "ACCOUNT_NOT_FOUND": "アカウントが見つかりません。",
   "ACCOUNT_SUSPENDED": "このアカウントは停止されています。お心当たりがない場合はサポートまでご連絡ください。",
   "ACCOUNT_SIGNUP_BLOCKED": "このメールアドレスでは登録できません。お心当たりがない場合はサポートまでご連絡ください。",
-  "AUTH_REAUTHENTICATION_REQUIRED": "アカウントの所有権を変更する前に、もう一度サインインしてください。",
+  "AUTH_REAUTHENTICATION_REQUIRED": "重要なアカウント設定を変更する前に、再ログインしてください。",
   "ACCOUNT_DELETION_PENDING": "アカウント削除はすでに予約されています。",
   "ACCOUNT_DELETION_IN_PROGRESS": "アカウント削除を処理しています。",
   "ACCOUNT_DELETION_OWNER_TRANSFER_REQUIRED": "アカウントを削除する前に、共有ワークスペースの所有権を移してください。",

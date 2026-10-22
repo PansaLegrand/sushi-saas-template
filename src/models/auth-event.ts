@@ -4,7 +4,7 @@ import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { authEvents } from "@/db/schema";
 
-export type AuthEventName = "signup" | "signin" | "email_verified";
+export type AuthEventName = "signup" | "signin" | "email_verified" | "profile_updated" | "sessions_revoked";
 
 export interface InsertAuthEventParams {
   user_uuid?: string;

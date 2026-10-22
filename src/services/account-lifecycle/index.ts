@@ -17,6 +17,7 @@ import {
   createPrivacyRequest,
   finalizeAccountErasure,
   findLatestErasureForUser,
+  findLatestExportForUser,
   findPrivacyRequestByUuid,
   findPrivacyRequestForUser,
   getAccountErasurePlan,
@@ -46,6 +47,7 @@ export type AccountActor = {
   email: string;
   lifecycleStatus: string;
   sessionCreatedAt: Date;
+  sessionId?: string;
 };
 
 export type PublicPrivacyRequest = {
@@ -151,6 +153,7 @@ export async function getAccountActorFromHeaders(
     sessionCreatedAt: dateOf(
       (session.session as { createdAt?: Date | string }).createdAt,
     ),
+    sessionId: session.session.id,
   };
 }
 
@@ -265,6 +268,19 @@ export async function requestAccountErasure(input: {
     throwForBlockers(requestBlockers(result.request));
   }
   return toPublicRequest(result.request);
+}
+
+export async function getLatestAccountExport(actor: AccountActor): Promise<AccountExportStatus | null> {
+  const latest = await findLatestExportForUser(actor.userUuid);
+  if (!latest) return null;
+  const { request, jobStatus } = latest;
+  const expired = request.status === "completed" && (!request.export_expires_at || request.export_expires_at.getTime() <= Date.now() || !request.export_key);
+  // Metadata stays readable even when a previous export failed or expired.
+  // Signed downloads are requested separately through the owner-scoped route.
+  const retrying = request.status === "failed" && (jobStatus === "pending" || jobStatus === "running");
+  const abandoned = ["scheduled", "processing"].includes(request.status) && (!jobStatus || ["failed", "canceled"].includes(jobStatus));
+  return { ...toPublicRequest(request), status: expired ? "expired" : retrying ? "retrying" : abandoned ? "failed" : request.status,
+    ...(request.export_expires_at ? { expiresAt: request.export_expires_at.toISOString() } : {}) };
 }
 
 export async function getAccountErasureStatus(

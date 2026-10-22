@@ -16,7 +16,7 @@
   "ACCOUNT_NOT_FOUND": "Cuenta no encontrada.",
   "ACCOUNT_SUSPENDED": "Esta cuenta ha sido suspendida. Contacta con soporte si crees que es un error.",
   "ACCOUNT_SIGNUP_BLOCKED": "No se puede registrar una cuenta con esta dirección de correo. Contacta con soporte si crees que es un error.",
-  "AUTH_REAUTHENTICATION_REQUIRED": "Vuelve a iniciar sesión antes de cambiar la titularidad de la cuenta.",
+  "AUTH_REAUTHENTICATION_REQUIRED": "Vuelve a iniciar sesión antes de cambiar ajustes sensibles de tu cuenta.",
   "ACCOUNT_DELETION_PENDING": "La eliminación de la cuenta ya está programada.",
   "ACCOUNT_DELETION_IN_PROGRESS": "La eliminación de la cuenta está en curso.",
   "ACCOUNT_DELETION_OWNER_TRANSFER_REQUIRED": "Transfiere la propiedad de tus espacios de trabajo compartidos antes de eliminar tu cuenta.",

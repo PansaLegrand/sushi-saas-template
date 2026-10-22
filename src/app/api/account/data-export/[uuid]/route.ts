@@ -10,7 +10,7 @@ export async function GET(
   req: Request,
   route: { params: Promise<{ uuid: string }> },
 ) {
-  const limited = await rateLimitOrThrow(req, "auth-sensitive");
+  const limited = await rateLimitOrThrow(req, "account-read");
   if (limited) return limited;
 
   try {

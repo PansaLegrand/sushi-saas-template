@@ -1,4 +1,6 @@
 import { auth } from "@/lib/auth";
+import { isManagedSessionEndpoint } from "@/config/auth";
+import { respCode } from "@/lib/errors/response";
 import { requireSameOrigin } from "@/lib/origin";
 import {
   getAuthRateLimitBucket,
@@ -9,9 +11,13 @@ import { toNextJsHandler } from "better-auth/next-js";
 
 const handlers = toNextJsHandler(auth);
 
-export const GET = handlers.GET;
+export async function GET(req: Request) {
+  if (isManagedSessionEndpoint(new URL(req.url).pathname)) return respCode("AUTH_FORBIDDEN");
+  return handlers.GET(req);
+}
 
 export async function POST(req: Request) {
+  if (isManagedSessionEndpoint(new URL(req.url).pathname)) return respCode("AUTH_FORBIDDEN");
   const invalidOrigin = requireSameOrigin(req);
   if (invalidOrigin) return invalidOrigin;
 

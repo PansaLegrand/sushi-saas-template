@@ -11,6 +11,7 @@ import {
   CreditCard,
   Files,
   ShieldCheck,
+  LockKeyhole,
   Users,
 } from "lucide-react";
 
@@ -34,7 +35,8 @@ const NAV_ITEMS = [
     icon: CalendarDays,
     reservationOnly: true,
   },
-  { key: "profile", path: "/me", icon: ShieldCheck },
+  { key: "profile", path: "/account/profile", icon: ShieldCheck },
+  { key: "privacy", path: "/account/privacy", icon: LockKeyhole },
 ] as const;
 
 export default function AccountShell({

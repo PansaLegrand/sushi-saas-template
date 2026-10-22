@@ -10,7 +10,10 @@
  * responses; accepting the latter as QR data would break setup rendering.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render as renderBase, screen, waitFor } from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
+import messages from "../../messages/en.json";
+const render = (ui: React.ReactNode) => renderBase(<NextIntlClientProvider locale="en" messages={messages}>{ui}</NextIntlClientProvider>);
 import userEvent from "@testing-library/user-event";
 
 import { TwoFactorSetupPanel } from "@/components/auth/two-factor-setup-panel";
