@@ -308,6 +308,8 @@ if (run("docker", ["compose", "up", "-d", ...composeServices]).status !== 0) {
   process.exit(1);
 }
 
+// The image initializes through a temporary Unix-socket-only server. Probe TCP
+// so database creation never races its shutdown before the final server starts.
 process.stdout.write("  waiting for Postgres");
 let ready = false;
 for (let i = 0; i < 30; i += 1) {
@@ -319,6 +321,8 @@ for (let i = 0; i < 30; i += 1) {
       "-T",
       "postgres",
       "pg_isready",
+      "-h",
+      "127.0.0.1",
       "-U",
       "sushi",
       "-d",

@@ -175,3 +175,7 @@ Profiles are developer tooling choices, not product plans or runtime security
 flags. Core still contains the application API, billing, organizations and
 capability checks. It does not disable routes. Add Studio later by running the
 publishing install/setup commands; keep its database and authentication separate.
+
+PostgreSQL readiness probes use TCP. The container’s temporary initialization
+server accepts Unix-socket connections before it shuts down and starts the
+final server, so a socket-only probe is not a safe migration/startup gate.

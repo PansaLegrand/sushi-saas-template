@@ -230,7 +230,7 @@ async function main() {
   } else {
     ok("Docker daemon is available");
     if (
-      composeCheck("postgres", ["pg_isready", "-U", "sushi", "-d", "sushi_dev"])
+      composeCheck("postgres", ["pg_isready", "-h", "127.0.0.1", "-U", "sushi", "-d", "sushi_dev"])
     ) {
       ok("PostgreSQL is ready");
       if (profile) {

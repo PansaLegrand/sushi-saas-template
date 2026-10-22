@@ -26,7 +26,7 @@ services:
       - sushi-pgdata:/var/lib/postgresql/data
       - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/10-create-test-db.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sushi -d sushi_dev"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U sushi -d sushi_dev"]
       interval: 5s
       timeout: 3s
       retries: 12
