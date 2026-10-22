@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   findUserById: vi.fn(),
   findUserByUuid: vi.fn(),
+  hasSessionMfaVerification: vi.fn<typeof import("@/models/session").hasSessionMfaVerification>(),
 }));
 
 vi.mock("next/headers", () => ({
@@ -23,6 +24,8 @@ vi.mock("@/models/user", () => ({
   findUserById: mocks.findUserById,
   findUserByUuid: mocks.findUserByUuid,
 }));
+
+vi.mock("@/models/session", () => ({ hasSessionMfaVerification: mocks.hasSessionMfaVerification }));
 
 import {
   getAdminContext,
@@ -54,6 +57,7 @@ function dbUser(overrides: Record<string, unknown> = {}) {
 describe("admin authorization", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.hasSessionMfaVerification.mockResolvedValue(true);
     mocks.headers.mockResolvedValue(new Headers({ cookie: "admin-session=test" }));
     mocks.getSession.mockResolvedValue(null);
     mocks.findUserById.mockResolvedValue(undefined);
@@ -68,7 +72,7 @@ describe("admin authorization", () => {
   });
 
   it("authorizes admin roles by session uuid", async () => {
-    mocks.getSession.mockResolvedValue({ user: sessionUser() });
+    mocks.getSession.mockResolvedValue({ session: { id: "session-admin" }, user: sessionUser() });
     mocks.findUserByUuid.mockResolvedValue(dbUser());
 
     await expect(getAdminContext()).resolves.toEqual({
@@ -85,6 +89,7 @@ describe("admin authorization", () => {
 
   it("falls back to the Better Auth user id when uuid is missing", async () => {
     mocks.getSession.mockResolvedValue({
+      session: { id: "session-admin" },
       user: sessionUser({ uuid: undefined }),
     });
     mocks.findUserById.mockResolvedValue(dbUser({ role: "admin_ro" }));
@@ -100,29 +105,38 @@ describe("admin authorization", () => {
     expect(mocks.findUserById).toHaveBeenCalledWith("id-admin");
   });
 
+  it("requires this session to have verified MFA even when the account is enrolled", async () => {
+    mocks.getSession.mockResolvedValue({ session: { id: "old-session" }, user: sessionUser() });
+    mocks.findUserByUuid.mockResolvedValue(dbUser());
+    mocks.hasSessionMfaVerification.mockResolvedValue(false);
+    expect(await getAdminContext()).toBeNull();
+    expect((await requireAdminWrite() as Response).status).toBe(403);
+    expect(mocks.hasSessionMfaVerification).toHaveBeenCalledWith("id-admin", "old-session");
+  });
+
   it("does not authorize ordinary users", async () => {
-    mocks.getSession.mockResolvedValue({ user: sessionUser() });
+    mocks.getSession.mockResolvedValue({ session: { id: "session-admin" }, user: sessionUser() });
     mocks.findUserByUuid.mockResolvedValue(dbUser({ role: "user" }));
 
     await expect(getAdminContext()).resolves.toBeNull();
   });
 
   it("fails closed when the loaded row does not match the session id", async () => {
-    mocks.getSession.mockResolvedValue({ user: sessionUser() });
+    mocks.getSession.mockResolvedValue({ session: { id: "session-admin" }, user: sessionUser() });
     mocks.findUserByUuid.mockResolvedValue(dbUser({ id: "id-other" }));
 
     await expect(getAdminContext()).resolves.toBeNull();
   });
 
   it("does not authorize an admin role until MFA is enabled", async () => {
-    mocks.getSession.mockResolvedValue({ user: sessionUser() });
+    mocks.getSession.mockResolvedValue({ session: { id: "session-admin" }, user: sessionUser() });
     mocks.findUserByUuid.mockResolvedValue(dbUser({ two_factor_enabled: false }));
 
     await expect(getAdminContext()).resolves.toBeNull();
   });
 
   it("returns the admin identity even when MFA setup is still required", async () => {
-    mocks.getSession.mockResolvedValue({ user: sessionUser() });
+    mocks.getSession.mockResolvedValue({ session: { id: "session-admin" }, user: sessionUser() });
     mocks.findUserByUuid.mockResolvedValue(dbUser({ two_factor_enabled: false }));
 
     await expect(getAdminIdentity()).resolves.toEqual({
@@ -148,7 +162,7 @@ describe("admin authorization", () => {
   });
 
   it("allows read-only admins through read gates", async () => {
-    mocks.getSession.mockResolvedValue({ user: sessionUser() });
+    mocks.getSession.mockResolvedValue({ session: { id: "session-admin" }, user: sessionUser() });
     mocks.findUserByUuid.mockResolvedValue(dbUser({ role: "admin_ro" }));
 
     const result = await requireAdminRead();
@@ -158,7 +172,7 @@ describe("admin authorization", () => {
   });
 
   it("returns 403 from admin gates when MFA is missing", async () => {
-    mocks.getSession.mockResolvedValue({ user: sessionUser() });
+    mocks.getSession.mockResolvedValue({ session: { id: "session-admin" }, user: sessionUser() });
     mocks.findUserByUuid.mockResolvedValue(dbUser({ two_factor_enabled: false }));
 
     const result = await requireAdminRead();
@@ -170,7 +184,7 @@ describe("admin authorization", () => {
   });
 
   it("blocks read-only admins from write gates", async () => {
-    mocks.getSession.mockResolvedValue({ user: sessionUser() });
+    mocks.getSession.mockResolvedValue({ session: { id: "session-admin" }, user: sessionUser() });
     mocks.findUserByUuid.mockResolvedValue(dbUser({ role: "admin_ro" }));
 
     const result = await requireAdminWrite();

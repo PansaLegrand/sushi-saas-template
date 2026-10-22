@@ -12,6 +12,8 @@ import { describeDb, useCleanDatabase } from "./setup";
 import { db } from "@/db";
 import { accounts, twoFactor, users } from "@/db/schema";
 
+import { hasSessionMfaVerification } from "@/models/session";
+
 const PASSWORD = "two-factor-test-password-123";
 
 function cookies(headers: Headers): Headers {
@@ -70,6 +72,8 @@ describeDb("two-factor enrollment (real auth stack)", () => {
         password: await hashPassword(PASSWORD),
       });
 
+    const olderSignIn = await auth.api.signInEmail({ body: { email, password: PASSWORD }, returnHeaders: true });
+    const olderSession = await auth.api.getSession({ headers: cookies(olderSignIn.headers) });
     const signedIn = await auth.api.signInEmail({
       body: { email, password: PASSWORD },
       returnHeaders: true,
@@ -93,10 +97,19 @@ describeDb("two-factor enrollment (real auth stack)", () => {
       locked_until: null,
     });
 
-    await auth.api.verifyTOTP({
-      body: { code: totp(enrollment.totpURI) },
-      headers,
+    const confirmed = await auth.api.verifyTOTP({
+      body: { code: totp(enrollment.totpURI) }, headers, returnHeaders: true,
     });
+    const verifiedSession = await auth.api.getSession({ headers: cookies(confirmed.headers) });
+    expect(verifiedSession).not.toBeNull();
+    expect(await hasSessionMfaVerification(id, verifiedSession!.session.id)).toBe(true);
+    expect(await hasSessionMfaVerification(id, olderSession!.session.id)).toBe(false);
+    // An older session can explicitly step up; a bad code must not mark it.
+    const oldHeaders = cookies(olderSignIn.headers);
+    await expect(auth.api.verifyTOTP({ body: { code: "invalid" }, headers: oldHeaders })).rejects.toBeDefined();
+    expect(await hasSessionMfaVerification(id, olderSession!.session.id)).toBe(false);
+    await auth.api.verifyBackupCode({ body: { code: enrollment.backupCodes[0] }, headers: oldHeaders });
+    expect(await hasSessionMfaVerification(id, olderSession!.session.id)).toBe(true);
     const [verified] = await db()
       .select()
       .from(twoFactor)
@@ -122,6 +135,13 @@ describeDb("two-factor enrollment (real auth stack)", () => {
       .from(twoFactor)
       .where(eq(twoFactor.user_id, id));
     expect(failed.failed_verification_count).toBe(1);
+    const signedInWithMfa = await auth.api.verifyTOTP({
+      body: { code: totp(enrollment.totpURI) }, headers: cookies(challenge.headers), returnHeaders: true,
+    });
+    const mfaSession = await auth.api.getSession({ headers: cookies(signedInWithMfa.headers) });
+    expect(await hasSessionMfaVerification(id, mfaSession!.session.id)).toBe(true);
+    expect(await hasSessionMfaVerification(randomUUID(), mfaSession!.session.id)).toBe(false);
+
 
     // A persisted account lock must apply to a fresh sign-in challenge too.
     await db()
@@ -140,5 +160,9 @@ describeDb("two-factor enrollment (real auth stack)", () => {
         headers: cookies(lockedChallenge.headers),
       }),
     ).rejects.toMatchObject({ body: { code: "ACCOUNT_TEMPORARILY_LOCKED" } });
+    await auth.api.disableTwoFactor({ body: { password: PASSWORD }, headers: oldHeaders });
+    expect(await hasSessionMfaVerification(id, verifiedSession!.session.id)).toBe(false);
+    expect(await hasSessionMfaVerification(id, mfaSession!.session.id)).toBe(false);
+
   });
 });

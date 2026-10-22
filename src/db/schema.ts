@@ -101,6 +101,8 @@ export const sessions = pgTable(
     // routes resolve the org from the URL so two tabs on two orgs cannot fight
     // over one session value. See `getOrgContext()`.
     active_organization_id: varchar({ length: 255 }),
+    // App-owned assurance, never accepted from Better Auth/client input.
+    mfa_verified_at: timestamp({ withTimezone: true }),
   },
   (table) => [
     uniqueIndex("sessions_token_unique_idx").on(table.token),

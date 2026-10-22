@@ -13,7 +13,9 @@ URL still controls navigation to tenant-owned pages.
 - Password changes require the existing password and revoke other sessions.
   Provider-only accounts use the existing fresh-session first-password service.
 - Every customer can configure TOTP and save backup codes. Administrative
-  accounts continue to require MFA before admin access.
+  accounts require MFA enrollment and verification by the current session before
+  admin access. Existing sessions and OAuth sign-ins must explicitly step up;
+  enabling MFA on another device never grants assurance to them.
 - `GET /api/account/settings` projects at most 100 recent, unexpired sessions.
   The management DTO contains hashed references, timestamps and user agents;
   it never includes session tokens or internal session IDs.
@@ -47,3 +49,20 @@ revocation, owner scope, and token redaction. Real database tests cover session
 expiry and export/job joins. Component tests cover deletion confirmation,
 ownership guidance and export retry identity. Playwright verifies real profile
 writes, reload, management DTOs, native endpoint closure, and the mobile dialog.
+
+## Deploying session assurance
+
+Migration `0038` adds nullable `sessions.mfa_verified_at`. Apply it before the
+new web/admin code; old code continues to read and insert sessions while the
+column is present. Do not backfill it from `users.two_factor_enabled`: enrollment
+is not evidence that a particular session completed a challenge.
+
+Only successful Better Auth TOTP/backup-code verification records this field,
+through an app-owned service/model boundary. It is not an SDK additional field
+and is never accepted from client input. Failed challenges do not set it.
+Disabling or replacing MFA clears existing assurance before the account flag
+changes. Admin gates read the active, owner-scoped session row, and legacy or
+unverified sessions are sent to `/two-factor`. Admin challenges deliberately do
+not offer a trusted-device bypass. All existing administrators must complete one
+challenge after rollout. Rollback to the previous code restores its weaker gate;
+keep this in mind before rolling back a security release.

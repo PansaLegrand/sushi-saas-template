@@ -1,7 +1,22 @@
-import { and, desc, eq, gt } from "drizzle-orm";
+import { and, desc, eq, gt, isNotNull } from "drizzle-orm";
 
 import { db } from "@/db";
 import { sessions } from "@/db/schema";
+
+export async function markSessionMfaVerified(userId: string, sessionId: string): Promise<void> {
+  await db().update(sessions).set({ mfa_verified_at: new Date() })
+    .where(and(eq(sessions.user_id, userId), eq(sessions.id, sessionId), gt(sessions.expires_at, new Date())));
+}
+
+export async function clearSessionMfaVerification(userId: string): Promise<void> {
+  await db().update(sessions).set({ mfa_verified_at: null }).where(eq(sessions.user_id, userId));
+}
+
+export async function hasSessionMfaVerification(userId: string, sessionId: string): Promise<boolean> {
+  const [row] = await db().select({ id: sessions.id }).from(sessions)
+    .where(and(eq(sessions.user_id, userId), eq(sessions.id, sessionId), gt(sessions.expires_at, new Date()), isNotNull(sessions.mfa_verified_at))).limit(1);
+  return Boolean(row);
+}
 
 /** Server-only rows; services must project away tokens and internal IDs. */
 export async function listActiveAccountSessions(userId: string) {

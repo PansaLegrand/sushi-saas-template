@@ -19,6 +19,7 @@ import {
   touchLastSignin,
 } from "@/services/auth-events";
 import { CreditsAmount } from "@/services/credit";
+import { invalidateSessionMfaVerification, recordSessionMfaVerification } from "@/services/auth-session-security";
 import { enqueueJobSafe } from "@/services/jobs";
 import { checkSignupAllowed } from "@/services/moderation";
 import { ensurePersonalOrganization } from "@/services/organizations";
@@ -560,8 +561,31 @@ export const auth = betterAuth({
       secure: process.env.NODE_ENV === "production",
     },
   },
+  hooks: {
+    after: createAuthMiddleware(async (context) => {
+      if (!["/two-factor/verify-totp", "/two-factor/verify-backup-code"].includes(context.path)) return;
+      const returned = context.context.returned;
+      // Failed verification also runs after hooks. Only a successful SDK
+      // response and its server-owned session may establish assurance.
+      if (!returned || typeof returned !== "object" || !("token" in returned) || typeof returned.token !== "string") return;
+      const verified = context.context.newSession ?? context.context.session;
+      if (verified?.session.id && verified.user.id) {
+        await recordSessionMfaVerification(verified.user.id, verified.session.id);
+      }
+    }),
+  },
   databaseHooks: {
     user: {
+      update: {
+        before: async (data, context) => {
+          if (typeof data.twoFactorEnabled !== "boolean") return;
+          const userId = context?.context.session?.user.id;
+          if (!userId) throw new APIError("FORBIDDEN", { code: "AUTH_FORBIDDEN", message: "AUTH_FORBIDDEN" });
+          // Disabling/replacing a factor invalidates previous session assurance.
+          // Do this before the flag changes so a failure closes admin access.
+          await invalidateSessionMfaVerification(userId);
+        },
+      },
       create: {
         before: async (data, context) => {
           const info = describeAuthRequest(context);

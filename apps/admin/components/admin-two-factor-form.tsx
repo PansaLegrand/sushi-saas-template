@@ -16,7 +16,6 @@ export function AdminTwoFactorForm() {
   const router = useRouter();
   const [mode, setMode] = useState<VerificationMode>("totp");
   const [code, setCode] = useState("");
-  const [trustDevice, setTrustDevice] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setSubmitting] = useState(false);
 
@@ -30,9 +29,9 @@ export function AdminTwoFactorForm() {
         mode === "backup"
           ? await adminAuthClient.twoFactor.verifyBackupCode({
               code,
-              trustDevice,
+              trustDevice: false,
             })
-          : await adminAuthClient.twoFactor.verifyTotp({ code, trustDevice });
+          : await adminAuthClient.twoFactor.verifyTotp({ code, trustDevice: false });
 
       if (error) {
         setErrorMessage(resolveAuthError(error));
@@ -68,17 +67,7 @@ export function AdminTwoFactorForm() {
         )}
       </Field>
 
-      <label className="flex items-center gap-2 text-sm">
-        {/* Native checkbox is intentional: the shared system has no checkbox
-            primitive, and the platform control preserves keyboard semantics. */}
-        <input
-          type="checkbox"
-          checked={trustDevice}
-          onChange={(event) => setTrustDevice(event.currentTarget.checked)}
-          className="size-4 rounded border-input"
-        />
-        Trust this device
-      </label>
+
 
       {errorMessage ? (
         <Alert variant="destructive">

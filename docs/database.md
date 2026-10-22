@@ -361,6 +361,11 @@ enrollment explicitly stays unverified until a valid code is submitted. The
 defaulted columns also allow older writers to omit them during the schema-first
 deployment window; their existing reads and writes remain valid SQL.
 
+Migration `0038` adds nullable `sessions.mfa_verified_at` for session-specific
+admin assurance. It is set only after a successful TOTP/backup challenge; legacy
+sessions are deliberately not backfilled. Apply schema before web/admin code.
+See [account-settings.md](account-settings.md) for rollout and step-up behavior.
+
 ### Billing & credits
 
 | Table                   | Purpose                                            | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |

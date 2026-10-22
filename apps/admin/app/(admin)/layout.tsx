@@ -16,6 +16,7 @@ export default async function AdminLayout({
     if (identity && !identity.mfaEnabled) {
       redirect("/mfa-required");
     }
+    if (identity) redirect("/two-factor");
     redirect("/login");
   }
 

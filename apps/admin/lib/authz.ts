@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { findUserById, findUserByUuid } from "@/models/user";
+import { hasSessionMfaVerification } from "@/models/session";
 import { respForbidden, respNoAuth } from "@/lib/resp";
 
 export const ADMIN_RO = "admin_ro";
@@ -65,7 +66,8 @@ async function resolveAdmin(): Promise<AdminResolution> {
     mfaEnabled: Boolean((dbUser as any).two_factor_enabled),
   };
 
-  if (!context.mfaEnabled) {
+  const sessionId = result.session?.id;
+  if (!context.mfaEnabled || !sessionId || !await hasSessionMfaVerification(userId, sessionId)) {
     return { status: "mfa-required", identity: context };
   }
 
