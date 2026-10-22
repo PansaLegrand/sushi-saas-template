@@ -2,7 +2,7 @@
  * Route contract for the paid asynchronous image task.
  *
  * The route must stay hidden unless explicitly enabled, authenticate before
- * touching tenant data, enforce entitlements/quota before spending, require a
+ * touching tenant data, delegate atomic entitlements/quota and spending to the service, require a
  * replay key, and return 202 while the durable worker owns the task.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,21 +13,17 @@ import { postJson } from "../helpers/request";
 
 const mocks = vi.hoisted(() => ({
   getOrgContext: vi.fn<typeof import("@/services/authz").getOrgContext>(),
-  requireEntitlement: vi.fn<
-    typeof import("@/services/entitlements").requireEntitlement
-  >(),
-  enforceLimit: vi.fn<
-    typeof import("@/services/entitlements").enforceLimit
-  >(),
-  countTasksByOrgSince: vi.fn<
-    typeof import("@/models/task").countTasksByOrgSince
-  >(),
-  createImageGenerationTask: vi.fn<
-    typeof import("@/services/tasks/image-generation").createImageGenerationTask
-  >(),
-  toTaskRecord: vi.fn<
-    typeof import("@/services/tasks/presentation").toTaskRecord
-  >(),
+  requireEntitlement:
+    vi.fn<typeof import("@/services/entitlements").requireEntitlement>(),
+  enforceLimit: vi.fn<typeof import("@/services/entitlements").enforceLimit>(),
+  countTasksByOrgSince:
+    vi.fn<typeof import("@/models/task").countTasksByOrgSince>(),
+  createImageGenerationTask:
+    vi.fn<
+      typeof import("@/services/tasks/image-generation").createImageGenerationTask
+    >(),
+  toTaskRecord:
+    vi.fn<typeof import("@/services/tasks/presentation").toTaskRecord>(),
 }));
 
 vi.mock("@/services/authz", () => ({ getOrgContext: mocks.getOrgContext }));
@@ -135,15 +131,6 @@ describe("POST /api/tasks/image-generation", () => {
 
     expect(response.status).toBe(202);
     expect(payload.data).toEqual({ task: taskRecord, replayed: false });
-    expect(mocks.requireEntitlement).toHaveBeenCalledWith(
-      "org-1",
-      "tasks.image_generation",
-    );
-    expect(mocks.enforceLimit).toHaveBeenCalledWith(
-      "org-1",
-      "tasks.perMonth",
-      { current: 0, adding: 1 },
-    );
     expect(mocks.createImageGenerationTask).toHaveBeenCalledWith({
       orgUuid: "org-1",
       userUuid: "user-1",
@@ -184,7 +171,7 @@ describe("POST /api/tasks/image-generation", () => {
 
   it("does not spend when the monthly limit rejects the request", async () => {
     enableImageGeneration();
-    mocks.enforceLimit.mockRejectedValue(
+    mocks.createImageGenerationTask.mockRejectedValueOnce(
       Object.assign(new Error("limit"), { code: "PLAN_LIMIT_EXCEEDED" }),
     );
 
@@ -196,6 +183,6 @@ describe("POST /api/tasks/image-generation", () => {
     );
 
     expect(response.status).toBe(403);
-    expect(mocks.createImageGenerationTask).not.toHaveBeenCalled();
+    expect((await response.json()).error_code).toBe("PLAN_LIMIT_EXCEEDED");
   });
 });

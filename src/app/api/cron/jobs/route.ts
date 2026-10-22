@@ -38,6 +38,7 @@ export async function GET(req: Request) {
         finished_jobs_pruned: maintenance.finishedJobsPruned,
         stale_uploads_failed: maintenance.staleUploadsFailed,
         stripe_stuck_events: maintenance.stripe.stuck,
+        task_dispatches_repaired: maintenance.taskDispatchesRepaired,
         marketing_provider_events_pruned:
           maintenance.marketingProviderEventsPruned,
         duration_ms: Date.now() - startedAt,
@@ -49,6 +50,7 @@ export async function GET(req: Request) {
       ...result,
       storage: { staleUploadsFailed: maintenance.staleUploadsFailed },
       stripe: maintenance.stripe,
+      tasks: { dispatchesRepaired: maintenance.taskDispatchesRepaired },
       retention: { finishedJobsPruned: maintenance.finishedJobsPruned },
       marketing: {
         providerEventsPruned: maintenance.marketingProviderEventsPruned,

@@ -45,6 +45,12 @@ Image generation is the minimal end-to-end example for a paid asynchronous
 feature. One accepted task costs exactly five pooled organization credits and
 uses stable identities at every boundary:
 
+Admission commits the monthly quota reservation, FEFO credit debit, task, and
+job in one model transaction under the organization lock. Queue persistence
+failure rolls the debit back. An identical replay resolves its original task
+before a new-operation quota check, including after the final monthly slot or
+final credits were consumed. Terminal replay never recharges or regenerates.
+
 - `(user_uuid, type, idempotency_key)` identifies the task and a request
   fingerprint rejects reuse with different input;
 - `task_image:<task uuid>` identifies the ledger spend, so a concurrent replay
@@ -54,7 +60,14 @@ uses stable identities at every boundary:
   key, so a retry after object upload repairs the database link instead of
   generating a second artifact.
 
-The state machine is `pending_payment → queued → running → succeeded`. Provider
+New accepted tasks are durably `queued` on return. Legacy `pending_payment`
+rows with an existing deterministic debit are repaired by a bounded maintenance
+sweep after five minutes; unpaid drafts are never charged by maintenance. Failed
+dispatches for nonterminal paid tasks can be revived, while running leases and
+terminal tasks remain untouched. Read `tasks.dispatchesRepaired` in cron output
+or `taskDispatchesRepaired` in worker maintenance logs.
+
+The worker state machine is `queued → running → succeeded`. Provider
 failures return to `queued` for the first four attempts. On the fifth failure,
 the worker moves the task to `refunding`, applies the ledger's deterministic
 compensation, and only then records `failed`. The job has eight attempts, leaving

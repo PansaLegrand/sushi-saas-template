@@ -14,22 +14,28 @@ import {
   findFileByUuid,
   type FileInsert,
 } from "@/models/file";
-import { findJobByDedupeKey } from "@/models/job";
+import {
+  admitPaidTask,
+  listTaskDispatchRepairs,
+} from "@/models/task-admission";
+import { logger } from "@/lib/logger/server";
+import { startOfUtcMonth } from "@/lib/time";
+import {
+  enforceLimit,
+  limitOf,
+  requireEntitlement,
+} from "@/services/entitlements";
 import { asOrgUuid, type OrgUuid } from "@/models/organization";
 import {
   findTaskByIdempotencyKey,
   findTaskByUuid,
-  insertTaskForIdempotencyKey,
   transitionTaskStatus,
-  updateTaskFields,
   type TaskRow,
 } from "@/models/task";
 import {
   CreditsTransType,
-  decreaseCredits,
   refundCreditsForTransaction,
 } from "@/services/credit";
-import { enqueueJob } from "@/services/jobs";
 import type { JobHandlerContext } from "@/services/jobs/types";
 import { getStorageAdapter } from "@/services/storage";
 import { reserveStorageUpload } from "@/services/storage/uploads";
@@ -46,17 +52,7 @@ export type CreateImageGenerationTaskParams = {
 };
 
 function fingerprintRequest(prompt: string): string {
-  return createHash("sha256")
-    .update(JSON.stringify({ prompt }))
-    .digest("hex");
-}
-
-function spendTransactionNo(taskUuid: string): string {
-  return `task_image:${taskUuid}`;
-}
-
-function jobDedupeKey(taskUuid: string): string {
-  return `task_image_generation:${taskUuid}`;
+  return createHash("sha256").update(JSON.stringify({ prompt })).digest("hex");
 }
 
 function assertRequestMatches(task: TaskRow, fingerprint: string): void {
@@ -67,109 +63,11 @@ function assertRequestMatches(task: TaskRow, fingerprint: string): void {
   }
 }
 
-async function loadIdempotentTask(params: {
-  orgUuid: OrgUuid;
-  userUuid: string;
-  idempotencyKey: string;
-}): Promise<TaskRow> {
-  const task = await findTaskByIdempotencyKey({
-    org_uuid: params.orgUuid,
-    user_uuid: params.userUuid,
-    type: TASK_TYPE_IMAGE_GENERATION,
-    idempotency_key: params.idempotencyKey,
-  });
-  if (!task) {
-    throw new AppError("TASK_CREATE_FAILED", {
-      message: "failed to load image-generation task after insert conflict",
-    });
-  }
-  return task;
-}
-
-async function ensureTaskCharged(task: TaskRow): Promise<TaskRow> {
-  const expectedTransNo = spendTransactionNo(task.uuid);
-  if (task.credits_trans_no && task.credits_trans_no !== expectedTransNo) {
-    throw new AppError("TASK_CREATE_FAILED", {
-      message: `task ${task.uuid} points at an unexpected credit transaction`,
-    });
-  }
-
-  if (task.credits_trans_no) return task;
-  if (task.status !== "pending_payment" && task.status !== "queued") {
-    throw new AppError("TASK_CREATE_FAILED", {
-      message: `task ${task.uuid} reached ${task.status} without a credit transaction`,
-    });
-  }
-
-  const transNo = await decreaseCredits({
-    org_uuid: task.org_uuid,
-    user_uuid: task.user_uuid,
-    trans_type: CreditsTransType.TaskImageGeneration,
-    credits: IMAGE_GENERATION_COST_CREDITS,
-    trans_no: expectedTransNo,
-    actor: `user:${task.user_uuid}`,
-    metadata: { task_uuid: task.uuid, task_type: task.type },
-  });
-
-  const charged = await transitionTaskStatus(
-    task.uuid,
-    task.org_uuid,
-    ["pending_payment", "queued"],
-    "queued",
-    { credits_trans_no: transNo, error_message: null },
-  );
-  if (charged) return charged;
-
-  const current = await findTaskByUuid(task.uuid, task.org_uuid);
-  if (current?.credits_trans_no === transNo) return current;
-  throw new AppError("TASK_CREATE_FAILED", {
-    message: `failed to attach credit transaction to task ${task.uuid}`,
-  });
-}
-
-async function ensureTaskJob(task: TaskRow): Promise<TaskRow> {
-  const dedupeKey = jobDedupeKey(task.uuid);
-  await enqueueJob(
-    "image_generation",
-    {
-      taskUuid: task.uuid,
-      orgUuid: task.org_uuid,
-    },
-    {
-      dedupeKey,
-      maxAttempts: IMAGE_GENERATION_JOB_ATTEMPTS,
-      subjectUserUuid: task.user_uuid,
-      subjectOrgUuid: task.org_uuid,
-      // A replay repairs a job buried by infrastructure failure. Terminal task
-      // failures return before this helper and are never regenerated/recharged.
-      retryFailed: true,
-    },
-  );
-
-  const job = await findJobByDedupeKey(dedupeKey);
-  if (!job) {
-    throw new AppError("TASK_CREATE_FAILED", {
-      message: `image-generation job was not persisted for task ${task.uuid}`,
-    });
-  }
-
-  if (task.job_uuid === job.uuid) return task;
-  const updated = await updateTaskFields(task.uuid, task.org_uuid, {
-    job_uuid: job.uuid,
-  });
-  if (!updated) {
-    throw new AppError("TASK_CREATE_FAILED", {
-      message: `failed to attach job ${job.uuid} to task ${task.uuid}`,
-    });
-  }
-  return updated;
-}
-
 /**
  * Persist, charge, and dispatch one replayable five-credit task.
  *
- * Each boundary has a deterministic identity. Repeating the request therefore
- * repairs a crash between boundaries instead of duplicating the next effect.
+ * Quota, debit, task and dispatch are committed atomically. Replays resolve
+ * their existing identity before a new-operation entitlement/quota decision.
  */
 export async function createImageGenerationTask(
   params: CreateImageGenerationTaskParams,
@@ -206,37 +104,100 @@ export async function createImageGenerationTask(
   }
 
   const fingerprint = fingerprintRequest(prompt);
-  const now = new Date();
-  const inserted = await insertTaskForIdempotencyKey({
-    uuid: newId(),
+  const existing = await findTaskByIdempotencyKey({
     org_uuid: params.orgUuid,
     user_uuid: params.userUuid,
     type: TASK_TYPE_IMAGE_GENERATION,
-    status: "pending_payment",
-    credits_used: IMAGE_GENERATION_COST_CREDITS,
     idempotency_key: idempotencyKey,
-    request_fingerprint: fingerprint,
-    user_input: JSON.stringify({ prompt }),
-    created_at: now,
-    updated_at: now,
   });
-  const replayed = !inserted;
-  let task =
-    inserted ??
-    (await loadIdempotentTask({
-      orgUuid: params.orgUuid,
-      userUuid: params.userUuid,
-      idempotencyKey,
-    }));
-
-  assertRequestMatches(task, fingerprint);
-  if (task.status === "succeeded" || task.status === "failed") {
-    return { task, replayed: true };
+  if (existing) {
+    assertRequestMatches(existing, fingerprint);
+    if (existing.status === "succeeded" || existing.status === "failed") {
+      return { task: existing, replayed: true };
+    }
   }
+  let maxTasks: number | null = null;
+  if (!existing?.credits_trans_no) {
+    await requireEntitlement(params.orgUuid, "tasks.image_generation");
+    maxTasks = await limitOf(params.orgUuid, "tasks.perMonth");
+  }
+  const now = new Date();
+  const outcome = await admitPaidTask({
+    task: {
+      uuid: newId(),
+      org_uuid: params.orgUuid,
+      user_uuid: params.userUuid,
+      type: TASK_TYPE_IMAGE_GENERATION,
+      status: "pending_payment",
+      credits_used: IMAGE_GENERATION_COST_CREDITS,
+      idempotency_key: idempotencyKey,
+      request_fingerprint: fingerprint,
+      user_input: JSON.stringify({ prompt }),
+      created_at: now,
+      updated_at: now,
+    },
+    maxTasks,
+    since: startOfUtcMonth(),
+    spendPrefix: "task_image",
+    transType: CreditsTransType.TaskImageGeneration,
+    maxAttempts: IMAGE_GENERATION_JOB_ATTEMPTS,
+  });
+  if (outcome.ok) return { task: outcome.task, replayed: outcome.replayed };
+  if (outcome.reason === "quota") {
+    await enforceLimit(params.orgUuid, "tasks.perMonth", {
+      current: outcome.current,
+      adding: 1,
+    });
+    throw new AppError("PLAN_LIMIT_EXCEEDED");
+  }
+  if (outcome.reason === "credits") {
+    throw new AppError("CREDITS_INSUFFICIENT", {
+      details: {
+        required: IMAGE_GENERATION_COST_CREDITS,
+        available: outcome.available,
+        shortfall: Math.max(
+          0,
+          IMAGE_GENERATION_COST_CREDITS - outcome.available,
+        ),
+      },
+    });
+  }
+  throw new AppError("TASK_CREATE_FAILED");
+}
 
-  task = await ensureTaskCharged(task);
-  task = await ensureTaskJob(task);
-  return { task, replayed };
+/** Repair historical charged intents without creating a new credit spend. */
+export async function reconcileImageTaskDispatch(
+  now = new Date(),
+): Promise<number> {
+  const candidates = await listTaskDispatchRepairs(
+    new Date(now.getTime() - 5 * 60_000),
+  );
+  let repaired = 0;
+  for (const task of candidates) {
+    if (!task.idempotency_key || !task.request_fingerprint) continue;
+    try {
+      const outcome = await admitPaidTask({
+        task: {
+          ...task,
+          idempotency_key: task.idempotency_key,
+          request_fingerprint: task.request_fingerprint,
+        },
+        maxTasks: null,
+        since: startOfUtcMonth(),
+        spendPrefix: "task_image",
+        transType: CreditsTransType.TaskImageGeneration,
+        maxAttempts: IMAGE_GENERATION_JOB_ATTEMPTS,
+        repairOnly: true,
+      });
+      if (outcome.ok) repaired += 1;
+    } catch (err) {
+      logger.error(
+        { err, task_uuid: task.uuid },
+        "task dispatch repair failed",
+      );
+    }
+  }
+  return repaired;
 }
 
 function generatedObjectKey(task: TaskRow): string {
@@ -257,10 +218,7 @@ async function existingGeneratedOutput(task: TaskRow) {
   return existing;
 }
 
-async function storeGeneratedOutput(
-  task: TaskRow,
-  context: JobHandlerContext,
-) {
+async function storeGeneratedOutput(task: TaskRow, context: JobHandlerContext) {
   let file = await existingGeneratedOutput(task);
   if (file?.status === "active") return file;
   if (file && file.status !== "uploading") {
@@ -357,7 +315,10 @@ async function completeTaskWithOutput(task: TaskRow, fileUuid: string) {
   });
 }
 
-async function refundFailedTask(task: TaskRow, errorCode: string): Promise<void> {
+async function refundFailedTask(
+  task: TaskRow,
+  errorCode: string,
+): Promise<void> {
   if (!task.credits_trans_no) {
     throw new AppError("TASK_CREATE_FAILED", {
       message: `cannot refund task ${task.uuid} without a credit transaction`,

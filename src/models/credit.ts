@@ -662,19 +662,9 @@ export async function insertCredit(
  * the number that did the refusing.
  */
 export type SpendOutcome =
-  | { ok: true; row: CreditRow }
-  | { ok: false; available: number };
+  { ok: true; row: CreditRow } | { ok: false; available: number };
 
-export async function insertSpendCreditIfSufficient({
-  org_uuid,
-  user_uuid,
-  trans_type,
-  credits: amount,
-  trans_no,
-  created_at,
-  actor,
-  metadata_json,
-}: {
+export type CreditSpendInput = {
   org_uuid: string;
   user_uuid: string;
   trans_type: string;
@@ -683,97 +673,135 @@ export async function insertSpendCreditIfSufficient({
   created_at: Date;
   actor: CreditActor;
   metadata_json?: string | null;
-}): Promise<SpendOutcome> {
-  return db().transaction(async (tx) => {
-    // Serialize spends per ORGANIZATION, not per user.
-    //
-    // This lock used to key on `user_uuid`, which was correct while a balance
-    // belonged to one person. Pooling the balance changed the invariant: two
-    // members of the same org spending at the same time would take two
-    // different locks, both read the same balance, and both succeed — spending
-    // the same credits twice and driving the org negative. The lock must cover
-    // exactly what the balance covers.
-    //
-    // The same lock now also serializes `balance_after`. The ledger total it
-    // returns is *not* the spendable balance computed below — expired grants
-    // count toward the audit trail and not toward what can be spent — so both
-    // are needed, and conflating them would either strand expired credits in
-    // the balance or make the audit column drift.
-    const ledgerTotal = await lockOrgAndSumLedger(tx, org_uuid);
+};
 
-    const now = new Date();
-    const ledger = await tx
-      .select()
-      .from(credits)
-      .where(scopedToOrg(credits.org_uuid, org_uuid))
-      .orderBy(asc(credits.id));
+export async function insertSpendCreditIfSufficient(
+  params: CreditSpendInput,
+): Promise<SpendOutcome> {
+  return db().transaction((tx) => spendCreditInTransaction(tx, params));
+}
 
-    const snapshot = calculateCreditBalance(ledger, now);
-    if (snapshot.available < amount) {
-      // Clamped: a balance can go negative through a refund of an expired
-      // grant, and "you have -3 credits" is not a sentence worth showing.
-      return { ok: false, available: snapshot.available };
-    }
+/** Compose a ledger debit with its owning operation in one model transaction. */
+export async function spendCreditInTransaction(
+  tx: Tx,
+  {
+    org_uuid,
+    user_uuid,
+    trans_type,
+    credits: amount,
+    trans_no,
+    created_at,
+    actor,
+    metadata_json,
+  }: CreditSpendInput,
+): Promise<SpendOutcome> {
+  // Serialize spends per ORGANIZATION, not per user.
+  //
+  // This lock used to key on `user_uuid`, which was correct while a balance
+  // belonged to one person. Pooling the balance changed the invariant: two
+  // members of the same org spending at the same time would take two
+  // different locks, both read the same balance, and both succeed — spending
+  // the same credits twice and driving the org negative. The lock must cover
+  // exactly what the balance covers.
+  //
+  // The same lock now also serializes `balance_after`. The ledger total it
+  // returns is *not* the spendable balance computed below — expired grants
+  // count toward the audit trail and not toward what can be spent — so both
+  // are needed, and conflating them would either strand expired credits in
+  // the balance or make the audit column drift.
+  const ledgerTotal = await lockOrgAndSumLedger(tx, org_uuid);
 
-    const allocation = consumeBucketsFefo(snapshot.buckets, amount, now);
-    if (allocation.unallocated > 0 || allocation.allocations.length === 0) {
-      // Both values come from the same snapshot under the same org lock, so
-      // reaching this branch means the allocator and balance calculation have
-      // diverged. Treat that as an internal failure, never as "insufficient".
+  const now = new Date();
+  const ledger = await tx
+    .select()
+    .from(credits)
+    .where(scopedToOrg(credits.org_uuid, org_uuid))
+    .orderBy(asc(credits.id));
+
+  // Replay is resolved under the same lock and before checking the remaining
+  // balance. A concurrent retry may arrive after the first call spent it all.
+  const replay = collapseCreditRowsToLogical(ledger).find(
+    (row) => row.trans_no === trans_no,
+  );
+  if (replay) {
+    if (
+      replay.user_uuid !== user_uuid ||
+      replay.trans_type !== trans_type ||
+      replay.credits !== -amount ||
+      replay.actor !== actor
+    ) {
       throw new AppError("CREDITS_GRANT_FAILED", {
-        message: `FEFO allocation failed for org ${org_uuid}: ${allocation.unallocated} unallocated`,
+        message: "credit replay parameters differ",
       });
     }
+    return { ok: true, row: replay };
+  }
 
-    const partTransNos = allocation.allocations.map((_, index) =>
-      index === 0 ? trans_no : `${trans_no}:part:${index + 1}`,
-    );
-    let runningLedgerTotal = ledgerTotal;
+  const snapshot = calculateCreditBalance(ledger, now);
+  if (snapshot.available < amount) {
+    // Clamped: a balance can go negative through a refund of an expired
+    // grant, and "you have -3 credits" is not a sentence worth showing.
+    return { ok: false, available: snapshot.available };
+  }
 
-    const inserted = await tx
-      .insert(credits)
-      .values(
-        allocation.allocations.map((part, index) => {
-          const spent = -Math.abs(part.credits);
-          runningLedgerTotal += spent;
+  const allocation = consumeBucketsFefo(snapshot.buckets, amount, now);
+  if (allocation.unallocated > 0 || allocation.allocations.length === 0) {
+    // Both values come from the same snapshot under the same org lock, so
+    // reaching this branch means the allocator and balance calculation have
+    // diverged. Treat that as an internal failure, never as "insufficient".
+    throw new AppError("CREDITS_GRANT_FAILED", {
+      message: `FEFO allocation failed for org ${org_uuid}: ${allocation.unallocated} unallocated`,
+    });
+  }
 
-          return {
-            trans_no: partTransNos[index]!,
-            created_at,
-            expired_at: part.expiredAt,
-            org_uuid,
-            // Which member this is attributed to. Recorded, never summed.
-            user_uuid,
-            trans_type,
-            credits: spent,
-            order_no: part.orderNo,
-            actor,
-            metadata_json: metadataForFefoPart({
-              metadataJson: metadata_json,
-              rootTransNo: trans_no,
-              partTransNos,
-              partIndex: index,
-              sourceTransNos: part.sourceTransNos,
-            }),
-            balance_after: runningLedgerTotal,
-          };
-        }),
-      )
-      .returning();
+  const partTransNos = allocation.allocations.map((_, index) =>
+    index === 0 ? trans_no : `${trans_no}:part:${index + 1}`,
+  );
+  let runningLedgerTotal = ledgerTotal;
 
-    const root = inserted.find((credit) => credit.trans_no === trans_no);
-    if (!root || inserted.length !== allocation.allocations.length) {
-      // Unreachable: `insert ... returning` returns the row it wrote. Worth
-      // saying out loud anyway, because the old signature folded this case into
-      // "insufficient" — which would have told a user with money that they were
-      // broke, and hidden a real failure behind a plausible one.
-      throw new AppError("CREDITS_GRANT_FAILED", {
-        message: `spend insert returned an incomplete FEFO group for org ${org_uuid}`,
-      });
-    }
+  const inserted = await tx
+    .insert(credits)
+    .values(
+      allocation.allocations.map((part, index) => {
+        const spent = -Math.abs(part.credits);
+        runningLedgerTotal += spent;
 
-    return { ok: true, row: root };
-  });
+        return {
+          trans_no: partTransNos[index]!,
+          created_at,
+          expired_at: part.expiredAt,
+          org_uuid,
+          // Which member this is attributed to. Recorded, never summed.
+          user_uuid,
+          trans_type,
+          credits: spent,
+          order_no: part.orderNo,
+          actor,
+          metadata_json: metadataForFefoPart({
+            metadataJson: metadata_json,
+            rootTransNo: trans_no,
+            partTransNos,
+            partIndex: index,
+            sourceTransNos: part.sourceTransNos,
+          }),
+          balance_after: runningLedgerTotal,
+        };
+      }),
+    )
+    .returning();
+
+  const root = inserted.find((credit) => credit.trans_no === trans_no);
+  if (!root || inserted.length !== allocation.allocations.length) {
+    // Unreachable: `insert ... returning` returns the row it wrote. Worth
+    // saying out loud anyway, because the old signature folded this case into
+    // "insufficient" — which would have told a user with money that they were
+    // broke, and hidden a real failure behind a plausible one.
+    throw new AppError("CREDITS_GRANT_FAILED", {
+      message: `spend insert returned an incomplete FEFO group for org ${org_uuid}`,
+    });
+  }
+
+  return { ok: true, row: root };
 }
 
 /**

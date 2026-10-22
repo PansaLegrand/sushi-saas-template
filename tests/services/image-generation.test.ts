@@ -8,37 +8,37 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  insertTaskForIdempotencyKey: vi.fn<
-    typeof import("@/models/task").insertTaskForIdempotencyKey
-  >(),
-  findTaskByIdempotencyKey: vi.fn<
-    typeof import("@/models/task").findTaskByIdempotencyKey
-  >(),
+  admitPaidTask:
+    vi.fn<typeof import("@/models/task-admission").admitPaidTask>(),
+  requireEntitlement: vi.fn(),
+  limitOf: vi.fn(),
+  enforceLimit: vi.fn(),
+
+  findTaskByIdempotencyKey:
+    vi.fn<typeof import("@/models/task").findTaskByIdempotencyKey>(),
   findTaskByUuid: vi.fn<typeof import("@/models/task").findTaskByUuid>(),
-  transitionTaskStatus: vi.fn<
-    typeof import("@/models/task").transitionTaskStatus
-  >(),
-  updateTaskFields: vi.fn<
-    typeof import("@/models/task").updateTaskFields
-  >(),
+  transitionTaskStatus:
+    vi.fn<typeof import("@/models/task").transitionTaskStatus>(),
   findFileByUuid: vi.fn<typeof import("@/models/file").findFileByUuid>(),
-  activateUploadingFile: vi.fn<
-    typeof import("@/models/file").activateUploadingFile
-  >(),
-  findJobByDedupeKey: vi.fn<
-    typeof import("@/models/job").findJobByDedupeKey
-  >(),
-  decreaseCredits: vi.fn<typeof import("@/services/credit").decreaseCredits>(),
-  refundCreditsForTransaction: vi.fn<
-    typeof import("@/services/credit").refundCreditsForTransaction
-  >(),
-  enqueueJob: vi.fn<typeof import("@/services/jobs").enqueueJob>(),
-  reserveStorageUpload: vi.fn<
-    typeof import("@/services/storage/uploads").reserveStorageUpload
-  >(),
+  activateUploadingFile:
+    vi.fn<typeof import("@/models/file").activateUploadingFile>(),
+  refundCreditsForTransaction:
+    vi.fn<typeof import("@/services/credit").refundCreditsForTransaction>(),
+  reserveStorageUpload:
+    vi.fn<typeof import("@/services/storage/uploads").reserveStorageUpload>(),
   generateImage: vi.fn<typeof import("@/services/ai/image").generateImage>(),
   putObject: vi.fn(),
   headObject: vi.fn(),
+}));
+
+vi.mock("@/models/task-admission", () => ({
+  admitPaidTask: mocks.admitPaidTask,
+  listTaskDispatchRepairs: vi.fn(),
+}));
+vi.mock("@/services/entitlements", () => ({
+  requireEntitlement: mocks.requireEntitlement,
+  limitOf: mocks.limitOf,
+  enforceLimit: mocks.enforceLimit,
 }));
 
 vi.mock("@/lib/demo-flags", () => ({
@@ -46,11 +46,9 @@ vi.mock("@/lib/demo-flags", () => ({
 }));
 
 vi.mock("@/models/task", () => ({
-  insertTaskForIdempotencyKey: mocks.insertTaskForIdempotencyKey,
   findTaskByIdempotencyKey: mocks.findTaskByIdempotencyKey,
   findTaskByUuid: mocks.findTaskByUuid,
   transitionTaskStatus: mocks.transitionTaskStatus,
-  updateTaskFields: mocks.updateTaskFields,
 }));
 
 vi.mock("@/models/file", () => ({
@@ -58,17 +56,11 @@ vi.mock("@/models/file", () => ({
   activateUploadingFile: mocks.activateUploadingFile,
 }));
 
-vi.mock("@/models/job", () => ({
-  findJobByDedupeKey: mocks.findJobByDedupeKey,
-}));
-
 vi.mock("@/services/credit", () => ({
   CreditsTransType: { TaskImageGeneration: "task_image_generation" },
-  decreaseCredits: mocks.decreaseCredits,
   refundCreditsForTransaction: mocks.refundCreditsForTransaction,
 }));
 
-vi.mock("@/services/jobs", () => ({ enqueueJob: mocks.enqueueJob }));
 vi.mock("@/services/storage/uploads", () => ({
   reserveStorageUpload: mocks.reserveStorageUpload,
 }));
@@ -157,21 +149,24 @@ const context = {
 describe("image-generation task orchestration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.insertTaskForIdempotencyKey.mockResolvedValue(task());
+    mocks.requireEntitlement.mockResolvedValue({});
+    mocks.limitOf.mockResolvedValue(10);
+    mocks.admitPaidTask.mockResolvedValue({
+      ok: true,
+      task: task({
+        status: "queued",
+        credits_trans_no: "task_image:task-1",
+        job_uuid: "job-1",
+      }),
+      replayed: false,
+    });
+
     mocks.findTaskByIdempotencyKey.mockResolvedValue(undefined);
     mocks.findTaskByUuid.mockResolvedValue(
       task({ status: "queued", credits_trans_no: "task_image:task-1" }),
     );
-    mocks.decreaseCredits.mockResolvedValue("task_image:task-1");
     mocks.refundCreditsForTransaction.mockResolvedValue(
       "refund_task_image:task-1",
-    );
-    mocks.enqueueJob.mockResolvedValue(true);
-    mocks.findJobByDedupeKey.mockResolvedValue({
-      uuid: "job-1",
-    } as never);
-    mocks.updateTaskFields.mockImplementation(async (_uuid, _org, fields) =>
-      task({ status: "queued", credits_trans_no: "task_image:task-1", ...fields }),
     );
     mocks.transitionTaskStatus.mockImplementation(
       async (_uuid, _org, _expected, status, fields) =>
@@ -209,29 +204,23 @@ describe("image-generation task orchestration", () => {
       idempotencyKey: "request-1",
     });
 
-    expect(mocks.decreaseCredits).toHaveBeenCalledWith({
-      org_uuid: "org-1",
-      user_uuid: "user-1",
-      trans_type: "task_image_generation",
-      credits: 5,
-      trans_no: "task_image:task-1",
-      actor: "user:user-1",
-      metadata: { task_uuid: "task-1", task_type: "image_generation" },
-    });
-    expect(mocks.enqueueJob).toHaveBeenCalledWith(
-      "image_generation",
-      { taskUuid: "task-1", orgUuid: "org-1" },
+    expect(mocks.admitPaidTask).toHaveBeenCalledWith(
       expect.objectContaining({
-        dedupeKey: "task_image_generation:task-1",
+        task: expect.objectContaining({
+          org_uuid: "org-1",
+          user_uuid: "user-1",
+          credits_used: 5,
+        }),
+        maxTasks: 10,
+        spendPrefix: "task_image",
+        transType: "task_image_generation",
         maxAttempts: 8,
-        retryFailed: true,
       }),
     );
     expect(result.task.job_uuid).toBe("job-1");
   });
 
   it("rejects reuse of one request key for different input", async () => {
-    mocks.insertTaskForIdempotencyKey.mockResolvedValue(undefined);
     mocks.findTaskByIdempotencyKey.mockResolvedValue(
       task({ request_fingerprint: "different" }),
     );
@@ -244,8 +233,62 @@ describe("image-generation task orchestration", () => {
         idempotencyKey: "request-1",
       }),
     ).rejects.toMatchObject({ code: "TASK_IDEMPOTENCY_CONFLICT" });
-    expect(mocks.decreaseCredits).not.toHaveBeenCalled();
-    expect(mocks.enqueueJob).not.toHaveBeenCalled();
+    expect(mocks.admitPaidTask).not.toHaveBeenCalled();
+  });
+
+  it("resumes a charged task without requiring a new quota slot", async () => {
+    mocks.findTaskByIdempotencyKey.mockResolvedValue(
+      task({ status: "queued", credits_trans_no: "task_image:task-1" }),
+    );
+    await createImageGenerationTask({
+      orgUuid: "org-1" as never,
+      userUuid: "user-1",
+      prompt: "Draw a small sushi boat",
+      idempotencyKey: "request-1",
+    });
+    expect(mocks.requireEntitlement).not.toHaveBeenCalled();
+    expect(mocks.admitPaidTask).toHaveBeenCalledWith(
+      expect.objectContaining({ maxTasks: null }),
+    );
+  });
+
+  it("reports an atomic quota refusal through the entitlement catalog", async () => {
+    mocks.admitPaidTask.mockResolvedValue({
+      ok: false,
+      reason: "quota",
+      current: 10,
+    });
+    await expect(
+      createImageGenerationTask({
+        orgUuid: "org-1" as never,
+        userUuid: "user-1",
+        prompt: "Draw a small sushi boat",
+        idempotencyKey: "request-1",
+      }),
+    ).rejects.toMatchObject({ code: "PLAN_LIMIT_EXCEEDED" });
+    expect(mocks.enforceLimit).toHaveBeenCalledWith("org-1", "tasks.perMonth", {
+      current: 10,
+      adding: 1,
+    });
+  });
+
+  it("reports the balance observed by the refusing transaction", async () => {
+    mocks.admitPaidTask.mockResolvedValue({
+      ok: false,
+      reason: "credits",
+      available: 3,
+    });
+    await expect(
+      createImageGenerationTask({
+        orgUuid: "org-1" as never,
+        userUuid: "user-1",
+        prompt: "Draw a small sushi boat",
+        idempotencyKey: "request-1",
+      }),
+    ).rejects.toMatchObject({
+      code: "CREDITS_INSUFFICIENT",
+      details: { required: 5, available: 3, shortfall: 2 },
+    });
   });
 
   it("stores the result privately and completes the queued task", async () => {
@@ -288,10 +331,7 @@ describe("image-generation task orchestration", () => {
     );
 
     await expect(
-      runImageGenerationTask(
-        { taskUuid: "task-1", orgUuid: "org-1" },
-        context,
-      ),
+      runImageGenerationTask({ taskUuid: "task-1", orgUuid: "org-1" }, context),
     ).rejects.toMatchObject({ code: "TASK_PROVIDER_FAILED" });
 
     expect(mocks.transitionTaskStatus).toHaveBeenLastCalledWith(

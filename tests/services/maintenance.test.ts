@@ -1,12 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  reconcileImageTaskDispatch: vi.fn(),
   pruneFinishedJobs: vi.fn(),
   pruneMarketingProviderEvents: vi.fn(),
   cleanupStaleUploads: vi.fn(),
   sweepStripeWebhookEvents: vi.fn(),
 }));
 
+vi.mock("@/services/tasks/image-generation", () => ({
+  reconcileImageTaskDispatch: mocks.reconcileImageTaskDispatch,
+}));
 vi.mock("@/services/jobs", () => ({
   pruneFinishedJobs: mocks.pruneFinishedJobs,
 }));
@@ -25,6 +29,7 @@ import { runOperationalMaintenance } from "@/services/maintenance";
 describe("operational maintenance", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.reconcileImageTaskDispatch.mockResolvedValue(1);
     mocks.pruneFinishedJobs.mockResolvedValue(3);
     mocks.pruneMarketingProviderEvents.mockResolvedValue(4);
     mocks.cleanupStaleUploads.mockResolvedValue(2);
@@ -40,6 +45,7 @@ describe("operational maintenance", () => {
     expect(mocks.cleanupStaleUploads).toHaveBeenCalledWith({ now });
     expect(mocks.sweepStripeWebhookEvents).toHaveBeenCalledWith(now);
     expect(result).toEqual({
+      taskDispatchesRepaired: 1,
       finishedJobsPruned: 3,
       marketingProviderEventsPruned: 4,
       staleUploadsFailed: 2,

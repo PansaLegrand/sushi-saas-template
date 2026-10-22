@@ -6,10 +6,7 @@ import { parseJsonBody } from "@/lib/http/request";
 import { requireSameOrigin } from "@/lib/origin";
 import { rateLimitOrThrow } from "@/lib/rate-limit";
 import { respData, respNoAuth } from "@/lib/resp";
-import { startOfUtcMonth } from "@/lib/time";
-import { countTasksByOrgSince } from "@/models/task";
 import { getOrgContext } from "@/services/authz";
-import { enforceLimit, requireEntitlement } from "@/services/entitlements";
 import { createImageGenerationTask } from "@/services/tasks/image-generation";
 import { toTaskRecord } from "@/services/tasks/presentation";
 import type { CreateImageGenerationResponse } from "@/types/task";
@@ -34,12 +31,6 @@ export async function POST(req: Request) {
     const ctx = await getOrgContext(req);
     if (!ctx) return respNoAuth();
 
-    await requireEntitlement(ctx.orgUuid, "tasks.image_generation");
-    await enforceLimit(ctx.orgUuid, "tasks.perMonth", {
-      current: await countTasksByOrgSince(ctx.orgUuid, startOfUtcMonth()),
-      adding: 1,
-    });
-
     const payload = await parseJsonBody(req, ImageGenerationSchema);
     const idempotencyKey =
       payload.idempotencyKey ?? req.headers.get("idempotency-key") ?? "";
@@ -60,9 +51,10 @@ export async function POST(req: Request) {
     };
 
     return respData(data, {
-      status: data.task.status === "succeeded" || data.task.status === "failed"
-        ? 200
-        : 202,
+      status:
+        data.task.status === "succeeded" || data.task.status === "failed"
+          ? 200
+          : 202,
     });
   } catch (error) {
     return respError(error, {
