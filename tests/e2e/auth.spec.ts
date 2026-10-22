@@ -25,9 +25,17 @@ test("the seeded session reaches the tenant-scoped credits ledger", async ({
   await expect(page.getByRole("heading", { name: "Credits" })).toBeVisible();
   // External disposable fixtures may have any display name. The contract is
   // that the page uses the selected workspace, not the default seed's label.
-  const selected = page.getByLabel("Switch workspace").locator("option:checked");
-  const workspace = (await selected.innerText()).split(" · ")[0];
-  await expect(page.getByRole("main")).toContainText(workspace);
+  // A single membership intentionally has no switcher. Resolve the explicit
+  // URL against the real membership API so both one- and many-workspace
+  // fixtures prove the same scope contract.
+  await expect(page).toHaveURL(/[?&]org=/);
+  const slug = new URL(page.url()).searchParams.get("org");
+  const memberships = await page.request.get("/api/auth/organization/list");
+  expect(memberships.ok()).toBe(true);
+  const workspace = (await memberships.json() as { slug: string; name: string }[])
+    .find(organization => organization.slug === slug);
+  expect(workspace).toBeDefined();
+  await expect(page.getByRole("main")).toContainText(workspace!.name);
   const balance = page
     .getByText("Spendable balance")
     .locator("..")
