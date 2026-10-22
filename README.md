@@ -64,7 +64,7 @@ error boundaries, client transport conventions, and file naming.
 
 Requirements:
 
-- Node.js `>=20.19.0 <23`
+- Node.js `>=24.22.1 <25`
 - pnpm `10.22.0`
 - Docker for the default local PostgreSQL, Redis, and S3-compatible services
 

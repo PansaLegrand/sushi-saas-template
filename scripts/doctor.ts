@@ -82,14 +82,9 @@ function composeCheck(service: string, command: string[]) {
 
 async function main() {
   heading("Toolchain");
-  const [nodeMajor, nodeMinor] = process.versions.node.split(".").map(Number);
-  if (nodeMajor > 20 || (nodeMajor === 20 && nodeMinor >= 19)) {
-    if (nodeMajor < 23)
-      ok(`Node ${process.versions.node} (${packageJson.engines.node})`);
-    else
-      fail(
-        `Node ${process.versions.node} is outside ${packageJson.engines.node}`,
-      );
+  const [nodeMajor, nodeMinor, nodePatch] = process.versions.node.split(".").map(Number);
+  if (nodeMajor === 24 && (nodeMinor > 22 || (nodeMinor === 22 && nodePatch >= 1))) {
+    ok(`Node ${process.versions.node} (${packageJson.engines.node})`);
   } else {
     fail(
       `Node ${process.versions.node} is outside ${packageJson.engines.node}`,

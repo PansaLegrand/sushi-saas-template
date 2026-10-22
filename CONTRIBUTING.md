@@ -19,7 +19,7 @@ context, and safe to adapt into a real product.
 
 Requirements:
 
-- Node.js 20.19 or newer, below Node.js 23
+- Node.js 24.22.1 or newer, below Node.js 25
 - pnpm 10.22
 - Docker, or local PostgreSQL 16 and Redis 7 instances
 

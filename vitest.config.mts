@@ -129,13 +129,13 @@ export default defineConfig({
       // never lower one to make a red build green — that is the signal working.
       // Calibrated against a fresh clone with no test database — the floor
       // every contributor can meet without installing Postgres. Measured there:
-      // 41.75 / 54.83 / 70.84 (lines / functions / branches). Infrastructure
+      // 41.73 / 54.83 / 70.87 (lines / functions / branches), on Node 24. Infrastructure
       // coverage is additional headroom, not a reason to relax this floor.
       thresholds: {
-        lines: 41,
-        functions: 54,
-        branches: 70,
-        statements: 41,
+        lines: 41.7,
+        functions: 54.8,
+        branches: 70.8,
+        statements: 41.7,
       },
     },
   },

@@ -15,7 +15,7 @@ const issues = [];
 for (const file of dockerfiles) {
   const contents = readFileSync(resolve(root, file), "utf8");
   if (
-    !/^FROM node:20\.19\.5-alpine@sha256:[a-f0-9]{64} AS runner$/m.test(
+    !/^FROM node:24\.22\.1-alpine@sha256:[a-f0-9]{64} AS runner$/m.test(
       contents,
     )
   ) {

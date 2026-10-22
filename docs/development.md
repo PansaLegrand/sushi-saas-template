@@ -1,5 +1,25 @@
 # Local Development
 
+Use Node 24 LTS (`24.22.1` or a newer Node 24 patch) and pnpm `10.22.0`.
+`nvm install && nvm use` selects the tested runtime from `.nvmrc`. CI and all
+four container images use the same minimum runtime. After switching Node,
+run `pnpm install --frozen-lockfile` to rebuild any native dependencies.
+
+Database test files run in one worker with per-file isolation; do not remove
+that serialization when upgrading the runner. The SaaS keeps Vitest 3 until
+the Vitest 4 coverage migration can meet the existing branch threshold.
+Vitest 4 recalculates previously uncounted branches; the threshold must not
+be lowered to conceal that difference.
+
+Dependency maintenance uses both PR dependency review and a weekly full
+production dependency/runtime-image audit. Vite is a direct development
+dependency so optional peer resolution cannot retain an older vulnerable copy.
+The `@payloadcms/plugin-cloud-storage@3.90.2>find-node-modules` override removes
+an unused declared dependency: none of that exact package's published runtime
+files import it. The override is version-scoped so an upstream upgrade restores
+normal dependency resolution and must be reviewed again. It removes the
+unpatched `braces` path without replacing Payload's storage implementation.
+
 The default development loop is deliberately one command at each stage:
 
 ```bash
@@ -115,3 +135,9 @@ migrations, and reseeds the demo fixtures. Environment profiles are preserved.
 For automation, `--yes` replaces the interactive phrase. `--no-seed` recreates
 empty infrastructure. The command refuses external databases or object storage,
 even with `--yes`.
+
+Better Auth 1.7.6 declares Vitest as an optional peer exclusively for its
+`test-utils` export. This application and its tests do not import that export.
+The version-scoped `.pnpmfile.cjs` hook keeps the development runner out of the production
+dependency graph. The development runner is used in Node run mode only; do not
+expose a Vitest browser/mock server while its major-version migration is pending.

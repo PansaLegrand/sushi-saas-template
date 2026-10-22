@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1.7
-FROM node:20.19.5-alpine@sha256:6178e78b972f79c335df281f4b7674a2d85071aae2af020ffa39f0a770265435 AS base
+FROM node:24.22.1-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS base
 ENV PNPM_HOME=/pnpm NEXT_TELEMETRY_DISABLED=1
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable
 
 FROM base AS dependencies
 WORKDIR /workspace
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .pnpmfile.cjs ./
 COPY scripts/prepare.mjs scripts/prepare.mjs
 COPY apps/content-studio/package.json apps/content-studio/package.json
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
@@ -61,7 +61,7 @@ ENV NEXT_PUBLIC_WEB_URL=$NEXT_PUBLIC_WEB_URL \
     NEXT_PUBLIC_RESERVATIONS_AUTO_SEED_DEMO=$NEXT_PUBLIC_RESERVATIONS_AUTO_SEED_DEMO
 RUN pnpm build:web
 
-FROM node:20.19.5-alpine@sha256:6178e78b972f79c335df281f4b7674a2d85071aae2af020ffa39f0a770265435 AS runner
+FROM node:24.22.1-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS runner
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0 NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
 RUN addgroup --system --gid 1001 nodejs \

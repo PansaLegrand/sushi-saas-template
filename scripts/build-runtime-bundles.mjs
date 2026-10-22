@@ -30,7 +30,7 @@ const shared = {
   bundle: true,
   platform: "node",
   format: "esm",
-  target: "node20",
+  target: "node24",
   sourcemap: false,
   legalComments: "none",
   banner: {
