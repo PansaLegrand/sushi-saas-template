@@ -141,3 +141,37 @@ Better Auth 1.7.6 declares Vitest as an optional peer exclusively for its
 The version-scoped `.pnpmfile.cjs` hook keeps the development runner out of the production
 dependency graph. The development runner is used in Node run mode only; do not
 expose a Vitest browser/mock server while its major-version migration is pending.
+# Optional application profiles
+
+The existing `pnpm setup`, `pnpm dev:all`, and `pnpm build` commands retain the
+complete stack. For a smaller adoption, choose a profile on each command:
+
+| Profile | Processes and build targets |
+| --- | --- |
+| `core` | SaaS web and durable worker |
+| `operations` | Core plus admin console |
+| `publishing` | Operations plus Content Studio |
+
+```bash
+pnpm starter core install
+pnpm starter core setup
+pnpm starter core doctor
+pnpm starter core dev
+pnpm starter core build
+pnpm starter operations build --dry-run
+```
+
+`install` uses the frozen lockfile and filters out the optional Studio workspace
+for core/operations. `setup` skips Studio environment creation, database creation
+and migrations for those profiles. Existing files and databases remain intact.
+`doctor`, `dev`, `lint`, and `build` inspect or run the selected applications.
+Builds retain the root test suite and bundle the durable worker runtime.
+
+After a filtered install, export `SAAS_STARTER_PROFILE=core` (or `operations`)
+in that shell so the ordinary `pnpm lint` and pre-commit hook use the same
+selection. CI leaves it unset and validates the complete publishing stack.
+
+Profiles are developer tooling choices, not product plans or runtime security
+flags. Core still contains the application API, billing, organizations and
+capability checks. It does not disable routes. Add Studio later by running the
+publishing install/setup commands; keep its database and authentication separate.

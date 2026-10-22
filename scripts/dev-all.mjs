@@ -4,6 +4,9 @@ import { createInterface } from "node:readline";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { starterProfile } from "./lib/starter-profiles.mjs";
+const selectedProfile = starterProfile();
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const args = new Set(process.argv.slice(2).filter((arg) => arg !== "--"));
 
@@ -39,7 +42,14 @@ for (const arg of args) {
 if (!args.has("--skip-doctor")) {
   const doctor = spawnSync("pnpm", ["dev:doctor"], {
     cwd: root,
-    env: process.env,
+    env: {
+      ...process.env,
+      SAAS_STARTER_PROFILE: args.has("--web-only")
+        ? "core"
+        : args.has("--no-studio") && selectedProfile.studio
+          ? "operations"
+          : selectedProfile.name,
+    },
     stdio: "inherit",
   });
   if (doctor.status !== 0) {
@@ -54,10 +64,18 @@ const commands = [{ name: "web", command: "pnpm", args: ["dev:web"] }];
 if (!args.has("--web-only") && !args.has("--no-worker")) {
   commands.push({ name: "worker", command: "pnpm", args: ["jobs:work"] });
 }
-if (!args.has("--web-only") && !args.has("--no-admin")) {
+if (
+  selectedProfile.admin &&
+  !args.has("--web-only") &&
+  !args.has("--no-admin")
+) {
   commands.push({ name: "admin", command: "pnpm", args: ["dev:admin"] });
 }
-if (!args.has("--web-only") && !args.has("--no-studio")) {
+if (
+  selectedProfile.studio &&
+  !args.has("--web-only") &&
+  !args.has("--no-studio")
+) {
   commands.push({ name: "studio", command: "pnpm", args: ["dev:studio"] });
 }
 if (args.has("--with-stripe")) {

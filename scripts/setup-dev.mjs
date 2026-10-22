@@ -22,6 +22,9 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 
+import { starterProfile } from "./lib/starter-profiles.mjs";
+const selectedProfile = starterProfile();
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const developmentEnvPath = resolve(root, ".env.development.local");
 const localEnvPath = resolve(root, ".env.local");
@@ -138,7 +141,8 @@ if (existsSync(envPath)) {
     randomBytes(32).toString("base64"),
   );
   contents = fill(contents, "CRON_SECRET", randomBytes(32).toString("hex"));
-  contents = fill(contents, "CONTENT_MARKETING_SECRET", marketingSecret);
+  if (selectedProfile.studio)
+    contents = fill(contents, "CONTENT_MARKETING_SECRET", marketingSecret);
   contents = fill(
     contents,
     "MARKETING_UNSUBSCRIBE_SECRET",
@@ -158,7 +162,7 @@ if (existsSync(envPath)) {
   contents = fill(contents, "STORAGE_BUCKET", DEV_STORAGE_BUCKET);
 
   writeFileSync(envPath, contents, { mode: 0o600 });
-  rootHasMarketingSecret = true;
+  rootHasMarketingSecret = selectedProfile.studio;
   ok(
     `wrote ${displayPath(envPath)} with generated application and marketing secrets`,
   );
@@ -172,32 +176,36 @@ const useBundledStorage =
     readValue(readFileSync(envPath, "utf8"), "STORAGE_PROVIDER")) === "garage";
 
 let payloadSecret = randomBytes(32).toString("hex");
-if (existsSync(contentEnvPath)) {
-  ok(`${displayPath(contentEnvPath)} already exists — leaving it untouched`);
-  const existingPayloadSecret = readValue(
-    readFileSync(contentEnvPath, "utf8"),
-    "PAYLOAD_SECRET",
-  );
-  if (existingPayloadSecret) payloadSecret = existingPayloadSecret;
-} else {
-  if (!existsSync(contentExamplePath)) {
-    console.error(
-      "  apps/content-studio/.env.example is missing; cannot bootstrap.",
+if (selectedProfile.studio) {
+  if (existsSync(contentEnvPath)) {
+    ok(`${displayPath(contentEnvPath)} already exists — leaving it untouched`);
+    const existingPayloadSecret = readValue(
+      readFileSync(contentEnvPath, "utf8"),
+      "PAYLOAD_SECRET",
     );
-    process.exit(1);
-  }
+    if (existingPayloadSecret) payloadSecret = existingPayloadSecret;
+  } else {
+    if (!existsSync(contentExamplePath)) {
+      console.error(
+        "  apps/content-studio/.env.example is missing; cannot bootstrap.",
+      );
+      process.exit(1);
+    }
 
-  let contents = readFileSync(contentExamplePath, "utf8");
-  contents = fill(contents, "CONTENT_DATABASE_URL", CONTENT_DATABASE_URL);
-  contents = fill(contents, "PAYLOAD_SECRET", payloadSecret);
-  contents = fill(contents, "CONTENT_MARKETING_SECRET", marketingSecret);
-  writeFileSync(contentEnvPath, contents, { mode: 0o600 });
-  ok(`wrote ${displayPath(contentEnvPath)} with generated Payload credentials`);
-
-  if (!rootHasMarketingSecret) {
-    warn(
-      `set ${displayPath(envPath)} CONTENT_MARKETING_SECRET to the matching value in ${displayPath(contentEnvPath)} before using marketing delivery`,
+    let contents = readFileSync(contentExamplePath, "utf8");
+    contents = fill(contents, "CONTENT_DATABASE_URL", CONTENT_DATABASE_URL);
+    contents = fill(contents, "PAYLOAD_SECRET", payloadSecret);
+    contents = fill(contents, "CONTENT_MARKETING_SECRET", marketingSecret);
+    writeFileSync(contentEnvPath, contents, { mode: 0o600 });
+    ok(
+      `wrote ${displayPath(contentEnvPath)} with generated Payload credentials`,
     );
+
+    if (!rootHasMarketingSecret) {
+      warn(
+        `set ${displayPath(envPath)} CONTENT_MARKETING_SECRET to the matching value in ${displayPath(contentEnvPath)} before using marketing delivery`,
+      );
+    }
   }
 }
 
@@ -334,7 +342,10 @@ if (!ready) {
   );
   process.exit(1);
 }
-for (const database of ["sushi_content", "sushi_restore_drill"]) {
+for (const database of [
+  ...(selectedProfile.studio ? ["sushi_content"] : []),
+  "sushi_restore_drill",
+]) {
   const exists = spawnSync(
     "docker",
     [
@@ -380,7 +391,7 @@ for (const database of ["sushi_content", "sushi_restore_drill"]) {
   }
 }
 ok(
-  "Postgres is up on localhost:5432 (sushi_dev, sushi_test, sushi_content, sushi_restore_drill)",
+  `Postgres is up on localhost:5432 (sushi_dev, sushi_test, ${selectedProfile.studio ? "sushi_content, " : ""}sushi_restore_drill)`,
 );
 
 if (!externalRedisRunning) {
@@ -493,22 +504,24 @@ if (
 }
 ok("sushi_test migrated");
 
-if (
-  run("pnpm", ["--dir", "apps/content-studio", "migrate"], {
-    CONTENT_DATABASE_URL,
-    PAYLOAD_SECRET: payloadSecret,
-  }).status !== 0
-) {
-  console.error("  Content Studio migration failed against sushi_content");
-  process.exit(1);
+if (selectedProfile.studio) {
+  if (
+    run("pnpm", ["--dir", "apps/content-studio", "migrate"], {
+      CONTENT_DATABASE_URL,
+      PAYLOAD_SECRET: payloadSecret,
+    }).status !== 0
+  ) {
+    console.error("  Content Studio migration failed against sushi_content");
+    process.exit(1);
+  }
+  ok("sushi_content migrated");
 }
-ok("sushi_content migrated");
 
 console.log(`
 \x1b[1mReady.\x1b[0m
 
-  pnpm dev:doctor → verify the complete local stack
-  pnpm dev:all    → web :3000, admin :3001, studio :3002
+  pnpm starter ${selectedProfile.name} doctor → verify selected local services
+  pnpm starter ${selectedProfile.name} dev    → start selected processes
   pnpm dev:seed   → idempotent demo login, credits, and catalog
   pnpm test:db    → database tier now runs instead of skipping
 

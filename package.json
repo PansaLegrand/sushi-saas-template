@@ -28,7 +28,7 @@
     "start:web": "NODE_NO_WARNINGS=1 next start",
     "start:admin": "NODE_NO_WARNINGS=1 next start apps/admin -p 3001",
     "start:studio": "pnpm --dir apps/content-studio start",
-    "lint": "pnpm config:check && pnpm lint:web && pnpm lint:admin && pnpm lint:studio && pnpm db:lint",
+    "lint": "node scripts/starter.mjs --current lint",
     "lint:web": "eslint src --max-warnings 0",
     "lint:admin": "eslint apps/admin --max-warnings 0",
     "lint:studio": "pnpm --dir apps/content-studio lint",
@@ -79,7 +79,8 @@
     "test:db:setup": "node scripts/setup-test-db.mjs",
     "prepare": "node scripts/prepare.mjs",
     "test:production": "node scripts/smoke-production.mjs",
-    "benchmark:ledger": "tsx scripts/benchmark-ledger.ts"
+    "benchmark:ledger": "tsx scripts/benchmark-ledger.ts",
+    "starter": "node scripts/starter.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1140.0",

@@ -23,6 +23,9 @@ import {
   readFirstProfile,
 } from "./lib/profile-loader.mjs";
 
+import { starterProfile } from "./lib/starter-profiles.mjs";
+const selectedProfile = starterProfile();
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
   console.log(`Usage: pnpm dev:doctor
@@ -82,8 +85,13 @@ function composeCheck(service: string, command: string[]) {
 
 async function main() {
   heading("Toolchain");
-  const [nodeMajor, nodeMinor, nodePatch] = process.versions.node.split(".").map(Number);
-  if (nodeMajor === 24 && (nodeMinor > 22 || (nodeMinor === 22 && nodePatch >= 1))) {
+  const [nodeMajor, nodeMinor, nodePatch] = process.versions.node
+    .split(".")
+    .map(Number);
+  if (
+    nodeMajor === 24 &&
+    (nodeMinor > 22 || (nodeMinor === 22 && nodePatch >= 1))
+  ) {
     ok(`Node ${process.versions.node} (${packageJson.engines.node})`);
   } else {
     fail(
@@ -182,30 +190,34 @@ async function main() {
       }
     }
 
-    const studio = readFirstProfile(root, DEVELOPMENT_STUDIO_FILES);
-    if (!studio) {
-      fail("Content Studio development profile is missing");
-    } else {
-      ok(`using ${studio.relativePath}`);
-      if (studio.values.CONTENT_DATABASE_URL === process.env.DATABASE_URL) {
-        fail("Content Studio must not reuse the SaaS database");
-      }
-      const studioDatabase = inspectDevelopmentDatabaseUrl(
-        studio.values.CONTENT_DATABASE_URL ?? "",
-        "sushi_content",
-      );
-      if (!studioDatabase.ok) {
-        for (const reason of studioDatabase.reasons) {
-          fail(`CONTENT_DATABASE_URL ${reason}`);
-        }
-      }
-      if (
-        studio.values.CONTENT_MARKETING_SECRET !==
-        process.env.CONTENT_MARKETING_SECRET
-      ) {
-        fail("Content Studio marketing secret does not match the SaaS profile");
+    if (selectedProfile.studio) {
+      const studio = readFirstProfile(root, DEVELOPMENT_STUDIO_FILES);
+      if (!studio) {
+        fail("Content Studio development profile is missing");
       } else {
-        ok("Content Studio database and shared secret boundaries are valid");
+        ok(`using ${studio.relativePath}`);
+        if (studio.values.CONTENT_DATABASE_URL === process.env.DATABASE_URL) {
+          fail("Content Studio must not reuse the SaaS database");
+        }
+        const studioDatabase = inspectDevelopmentDatabaseUrl(
+          studio.values.CONTENT_DATABASE_URL ?? "",
+          "sushi_content",
+        );
+        if (!studioDatabase.ok) {
+          for (const reason of studioDatabase.reasons) {
+            fail(`CONTENT_DATABASE_URL ${reason}`);
+          }
+        }
+        if (
+          studio.values.CONTENT_MARKETING_SECRET !==
+          process.env.CONTENT_MARKETING_SECRET
+        ) {
+          fail(
+            "Content Studio marketing secret does not match the SaaS profile",
+          );
+        } else {
+          ok("Content Studio database and shared secret boundaries are valid");
+        }
       }
     }
   }
@@ -299,6 +311,11 @@ async function main() {
     ["admin", 3001],
     ["studio", 3002],
   ] as const) {
+    if (
+      (name === "studio" && !selectedProfile.studio) ||
+      (name === "admin" && !selectedProfile.admin)
+    )
+      continue;
     if (await probePort(port)) info(`${name} is running on port ${port}`);
     else info(`${name} is not running`);
   }
