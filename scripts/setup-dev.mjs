@@ -2,9 +2,9 @@
 /**
  * One-command local bootstrap: `pnpm run setup`
  *
- *   1. writes missing development profiles, with real secrets
+ *   1. checks prerequisites, then writes missing profiles with real secrets
  *   2. starts the Postgres, Redis, and local S3 containers
- *   3. applies migrations to the app, test, and Content Studio databases
+ *   3. applies migrations to the app/test and selected Content Studio databases
  *      and provisions an isolated restore-drill target
  *
  * Safe to re-run. Existing environment files are never overwritten — the
@@ -13,6 +13,7 @@
 import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { connect } from "node:net";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -23,6 +24,11 @@ import {
 } from "@aws-sdk/client-s3";
 
 import { starterProfile } from "./lib/starter-profiles.mjs";
+import {
+  bootstrapNextSteps,
+  bootstrapPrerequisiteResult,
+  bootstrapRecovery,
+} from "./lib/bootstrap-guidance.mjs";
 const selectedProfile = starterProfile();
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -82,6 +88,76 @@ function run(command, args, env = {}) {
 
 function has(command) {
   return spawnSync(command, ["--version"], { stdio: "ignore" }).status === 0;
+}
+
+/** Node is already required; probing both loopbacks avoids a hidden nc dependency. */
+async function portInUse(port) {
+  const probe = (host) =>
+    new Promise((done) => {
+      const socket = connect({ host, port });
+      let settled = false;
+      const finish = (open) => {
+        if (settled) return;
+        settled = true;
+        socket.destroy();
+        done(open);
+      };
+      socket.setTimeout(1_000);
+      socket.once("connect", () => finish(true));
+      socket.once("timeout", () => finish(false));
+      socket.once("error", () => finish(false));
+    });
+  return (await Promise.all([probe("127.0.0.1"), probe("::1")])).some(Boolean);
+}
+
+// Prerequisites cannot be fixed by generating secrets. Check them before any
+// environment write so a blocked first run does not imply successful setup.
+step("Bootstrap prerequisites");
+const dockerAvailable = has("docker");
+const dockerRunning =
+  dockerAvailable &&
+  spawnSync("docker", ["info"], { stdio: "ignore", timeout: 10_000 }).status ===
+    0;
+const composeAvailable =
+  dockerRunning &&
+  spawnSync("docker", ["compose", "version"], {
+    stdio: "ignore",
+    timeout: 10_000,
+  }).status === 0;
+const postgresComposeRunning =
+  composeAvailable &&
+  spawnSync("docker", ["compose", "ps", "-q", "postgres"], {
+    cwd: root,
+    encoding: "utf8",
+    timeout: 10_000,
+  }).stdout?.trim().length > 0;
+const redisComposeRunning =
+  composeAvailable &&
+  spawnSync("docker", ["compose", "ps", "-q", "redis"], {
+    cwd: root,
+    encoding: "utf8",
+    timeout: 10_000,
+  }).stdout?.trim().length > 0;
+const [postgresPortOccupied, redisPortOccupied] = composeAvailable
+  ? await Promise.all([portInUse(5432), portInUse(6379)])
+  : [false, false];
+const prerequisites = bootstrapPrerequisiteResult({
+  dockerAvailable,
+  dockerRunning,
+  composeAvailable,
+  postgresPortInUse: postgresPortOccupied,
+  postgresComposeRunning,
+  redisPortInUse: redisPortOccupied,
+  redisComposeRunning,
+});
+if (!prerequisites.ok) {
+  console.error(
+    bootstrapRecovery(selectedProfile, prerequisites.reason, {
+      appEnv: displayPath(envPath),
+      studioEnv: displayPath(contentEnvPath),
+    }),
+  );
+  process.exit(prerequisites.exitCode);
 }
 
 /** Replace `KEY=` (empty value only) so hand-edited values survive a re-run. */
@@ -213,79 +289,13 @@ if (selectedProfile.studio) {
 
 step("Local infrastructure");
 
-const dockerAvailable = has("docker");
-
-if (!dockerAvailable) {
-  warn(
-    "docker not found — provide Postgres, Redis, and S3-compatible storage yourself, then re-run this script",
-  );
-  warn(`expected: ${DEV_DATABASE_URL}`);
-  warn(`expected: ${DEV_REDIS_URL}`);
-  if (useBundledStorage) warn(`expected: ${DEV_STORAGE_ENDPOINT}`);
-  process.exit(0);
-}
-
-/**
- * Port 5432 is the default for every Postgres install, so a developer who
- * already runs one locally hits a collision here. Detect it and explain,
- * rather than letting `docker compose` fail with "port is already allocated".
- */
-function portInUse(port) {
-  const probe = spawnSync("nc", ["-z", "127.0.0.1", String(port)], {
-    stdio: "ignore",
-  });
-  return probe.status === 0;
-}
-
-const postgresComposeRunning =
-  spawnSync("docker", ["compose", "ps", "-q", "postgres"], {
-    cwd: root,
-    encoding: "utf8",
-  }).stdout?.trim().length > 0;
-
-if (portInUse(5432) && !postgresComposeRunning) {
-  console.log(`
-  \x1b[33mPort 5432 is already in use\x1b[0m — you appear to have Postgres running already.
-
-  That is fine, and probably better than starting a second one. Create four
-  databases on it and point your development profile at them:
-
-    createdb sushi_dev && createdb sushi_test && createdb sushi_content && createdb sushi_restore_drill
-    # or, if it runs in a container named <name>:
-    docker exec <name> psql -U postgres -c "create database sushi_dev;" -c "create database sushi_test;" -c "create database sushi_content;" -c "create database sushi_restore_drill;"
-
-  Then set the SaaS/test URLs in ${displayPath(envPath)} and the Content Studio URL in
-  ${displayPath(contentEnvPath)} to match that server's credentials:
-
-    DATABASE_URL=postgresql://<user>:<pass>@localhost:5432/sushi_dev
-    TEST_DATABASE_URL=postgresql://<user>:<pass>@localhost:5432/sushi_test
-    RESTORE_DATABASE_URL=postgresql://<user>:<pass>@localhost:5432/sushi_restore_drill
-    CONTENT_DATABASE_URL=postgresql://<user>:<pass>@localhost:5432/sushi_content
-
-  Finally:
-
-    pnpm db:migrate && pnpm test:db:setup && pnpm studio:migrate
-
-  To use this repo's container instead, stop the other Postgres first and
-  re-run \x1b[1mpnpm run setup\x1b[0m.
-`);
-  process.exit(0);
-}
-
-const redisComposeRunning =
-  spawnSync("docker", ["compose", "ps", "-q", "redis"], {
-    cwd: root,
-    encoding: "utf8",
-  }).stdout?.trim().length > 0;
-const externalRedisRunning = portInUse(6379) && !redisComposeRunning;
-
 const garageComposeRunning =
   spawnSync("docker", ["compose", "ps", "-q", "garage"], {
     cwd: root,
     encoding: "utf8",
   }).stdout?.trim().length > 0;
 
-if (useBundledStorage && portInUse(3900) && !garageComposeRunning) {
+if (useBundledStorage && (await portInUse(3900)) && !garageComposeRunning) {
   console.error(`
   \x1b[31mPort 3900 is already in use\x1b[0m and is required by the bundled local S3 service.
 
@@ -295,13 +305,8 @@ if (useBundledStorage && portInUse(3900) && !garageComposeRunning) {
   process.exit(1);
 }
 
-const composeServices = ["postgres"];
-if (!externalRedisRunning) composeServices.push("redis");
+const composeServices = ["postgres", "redis"];
 if (useBundledStorage) composeServices.push("garage");
-
-if (externalRedisRunning) {
-  warn("port 6379 is already in use — using the existing local Redis service");
-}
 
 if (run("docker", ["compose", "up", "-d", ...composeServices]).status !== 0) {
   console.error("  docker compose failed; is Docker running?");
@@ -398,30 +403,28 @@ ok(
   `Postgres is up on localhost:5432 (sushi_dev, sushi_test, ${selectedProfile.studio ? "sushi_content, " : ""}sushi_restore_drill)`,
 );
 
-if (!externalRedisRunning) {
-  process.stdout.write("  waiting for Redis");
-  let redisReady = false;
-  for (let i = 0; i < 30; i += 1) {
-    const probe = spawnSync(
-      "docker",
-      ["compose", "exec", "-T", "redis", "redis-cli", "ping"],
-      { cwd: root, stdio: "ignore" },
-    );
-    if (probe.status === 0) {
-      redisReady = true;
-      break;
-    }
-    process.stdout.write(".");
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1000);
+process.stdout.write("  waiting for Redis");
+let redisReady = false;
+for (let i = 0; i < 30; i += 1) {
+  const probe = spawnSync(
+    "docker",
+    ["compose", "exec", "-T", "redis", "redis-cli", "ping"],
+    { cwd: root, stdio: "ignore" },
+  );
+  if (probe.status === 0) {
+    redisReady = true;
+    break;
   }
-  console.log("");
+  process.stdout.write(".");
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1000);
+}
+console.log("");
 
-  if (!redisReady) {
-    console.error(
-      "  Redis did not become ready. Check `docker compose logs redis`.",
-    );
-    process.exit(1);
-  }
+if (!redisReady) {
+  console.error(
+    "  Redis did not become ready. Check `docker compose logs redis`.\n",
+  );
+  process.exit(1);
 }
 ok("Redis is available on localhost:6379");
 
@@ -521,15 +524,4 @@ if (selectedProfile.studio) {
   ok("sushi_content migrated");
 }
 
-console.log(`
-\x1b[1mReady.\x1b[0m
-
-  pnpm starter ${selectedProfile.name} doctor → verify selected local services
-  pnpm starter ${selectedProfile.name} dev    → start selected processes
-  pnpm dev:seed   → idempotent demo login, credits, and catalog
-  pnpm test:db    → database tier now runs instead of skipping
-
-To promote yourself to admin after signing up:
-
-  pnpm admin:promote you@example.com
-`);
+console.log(`\n${bootstrapNextSteps(selectedProfile)}`);
