@@ -23,21 +23,21 @@
     "check": "pnpm generate && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
   },
   "dependencies": {
-    "@payloadcms/db-postgres": "3.90.2",
-    "@payloadcms/live-preview-react": "3.90.2",
-    "@payloadcms/next": "3.90.2",
-    "@payloadcms/richtext-lexical": "3.90.2",
-    "@payloadcms/storage-s3": "3.90.2",
-    "@payloadcms/ui": "3.90.2",
+    "@payloadcms/db-postgres": "3.92.0",
+    "@payloadcms/live-preview-react": "3.92.0",
+    "@payloadcms/next": "3.92.0",
+    "@payloadcms/richtext-lexical": "3.92.0",
+    "@payloadcms/storage-s3": "3.92.0",
+    "@payloadcms/ui": "3.92.0",
     "cross-env": "10.1.0",
-    "dotenv": "18.0.0",
+    "dotenv": "18.0.9",
     "graphql": "^16.8.1",
     "next": "16.3.8",
-    "payload": "3.90.2",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
+    "payload": "3.92.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "sharp": "0.35.5",
-    "zod": "4.6.5"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
