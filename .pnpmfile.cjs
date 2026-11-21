@@ -6,7 +6,7 @@
 module.exports = {
   hooks: {
     readPackage(pkg) {
-      if (pkg.name === "better-auth" && pkg.version === "1.7.6") {
+      if (pkg.name === "better-auth" && pkg.version === "1.7.27") {
         delete pkg.peerDependencies?.vitest;
         delete pkg.peerDependenciesMeta?.vitest;
       }
