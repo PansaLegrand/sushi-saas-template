@@ -143,3 +143,24 @@ stopped after validation; the PostgreSQL installation remains available.
 The full Docker/Garage browser suite, container image scans, live Payload admin
 workflow, Google OAuth, mail, Stripe sandbox and production deployment are not
 claimed verified. Those are the remaining acceptance boundaries.
+
+## Follow-up: the eight remaining dependency PRs
+
+The earlier table records the initial security review. The subsequent integration
+includes these five PRs on top of the security-patched dependency graph; old
+lockfiles were regenerated without reverting the reviewed fixes:
+
+| PR | Follow-up decision |
+| --- | --- |
+| #75 | Include the pinned GitHub Actions updates. |
+| #70 | Include Stripe.js 10 (`^10.1.0`, resolved to 10.3.0). This is the browser SDK; the server Stripe API contract remains unchanged. |
+| #68 | Include jsdom 30.1.3; Node 24.22.1 satisfies its engine requirement and component tests pass. |
+| #67 | Include uuid 14.0.3; verify v7 identifiers through the real database ledger/task suites. |
+| #59 | Include cross-env 10.1.0. Its historical CI failure occurred while checking the Content Studio database, before browser tests, rather than in an environment-variable command. |
+| #71 | Keep open: Stripe 23 needs an invoice/subscription schema migration, including renewal, refund, reconciliation and the explicit API-version pin. A package-only merge breaks compilation. |
+| #69 | Keep open: Node 26 types would no longer describe the shipped Node 24 runtime. |
+| #66 | Keep open: the Next 16 ESLint preset needs a coordinated flat-config migration; the current legacy compatibility bridge fails with this PR. |
+
+The retained PR heads are merged into the integration history so GitHub can
+recognize the original PRs as merged when this history reaches `main`. The three
+held major upgrades are not prerequisites for starting a product on this kit.
