@@ -5,7 +5,7 @@ import { getOrgContext } from "@/services/authz";
 import { getTaskRecord } from "@/services/tasks/presentation";
 
 export async function GET(req: Request, ctx: { params: Promise<{ uuid: string }> }) {
-  const limited = await rateLimitOrThrow(req, "tasks");
+  const limited = await rateLimitOrThrow(req, "task-read");
   if (limited) return limited;
 
   try {

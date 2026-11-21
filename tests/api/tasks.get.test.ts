@@ -6,7 +6,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { resetRateLimitForTests } from "@/lib/rate-limit";
+import { rateLimitOrThrow, resetRateLimitForTests } from "@/lib/rate-limit";
 import { get } from "../helpers/request";
 
 const mocks = vi.hoisted(() => ({
@@ -70,5 +70,23 @@ describe("GET /api/tasks/[uuid]", () => {
     expect(response.status).toBe(200);
     expect(mocks.getTaskRecord).toHaveBeenCalledWith("task-1", "org-1");
     expect(payload.data.task.outputUrl).toBe("https://storage.test/signed");
+  });
+
+  it("allows a minute of normal polling without spending task-creation capacity", async () => {
+    mocks.getOrgContext.mockResolvedValue({
+      userId: "id-1", userUuid: "user-1", orgId: "org-id-1",
+      orgUuid: "org-1" as never, orgSlug: "demo", orgName: "Demo",
+      orgIsPersonal: true, role: "owner",
+    });
+    mocks.getTaskRecord.mockResolvedValue({
+      uuid: "task-1", userUuid: "user-1", type: "image_generation",
+      status: "running", creditsUsed: 5,
+      createdAt: "2026-08-24T00:00:00.000Z", updatedAt: "2026-08-24T00:00:00.000Z",
+    });
+    for (let poll = 0; poll < 40; poll += 1) {
+      const response = await GET(get("/api/tasks/task-1"), { params: Promise.resolve({ uuid: "task-1" }) });
+      expect(response.status).toBe(200);
+    }
+    expect(await rateLimitOrThrow(get("/api/tasks/text-to-video"), "tasks")).toBeNull();
   });
 });

@@ -174,3 +174,10 @@ not the product's permanent audit ledger.
 An absent, empty or whitespace-only video mock URL uses the bundled demo asset.
 The worker treats missing provider output as a failure and compensates after
 retry exhaustion; it never records an empty output as a successful paid task.
+
+## Task status polling
+
+`GET /api/tasks/[uuid]` uses a separate `task-read` rate-limit bucket
+(120 requests/minute). The client polls every 1.5 seconds and backs off after
+read failures. Task creation retains its 10 requests/minute admission bucket;
+status reads must never consume that allowance.

@@ -19,6 +19,7 @@ type RateLimitBucket =
   | "credits"
   | "uploads"
   | "tasks"
+  | "task-read"
   | "moderation";
 
 type RateLimitRule = {
@@ -63,6 +64,8 @@ const RATE_LIMIT_RULES: Record<RateLimitBucket, RateLimitRule> = {
   credits: { limit: 30, windowMs: 60 * 1000 },
   uploads: { limit: 20, windowMs: 60 * 1000 },
   tasks: { limit: 10, windowMs: 60 * 1000 },
+  // The UI polls every 1.5s; reads must not exhaust paid-task admission.
+  "task-read": { limit: 120, windowMs: 60 * 1000 },
   // Deliberately roomier than the rest. This bucket guards admin-only endpoints
   // whose whole purpose is responding to a flood — throttling the operator
   // fighting an abuse wave is throttling the wrong party. It exists to bound a
