@@ -399,6 +399,12 @@ to reason about. See [docs/background-jobs.md](docs/background-jobs.md).
 
 ### Stripe webhook
 
+Set the webhook destination's API version to **`2025-02-24.acacia`**, matching
+the server's Stripe client. Do not accept the dashboard's latest-version default.
+Newer API versions move invoice subscription and line-price fields used by
+renewal grants and refund reconciliation. Upgrading Stripe requires migrating
+those handlers and validating signed sandbox renewals/refunds together.
+
 Point a Stripe webhook at `https://your-domain.com/api/pay/webhook/stripe` and
 set `STRIPE_WEBHOOK_SECRET` from that endpoint's signing secret — the value
 differs between the CLI and each deployed endpoint. Subscribe at minimum to

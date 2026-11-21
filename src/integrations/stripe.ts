@@ -12,6 +12,9 @@ class StripeClient {
 
   private constructor() {
     this._stripe = new Stripe(getRequiredEnv("STRIPE_PRIVATE_KEY"), {
+      // Webhook destinations must use this version too; newer invoice schemas
+      // move subscription and price fields used by renewal/refund processing.
+      apiVersion: "2025-02-24.acacia",
       // Identifies this template in Stripe's request logs and on the account's
       // integrations list, which is what makes a support thread about a failed
       // request traceable to the code that sent it.
