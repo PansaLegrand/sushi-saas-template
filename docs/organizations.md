@@ -252,6 +252,13 @@ The check and Better Auth write run while holding the same per-organization
 PostgreSQL advisory lock, so two concurrent requests cannot both consume the
 last seat.
 
+The web and admin auth catch-all handlers refuse the SDK's direct HTTP
+membership mutations (invite, accept, reject, cancel, add, remove, role update,
+and leave). Browser clients use the application routes instead. Server-side
+`auth.api` calls remain available inside those guarded operations. SDK hooks
+alone are insufficient: the SDK leave endpoint does not invoke the removal
+hook, and invitation hooks do not hold the application's lock across the write.
+
 An admin can set a temporary or indefinite per-organization exception without
 changing billing. The override wins while active; clearing or expiring it
 returns to the plan limit. A downgrade never removes an existing member. It

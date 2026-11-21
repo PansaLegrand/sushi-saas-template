@@ -49,7 +49,7 @@ async function resolveAdmin(): Promise<AdminResolution> {
       ? await findUserById(userId)
       : undefined;
 
-  if (!dbUser || !isAdminRole(dbUser.role)) {
+  if (!dbUser || dbUser.banned_at || dbUser.lifecycle_status === "erasing" || !isAdminRole(dbUser.role)) {
     return { status: "unauthorized" };
   }
 

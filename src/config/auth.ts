@@ -26,6 +26,24 @@ export function isManagedSessionEndpoint(pathname: string): boolean {
   return ["list-sessions", "revoke-session", "revoke-sessions", "revoke-other-sessions"].includes(endpoint ?? "");
 }
 
+/** HTTP callers must use the app's serialized, tenant-scoped membership routes. */
+export function isManagedOrganizationEndpoint(pathname: string): boolean {
+  let path = pathname;
+  try {
+    for (let pass = 0; pass < 3; pass += 1) {
+      const decoded = decodeURIComponent(path);
+      if (decoded === path) break;
+      path = decoded;
+    }
+  } catch { return true; }
+  if (/[\u0000-\u001f\u007f]/.test(path)) return true;
+  const normalized = path.replace(/\/+$/, "").toLowerCase();
+  return [
+    "invite-member", "accept-invitation", "reject-invitation", "cancel-invitation",
+    "add-member", "remove-member", "update-member-role", "leave",
+  ].some((endpoint) => normalized.endsWith(`/organization/${endpoint}`));
+}
+
 export function withLocale(locale: string | undefined, path: string) {
   return localePath(locale, path);
 }

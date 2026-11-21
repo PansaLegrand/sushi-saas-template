@@ -8,6 +8,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  getSession: vi.fn(),
+  findUserById: vi.fn(),
   begin: vi.fn(),
   getPlan: vi.fn(),
   getExportData: vi.fn(),
@@ -28,11 +30,11 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/auth", () => ({
-  auth: { api: { getSession: vi.fn() } },
+  auth: { api: { getSession: mocks.getSession } },
 }));
 
 vi.mock("@/models/user", () => ({
-  findUserById: vi.fn(),
+  findUserById: mocks.findUserById,
 }));
 
 vi.mock("@/models/account-lifecycle", () => ({
@@ -77,9 +79,29 @@ vi.mock("@/services/account-lifecycle/external-data", () => ({
 }));
 
 import {
+  getAccountActorFromHeaders,
   runAccountDataExport,
   runAccountErasure,
 } from "@/services/account-lifecycle";
+
+describe("account actor authorization", () => {
+  beforeEach(() => vi.resetAllMocks());
+  it("uses live account state and refuses a banned user with an existing session", async () => {
+    const createdAt = new Date("2026-11-21T00:00:00Z");
+    mocks.getSession.mockResolvedValue({ user: { id: "user-id", uuid: "stale-uuid" }, session: { id: "session-id", createdAt } });
+    mocks.findUserById.mockResolvedValue({ id: "user-id", uuid: "live-uuid", email: "owner@example.com", lifecycle_status: "active" });
+    expect(await getAccountActorFromHeaders(new Headers())).toMatchObject({
+      userId: "user-id", userUuid: "live-uuid", sessionId: "session-id", sessionCreatedAt: createdAt,
+    });
+    mocks.findUserById.mockResolvedValue({ id: "user-id", banned_at: new Date() });
+    expect(await getAccountActorFromHeaders(new Headers())).toBeNull();
+  });
+  it("refuses missing sessions before reading account data", async () => {
+    mocks.getSession.mockResolvedValue(null);
+    expect(await getAccountActorFromHeaders(new Headers())).toBeNull();
+    expect(mocks.findUserById).not.toHaveBeenCalled();
+  });
+});
 
 const now = new Date("2026-01-01T00:00:00.000Z");
 const request = {

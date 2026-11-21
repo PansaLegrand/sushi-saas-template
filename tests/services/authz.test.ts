@@ -146,6 +146,13 @@ describe("organization context resolution", () => {
     expect(mocks.findMembershipsByUserId).not.toHaveBeenCalled();
   });
 
+  it("denies a banned account before loading memberships or repairing a workspace", async () => {
+    mocks.findUserById.mockResolvedValue({ id: "id-1", uuid: "u-1", banned_at: new Date() });
+    expect(await getOrgContextFromHeaders(headers)).toBeNull();
+    expect(mocks.findMembershipsByUserId).not.toHaveBeenCalled();
+    expect(mocks.ensurePersonalOrganization).not.toHaveBeenCalled();
+  });
+
   it("uses the session's active organization when the URL names none", async () => {
     mocks.getSession.mockResolvedValue({
       user: { id: "id-1", uuid: "u-1", email: "a@test.dev" },

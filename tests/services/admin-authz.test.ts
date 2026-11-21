@@ -55,6 +55,11 @@ function dbUser(overrides: Record<string, unknown> = {}) {
 }
 
 describe("admin authorization", () => {
+  it.each([{ banned_at: new Date() }, { lifecycle_status: "erasing" }])("denies restricted admins even with a surviving MFA session", async (restriction) => {
+    mocks.getSession.mockResolvedValue({ user: sessionUser(), session: { id: "session-1" } });
+    mocks.findUserByUuid.mockResolvedValue(dbUser(restriction));
+    expect(await getAdminContext()).toBeNull();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.hasSessionMfaVerification.mockResolvedValue(true);

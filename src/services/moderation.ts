@@ -116,7 +116,7 @@ export interface SignupCheck {
  * the app's integrity rests on it, and the failure it would otherwise cause is
  * total: a missing migration or a brief outage would stop every legitimate
  * signup in the product. Degrading abuse protection beats degrading the front
- * door. The ban check below fails open for the same reason.
+ * door. Session authorization and the ban check below fail closed.
  */
 export async function checkSignupAllowed(
   email: string | null | undefined,

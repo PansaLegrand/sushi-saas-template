@@ -108,3 +108,9 @@ Capture the key at that point; subsequent document reads do not reveal it.
 Re-create pending scheduled publish/unpublish events after upgrading, because
 the task's user reference now includes its authentication collection. These
 requirements come from the [Payload 3.90 release notes](https://github.com/payloadcms/payload/releases/tag/v3.90.0).
+## Editor identity boundary
+
+Editor self-updates require both the `users` collection and the matching user
+ID. Payload numeric IDs can overlap between `users` and `service-accounts`;
+an API key must never gain editor account access merely by matching an ID.
+Role changes remain restricted to editor administrators.

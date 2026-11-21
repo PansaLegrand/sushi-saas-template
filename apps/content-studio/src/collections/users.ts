@@ -23,7 +23,8 @@ export const Users: CollectionConfig = {
       if (req.user?.collection === "users") return { id: { equals: req.user.id } };
       return false;
     },
-    update: ({ req, id }) => hasEditorRole(req, ["admin"]) || req.user?.id === id,
+    update: ({ req, id }) => hasEditorRole(req, ["admin"]) ||
+      (isStudioUser(req) && id != null && req.user?.id === id),
     delete: adminsOnly
   },
   hooks: {

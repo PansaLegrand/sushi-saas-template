@@ -45,13 +45,11 @@ export async function getUserUuidFromHeaders(
   }
 
   const betterAuthUser = session.user as BetterAuthUser;
-  if (betterAuthUser.uuid) {
-    return betterAuthUser.uuid;
-  }
-
   // Better Auth's user id uniquely identifies the account. Email can be shared
-  // across providers, so it must not be used as an authorization key.
+  // across providers, so it must not be used as an authorization key. Check
+  // live account state even if session revocation failed or raced with sign-in.
   const dbUser = await findUserById(betterAuthUser.id);
+  if (dbUser?.banned_at || dbUser?.lifecycle_status === "erasing") return null;
   return dbUser?.uuid ?? null;
 }
 

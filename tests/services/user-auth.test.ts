@@ -50,7 +50,7 @@ describe("getUserUuid", () => {
     expect(mocks.findUserById).not.toHaveBeenCalled();
   });
 
-  it("uses the session uuid without touching the database", async () => {
+  it("resolves current account state even when the session contains a uuid", async () => {
     mocks.getSession.mockResolvedValue({
       user: {
         id: "id-user",
@@ -59,9 +59,15 @@ describe("getUserUuid", () => {
       },
     });
 
-    await expect(getUserUuid(request())).resolves.toBe("u-session");
+    mocks.findUserById.mockResolvedValue({ id: "id-user", uuid: "u-db" });
+    await expect(getUserUuid(request())).resolves.toBe("u-db");
+    expect(mocks.findUserById).toHaveBeenCalledWith("id-user");
+  });
 
-    expect(mocks.findUserById).not.toHaveBeenCalled();
+  it.each([{ banned_at: new Date() }, { lifecycle_status: "erasing" }])("denies a surviving session after account restriction", async (restriction) => {
+    mocks.getSession.mockResolvedValue({ user: { id: "id-user", uuid: "u-session" } });
+    mocks.findUserById.mockResolvedValue({ id: "id-user", uuid: "u-db", ...restriction });
+    await expect(getUserUuid(request())).resolves.toBeNull();
   });
 
   it("falls back to the Better Auth user id when the session omits uuid", async () => {

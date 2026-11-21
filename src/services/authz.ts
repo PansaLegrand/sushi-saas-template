@@ -190,7 +190,7 @@ export async function getOrgContextFromHeaders(
   // letting it authorize an erasing user reopens the race where this function
   // repairs the personal workspace the worker is deleting.
   const storedUser = await findUserById(userId);
-  if (!storedUser || storedUser.lifecycle_status === "erasing") return null;
+  if (!storedUser || storedUser.banned_at || storedUser.lifecycle_status === "erasing") return null;
 
   const userUuid =
     ((session.user as { uuid?: string }).uuid ??

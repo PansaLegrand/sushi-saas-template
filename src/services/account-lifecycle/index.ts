@@ -143,7 +143,7 @@ export async function getAccountActorFromHeaders(
   if (!session?.user?.id) return null;
 
   const user = await findUserById(session.user.id);
-  if (!user) return null;
+  if (!user || user.banned_at) return null;
 
   return {
     userId: user.id,

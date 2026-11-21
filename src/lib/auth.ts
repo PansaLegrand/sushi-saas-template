@@ -1,6 +1,6 @@
 import { betterAuth, type BetterAuthPlugin } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { APIError, createAuthMiddleware } from "better-auth/api";
+import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { captcha, organization, twoFactor } from "better-auth/plugins";
 
@@ -562,6 +562,17 @@ export const auth = betterAuth({
     },
   },
   hooks: {
+    before: createAuthMiddleware(async (context) => {
+      if (context.path === "/sign-out") return;
+      const session = await getSessionFromCtx(context);
+      if (!session) return;
+      // Revoking rows and marking a ban are separate writes; a failed revoke
+      // or concurrent sign-in must not leave any SDK endpoint authorized.
+      const user = await findUserById(session.user.id);
+      if (!user || user.banned_at) {
+        throw new APIError("FORBIDDEN", { code: "ACCOUNT_SUSPENDED", message: "ACCOUNT_SUSPENDED" });
+      }
+    }),
     after: createAuthMiddleware(async (context) => {
       if (!["/two-factor/verify-totp", "/two-factor/verify-backup-code"].includes(context.path)) return;
       const returned = context.context.returned;
