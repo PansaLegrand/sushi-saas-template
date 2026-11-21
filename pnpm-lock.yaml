@@ -81,8 +81,8 @@ importers:
         specifier: ^2.1.0
         version: 2.1.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@stripe/stripe-js':
-        specifier: ^9.16.0
-        version: 9.17.0
+        specifier: ^10.1.0
+        version: 10.3.0
       '@tabler/icons-react':
         specifier: ^3.48.0
         version: 3.48.0(react@19.3.1)
@@ -2744,8 +2744,8 @@ packages:
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
-  '@stripe/stripe-js@9.17.0':
-    resolution: {integrity: sha512-uidL4OJum5kivsOAQnVfQmYLJ2zdgirtmT0zWgskASZ4TPXxpXQ0MNrzW4NsXB90uEqmPHpSEtciLFbF1QQvNA==}
+  '@stripe/stripe-js@10.3.0':
+    resolution: {integrity: sha512-/C+qwO7bkDIYbIHypxppg8qGnWXdqQEOM855lJ8wTkd2VPoRAYLTGDOFTpJ8B7kso3o9cjMy2r1KPw8WQregNA==}
     engines: {node: '>=12.16'}
 
   '@swc/core-darwin-arm64@1.16.2':
@@ -9654,7 +9654,7 @@ snapshots:
 
   '@standard-schema/spec@1.1.0': {}
 
-  '@stripe/stripe-js@9.17.0': {}
+  '@stripe/stripe-js@10.3.0': {}
 
   '@swc/core-darwin-arm64@1.16.2':
     optional: true
